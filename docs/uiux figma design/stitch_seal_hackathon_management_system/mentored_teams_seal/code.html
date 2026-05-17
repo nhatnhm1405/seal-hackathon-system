@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Mentored Teams List - SEAL</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;700;800&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-tertiary-fixed": "#341100",
+                      "error-container": "#ffdad6",
+                      "secondary-container": "#57dffe",
+                      "secondary-fixed-dim": "#4cd7f6",
+                      "outline-variant": "#c5c5d3",
+                      "surface-container-high": "#e9e7ef",
+                      "tertiary-container": "#6e2c00",
+                      "on-tertiary-fixed-variant": "#773205",
+                      "inverse-primary": "#b6c4ff",
+                      "surface-container-lowest": "#ffffff",
+                      "primary-fixed": "#dce1ff",
+                      "surface-container": "#eeedf4",
+                      "surface-tint": "#4059aa",
+                      "on-primary-fixed-variant": "#264191",
+                      "on-surface-variant": "#444651",
+                      "tertiary": "#4b1c00",
+                      "on-error-container": "#93000a",
+                      "surface": "#faf8ff",
+                      "error": "#ba1a1a",
+                      "on-primary-container": "#90a8ff",
+                      "tertiary-fixed-dim": "#ffb691",
+                      "secondary-fixed": "#acedff",
+                      "primary-container": "#1e3a8a",
+                      "surface-container-highest": "#e3e1e9",
+                      "on-tertiary-container": "#f39461",
+                      "on-primary": "#ffffff",
+                      "on-secondary-container": "#006172",
+                      "on-primary-fixed": "#00164e",
+                      "secondary": "#00687a",
+                      "primary-fixed-dim": "#b6c4ff",
+                      "outline": "#757682",
+                      "surface-container-low": "#f4f3fa",
+                      "tertiary-fixed": "#ffdbcb",
+                      "on-secondary": "#ffffff",
+                      "background": "#faf8ff",
+                      "on-secondary-fixed-variant": "#004e5c",
+                      "inverse-on-surface": "#f1f0f7",
+                      "surface-variant": "#e3e1e9",
+                      "primary": "#00236f",
+                      "on-tertiary": "#ffffff",
+                      "on-secondary-fixed": "#001f26",
+                      "surface-bright": "#faf8ff",
+                      "surface-dim": "#dad9e1",
+                      "on-background": "#1a1b21",
+                      "on-surface": "#1a1b21",
+                      "on-error": "#ffffff",
+                      "inverse-surface": "#2f3036"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {},
+              "fontFamily": {
+                      "headline": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "display": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "body": [
+                              "Inter"
+                      ],
+                      "label": [
+                              "JetBrains Mono"
+                      ]
+              },
+              "fontSize": {}
+      },
+          },
+        }
+      </script>
+<style>
+        .material-symbols-outlined {
+          font-family: 'Material Symbols Outlined';
+          font-weight: normal;
+          font-style: normal;
+          font-size: 24px;
+          line-height: 1;
+          letter-spacing: normal;
+          text-transform: none;
+          display: inline-block;
+          white-space: nowrap;
+          word-wrap: normal;
+          direction: ltr;
+          -webkit-font-feature-settings: 'liga';
+          -webkit-font-smoothing: antialiased;
+        }
+      </style>
+</head>
+<body class="bg-surface text-on-surface font-body antialiased flex">
+<!-- SideNavBar (from JSON) -->
+<nav class="hidden lg:flex flex-col h-full w-64 fixed left-0 top-0 py-6 px-4 gap-4 bg-primary dark:bg-primary-container border-r border-outline-variant shadow-md z-40">
+<div class="mb-8 px-4">
+<h1 class="text-headline-sm font-headline font-bold text-on-primary dark:text-on-primary-container">SEAL Dashboard</h1>
+<p class="text-on-primary/70 dark:text-on-primary-container/70 text-sm mt-1">Team Leader</p>
+</div>
+<div class="flex flex-col gap-2 flex-grow">
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-primary/70 dark:text-on-primary-container/70 hover:bg-primary-container/20 dark:hover:bg-primary/20 transition-all cursor-pointer transition-all duration-200" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-body text-label-sm">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg bg-secondary-container text-on-secondary-container font-bold cursor-pointer transition-all duration-200" href="#">
+<span class="material-symbols-outlined">groups</span>
+<span class="font-body text-label-sm">My Team</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-primary/70 dark:text-on-primary-container/70 hover:bg-primary-container/20 dark:hover:bg-primary/20 transition-all cursor-pointer transition-all duration-200" href="#">
+<span class="material-symbols-outlined">upload_file</span>
+<span class="font-body text-label-sm">Submissions</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-primary/70 dark:text-on-primary-container/70 hover:bg-primary-container/20 dark:hover:bg-primary/20 transition-all cursor-pointer transition-all duration-200" href="#">
+<span class="material-symbols-outlined">emoji_events</span>
+<span class="font-body text-label-sm">Results</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-primary/70 dark:text-on-primary-container/70 hover:bg-primary-container/20 dark:hover:bg-primary/20 transition-all cursor-pointer transition-all duration-200" href="#">
+<span class="material-symbols-outlined">notifications</span>
+<span class="font-body text-label-sm">Notifications</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 rounded-lg text-on-primary/70 dark:text-on-primary-container/70 hover:bg-primary-container/20 dark:hover:bg-primary/20 transition-all cursor-pointer transition-all duration-200" href="#">
+<span class="material-symbols-outlined">account_circle</span>
+<span class="font-body text-label-sm">Profile</span>
+</a>
+</div>
+<div class="mt-auto px-4">
+<button class="w-full bg-surface-container-lowest text-primary font-bold py-3 px-4 rounded-lg shadow-sm hover:bg-surface-container-low transition-colors text-sm">
+                Submit Project
+            </button>
+</div>
+</nav>
+<!-- Main Content Area -->
+<main class="flex-1 lg:ml-64 min-h-screen pb-12">
+<!-- TopNavBar Mobile Only (simplified for example) -->
+<header class="lg:hidden sticky top-0 z-50 flex justify-between items-center px-6 py-3 w-full bg-surface-container-lowest border-b border-outline-variant shadow-sm">
+<div class="text-headline-md font-headline font-extrabold text-primary dark:text-primary-fixed-dim tracking-tight">SEAL</div>
+<div class="flex gap-4">
+<span class="material-symbols-outlined text-primary cursor-pointer active:scale-95 transition-transform">notifications</span>
+<span class="material-symbols-outlined text-primary cursor-pointer active:scale-95 transition-transform">settings</span>
+</div>
+</header>
+<div class="max-w-[1280px] mx-auto px-4 md:px-6 lg:px-8 py-8">
+<!-- Header Section -->
+<div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-8 gap-4">
+<div>
+<h2 class="text-display font-headline font-extrabold text-on-surface text-3xl tracking-tight">Mentored Teams</h2>
+<p class="text-on-surface-variant mt-2 max-w-2xl">Overview and progress tracking for all currently assigned teams under your mentorship.</p>
+</div>
+</div>
+<!-- Stats Summary (Bento-style Grid) -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 shadow-[0px_2px_4px_rgba(15,23,42,0.05)] relative overflow-hidden">
+<div class="absolute top-0 right-0 p-4 opacity-10">
+<span class="material-symbols-outlined text-6xl text-primary">groups</span>
+</div>
+<p class="font-label text-sm text-on-surface-variant uppercase tracking-wider mb-2">Total Teams</p>
+<div class="flex items-baseline gap-2">
+<span class="text-4xl font-headline font-bold text-on-surface">12</span>
+<span class="text-sm text-on-surface-variant font-medium">Assigned</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 shadow-[0px_2px_4px_rgba(15,23,42,0.05)] relative overflow-hidden">
+<div class="absolute top-0 right-0 p-4 opacity-10">
+<span class="material-symbols-outlined text-6xl text-secondary">check_circle</span>
+</div>
+<p class="font-label text-sm text-on-surface-variant uppercase tracking-wider mb-2">On Time</p>
+<div class="flex items-baseline gap-2">
+<span class="text-4xl font-headline font-bold text-secondary">10</span>
+<span class="text-sm text-on-surface-variant font-medium">Teams</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 shadow-[0px_2px_4px_rgba(15,23,42,0.05)] relative overflow-hidden">
+<div class="absolute top-0 right-0 p-4 opacity-10">
+<span class="material-symbols-outlined text-6xl text-on-tertiary-container">pending</span>
+</div>
+<p class="font-label text-sm text-on-surface-variant uppercase tracking-wider mb-2">Pending Review</p>
+<div class="flex items-baseline gap-2">
+<span class="text-4xl font-headline font-bold text-on-tertiary-container">2</span>
+<span class="text-sm text-on-surface-variant font-medium">Action Required</span>
+</div>
+</div>
+</div>
+<!-- Filters & Search Bar -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-4 mb-6 shadow-[0px_2px_4px_rgba(15,23,42,0.05)] flex flex-col lg:flex-row gap-4 items-center justify-between">
+<div class="flex-1 w-full relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">search</span>
+<input class="w-full pl-10 pr-4 py-2 bg-surface border border-outline-variant rounded-lg focus:border-secondary-container focus:ring-2 focus:ring-secondary-container/20 text-sm font-body outline-none transition-all" placeholder="Search teams or members..." type="text"/>
+</div>
+<div class="flex flex-wrap gap-3 w-full lg:w-auto">
+<select class="bg-surface border border-outline-variant rounded-lg px-4 py-2 text-sm font-body text-on-surface focus:border-secondary-container outline-none appearance-none pr-10 relative">
+<option>All Rounds</option>
+<option>Preliminary</option>
+<option>Qualifier</option>
+<option>Final</option>
+</select>
+<select class="bg-surface border border-outline-variant rounded-lg px-4 py-2 text-sm font-body text-on-surface focus:border-secondary-container outline-none appearance-none pr-10 relative">
+<option>All Tracks</option>
+<option>Data Science</option>
+<option>Machine Learning</option>
+<option>Web3</option>
+</select>
+<select class="bg-surface border border-outline-variant rounded-lg px-4 py-2 text-sm font-body text-on-surface focus:border-secondary-container outline-none appearance-none pr-10 relative">
+<option>Any Status</option>
+<option>Submitted</option>
+<option>Pending</option>
+<option>Late</option>
+</select>
+</div>
+</div>
+<!-- Teams List (Bento/Card List rather than raw table for better modern UI) -->
+<div class="grid grid-cols-1 gap-4">
+<!-- Team Card 1 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-5 shadow-[0px_2px_4px_rgba(15,23,42,0.05)] hover:shadow-[0px_10px_15px_-3px_rgba(15,23,42,0.1)] transition-shadow duration-300 flex flex-col lg:flex-row items-start lg:items-center gap-6">
+<div class="flex items-center gap-4 min-w-[250px]">
+<img alt="Team Alpha Avatar" class="w-12 h-12 rounded-lg object-cover border border-outline-variant" data-alt="A modern, abstract digital art representation of a collaborative team. Bright, high-key lighting illuminates geometric nodes connecting in a network, set against a pristine white background with deep navy and vibrant teal accents. The aesthetic is highly technical, professional, and clean, fitting a prestige academic hackathon." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDUeT29K4Twe-inNrOrVl50S7qc3h3CUw7f3WBehXsShcXP86K0EQwNCJyh_hSjidy_lJ6fqoULun_4y9MoSMBFRXx7RqXVx95Kq0p-wMmXT_3pSOEQSEgND0FYy36MQVDmZ07p_jQnszvgN3oGYFayYhE9ANb1Fqi2E-O3BAsWfxPjs4bnLRWjRRccN3brmOfxO4rQS3SoTVYLuDn49LU_AHhJoYBwliCGOloJ6CiZDz6EWTyrjCCa727pb5UaIzl3QuQH2-bh59Y"/>
+<div>
+<h3 class="font-headline font-bold text-on-surface text-lg">Alpha Protocol</h3>
+<div class="flex items-center gap-2 mt-1">
+<span class="bg-surface-dim px-2 py-0.5 rounded text-xs font-label text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined" style="font-size: 14px;">person</span> 4
+                                </span>
+<span class="text-xs text-on-surface-variant">Lead: Sarah J.</span>
+</div>
+</div>
+</div>
+<div class="flex-1 grid grid-cols-3 gap-2 w-full lg:w-auto">
+<div class="flex flex-col gap-1">
+<span class="text-xs font-label text-outline uppercase">Prelim</span>
+<span class="inline-flex items-center gap-1 bg-secondary/10 text-secondary px-2 py-1 rounded text-xs font-medium w-fit">
+<span class="material-symbols-outlined" style="font-size: 14px;">check_circle</span> Submitted
+                            </span>
+</div>
+<div class="flex flex-col gap-1">
+<span class="text-xs font-label text-outline uppercase">Qualifier</span>
+<span class="inline-flex items-center gap-1 bg-secondary/10 text-secondary px-2 py-1 rounded text-xs font-medium w-fit">
+<span class="material-symbols-outlined" style="font-size: 14px;">check_circle</span> Submitted
+                            </span>
+</div>
+<div class="flex flex-col gap-1">
+<span class="text-xs font-label text-outline uppercase">Final</span>
+<span class="inline-flex items-center gap-1 bg-tertiary-fixed-dim/30 text-on-tertiary-container px-2 py-1 rounded text-xs font-medium w-fit">
+<span class="material-symbols-outlined" style="font-size: 14px;">schedule</span> Pending
+                            </span>
+</div>
+</div>
+<div class="flex items-center justify-between w-full lg:w-auto gap-6 lg:border-l lg:border-outline-variant lg:pl-6">
+<div class="text-right hidden sm:block">
+<p class="text-xs font-label text-outline uppercase">Last Activity</p>
+<p class="text-sm text-on-surface-variant mt-1">2 hours ago</p>
+</div>
+<button class="bg-primary text-white font-medium py-2 px-4 rounded-lg text-sm hover:bg-primary/90 transition-colors shrink-0">
+                            View Team
+                        </button>
+</div>
+</div>
+<!-- Team Card 2 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-5 shadow-[0px_2px_4px_rgba(15,23,42,0.05)] hover:shadow-[0px_10px_15px_-3px_rgba(15,23,42,0.1)] transition-shadow duration-300 flex flex-col lg:flex-row items-start lg:items-center gap-6">
+<div class="flex items-center gap-4 min-w-[250px]">
+<div class="w-12 h-12 rounded-lg bg-surface-container-high border border-outline-variant flex items-center justify-center">
+<span class="material-symbols-outlined text-outline">hub</span>
+</div>
+<div>
+<h3 class="font-headline font-bold text-on-surface text-lg">Neural Nets</h3>
+<div class="flex items-center gap-2 mt-1">
+<span class="bg-surface-dim px-2 py-0.5 rounded text-xs font-label text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined" style="font-size: 14px;">person</span> 3
+                                </span>
+<span class="text-xs text-on-surface-variant">Lead: Michael T.</span>
+</div>
+</div>
+</div>
+<div class="flex-1 grid grid-cols-3 gap-2 w-full lg:w-auto">
+<div class="flex flex-col gap-1">
+<span class="text-xs font-label text-outline uppercase">Prelim</span>
+<span class="inline-flex items-center gap-1 bg-secondary/10 text-secondary px-2 py-1 rounded text-xs font-medium w-fit">
+<span class="material-symbols-outlined" style="font-size: 14px;">check_circle</span> Submitted
+                            </span>
+</div>
+<div class="flex flex-col gap-1">
+<span class="text-xs font-label text-outline uppercase">Qualifier</span>
+<span class="inline-flex items-center gap-1 bg-error-container text-on-error-container px-2 py-1 rounded text-xs font-medium w-fit">
+<span class="material-symbols-outlined" style="font-size: 14px;">warning</span> Late
+                            </span>
+</div>
+<div class="flex flex-col gap-1">
+<span class="text-xs font-label text-outline uppercase">Final</span>
+<span class="inline-flex items-center gap-1 bg-surface-dim text-outline px-2 py-1 rounded text-xs font-medium w-fit">
+<span class="material-symbols-outlined" style="font-size: 14px;">lock</span> Locked
+                            </span>
+</div>
+</div>
+<div class="flex items-center justify-between w-full lg:w-auto gap-6 lg:border-l lg:border-outline-variant lg:pl-6">
+<div class="text-right hidden sm:block">
+<p class="text-xs font-label text-outline uppercase">Last Activity</p>
+<p class="text-sm text-on-surface-variant mt-1">1 day ago</p>
+</div>
+<button class="bg-primary text-white font-medium py-2 px-4 rounded-lg text-sm hover:bg-primary/90 transition-colors shrink-0">
+                            View Team
+                        </button>
+</div>
+</div>
+<!-- Team Card 3 -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-5 shadow-[0px_2px_4px_rgba(15,23,42,0.05)] hover:shadow-[0px_10px_15px_-3px_rgba(15,23,42,0.1)] transition-shadow duration-300 flex flex-col lg:flex-row items-start lg:items-center gap-6">
+<div class="flex items-center gap-4 min-w-[250px]">
+<img alt="Data Miners Avatar" class="w-12 h-12 rounded-lg object-cover border border-outline-variant" data-alt="A clean, minimalist 3D render of servers and data flowing, styled in a corporate modern aesthetic. The scene is brightly lit with a white background, featuring deep navy structures and electric teal glowing data streams. The overall mood is high-tech, organized, and pristine." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCtgpcReRPl_90-ywbLTzp1tkF54kuK9t3R0oIiQzUWenFtX3xtc82Ca0ctB4y8IJbFv1Hgco6j7ltvUKN5az4P68-YQBdwwSBoNF2Hko5RtTsz1bqFfJbRcgaEhFTAgBCzBmPPqiNPV4UUck4dX1CS0ylooxYCIM5pa1PelFFvS19vBmrw7Qb0Fcri9l4RpHrTxGWwpgk_G6EXXYR_MKLS6kp_yxtgdiZAdmyE6OvPeAd7wjbYQ6mrp1VxjgMBm3Gir1Yv6Co2M38"/>
+<div>
+<h3 class="font-headline font-bold text-on-surface text-lg">Data Miners</h3>
+<div class="flex items-center gap-2 mt-1">
+<span class="bg-surface-dim px-2 py-0.5 rounded text-xs font-label text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined" style="font-size: 14px;">person</span> 5
+                                </span>
+<span class="text-xs text-on-surface-variant">Lead: Elena R.</span>
+</div>
+</div>
+</div>
+<div class="flex-1 grid grid-cols-3 gap-2 w-full lg:w-auto">
+<div class="flex flex-col gap-1">
+<span class="text-xs font-label text-outline uppercase">Prelim</span>
+<span class="inline-flex items-center gap-1 bg-secondary/10 text-secondary px-2 py-1 rounded text-xs font-medium w-fit">
+<span class="material-symbols-outlined" style="font-size: 14px;">check_circle</span> Submitted
+                            </span>
+</div>
+<div class="flex flex-col gap-1">
+<span class="text-xs font-label text-outline uppercase">Qualifier</span>
+<span class="inline-flex items-center gap-1 bg-secondary/10 text-secondary px-2 py-1 rounded text-xs font-medium w-fit">
+<span class="material-symbols-outlined" style="font-size: 14px;">check_circle</span> Submitted
+                            </span>
+</div>
+<div class="flex flex-col gap-1">
+<span class="text-xs font-label text-outline uppercase">Final</span>
+<span class="inline-flex items-center gap-1 bg-secondary/10 text-secondary px-2 py-1 rounded text-xs font-medium w-fit">
+<span class="material-symbols-outlined" style="font-size: 14px;">check_circle</span> Submitted
+                            </span>
+</div>
+</div>
+<div class="flex items-center justify-between w-full lg:w-auto gap-6 lg:border-l lg:border-outline-variant lg:pl-6">
+<div class="text-right hidden sm:block">
+<p class="text-xs font-label text-outline uppercase">Last Activity</p>
+<p class="text-sm text-on-surface-variant mt-1">Just now</p>
+</div>
+<button class="bg-primary text-white font-medium py-2 px-4 rounded-lg text-sm hover:bg-primary/90 transition-colors shrink-0">
+                            View Team
+                        </button>
+</div>
+</div>
+</div>
+<!-- Pagination (Mock) -->
+<div class="mt-8 flex justify-center">
+<div class="flex items-center gap-2">
+<button class="w-8 h-8 flex items-center justify-center rounded border border-outline-variant text-on-surface-variant hover:bg-surface-container-high transition-colors disabled:opacity-50" disabled="">
+<span class="material-symbols-outlined" style="font-size: 18px;">chevron_left</span>
+</button>
+<button class="w-8 h-8 flex items-center justify-center rounded bg-primary text-white font-label text-sm">1</button>
+<button class="w-8 h-8 flex items-center justify-center rounded border border-outline-variant text-on-surface-variant hover:bg-surface-container-high transition-colors font-label text-sm">2</button>
+<button class="w-8 h-8 flex items-center justify-center rounded border border-outline-variant text-on-surface-variant hover:bg-surface-container-high transition-colors font-label text-sm">3</button>
+<button class="w-8 h-8 flex items-center justify-center rounded border border-outline-variant text-on-surface-variant hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined" style="font-size: 18px;">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+</main>
+</body></html>

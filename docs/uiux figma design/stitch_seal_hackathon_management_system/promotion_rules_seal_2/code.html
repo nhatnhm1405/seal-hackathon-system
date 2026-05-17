@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Promotion Rule Configuration - Academic Hackathon Portal</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;700&amp;family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary-container": "#f39461",
+                        "surface-tint": "#4059aa",
+                        "secondary-fixed": "#acedff",
+                        "primary-container": "#1e3a8a",
+                        "surface-container-high": "#e9e7ef",
+                        "on-background": "#1a1b21",
+                        "on-secondary": "#ffffff",
+                        "inverse-primary": "#b6c4ff",
+                        "secondary-fixed-dim": "#4cd7f6",
+                        "on-surface-variant": "#444651",
+                        "on-tertiary-fixed": "#341100",
+                        "on-surface": "#1a1b21",
+                        "outline": "#757682",
+                        "surface-container-low": "#f4f3fa",
+                        "surface": "#faf8ff",
+                        "secondary": "#00687a",
+                        "error": "#ba1a1a",
+                        "surface-container": "#eeedf4",
+                        "on-tertiary": "#ffffff",
+                        "on-secondary-container": "#006172",
+                        "secondary-container": "#57dffe",
+                        "on-primary-fixed-variant": "#264191",
+                        "on-primary-fixed": "#00164e",
+                        "inverse-surface": "#2f3036",
+                        "tertiary-fixed-dim": "#ffb691",
+                        "on-tertiary-fixed-variant": "#773205",
+                        "inverse-on-surface": "#f1f0f7",
+                        "surface-container-lowest": "#ffffff",
+                        "on-secondary-fixed-variant": "#004e5c",
+                        "error-container": "#ffdad6",
+                        "tertiary-fixed": "#ffdbcb",
+                        "surface-bright": "#faf8ff",
+                        "surface-variant": "#e3e1e9",
+                        "on-primary": "#ffffff",
+                        "background": "#faf8ff",
+                        "on-secondary-fixed": "#001f26",
+                        "tertiary": "#4b1c00",
+                        "primary": "#00236f",
+                        "on-primary-container": "#90a8ff",
+                        "primary-fixed": "#dce1ff",
+                        "primary-fixed-dim": "#b6c4ff",
+                        "tertiary-container": "#6e2c00",
+                        "outline-variant": "#c5c5d3",
+                        "surface-dim": "#dad9e1",
+                        "on-error": "#ffffff",
+                        "surface-container-highest": "#e3e1e9",
+                        "on-error-container": "#93000a"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {},
+                    "fontFamily": {
+                        "headline": [
+                            "Plus Jakarta Sans"
+                        ],
+                        "display": [
+                            "Plus Jakarta Sans"
+                        ],
+                        "body": [
+                            "Inter"
+                        ],
+                        "label": [
+                            "Jetbrains Mono"
+                        ]
+                    },
+                    "fontSize": {}
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined.fill {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body min-h-screen antialiased">
+<!-- SideNavBar -->
+<nav class="bg-surface dark:bg-surface-dim h-screen w-64 fixed left-0 top-0 border-r border-outline-variant dark:border-outline flex flex-col h-full p-4 gap-2 z-50">
+<div class="mb-8 px-2 mt-2">
+<h1 class="text-xl font-headline font-black text-primary dark:text-inverse-primary">Event Admin</h1>
+<p class="text-sm text-on-surface-variant font-body">University Lead</p>
+</div>
+<div class="flex-1 flex flex-col gap-2">
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface rounded-lg transition-colors hover:bg-surface-container-high dark:hover:bg-surface-container-highest font-label" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+                Dashboard
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface rounded-lg transition-colors hover:bg-surface-container-high dark:hover:bg-surface-container-highest font-label" href="#">
+<span class="material-symbols-outlined">event</span>
+                Events
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface rounded-lg transition-colors hover:bg-surface-container-high dark:hover:bg-surface-container-highest font-label" href="#">
+<span class="material-symbols-outlined">groups</span>
+                Participants
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface rounded-lg transition-colors hover:bg-surface-container-high dark:hover:bg-surface-container-highest font-label" href="#">
+<span class="material-symbols-outlined">description</span>
+                Submissions
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 bg-primary-container text-on-primary-container font-bold rounded-lg font-label scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined fill" style="font-variation-settings: 'FILL' 1;">gavel</span>
+                Judging
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface rounded-lg transition-colors hover:bg-surface-container-high dark:hover:bg-surface-container-highest font-label" href="#">
+<span class="material-symbols-outlined">settings</span>
+                Settings
+            </a>
+</div>
+<div class="mt-auto pt-4 border-t border-outline-variant dark:border-outline">
+<button class="w-full bg-primary text-on-primary font-headline font-bold py-2 px-4 rounded-lg hover:bg-primary/90 transition-colors">
+                Create New Hackathon
+            </button>
+</div>
+</nav>
+<!-- TopNavBar -->
+<header class="bg-surface dark:bg-surface-bright docked full-width top-0 sticky z-40 border-b border-outline-variant dark:border-outline shadow-sm flex justify-between items-center w-full h-16 px-6 ml-64 max-w-[calc(100%-16rem)]">
+<div class="flex items-center gap-8">
+<span class="text-lg font-headline font-bold text-primary dark:text-inverse-primary">Academic Hackathon Portal</span>
+<nav class="hidden md:flex gap-6">
+<a class="font-label text-on-surface-variant hover:text-primary transition-colors hover:bg-surface-container-low transition-all py-1" href="#">Global View</a>
+<a class="font-label text-primary border-b-2 border-primary pb-1 opacity-80" href="#">Analytics</a>
+<a class="font-label text-on-surface-variant hover:text-primary transition-colors hover:bg-surface-container-low transition-all py-1" href="#">Resources</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative hidden md:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm">search</span>
+<input class="pl-9 pr-4 py-1.5 bg-surface-container-lowest border border-outline-variant rounded-full text-sm font-body focus:outline-none focus:border-secondary focus:ring-1 focus:ring-secondary/20 transition-all w-64" placeholder="Search..." type="text"/>
+</div>
+<button class="text-on-surface-variant hover:text-primary transition-colors p-2 rounded-full hover:bg-surface-container-low">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors p-2 rounded-full hover:bg-surface-container-low">
+<span class="material-symbols-outlined">help</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors p-2 rounded-full hover:bg-surface-container-low">
+<span class="material-symbols-outlined">dark_mode</span>
+</button>
+<div class="h-8 w-8 rounded-full bg-primary-container flex items-center justify-center overflow-hidden border border-outline-variant">
+<img alt="User Profile" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAx6b7uFN7OM-QnNg5GOkO0PCrg7qGezAhqvXKYQAi-JTWPLGp0Y_y7dJ2vZqpZMcfU9yTi_9lco22I0ErAnfQ3RWla0EupMwSVrqcwGNj3-YcniSlo_nzJAjZTn0Gl7G0d2Zi0LSp_JA9mR7pvS4RMvancxEHYqjyXsAaR-dngTWlvh1hm5eSuT2kNmWtIrZbvWrP9XD7crkn48dBgjjj-3ILX-dzlw91pfGpAIEt5bdzjc_pRlihc9IgLd4f6vYS2apP_NLoG19Q"/>
+</div>
+</div>
+</header>
+<!-- Main Content -->
+<main class="ml-64 p-6 md:p-8 lg:p-10 max-w-7xl mx-auto">
+<!-- Page Header -->
+<div class="mb-10 flex justify-between items-end">
+<div>
+<p class="text-sm font-label text-secondary mb-2 uppercase tracking-wider">Judging Configuration</p>
+<h2 class="text-3xl font-headline font-black text-on-background">Promotion Rules</h2>
+<p class="text-on-surface-variant mt-2 font-body max-w-2xl">Define the logic for how submissions advance through competition rounds. Configure track-specific quotas and overall progression criteria.</p>
+</div>
+<div class="flex gap-3">
+<button class="px-4 py-2 border border-outline-variant bg-surface-container-lowest text-on-surface font-label rounded-lg hover:bg-surface-container-low transition-colors shadow-[0px_2px_4px_rgba(15,23,42,0.05)]">
+                    Discard Changes
+                </button>
+<button class="px-4 py-2 bg-primary text-on-primary font-label rounded-lg hover:bg-primary/90 transition-colors shadow-[0px_2px_4px_rgba(15,23,42,0.05)]">
+                    Save Configuration
+                </button>
+</div>
+</div>
+<div class="grid grid-cols-1 xl:grid-cols-12 gap-8">
+<!-- Left Column: Configuration Cards -->
+<div class="xl:col-span-7 flex flex-col gap-6">
+<!-- Transition 1: Preliminary to Qualifier -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden shadow-[0px_2px_4px_rgba(15,23,42,0.05)]">
+<div class="bg-surface-container-low px-6 py-4 border-b border-outline-variant flex justify-between items-center">
+<div class="flex items-center gap-3">
+<div class="h-8 w-8 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container font-headline font-bold">1</div>
+<h3 class="font-headline font-bold text-lg text-on-surface">Preliminary <span class="material-symbols-outlined text-sm mx-1 align-middle text-outline">arrow_forward</span> Qualifier</h3>
+</div>
+<span class="px-3 py-1 bg-surface-container-high text-on-surface-variant rounded-full font-label text-xs">Round Transition</span>
+</div>
+<div class="p-6">
+<div class="mb-6">
+<label class="block text-sm font-label text-on-surface-variant mb-2">Advancement Rule Type</label>
+<div class="relative">
+<select class="w-full appearance-none bg-surface-container-lowest border border-outline-variant rounded-lg px-4 py-3 font-body text-on-surface focus:outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/20 transition-all">
+<option>Top N per Track</option>
+<option>Top N Overall</option>
+<option>Score Threshold</option>
+</select>
+<span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-outline pointer-events-none">expand_more</span>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4 mb-6">
+<div>
+<label class="block text-sm font-label text-on-surface-variant mb-2">Value (N)</label>
+<input class="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-4 py-3 font-body text-on-surface focus:outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/20 transition-all" type="number" value="10"/>
+</div>
+<div>
+<label class="block text-sm font-label text-on-surface-variant mb-2">Tie-Breaker Logic</label>
+<div class="relative">
+<select class="w-full appearance-none bg-surface-container-lowest border border-outline-variant rounded-lg px-4 py-3 font-body text-on-surface focus:outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/20 transition-all">
+<option>Earliest Submission</option>
+<option>Judge Review (Manual)</option>
+</select>
+<span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-outline pointer-events-none">expand_more</span>
+</div>
+</div>
+</div>
+<div class="bg-surface-container rounded-lg p-4 flex gap-3 border border-outline-variant/50">
+<span class="material-symbols-outlined text-secondary">info</span>
+<p class="text-sm font-body text-on-surface-variant">This rule will advance the top 10 scoring submissions from each individual track to the Qualifier round. A maximum of 40 teams will advance across 4 tracks.</p>
+</div>
+</div>
+</div>
+<!-- Transition 2: Qualifier to Finals -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden shadow-[0px_2px_4px_rgba(15,23,42,0.05)]">
+<div class="bg-surface-container-low px-6 py-4 border-b border-outline-variant flex justify-between items-center">
+<div class="flex items-center gap-3">
+<div class="h-8 w-8 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container font-headline font-bold">2</div>
+<h3 class="font-headline font-bold text-lg text-on-surface">Qualifier <span class="material-symbols-outlined text-sm mx-1 align-middle text-outline">arrow_forward</span> Finals</h3>
+</div>
+<span class="px-3 py-1 bg-surface-container-high text-on-surface-variant rounded-full font-label text-xs">Round Transition</span>
+</div>
+<div class="p-6">
+<div class="mb-6">
+<label class="block text-sm font-label text-on-surface-variant mb-2">Advancement Rule Type</label>
+<div class="relative">
+<select class="w-full appearance-none bg-surface-container-lowest border border-outline-variant rounded-lg px-4 py-3 font-body text-on-surface focus:outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/20 transition-all">
+<option>Top N Overall</option>
+<option>Top N per Track</option>
+<option>Score Threshold</option>
+</select>
+<span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-outline pointer-events-none">expand_more</span>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-4 mb-6">
+<div>
+<label class="block text-sm font-label text-on-surface-variant mb-2">Value (N)</label>
+<input class="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-4 py-3 font-body text-on-surface focus:outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/20 transition-all" type="number" value="5"/>
+</div>
+<div>
+<label class="block text-sm font-label text-on-surface-variant mb-2">Track Distribution</label>
+<div class="relative">
+<select class="w-full appearance-none bg-surface-container-lowest border border-outline-variant rounded-lg px-4 py-3 font-body text-on-surface focus:outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/20 transition-all">
+<option>Unrestricted</option>
+<option>At least 1 per track</option>
+</select>
+<span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-outline pointer-events-none">expand_more</span>
+</div>
+</div>
+</div>
+<div class="bg-surface-container rounded-lg p-4 flex gap-3 border border-outline-variant/50">
+<span class="material-symbols-outlined text-secondary">info</span>
+<p class="text-sm font-body text-on-surface-variant">This rule will advance the absolute top 5 scoring submissions across all tracks to the Final round. Track affiliation is ignored.</p>
+</div>
+</div>
+</div>
+<button class="w-full py-4 border-2 border-dashed border-outline-variant rounded-xl text-on-surface-variant font-label hover:border-primary hover:text-primary transition-colors flex items-center justify-center gap-2 bg-surface-container-lowest/50 hover:bg-surface-container-low">
+<span class="material-symbols-outlined">add</span>
+                    Add Transition Phase
+                </button>
+</div>
+<!-- Right Column: Visualization -->
+<div class="xl:col-span-5 relative">
+<div class="sticky top-24 bg-surface-container-lowest border border-outline-variant rounded-xl shadow-[0px_2px_4px_rgba(15,23,42,0.05)] overflow-hidden">
+<div class="bg-surface-container px-6 py-4 border-b border-outline-variant">
+<h3 class="font-headline font-bold text-lg flex items-center gap-2">
+<span class="material-symbols-outlined text-secondary">account_tree</span>
+                            Advancement Flow
+                        </h3>
+</div>
+<div class="p-8 bg-surface-dim/20 relative min-h-[500px] flex flex-col items-center">
+<!-- Preliminary Node -->
+<div class="w-full bg-surface-container-lowest border border-outline-variant rounded-lg p-4 text-center shadow-sm relative z-10">
+<span class="text-xs font-label text-secondary uppercase tracking-wider block mb-1">Round 1</span>
+<h4 class="font-headline font-bold text-on-surface">Preliminary</h4>
+<p class="text-xs text-on-surface-variant mt-1 font-body">All Submissions (~150)</p>
+</div>
+<!-- Connector 1 -->
+<div class="flex flex-col items-center my-4 relative">
+<div class="h-12 w-px bg-outline-variant relative z-0"></div>
+<div class="bg-surface-container-lowest border border-primary-container px-3 py-1 rounded-full text-xs font-label text-primary-container shadow-sm -mt-6 z-10 relative bg-surface">
+                                Top 10 / Track
+                            </div>
+<span class="material-symbols-outlined text-outline-variant -mt-2">arrow_drop_down</span>
+</div>
+<!-- Qualifier Node -->
+<div class="w-full bg-surface-container-lowest border border-outline-variant rounded-lg p-4 text-center shadow-sm relative z-10 ring-2 ring-secondary/20">
+<span class="text-xs font-label text-secondary uppercase tracking-wider block mb-1">Round 2</span>
+<h4 class="font-headline font-bold text-on-surface">Qualifier</h4>
+<p class="text-xs text-on-surface-variant mt-1 font-body">Est. 40 Teams</p>
+</div>
+<!-- Connector 2 -->
+<div class="flex flex-col items-center my-4 relative">
+<div class="h-12 w-px bg-outline-variant relative z-0"></div>
+<div class="bg-surface-container-lowest border border-primary-container px-3 py-1 rounded-full text-xs font-label text-primary-container shadow-sm -mt-6 z-10 relative bg-surface">
+                                Top 5 Overall
+                            </div>
+<span class="material-symbols-outlined text-outline-variant -mt-2">arrow_drop_down</span>
+</div>
+<!-- Finals Node -->
+<div class="w-full bg-primary text-on-primary border border-primary-fixed rounded-lg p-4 text-center shadow-md relative z-10">
+<span class="text-xs font-label text-primary-fixed uppercase tracking-wider block mb-1">Final Round</span>
+<h4 class="font-headline font-bold">Finals</h4>
+<p class="text-xs text-primary-fixed-dim mt-1 font-body">Exactly 5 Teams</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</body></html>

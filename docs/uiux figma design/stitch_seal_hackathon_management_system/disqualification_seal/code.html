@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Disqualification Action - Engineering Hackathon 2024</title>
+<!-- Google Fonts -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;family=Plus+Jakarta+Sans:wght@500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Configuration (SEAL Design System) -->
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "error": "#ba1a1a",
+                        "secondary-fixed-dim": "#4cd7f6",
+                        "on-surface-variant": "#444651",
+                        "on-primary-fixed-variant": "#264191",
+                        "tertiary-fixed-dim": "#ffb691",
+                        "on-tertiary-fixed-variant": "#773205",
+                        "surface-container-low": "#f4f3fa",
+                        "on-primary-fixed": "#00164e",
+                        "surface-container": "#eeedf4",
+                        "background": "#faf8ff",
+                        "on-secondary-fixed": "#001f26",
+                        "on-primary-container": "#90a8ff",
+                        "surface-container-high": "#e9e7ef",
+                        "on-tertiary-fixed": "#341100",
+                        "outline-variant": "#c5c5d3",
+                        "surface-container-highest": "#e3e1e9",
+                        "surface-bright": "#faf8ff",
+                        "on-tertiary-container": "#f39461",
+                        "surface-dim": "#dad9e1",
+                        "on-surface": "#1a1b21",
+                        "on-secondary": "#ffffff",
+                        "on-primary": "#ffffff",
+                        "surface-tint": "#4059aa",
+                        "on-secondary-fixed-variant": "#004e5c",
+                        "surface-variant": "#e3e1e9",
+                        "secondary": "#00687a",
+                        "on-error": "#ffffff",
+                        "secondary-fixed": "#acedff",
+                        "primary-container": "#1e3a8a",
+                        "inverse-primary": "#b6c4ff",
+                        "inverse-on-surface": "#f1f0f7",
+                        "tertiary": "#4b1c00",
+                        "tertiary-container": "#6e2c00",
+                        "surface": "#faf8ff",
+                        "surface-container-lowest": "#ffffff",
+                        "primary": "#00236f",
+                        "on-tertiary": "#ffffff",
+                        "secondary-container": "#57dffe",
+                        "on-error-container": "#93000a",
+                        "primary-fixed-dim": "#b6c4ff",
+                        "outline": "#757682",
+                        "on-secondary-container": "#006172",
+                        "error-container": "#ffdad6",
+                        "inverse-surface": "#2f3036",
+                        "on-background": "#1a1b21",
+                        "primary-fixed": "#dce1ff",
+                        "tertiary-fixed": "#ffdbcb"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    fontFamily: {
+                        "headline": ["Plus Jakarta Sans", "sans-serif"],
+                        "display": ["Plus Jakarta Sans", "sans-serif"],
+                        "body": ["Inter", "sans-serif"],
+                        "label": ["JetBrains Mono", "monospace"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        /* Base styles to ensure consistency */
+        body { font-family: 'Inter', sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .material-symbols-outlined.fill { font-variation-settings: 'FILL' 1; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface min-h-screen flex items-center justify-center p-4 md:p-8 antialiased selection:bg-secondary-container selection:text-on-secondary-container">
+<!-- 
+        Navigation Shell Suppressed: 
+        As per the Semantic Shell Mandate, this is a highly focused, linear/transactional 
+        "Task-Focused" screen (Disqualification Dialog). TopAppBar and SideNavBar are explicitly 
+        omitted to prioritize the content canvas and prevent accidental exit during a destructive action.
+    -->
+<!-- Main Dialog Container -->
+<main class="w-full max-w-3xl bg-surface-container-lowest rounded-xl shadow-[0_20px_25px_-5px_rgba(15,23,42,0.1),0_8px_10px_-6px_rgba(15,23,42,0.1)] border border-outline-variant overflow-hidden flex flex-col">
+<!-- Header -->
+<header class="px-8 py-6 border-b border-outline-variant bg-surface-bright flex items-center justify-between z-10 relative">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-error/10 flex items-center justify-center text-error">
+<span class="material-symbols-outlined">gavel</span>
+</div>
+<div>
+<h1 class="font-headline text-2xl font-bold text-on-surface tracking-tight">Disqualify Team</h1>
+<p class="text-sm text-on-surface-variant font-body mt-0.5">Administrative action required.</p>
+</div>
+</div>
+<button aria-label="Close dialog" class="text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low p-2 rounded-full transition-colors flex items-center justify-center" type="button">
+<span class="material-symbols-outlined">close</span>
+</button>
+</header>
+<!-- Red Warning Banner -->
+<div class="bg-error-container border-b border-error/20 px-8 py-5 flex items-start gap-4">
+<span class="material-symbols-outlined text-error mt-0.5">warning</span>
+<div class="flex-1">
+<h2 class="text-on-error-container font-headline font-bold text-sm mb-1 uppercase tracking-wider">Critical Warning</h2>
+<p class="text-on-error-container text-sm font-body leading-relaxed">
+                    You are about to enact a formal disqualification. This action is <strong class="font-bold">irreversible</strong> through the standard interface. It will immediately revoke platform access for all team members, nullify any assigned scores, and permanently remove their submission from the public gallery and judging queues.
+                </p>
+</div>
+</div>
+<!-- Scrollable Content Area -->
+<div class="p-8 space-y-8 overflow-y-auto max-h-[614px] bg-surface-container-lowest custom-scrollbar">
+<!-- Target Team Summary -->
+<section class="bg-surface-container flex items-center gap-5 p-5 rounded-lg border border-outline-variant">
+<div class="w-16 h-16 rounded-lg overflow-hidden border border-outline-variant/50 bg-white flex-shrink-0 relative">
+<!-- Placeholder using styling, simulating a team logo -->
+<div class="absolute inset-0 bg-gradient-to-br from-primary-container to-secondary-container opacity-20"></div>
+<div class="absolute inset-0 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-3xl">code_blocks</span>
+</div>
+</div>
+<div>
+<div class="text-xs font-label text-outline uppercase tracking-wider mb-1">Target Entity</div>
+<h3 class="font-headline text-lg font-bold text-on-surface">Syntax Syndicate</h3>
+<p class="text-sm text-on-surface-variant flex items-center gap-2 mt-1">
+<span class="material-symbols-outlined text-[16px]">folder_special</span>
+                        Project: NeuralNet Navigators
+                    </p>
+</div>
+<div class="ml-auto text-right">
+<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-primary-fixed text-on-primary-fixed border border-primary-fixed-dim/30">
+                        4 Members
+                    </span>
+</div>
+</section>
+<!-- Form Fields -->
+<form class="space-y-6" id="disqualification-form">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<!-- Reason Category Dropdown -->
+<div class="space-y-2">
+<label class="block text-sm font-medium text-on-surface font-body" for="reason_category">Reason Category <span class="text-error">*</span></label>
+<div class="relative">
+<select class="appearance-none w-full bg-surface-container-lowest border border-outline-variant text-on-surface text-sm rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-secondary-container focus:border-secondary transition-all cursor-pointer" id="reason_category" name="reason_category" required="">
+<option disabled="" selected="" value="">Select appropriate violation...</option>
+<option value="plagiarism">Academic Dishonesty / Plagiarism</option>
+<option value="conduct">Code of Conduct Violation</option>
+<option value="eligibility">Eligibility Requirements Not Met</option>
+<option value="submission_rules">Submission Rule Violation (Late/Invalid format)</option>
+<option value="other">Other Administrative Discretion</option>
+</select>
+<div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-on-surface-variant">
+<span class="material-symbols-outlined">expand_more</span>
+</div>
+</div>
+</div>
+<!-- Effective From Date -->
+<div class="space-y-2">
+<label class="block text-sm font-medium text-on-surface font-body" for="effective_date">Effective From <span class="text-error">*</span></label>
+<div class="relative">
+<input class="w-full bg-surface-container-lowest border border-outline-variant text-on-surface text-sm rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-secondary-container focus:border-secondary transition-all font-label" id="effective_date" name="effective_date" required="" type="datetime-local"/>
+</div>
+<p class="text-xs text-on-surface-variant">Defaults to current server timestamp if unchanged.</p>
+</div>
+</div>
+<!-- Reason Detail Textarea -->
+<div class="space-y-2">
+<label class="block text-sm font-medium text-on-surface font-body" for="reason_detail">Detailed Documentation <span class="text-error">*</span></label>
+<textarea class="w-full bg-surface-container-lowest border border-outline-variant text-on-surface text-sm rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-secondary-container focus:border-secondary transition-all resize-y" id="reason_detail" name="reason_detail" placeholder="Provide specific details regarding the violation. This may be used in post-event audits or communications with the team sponsor..." required="" rows="4"></textarea>
+</div>
+<!-- Notify Team Checkbox -->
+<div class="pt-2">
+<label class="flex items-start gap-3 cursor-pointer group">
+<div class="relative flex items-center justify-center mt-0.5">
+<input checked="" class="peer appearance-none w-5 h-5 border border-outline-variant rounded bg-surface-container-lowest checked:bg-primary checked:border-primary focus:outline-none focus:ring-2 focus:ring-primary-container focus:ring-offset-2 focus:ring-offset-surface-container-lowest transition-all cursor-pointer" id="notify_team" name="notify_team" type="checkbox"/>
+<span class="material-symbols-outlined absolute text-white text-[16px] pointer-events-none opacity-0 peer-checked:opacity-100 transition-opacity">check</span>
+</div>
+<div class="flex flex-col">
+<span class="text-sm font-medium text-on-surface group-hover:text-primary transition-colors">Dispatch Formal Notification</span>
+<span class="text-xs text-on-surface-variant mt-0.5">Send an automated email to all team members containing the selected reason category and instructions for appeal (if applicable).</span>
+</div>
+</label>
+</div>
+<!-- Destructive Confirmation Block -->
+<div class="mt-8 bg-surface-container-high rounded-lg p-6 border border-outline-variant/60 relative overflow-hidden">
+<div class="absolute left-0 top-0 bottom-0 w-1 bg-error"></div>
+<label class="block text-sm text-on-surface mb-3 leading-relaxed" for="confirm_name">
+                        To authorize this administrative action, please type the exact team name: <br/>
+<span class="font-label font-bold text-on-surface bg-surface-container-lowest px-2 py-0.5 rounded border border-outline-variant/40 select-all inline-block mt-2">Syntax Syndicate</span>
+</label>
+<input autocomplete="off" class="w-full bg-surface-container-lowest border border-outline-variant text-on-surface rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-error focus:border-error transition-all font-label placeholder:font-body placeholder:text-outline-variant/70" id="confirm_name" name="confirm_name" placeholder="Type team name to confirm..." type="text"/>
+</div>
+</form>
+</div>
+<!-- Footer Actions -->
+<footer class="px-8 py-5 border-t border-outline-variant bg-surface flex items-center justify-between rounded-b-xl">
+<button class="px-6 py-2.5 rounded-lg text-sm font-medium text-on-surface hover:bg-surface-container-highest transition-colors font-body focus:outline-none focus:ring-2 focus:ring-outline-variant" type="button">
+                Cancel Routine
+            </button>
+<button class="px-6 py-2.5 rounded-lg text-sm font-bold bg-error text-on-error hover:bg-[#a31515] transition-colors flex items-center gap-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-error focus:ring-offset-2 focus:ring-offset-surface disabled:opacity-50 disabled:cursor-not-allowed group" disabled="" form="disqualification-form" type="submit">
+<span class="material-symbols-outlined text-[20px] group-disabled:opacity-70">gavel</span>
+                Execute Disqualification
+            </button>
+</footer>
+</main>
+<style>
+        /* Custom scrollbar for the modal content to maintain sleek UI */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: #c5c5d3; /* outline-variant */
+            border-radius: 20px;
+            border: 3px solid #ffffff; /* surface-container-lowest */
+        }
+    </style>
+</body></html>

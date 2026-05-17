@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SEAL Admin - Users</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;700;900&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-tertiary": "#ffffff",
+                    "on-secondary-container": "#006172",
+                    "outline": "#757682",
+                    "on-tertiary-container": "#f39461",
+                    "outline-variant": "#c5c5d3",
+                    "surface-tint": "#4059aa",
+                    "on-error-container": "#93000a",
+                    "primary-container": "#1e3a8a",
+                    "background": "#faf8ff",
+                    "surface-variant": "#e3e1e9",
+                    "on-surface": "#1a1b21",
+                    "on-primary-container": "#90a8ff",
+                    "on-tertiary-fixed": "#341100",
+                    "inverse-surface": "#2f3036",
+                    "surface": "#faf8ff",
+                    "on-primary-fixed-variant": "#264191",
+                    "error-container": "#ffdad6",
+                    "surface-container-low": "#f4f3fa",
+                    "surface-container-highest": "#e3e1e9",
+                    "surface-bright": "#faf8ff",
+                    "tertiary-container": "#6e2c00",
+                    "inverse-on-surface": "#f1f0f7",
+                    "on-tertiary-fixed-variant": "#773205",
+                    "secondary-container": "#57dffe",
+                    "on-secondary": "#ffffff",
+                    "secondary": "#00687a",
+                    "primary-fixed": "#dce1ff",
+                    "on-secondary-fixed": "#001f26",
+                    "surface-container-high": "#e9e7ef",
+                    "secondary-fixed": "#acedff",
+                    "tertiary-fixed": "#ffdbcb",
+                    "inverse-primary": "#b6c4ff",
+                    "primary-fixed-dim": "#b6c4ff",
+                    "tertiary": "#4b1c00",
+                    "secondary-fixed-dim": "#4cd7f6",
+                    "primary": "#00236f",
+                    "on-primary": "#ffffff",
+                    "error": "#ba1a1a",
+                    "on-surface-variant": "#444651",
+                    "on-secondary-fixed-variant": "#004e5c",
+                    "tertiary-fixed-dim": "#ffb691",
+                    "surface-container-lowest": "#ffffff",
+                    "on-primary-fixed": "#00164e",
+                    "on-error": "#ffffff",
+                    "on-background": "#1a1b21",
+                    "surface-dim": "#dad9e1",
+                    "surface-container": "#eeedf4"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                "xxl": "3rem"
+            },
+            "fontFamily": {
+                    "headline": ["Plus Jakarta Sans"],
+                    "display": ["Plus Jakarta Sans"],
+                    "body": ["Inter"],
+                    "label": ["JetBrains Mono"]
+            },
+            "fontSize": {}
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+          font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined[style*="'FILL' 1"] {
+          font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface font-body antialiased min-h-screen">
+<!-- TopAppBar -->
+<header class="bg-surface dark:bg-surface border-b border-outline-variant fixed top-0 right-0 w-[calc(100%-16rem)] h-16 flex justify-between items-center px-8 z-40 ml-64">
+<!-- Brand Logo (Hidden per JSON) -->
+<div class="hidden font-headline text-primary dark:text-primary-fixed-dim font-bold text-xl">Admin Core</div>
+<!-- Search Bar (Left) -->
+<div class="flex items-center w-96 bg-surface-container-low rounded-lg border border-outline-variant px-3 py-2 focus-within:border-secondary focus-within:ring-2 focus-within:ring-secondary/20 transition-all">
+<span class="material-symbols-outlined text-outline mr-2 text-xl">search</span>
+<input class="bg-transparent border-none focus:ring-0 w-full text-sm font-body text-on-surface placeholder-on-surface-variant outline-none" placeholder="Search users, emails, IDs..." type="text"/>
+</div>
+<!-- Trailing Actions -->
+<div class="flex items-center space-x-6">
+<div class="flex items-center space-x-4">
+<button class="text-on-surface-variant hover:text-primary transition-colors hover:bg-surface-variant p-2 rounded-full relative">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full"></span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors hover:bg-surface-variant p-2 rounded-full">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+</div>
+<div class="h-8 w-px bg-outline-variant"></div>
+<button class="flex items-center space-x-3 text-on-surface-variant hover:text-primary transition-colors group">
+<img alt="Administrator Profile" class="w-8 h-8 rounded-full border border-outline-variant group-hover:border-primary transition-colors" data-alt="A close up portrait of a male university administrator with short dark hair, wearing a navy blue collared shirt. He has a neutral, professional expression. The background is a slightly blurred office setting with bright, modern light. The image has a clean, high-resolution aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuChX-OwcB_JELczU0MTw-oBO-z_rZb9zdqXVSvepx-3IVHA62NjNj6IYh29PsC1fWwR0iROhdKmkB5TsBlnIC1FRkYYKVgp4_PXA93hE7WNUG5ydkG1vhZnB7f8a_P-e2XV3AAIkfZ0btGgnf2Wq2bDrc6H1TwIKCp0sZKOYzJMeZ6fCe5dU9ePsicTL8lflWRFynKThxAggke8_gAaGVe_QHh7nS5pSMfXAVpt2N9sCSk_kIe2Kv8BcZ4wjG0Zq4ctqZO2vp_nTdM"/>
+<span class="font-body text-sm font-medium">Profile</span>
+</button>
+</div>
+</header>
+<!-- SideNavBar -->
+<nav class="bg-primary dark:bg-primary w-64 h-screen fixed left-0 top-0 shadow-md z-50 flex flex-col h-full p-4 space-y-2">
+<!-- Header -->
+<div class="flex items-center space-x-3 mb-8 p-2">
+<div class="w-10 h-10 rounded-lg bg-surface flex items-center justify-center shadow-sm">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">shield</span>
+</div>
+<div>
+<h1 class="text-xl font-headline font-black text-on-primary tracking-tight">Admin Core</h1>
+<p class="text-xs font-body text-on-primary/70">University System</p>
+</div>
+</div>
+<!-- Navigation Tabs -->
+<div class="flex-1 space-y-1">
+<a class="flex items-center space-x-3 px-3 py-2 text-on-primary/70 hover:text-on-primary hover:bg-primary-fixed-dim/20 transition-colors rounded-lg group" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="dashboard">dashboard</span>
+<span class="font-body text-sm font-medium">Dashboard</span>
+</a>
+<a class="flex items-center space-x-3 px-3 py-2 text-on-primary-container bg-primary-container rounded-lg font-bold group Active: scale-95 transition-transform duration-150 shadow-inner" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="group">group</span>
+<span class="font-body text-sm">Users</span>
+</a>
+<a class="flex items-center space-x-3 px-3 py-2 text-on-primary/70 hover:text-on-primary hover:bg-primary-fixed-dim/20 transition-colors rounded-lg group" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="security">security</span>
+<span class="font-body text-sm font-medium">Roles &amp; Permissions</span>
+</a>
+<a class="flex items-center space-x-3 px-3 py-2 text-on-primary/70 hover:text-on-primary hover:bg-primary-fixed-dim/20 transition-colors rounded-lg group" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="rule">rule</span>
+<span class="font-body text-sm font-medium">Criteria Template</span>
+</a>
+<a class="flex items-center space-x-3 px-3 py-2 text-on-primary/70 hover:text-on-primary hover:bg-primary-fixed-dim/20 transition-colors rounded-lg group" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="bar_chart">bar_chart</span>
+<span class="font-body text-sm font-medium">Statistics</span>
+</a>
+<a class="flex items-center space-x-3 px-3 py-2 text-on-primary/70 hover:text-on-primary hover:bg-primary-fixed-dim/20 transition-colors rounded-lg group" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="history">history</span>
+<span class="font-body text-sm font-medium">Audit Log</span>
+</a>
+<a class="flex items-center space-x-3 px-3 py-2 text-on-primary/70 hover:text-on-primary hover:bg-primary-fixed-dim/20 transition-colors rounded-lg group" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="settings">settings</span>
+<span class="font-body text-sm font-medium">System Settings</span>
+</a>
+<a class="flex items-center space-x-3 px-3 py-2 text-on-primary/70 hover:text-on-primary hover:bg-primary-fixed-dim/20 transition-colors rounded-lg group" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="notifications">notifications</span>
+<span class="font-body text-sm font-medium flex-1">Notifications</span>
+<span class="bg-error text-on-error text-[10px] font-bold px-1.5 py-0.5 rounded-full">3</span>
+</a>
+</div>
+<!-- Footer / CTA -->
+<div class="mt-auto pt-4 border-t border-on-primary/10">
+<div class="flex items-center justify-between px-2 py-2">
+<div class="flex items-center space-x-2">
+<div class="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container text-xs font-bold border border-on-primary/20">
+                        AK
+                    </div>
+<div>
+<p class="text-sm font-headline text-on-primary">Admin User</p>
+<p class="text-[10px] font-label text-on-primary/70 uppercase tracking-wider">Administrator</p>
+</div>
+</div>
+</div>
+</div>
+</nav>
+<!-- Main Content Canvas -->
+<main class="ml-64 pt-16 min-h-screen bg-surface-container-low flex">
+<!-- Main Data Area -->
+<div class="flex-1 p-6 overflow-x-hidden flex flex-col">
+<!-- Page Header & Filters -->
+<div class="mb-6 space-y-4">
+<div class="flex justify-between items-end">
+<div>
+<h2 class="text-2xl font-headline font-bold text-on-surface tracking-tight">User Management</h2>
+<p class="text-sm font-body text-on-surface-variant mt-1">Manage and assign roles to system participants.</p>
+</div>
+<div class="flex space-x-3">
+<button class="bg-surface text-primary border border-primary px-4 py-2 rounded-lg font-body text-sm font-medium hover:bg-primary/5 transition-colors flex items-center space-x-2">
+<span class="material-symbols-outlined text-[18px]">download</span>
+<span>Export</span>
+</button>
+<button class="bg-primary text-on-primary px-4 py-2 rounded-lg font-body text-sm font-medium hover:bg-primary/90 transition-colors shadow-sm flex items-center space-x-2">
+<span class="material-symbols-outlined text-[18px]">person_add</span>
+<span>Invite Users</span>
+</button>
+</div>
+</div>
+<!-- Filter Bar -->
+<div class="bg-surface rounded-xl p-4 shadow-sm border border-outline-variant flex flex-wrap gap-4 items-center">
+<!-- Role Filter -->
+<div class="flex-1 min-w-[200px]">
+<label class="block text-xs font-label text-on-surface-variant mb-1 uppercase tracking-wider">Role</label>
+<div class="relative">
+<select class="w-full bg-surface border border-outline-variant rounded-lg px-3 py-2 text-sm font-body text-on-surface appearance-none focus:border-secondary focus:ring-2 focus:ring-secondary/20 outline-none">
+<option>All Roles</option>
+<option>Student</option>
+<option>Internal Judge</option>
+<option>Mentor</option>
+<option>Admin</option>
+</select>
+<span class="material-symbols-outlined absolute right-2 top-2.5 text-on-surface-variant pointer-events-none text-lg">arrow_drop_down</span>
+</div>
+</div>
+<!-- Status Filter -->
+<div class="w-48">
+<label class="block text-xs font-label text-on-surface-variant mb-1 uppercase tracking-wider">Status</label>
+<div class="relative">
+<select class="w-full bg-surface border border-outline-variant rounded-lg px-3 py-2 text-sm font-body text-on-surface appearance-none focus:border-secondary focus:ring-2 focus:ring-secondary/20 outline-none">
+<option>Active</option>
+<option>Suspended</option>
+<option>Pending</option>
+</select>
+<span class="material-symbols-outlined absolute right-2 top-2.5 text-on-surface-variant pointer-events-none text-lg">arrow_drop_down</span>
+</div>
+</div>
+<!-- Classification Filter -->
+<div class="w-48">
+<label class="block text-xs font-label text-on-surface-variant mb-1 uppercase tracking-wider">Classification</label>
+<div class="relative">
+<select class="w-full bg-surface border border-outline-variant rounded-lg px-3 py-2 text-sm font-body text-on-surface appearance-none focus:border-secondary focus:ring-2 focus:ring-secondary/20 outline-none">
+<option>All Types</option>
+<option>FPT Student</option>
+<option>External</option>
+<option>Staff</option>
+</select>
+<span class="material-symbols-outlined absolute right-2 top-2.5 text-on-surface-variant pointer-events-none text-lg">arrow_drop_down</span>
+</div>
+</div>
+<!-- Date Filter -->
+<div class="w-56">
+<label class="block text-xs font-label text-on-surface-variant mb-1 uppercase tracking-wider">Date Joined</label>
+<div class="relative">
+<input class="w-full bg-surface border border-outline-variant rounded-lg px-3 py-2 text-sm font-body text-on-surface focus:border-secondary focus:ring-2 focus:ring-secondary/20 outline-none" type="date"/>
+</div>
+</div>
+</div>
+<!-- Bulk Actions Bar (Visible when items selected) -->
+<div class="bg-surface-container border border-outline-variant rounded-lg px-4 py-3 flex justify-between items-center hidden">
+<div class="flex items-center space-x-3">
+<span class="text-sm font-headline font-bold text-primary">3 Selected</span>
+</div>
+<div class="flex space-x-2">
+<button class="bg-surface text-on-surface border border-outline-variant px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-surface-variant transition-colors">Activate</button>
+<button class="bg-surface text-on-surface border border-outline-variant px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-surface-variant transition-colors">Suspend</button>
+<button class="bg-error text-on-error px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-error/90 transition-colors">Delete</button>
+</div>
+</div>
+</div>
+<!-- Data Table Container -->
+<div class="bg-surface rounded-xl border border-outline-variant shadow-sm flex-1 flex flex-col overflow-hidden">
+<div class="overflow-x-auto flex-1">
+<table class="w-full text-left border-collapse">
+<thead class="bg-surface-container-low border-b border-outline-variant sticky top-0 z-10">
+<tr>
+<th class="py-3 px-4 w-12 text-center"><input class="rounded border-outline-variant text-primary focus:ring-primary" type="checkbox"/></th>
+<th class="py-3 px-4 font-label text-xs uppercase tracking-wider text-on-surface-variant font-medium">User</th>
+<th class="py-3 px-4 font-label text-xs uppercase tracking-wider text-on-surface-variant font-medium">Classification</th>
+<th class="py-3 px-4 font-label text-xs uppercase tracking-wider text-on-surface-variant font-medium">Roles</th>
+<th class="py-3 px-4 font-label text-xs uppercase tracking-wider text-on-surface-variant font-medium">Status</th>
+<th class="py-3 px-4 font-label text-xs uppercase tracking-wider text-on-surface-variant font-medium">Last Login</th>
+<th class="py-3 px-4 w-12 text-center"></th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant text-sm font-body">
+<!-- Row 1 (Active/Selected state for side panel) -->
+<tr class="bg-primary/5 hover:bg-surface-container-low transition-colors group cursor-pointer border-l-2 border-l-primary">
+<td class="py-3 px-4 text-center"><input checked="" class="rounded border-outline-variant text-primary focus:ring-primary" type="checkbox"/></td>
+<td class="py-3 px-4">
+<div class="flex items-center space-x-3">
+<img alt="Nguyen Van A" class="w-9 h-9 rounded-full border border-outline-variant" data-alt="Portrait of a young Asian man with short dark hair, wearing a white t-shirt. He has a slight smile and is looking directly at the camera. The background is a blurred, light-colored outdoor setting. High quality, clear image." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBWRk7ODK-iQ-0nJW76KAan1iHeg0AohQheTClV6MFJmepjkiy-bUP89qIK5dODvV6rfuQMy8A62GMM1W_4GHBLpm7E3f7KZB1sKbMWaqU8rdGp8n136R8Zb6zHOP0HxDB9yvQPo_7U63XoneaVlVNM_Rh3p08Gc2MrsBoCvCYlpA-zOO-ByNqlPoqeiguq3sWB1HBgzG4_1JGJpPXH-WeAyvYnZr20WvhSoVxsZk0qiILcc8-oTnV6-k3PiEm4A0xR4muNWNBxfYM"/>
+<div>
+<p class="font-medium text-on-surface font-headline">Nguyen Van A</p>
+<p class="text-xs text-on-surface-variant">SE160123 • a.nguyen@fpt.edu.vn</p>
+</div>
+</div>
+</td>
+<td class="py-3 px-4">
+<span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-surface-variant text-on-surface">FPT Student</span>
+</td>
+<td class="py-3 px-4">
+<div class="flex flex-wrap gap-1">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-label bg-surface-container-high text-on-surface border border-outline-variant">Participant</span>
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-label bg-primary-container/20 text-primary border border-primary/20">Team Lead</span>
+</div>
+</td>
+<td class="py-3 px-4">
+<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 border border-emerald-200">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5"></span>
+                                        Active
+                                    </span>
+</td>
+<td class="py-3 px-4 text-on-surface-variant text-xs">Oct 24, 2023<br/><span class="text-outline">14:32</span></td>
+<td class="py-3 px-4 text-right">
+<button class="text-on-surface-variant hover:text-primary p-1 rounded hover:bg-surface-variant transition-colors"><span class="material-symbols-outlined text-[20px]">more_vert</span></button>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-surface-container-low transition-colors group cursor-pointer border-l-2 border-l-transparent">
+<td class="py-3 px-4 text-center"><input class="rounded border-outline-variant text-primary focus:ring-primary" type="checkbox"/></td>
+<td class="py-3 px-4">
+<div class="flex items-center space-x-3">
+<div class="w-9 h-9 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center font-bold text-sm border border-secondary-container">TH</div>
+<div>
+<p class="font-medium text-on-surface font-headline">Tran Thi H</p>
+<p class="text-xs text-on-surface-variant">h.tran@external.com</p>
+</div>
+</div>
+</td>
+<td class="py-3 px-4">
+<span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-surface-container-highest text-on-surface-variant">External</span>
+</td>
+<td class="py-3 px-4">
+<div class="flex flex-wrap gap-1">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-label bg-tertiary-container/20 text-tertiary border border-tertiary/20">Mentor</span>
+</div>
+</td>
+<td class="py-3 px-4">
+<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 border border-emerald-200">
+<span class="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5"></span>
+                                        Active
+                                    </span>
+</td>
+<td class="py-3 px-4 text-on-surface-variant text-xs">Oct 22, 2023<br/><span class="text-outline">09:15</span></td>
+<td class="py-3 px-4 text-right">
+<button class="text-on-surface-variant hover:text-primary p-1 rounded hover:bg-surface-variant transition-colors"><span class="material-symbols-outlined text-[20px]">more_vert</span></button>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-surface-container-low transition-colors group cursor-pointer border-l-2 border-l-transparent">
+<td class="py-3 px-4 text-center"><input class="rounded border-outline-variant text-primary focus:ring-primary" type="checkbox"/></td>
+<td class="py-3 px-4">
+<div class="flex items-center space-x-3">
+<img alt="Le Minh K" class="w-9 h-9 rounded-full border border-outline-variant" data-alt="Portrait of a middle-aged woman with shoulder-length brown hair, wearing a dark blazer. She has a professional, approachable expression. The background is a soft, blurred light gray wall. High quality, professional headshot style." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBDIrlgofNcF_Cpe5XQ1zXyqYGFtTp8DSsosgWmGPvnSGhIPyw-DWkMk2p4iTRF8Ov3nfWxc_9vvukeX7PnTUbaj5ZkvzWkORxS0clOR-zcQkYGFX6SsX6rPrp8WU5i6xOq6Sf-laBrMMoGGdwiWeAgOf0wCKE_cIavCi2NDP3oC6-_ALb47KaSWHgFqysD6NTpdCtyeFj6fK7NZ5_r2lgAIP3eVLKlN5XwYp_JvMNnDr0U_XSsk1RKH_9ZGKKtiaj3b9Rx8kfZOmo"/>
+<div>
+<p class="font-medium text-on-surface font-headline">Le Minh K</p>
+<p class="text-xs text-on-surface-variant">k.le@fpt.edu.vn</p>
+</div>
+</div>
+</td>
+<td class="py-3 px-4">
+<span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-surface-variant text-on-surface">Staff</span>
+</td>
+<td class="py-3 px-4">
+<div class="flex flex-wrap gap-1">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-label bg-secondary-container/30 text-on-secondary-container border border-secondary-container/50">Internal Judge</span>
+</div>
+</td>
+<td class="py-3 px-4">
+<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200">
+<span class="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5"></span>
+                                        Pending
+                                    </span>
+</td>
+<td class="py-3 px-4 text-on-surface-variant text-xs">Never<br/><span class="text-outline">-</span></td>
+<td class="py-3 px-4 text-right">
+<button class="text-on-surface-variant hover:text-primary p-1 rounded hover:bg-surface-variant transition-colors"><span class="material-symbols-outlined text-[20px]">more_vert</span></button>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="hover:bg-surface-container-low transition-colors group cursor-pointer border-l-2 border-l-transparent">
+<td class="py-3 px-4 text-center"><input class="rounded border-outline-variant text-primary focus:ring-primary" type="checkbox"/></td>
+<td class="py-3 px-4">
+<div class="flex items-center space-x-3">
+<div class="w-9 h-9 rounded-full bg-surface-variant text-on-surface-variant flex items-center justify-center font-bold text-sm border border-outline-variant">PD</div>
+<div>
+<p class="font-medium text-on-surface font-headline">Pham Duy</p>
+<p class="text-xs text-on-surface-variant">SE150999 • d.pham@fpt.edu.vn</p>
+</div>
+</div>
+</td>
+<td class="py-3 px-4">
+<span class="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-surface-variant text-on-surface">FPT Student</span>
+</td>
+<td class="py-3 px-4">
+<div class="flex flex-wrap gap-1">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-label bg-surface-container-high text-on-surface border border-outline-variant">Participant</span>
+</div>
+</td>
+<td class="py-3 px-4">
+<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-error-container text-on-error-container border border-error-container">
+<span class="w-1.5 h-1.5 rounded-full bg-error mr-1.5"></span>
+                                        Suspended
+                                    </span>
+</td>
+<td class="py-3 px-4 text-on-surface-variant text-xs">Oct 10, 2023<br/><span class="text-outline">18:45</span></td>
+<td class="py-3 px-4 text-right">
+<button class="text-on-surface-variant hover:text-primary p-1 rounded hover:bg-surface-variant transition-colors"><span class="material-symbols-outlined text-[20px]">more_vert</span></button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Pagination -->
+<div class="bg-surface-container-low border-t border-outline-variant px-4 py-3 flex items-center justify-between">
+<div class="text-sm font-body text-on-surface-variant">
+                        Showing <span class="font-medium text-on-surface">1</span> to <span class="font-medium text-on-surface">10</span> of <span class="font-medium text-on-surface">97</span> results
+                    </div>
+<div class="flex items-center space-x-2">
+<button class="px-3 py-1 border border-outline-variant rounded bg-surface text-on-surface-variant hover:bg-surface-variant disabled:opacity-50 text-sm font-medium"><span class="material-symbols-outlined text-[18px] align-middle">chevron_left</span></button>
+<button class="px-3 py-1 border border-primary rounded bg-primary-container text-on-primary-container font-medium text-sm">1</button>
+<button class="px-3 py-1 border border-outline-variant rounded bg-surface text-on-surface hover:bg-surface-variant text-sm font-medium">2</button>
+<button class="px-3 py-1 border border-outline-variant rounded bg-surface text-on-surface hover:bg-surface-variant text-sm font-medium">3</button>
+<span class="px-2 text-outline">...</span>
+<button class="px-3 py-1 border border-outline-variant rounded bg-surface text-on-surface hover:bg-surface-variant text-sm font-medium">10</button>
+<button class="px-3 py-1 border border-outline-variant rounded bg-surface text-on-surface-variant hover:bg-surface-variant text-sm font-medium"><span class="material-symbols-outlined text-[18px] align-middle">chevron_right</span></button>
+</div>
+</div>
+</div>
+</div>
+<!-- Detail Side Panel (Nguyen Van A) -->
+<aside class="w-96 bg-surface border-l border-outline-variant shadow-lg flex flex-col h-[calc(100vh-4rem)] sticky top-16 right-0 z-30">
+<!-- Panel Header -->
+<div class="p-6 border-b border-outline-variant flex justify-between items-start">
+<div class="flex items-center space-x-4">
+<img alt="Nguyen Van A Panel" class="w-16 h-16 rounded-xl border border-outline-variant shadow-sm object-cover" data-alt="Portrait of a young Asian man with short dark hair, wearing a white t-shirt. He has a slight smile and is looking directly at the camera. The background is a blurred, light-colored outdoor setting. High quality, clear image." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAY1Lbrr83uyECUNDzkuersJCZYLdRsgKAVoFUY2VZYzrrLY-sw34lMhw-beo6zw646oZO6qeALSPOSQNYc5M2VmXtPDR_M_hgjULaL_lZidMdPFY5KNR6-leP0zz9BH2-m2RMNMNmez4sbnL46XYmbQ0ThTPeMt3tiAFWzaEFSf46Mh2IVt0PrujCF_OPYS3SACYG66JjElU7nbm98tS2cBMentFFqxqH5sxO7z5jF6cldSwA6mH8SoZ9qSUzuzLZ1Fq2xYSeTWSU"/>
+<div>
+<h3 class="font-headline font-bold text-xl text-on-surface">Nguyen Van A</h3>
+<p class="text-sm font-body text-on-surface-variant">SE160123</p>
+<span class="inline-flex items-center px-2 py-0.5 mt-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-200">Active</span>
+</div>
+</div>
+<button class="text-on-surface-variant hover:text-on-surface rounded-full p-1 hover:bg-surface-variant transition-colors">
+<span class="material-symbols-outlined">close</span>
+</button>
+</div>
+<!-- Panel Content Scrollable -->
+<div class="flex-1 overflow-y-auto p-6 space-y-8">
+<!-- Contact Info Grid -->
+<section>
+<h4 class="text-xs font-label text-on-surface-variant uppercase tracking-wider mb-3">Contact Information</h4>
+<div class="bg-surface-container-low rounded-lg border border-outline-variant p-4 space-y-3">
+<div class="flex items-start">
+<span class="material-symbols-outlined text-outline mr-3 text-[18px]">mail</span>
+<div>
+<p class="text-[10px] font-label text-on-surface-variant uppercase tracking-wider">Primary Email</p>
+<p class="text-sm font-body font-medium text-on-surface">a.nguyen@fpt.edu.vn</p>
+</div>
+</div>
+<div class="w-full h-px bg-outline-variant/50"></div>
+<div class="flex items-start">
+<span class="material-symbols-outlined text-outline mr-3 text-[18px]">phone</span>
+<div>
+<p class="text-[10px] font-label text-on-surface-variant uppercase tracking-wider">Phone</p>
+<p class="text-sm font-body font-medium text-on-surface">+84 90 123 4567</p>
+</div>
+</div>
+<div class="w-full h-px bg-outline-variant/50"></div>
+<div class="flex items-start">
+<span class="material-symbols-outlined text-outline mr-3 text-[18px]">badge</span>
+<div>
+<p class="text-[10px] font-label text-on-surface-variant uppercase tracking-wider">Classification</p>
+<p class="text-sm font-body font-medium text-on-surface">FPT Student (Campus: HCMC)</p>
+</div>
+</div>
+</div>
+</section>
+<!-- Role Management -->
+<section>
+<div class="flex justify-between items-center mb-3">
+<h4 class="text-xs font-label text-on-surface-variant uppercase tracking-wider">Assigned Roles</h4>
+<span class="text-xs font-medium text-primary cursor-pointer hover:underline">Edit History</span>
+</div>
+<div class="space-y-2">
+<!-- Role Toggle Item: Participant -->
+<div class="flex items-center justify-between p-3 rounded-lg border border-primary bg-primary/5">
+<div>
+<p class="font-headline font-medium text-sm text-on-surface">Participant</p>
+<p class="text-xs text-on-surface-variant">Can join teams and submit projects.</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only peer" type="checkbox" value=""/>
+<div class="w-9 h-5 bg-surface-variant peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-outline-variant after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+<!-- Role Toggle Item: Mentor -->
+<div class="flex items-center justify-between p-3 rounded-lg border border-outline-variant hover:border-primary/50 transition-colors">
+<div>
+<p class="font-headline font-medium text-sm text-on-surface">Mentor</p>
+<p class="text-xs text-on-surface-variant">Can guide teams and review code.</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input class="sr-only peer" type="checkbox" value=""/>
+<div class="w-9 h-5 bg-surface-variant peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-outline-variant after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+<!-- Role Toggle Item: Internal Judge -->
+<div class="flex items-center justify-between p-3 rounded-lg border border-outline-variant hover:border-primary/50 transition-colors">
+<div>
+<p class="font-headline font-medium text-sm text-on-surface">Internal Judge</p>
+<p class="text-xs text-on-surface-variant">Can score submissions based on criteria.</p>
+</div>
+<label class="relative inline-flex items-center cursor-pointer">
+<input class="sr-only peer" type="checkbox" value=""/>
+<div class="w-9 h-5 bg-surface-variant peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-outline-variant after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-primary"></div>
+</label>
+</div>
+</div>
+</section>
+<!-- Activity Summary Bento -->
+<section>
+<h4 class="text-xs font-label text-on-surface-variant uppercase tracking-wider mb-3">Activity Snapshot</h4>
+<div class="grid grid-cols-2 gap-3">
+<div class="bg-surface-container-low p-3 rounded-xl border border-outline-variant text-center">
+<span class="material-symbols-outlined text-outline mb-1">group_work</span>
+<p class="text-xl font-headline font-bold text-on-surface">3</p>
+<p class="text-[10px] font-label text-on-surface-variant uppercase">Teams Joined</p>
+</div>
+<div class="bg-surface-container-low p-3 rounded-xl border border-outline-variant text-center">
+<span class="material-symbols-outlined text-outline mb-1">upload_file</span>
+<p class="text-xl font-headline font-bold text-on-surface">12</p>
+<p class="text-[10px] font-label text-on-surface-variant uppercase">Submissions</p>
+</div>
+<div class="col-span-2 bg-surface-container-low p-3 rounded-xl border border-outline-variant flex items-center justify-between">
+<div>
+<p class="text-[10px] font-label text-on-surface-variant uppercase">Last Login</p>
+<p class="text-sm font-medium text-on-surface">Oct 24, 2023 - 14:32</p>
+</div>
+<span class="material-symbols-outlined text-outline">history</span>
+</div>
+</div>
+</section>
+</div>
+<!-- Panel Footer Actions -->
+<div class="p-6 border-t border-outline-variant bg-surface-container-lowest">
+<div class="flex space-x-3">
+<button class="flex-1 bg-surface text-on-surface border border-outline-variant py-2 rounded-lg font-body text-sm font-medium hover:bg-surface-variant transition-colors">Suspend User</button>
+<button class="flex-1 bg-primary text-on-primary py-2 rounded-lg font-body text-sm font-medium hover:bg-primary/90 transition-colors shadow-sm">Save Changes</button>
+</div>
+<div class="mt-4 text-center">
+<button class="text-error text-xs font-medium hover:underline flex items-center justify-center w-full">
+<span class="material-symbols-outlined text-[16px] mr-1">delete</span> Delete User Permanently
+                    </button>
+</div>
+</div>
+</aside>
+</main>
+</body></html>

@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SEAL Notifications</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;family=Plus+Jakarta+Sans:wght@500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-tertiary": "#ffffff",
+                    "error": "#ba1a1a",
+                    "outline-variant": "#c5c5d3",
+                    "surface-bright": "#faf8ff",
+                    "surface-dim": "#dad9e1",
+                    "primary-fixed": "#dce1ff",
+                    "on-tertiary-container": "#f39461",
+                    "background": "#faf8ff",
+                    "on-primary-container": "#90a8ff",
+                    "on-error": "#ffffff",
+                    "on-tertiary-fixed-variant": "#773205",
+                    "on-secondary": "#ffffff",
+                    "error-container": "#ffdad6",
+                    "tertiary": "#4b1c00",
+                    "surface-variant": "#e3e1e9",
+                    "surface": "#faf8ff",
+                    "tertiary-fixed-dim": "#ffb691",
+                    "outline": "#757682",
+                    "surface-container": "#eeedf4",
+                    "on-primary-fixed-variant": "#264191",
+                    "inverse-surface": "#2f3036",
+                    "on-secondary-fixed": "#001f26",
+                    "inverse-on-surface": "#f1f0f7",
+                    "primary-fixed-dim": "#b6c4ff",
+                    "secondary-fixed": "#acedff",
+                    "on-secondary-container": "#006172",
+                    "on-surface": "#1a1b21",
+                    "primary": "#00236f",
+                    "on-tertiary-fixed": "#341100",
+                    "tertiary-fixed": "#ffdbcb",
+                    "on-primary-fixed": "#00164e",
+                    "on-background": "#1a1b21",
+                    "secondary": "#00687a",
+                    "on-surface-variant": "#444651",
+                    "surface-container-low": "#f4f3fa",
+                    "surface-container-lowest": "#ffffff",
+                    "secondary-fixed-dim": "#4cd7f6",
+                    "secondary-container": "#57dffe",
+                    "on-primary": "#ffffff",
+                    "on-secondary-fixed-variant": "#004e5c",
+                    "on-error-container": "#93000a",
+                    "surface-tint": "#4059aa",
+                    "inverse-primary": "#b6c4ff",
+                    "tertiary-container": "#6e2c00",
+                    "surface-container-highest": "#e3e1e9",
+                    "primary-container": "#1e3a8a",
+                    "surface-container-high": "#e9e7ef"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {},
+            "fontFamily": {
+                    "headline": [
+                            "Plus Jakarta Sans"
+                    ],
+                    "display": [
+                            "Plus Jakarta Sans"
+                    ],
+                    "body": [
+                            "Inter"
+                    ],
+                    "label": [
+                            "JetBrains Mono"
+                    ]
+            },
+            "fontSize": {}
+    },
+        },
+      }
+    </script>
+</head>
+<body class="bg-background text-on-background font-body antialiased flex">
+<!-- SideNavBar -->
+<nav class="bg-surface-container-low dark:bg-surface-container-lowest h-screen w-64 flex flex-col border-r border-outline-variant dark:border-outline border-r border-outline-variant shadow-sm shadow-sm fixed left-0 top-0 h-full flex flex-col py-6 z-50 md:flex hidden">
+<div class="px-6 mb-8 flex flex-col items-start">
+<h1 class="font-headline font-black text-2xl text-primary dark:text-primary-fixed tracking-tighter">SEAL</h1>
+<span class="text-xs text-on-surface-variant mt-1 font-medium">Engineering Excellence</span>
+</div>
+<div class="px-4 mb-6">
+<button class="w-full bg-primary text-on-primary py-2.5 rounded-lg font-semibold text-sm hover:bg-primary-container transition-colors shadow-sm flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-lg">add</span>
+                Create Hackathon
+            </button>
+</div>
+<ul class="flex-1 px-3 space-y-1 overflow-y-auto">
+<li>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed transition-colors hover:bg-surface-container-high dark:hover:bg-surface-variant transition-all duration-200 scale-95 active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-medium">Dashboard</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-primary dark:text-primary-fixed border-r-4 border-primary dark:border-primary-fixed bg-primary-fixed/10 font-bold hover:bg-surface-container-high dark:hover:bg-surface-variant transition-all duration-200 scale-95 active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">notifications</span>
+<span class="font-medium">Notifications</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed transition-colors hover:bg-surface-container-high dark:hover:bg-surface-variant transition-all duration-200 scale-95 active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined">calendar_month</span>
+<span class="font-medium">Event Calendar</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed transition-colors hover:bg-surface-container-high dark:hover:bg-surface-variant transition-all duration-200 scale-95 active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined">terminal</span>
+<span class="font-medium">Hackathons</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed transition-colors hover:bg-surface-container-high dark:hover:bg-surface-variant transition-all duration-200 scale-95 active:scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-medium">Settings</span>
+</a>
+</li>
+</ul>
+<div class="px-3 mt-auto pt-4 border-t border-outline-variant/50">
+<ul class="space-y-1">
+<li>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-on-surface-variant hover:text-primary transition-colors hover:bg-surface-container-high transition-all duration-200" href="#">
+<span class="material-symbols-outlined">help</span>
+<span class="font-medium">Support</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-on-surface-variant hover:text-primary transition-colors hover:bg-surface-container-high transition-all duration-200" href="#">
+<span class="material-symbols-outlined">logout</span>
+<span class="font-medium">Logout</span>
+</a>
+</li>
+</ul>
+</div>
+</nav>
+<!-- Main Content Wrapper -->
+<div class="flex-1 md:ml-64 min-h-screen flex flex-col">
+<!-- TopAppBar -->
+<header class="bg-surface dark:bg-background w-full h-16 flex items-center bg-surface/80 backdrop-blur-md border-b border-outline-variant flat no shadows flex justify-between items-center px-8 w-full sticky top-0 z-40">
+<div class="flex items-center gap-6">
+<h2 class="font-headline font-extrabold text-primary dark:text-primary-fixed text-lg hidden md:block">SEAL Management</h2>
+<div class="relative hidden md:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm">search</span>
+<input class="pl-9 pr-4 py-1.5 bg-surface-container-lowest border border-outline-variant rounded-full text-sm focus:outline-none focus:border-secondary focus:ring-1 focus:ring-secondary text-on-surface w-64 transition-shadow" placeholder="Search..." type="text"/>
+</div>
+</div>
+<nav class="hidden md:flex items-center gap-6">
+<a class="text-on-surface-variant dark:text-surface-variant text-sm font-medium hover:text-secondary dark:hover:text-secondary-fixed transition-colors" href="#">Deadlines</a>
+<a class="text-on-surface-variant dark:text-surface-variant text-sm font-medium hover:text-secondary dark:hover:text-secondary-fixed transition-colors" href="#">Rules</a>
+<a class="text-on-surface-variant dark:text-surface-variant text-sm font-medium hover:text-secondary dark:hover:text-secondary-fixed transition-colors" href="#">Mentors</a>
+</nav>
+<div class="flex items-center gap-4">
+<button class="text-on-surface-variant hover:text-primary transition-colors relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute -top-1 -right-1 bg-error text-on-error text-[10px] font-bold px-1.5 py-0.5 rounded-full">12</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">calendar_today</span>
+</button>
+<button class="h-8 w-8 rounded-full bg-surface-container-high border border-outline-variant flex items-center justify-center overflow-hidden">
+<img alt="User Profile Avatar" class="h-full w-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAsQWP5dA5c-hEtlIlpQGX2oEI-1gH6WtWLhGg38YKCUDs146WvOPXwDS08MJNXrZwaUprwFHUgSDOD5T4dBI326mIzXG1jkvGfF-j3SAwVz3MWC1K60PnXxhqroRxQZgOfX-6gWxl1PfFqL-NsfVQNwBLCdEzRHcVRGNp_DA2xdgfWbJOgyaozG0caLEv2qKiXzTy0y6c3UFUUA8DWlQxtYM7dszf76xuVhxh2blp3KhYnuNCmZXY-iEca0Bsb9ExUnPIboXz1JS0"/>
+</button>
+</div>
+</header>
+<!-- Canvas -->
+<main class="flex-1 p-6 md:p-10 max-w-7xl mx-auto w-full">
+<!-- Page Header -->
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
+<div>
+<div class="flex items-center gap-3 mb-2">
+<h1 class="text-3xl font-headline font-bold text-primary">Notifications</h1>
+<span class="bg-error text-on-error text-xs font-bold px-2 py-0.5 rounded-full">12</span>
+</div>
+<p class="text-on-surface-variant text-sm">Stay updated on your hackathon activities and deadlines.</p>
+</div>
+<div class="flex items-center gap-4">
+<button class="text-sm font-medium text-secondary hover:underline flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">settings</span>
+                        Notification Settings
+                    </button>
+<button class="bg-surface-container-lowest border border-outline-variant text-on-surface px-4 py-2 rounded-lg text-sm font-medium hover:bg-surface-container-low transition-colors shadow-sm">
+                        Mark all as read
+                    </button>
+</div>
+</div>
+<!-- Filters & Search -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-4 shadow-sm mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
+<div class="flex flex-wrap gap-2">
+<button class="px-4 py-1.5 rounded-full text-sm font-medium bg-primary text-on-primary">All</button>
+<button class="px-4 py-1.5 rounded-full text-sm font-medium bg-surface-container-high text-on-surface-variant hover:bg-surface-variant transition-colors">Unread</button>
+<button class="px-4 py-1.5 rounded-full text-sm font-medium bg-surface-container-high text-on-surface-variant hover:bg-surface-variant transition-colors">Team</button>
+<button class="px-4 py-1.5 rounded-full text-sm font-medium bg-surface-container-high text-on-surface-variant hover:bg-surface-variant transition-colors">Submission</button>
+<button class="px-4 py-1.5 rounded-full text-sm font-medium bg-surface-container-high text-on-surface-variant hover:bg-surface-variant transition-colors">Scoring</button>
+<button class="px-4 py-1.5 rounded-full text-sm font-medium bg-surface-container-high text-on-surface-variant hover:bg-surface-variant transition-colors">Results</button>
+<button class="px-4 py-1.5 rounded-full text-sm font-medium bg-surface-container-high text-on-surface-variant hover:bg-surface-variant transition-colors">System</button>
+</div>
+<div class="relative w-full md:w-64">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm">search</span>
+<input class="w-full pl-9 pr-4 py-2 bg-surface-container-lowest border border-outline-variant rounded-lg text-sm focus:outline-none focus:border-secondary focus:ring-1 focus:ring-secondary text-on-surface" placeholder="Search notifications..." type="text"/>
+</div>
+</div>
+<!-- Notification List -->
+<div class="space-y-4">
+<!-- Item 1: Team Invitation -->
+<div class="bg-surface-container-lowest border border-primary-fixed-dim rounded-xl p-5 shadow-sm relative overflow-hidden group hover:border-secondary transition-colors">
+<div class="absolute top-0 left-0 w-1 h-full bg-secondary"></div>
+<div class="flex items-start gap-4">
+<div class="h-10 w-10 rounded-full bg-secondary/10 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-secondary">groups</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start mb-1">
+<h3 class="font-headline font-semibold text-on-surface">Team Invitation</h3>
+<span class="text-xs font-label text-on-surface-variant">2h ago</span>
+</div>
+<p class="text-sm text-on-surface-variant mb-4">Syntax Syndicate invited you to join their team for the Spring 2024 SEAL Hackathon.</p>
+<div class="flex gap-3">
+<button class="bg-primary text-on-primary px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-primary-container transition-colors">Accept</button>
+<button class="bg-surface-container-lowest border border-outline-variant text-on-surface px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-surface-container-low transition-colors">Decline</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Item 2: Submission Deadline -->
+<div class="bg-surface-container-lowest border border-error-container rounded-xl p-5 shadow-sm relative overflow-hidden group hover:border-error transition-colors">
+<div class="absolute top-0 left-0 w-1 h-full bg-error"></div>
+<div class="flex items-start gap-4">
+<div class="h-10 w-10 rounded-full bg-error/10 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-error">upload</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start mb-1">
+<h3 class="font-headline font-semibold text-on-surface">Submission Deadline</h3>
+<span class="text-xs font-label text-error font-medium">15m ago</span>
+</div>
+<p class="text-sm text-on-surface-variant mb-4">Preliminary Round deadline in 4 hours. Ensure your repository link and video demo are uploaded.</p>
+<div class="flex gap-3">
+<button class="bg-surface-container-lowest border border-outline-variant text-on-surface px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-surface-container-low transition-colors flex items-center gap-2">
+                                    View Deadline
+                                    <span class="material-symbols-outlined text-sm">arrow_forward</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Item 3: Results Published -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-5 shadow-sm hover:border-outline transition-colors opacity-75">
+<div class="flex items-start gap-4">
+<div class="h-10 w-10 rounded-full bg-surface-container-high flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-on-surface-variant">emoji_events</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start mb-1">
+<h3 class="font-headline font-semibold text-on-surface">Results Published</h3>
+<span class="text-xs font-label text-on-surface-variant">Yesterday</span>
+</div>
+<p class="text-sm text-on-surface-variant mb-4">Final results for SEAL Spring 2024 have been published. Check out the winners!</p>
+<div class="flex gap-3">
+<button class="bg-surface-container-lowest border border-outline-variant text-on-surface px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-surface-container-low transition-colors">View Ranking</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Item 4: System Update (Extra for realistic list) -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-5 shadow-sm hover:border-outline transition-colors opacity-75">
+<div class="flex items-start gap-4">
+<div class="h-10 w-10 rounded-full bg-surface-container-high flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-on-surface-variant">info</span>
+</div>
+<div class="flex-1">
+<div class="flex justify-between items-start mb-1">
+<h3 class="font-headline font-semibold text-on-surface">Platform Update</h3>
+<span class="text-xs font-label text-on-surface-variant">Oct 12</span>
+</div>
+<p class="text-sm text-on-surface-variant">We've updated the scoring rubric interface for mentors. Check the new documentation.</p>
+</div>
+</div>
+</div>
+</div>
+<div class="mt-8 flex justify-center">
+<button class="text-sm font-medium text-secondary hover:underline">Load More Notifications</button>
+</div>
+</main>
+</div>
+</body></html>

@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Track Management - Academic Hackathon Portal</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;700;800;900&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary-container": "#f39461",
+                        "surface-tint": "#4059aa",
+                        "secondary-fixed": "#acedff",
+                        "primary-container": "#1e3a8a",
+                        "surface-container-high": "#e9e7ef",
+                        "on-background": "#1a1b21",
+                        "on-secondary": "#ffffff",
+                        "inverse-primary": "#b6c4ff",
+                        "secondary-fixed-dim": "#4cd7f6",
+                        "on-surface-variant": "#444651",
+                        "on-tertiary-fixed": "#341100",
+                        "on-surface": "#1a1b21",
+                        "outline": "#757682",
+                        "surface-container-low": "#f4f3fa",
+                        "surface": "#faf8ff",
+                        "secondary": "#00687a",
+                        "error": "#ba1a1a",
+                        "surface-container": "#eeedf4",
+                        "on-tertiary": "#ffffff",
+                        "on-secondary-container": "#006172",
+                        "secondary-container": "#57dffe",
+                        "on-primary-fixed-variant": "#264191",
+                        "on-primary-fixed": "#00164e",
+                        "inverse-surface": "#2f3036",
+                        "tertiary-fixed-dim": "#ffb691",
+                        "on-tertiary-fixed-variant": "#773205",
+                        "inverse-on-surface": "#f1f0f7",
+                        "surface-container-lowest": "#ffffff",
+                        "on-secondary-fixed-variant": "#004e5c",
+                        "error-container": "#ffdad6",
+                        "tertiary-fixed": "#ffdbcb",
+                        "surface-bright": "#faf8ff",
+                        "surface-variant": "#e3e1e9",
+                        "on-primary": "#ffffff",
+                        "background": "#faf8ff",
+                        "on-secondary-fixed": "#001f26",
+                        "tertiary": "#4b1c00",
+                        "primary": "#00236f",
+                        "on-primary-container": "#90a8ff",
+                        "primary-fixed": "#dce1ff",
+                        "primary-fixed-dim": "#b6c4ff",
+                        "tertiary-container": "#6e2c00",
+                        "outline-variant": "#c5c5d3",
+                        "surface-dim": "#dad9e1",
+                        "on-error": "#ffffff",
+                        "surface-container-highest": "#e3e1e9",
+                        "on-error-container": "#93000a"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {},
+                    "fontFamily": {
+                        "headline": ["Plus Jakarta Sans"],
+                        "display": ["Plus Jakarta Sans"],
+                        "body": ["Inter"],
+                        "label": ["JetBrains Mono"]
+                    },
+                    "fontSize": {}
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body min-h-screen">
+<!-- TopNavBar -->
+<nav class="bg-surface text-primary border-b border-outline-variant shadow-sm flex justify-between items-center w-full h-16 px-6 ml-64 max-w-[calc(100%-16rem)] docked full-width top-0 sticky z-40">
+<div class="flex items-center gap-6">
+<span class="text-lg font-headline font-bold text-primary">Academic Hackathon Portal</span>
+<div class="hidden md:flex gap-4">
+<a class="text-on-surface-variant hover:text-primary transition-colors font-label text-sm hover:bg-surface-container-low transition-all px-3 py-2 rounded-lg" href="#">Global View</a>
+<a class="text-primary border-b-2 border-primary pb-1 font-label text-sm hover:bg-surface-container-low transition-all px-3 py-2 opacity-80" href="#">Analytics</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors font-label text-sm hover:bg-surface-container-low transition-all px-3 py-2 rounded-lg" href="#">Resources</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm">search</span>
+<input class="pl-9 pr-4 py-1.5 bg-surface-container-lowest border border-outline-variant rounded-lg text-sm font-body focus:outline-none focus:border-secondary focus:ring-1 focus:ring-secondary/20 w-48" placeholder="Search..." type="text"/>
+</div>
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-low rounded-full transition-colors flex items-center justify-center">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-low rounded-full transition-colors flex items-center justify-center">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-low rounded-full transition-colors flex items-center justify-center">
+<span class="material-symbols-outlined" data-icon="dark_mode">dark_mode</span>
+</button>
+<img alt="User Profile" class="w-8 h-8 rounded-full border border-outline-variant object-cover" data-alt="A professional headshot of a person looking directly at the camera. The background is a slightly blurred, light neutral grey, maintaining a clean, modern aesthetic. The lighting is soft and even, highlighting the subject's features clearly without harsh shadows. This image is used as a standard user profile avatar in a corporate or academic portal setting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDSR2OuZgmd3-lhtckvS4yxp3unrdEO_wyzIzx3NQBeChrIEAdR447_loBv-nGw4q7VLogQy7Ed7Y_7E09TkYEX78nz7ZBgxQ_cQypxtFFC021mjztGvg9quBcPhfcN9rKE-FjKMcYy8n73no9xw49HlPRoBOqMggmzS5ZpPJ8vDjORAQtTyVtZS3fLc3UZOK4De4tSG6CrHYWY1KfbtoZn4_ShxaVtFiO0aliFLYAhoycvqM2vVtgB6eaI9YKxwcMfbHq1bFS6Fns"/>
+</div>
+</nav>
+<!-- SideNavBar -->
+<aside class="bg-surface text-primary font-headline font-bold font-body font-label text-xl font-black h-screen w-64 fixed left-0 top-0 border-r border-outline-variant flex flex-col h-full p-4 gap-2">
+<div class="flex items-center gap-3 mb-8 px-2 mt-2">
+<div class="w-10 h-10 bg-primary-container rounded-xl flex items-center justify-center text-on-primary-container font-headline font-bold text-lg">
+                EH
+            </div>
+<div>
+<h1 class="text-sm font-headline font-bold leading-tight">Event Admin</h1>
+<p class="text-xs text-on-surface-variant font-body">University Lead</p>
+</div>
+</div>
+<nav class="flex-1 flex flex-col gap-1">
+<a class="flex items-center gap-3 px-3 py-2.5 text-sm font-label text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface rounded-lg transition-colors hover:bg-surface-container-high" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="dashboard">dashboard</span>
+                Dashboard
+            </a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-sm font-label text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface rounded-lg transition-colors hover:bg-surface-container-high" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="event">event</span>
+                Events
+            </a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-sm font-label bg-primary-container text-on-primary-container font-bold rounded-lg scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="alt_route">alt_route</span>
+                Tracks
+            </a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-sm font-label text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface rounded-lg transition-colors hover:bg-surface-container-high" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="groups">groups</span>
+                Participants
+            </a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-sm font-label text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface rounded-lg transition-colors hover:bg-surface-container-high" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="description">description</span>
+                Submissions
+            </a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-sm font-label text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface rounded-lg transition-colors hover:bg-surface-container-high" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="gavel">gavel</span>
+                Judging
+            </a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-sm font-label text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface rounded-lg transition-colors hover:bg-surface-container-high mt-auto" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="settings">settings</span>
+                Settings
+            </a>
+</nav>
+<button class="mt-4 w-full bg-primary text-on-primary font-body font-medium text-sm py-2.5 rounded-lg hover:opacity-90 transition-opacity">
+            Create New Hackathon
+        </button>
+</aside>
+<!-- Main Content Canvas -->
+<main class="ml-64 p-8 max-w-[1280px] mx-auto">
+<!-- Header Section -->
+<header class="flex justify-between items-end mb-10">
+<div>
+<p class="text-sm font-label text-on-surface-variant mb-1 uppercase tracking-wider">Configuration</p>
+<h1 class="text-3xl font-headline font-bold text-on-background">Tracks for Engineering Hackathon 2024</h1>
+</div>
+<button class="bg-primary text-on-primary px-5 py-2.5 rounded-lg font-body font-medium flex items-center gap-2 hover:bg-primary/90 transition-colors shadow-[0px_2px_4px_rgba(15,23,42,0.05)]">
+<span class="material-symbols-outlined text-[20px]">add</span>
+                Create Track
+            </button>
+</header>
+<!-- Metrics Overview (Bento Style) -->
+<div class="grid grid-cols-12 gap-6 mb-10">
+<div class="col-span-3 bg-surface-container-lowest p-5 rounded-xl border border-outline-variant shadow-[0px_2px_4px_rgba(15,23,42,0.05)]">
+<div class="flex items-center gap-3 mb-2">
+<div class="w-8 h-8 rounded-full bg-secondary-container/20 flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined text-sm">alt_route</span>
+</div>
+<span class="font-label text-xs text-on-surface-variant">TOTAL TRACKS</span>
+</div>
+<div class="text-3xl font-headline font-bold text-on-background">4</div>
+</div>
+<div class="col-span-3 bg-surface-container-lowest p-5 rounded-xl border border-outline-variant shadow-[0px_2px_4px_rgba(15,23,42,0.05)]">
+<div class="flex items-center gap-3 mb-2">
+<div class="w-8 h-8 rounded-full bg-primary-container/20 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-sm">groups</span>
+</div>
+<span class="font-label text-xs text-on-surface-variant">TOTAL TEAMS</span>
+</div>
+<div class="text-3xl font-headline font-bold text-on-background">118</div>
+</div>
+<div class="col-span-6 bg-surface-container-lowest p-5 rounded-xl border border-outline-variant shadow-[0px_2px_4px_rgba(15,23,42,0.05)] flex justify-between items-center bg-gradient-to-r from-surface-container-lowest to-surface-container-low">
+<div>
+<h3 class="font-headline font-bold text-lg mb-1">Track Criteria Status</h3>
+<p class="text-sm font-body text-on-surface-variant">All judging rubrics have been finalized for active tracks.</p>
+</div>
+<div class="w-12 h-12 rounded-full bg-secondary-container flex items-center justify-center text-on-secondary-container">
+<span class="material-symbols-outlined">check_circle</span>
+</div>
+</div>
+</div>
+<!-- Tracks Table -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant overflow-hidden shadow-[0px_2px_4px_rgba(15,23,42,0.05)]">
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low border-b border-outline-variant">
+<th class="py-3 px-5 font-label text-xs font-semibold text-on-surface-variant w-16">Icon</th>
+<th class="py-3 px-5 font-label text-xs font-semibold text-on-surface-variant">Track Name</th>
+<th class="py-3 px-5 font-label text-xs font-semibold text-on-surface-variant">Lead Mentor</th>
+<th class="py-3 px-5 font-label text-xs font-semibold text-on-surface-variant">Registered Teams</th>
+<th class="py-3 px-5 font-label text-xs font-semibold text-on-surface-variant">Criteria Status</th>
+<th class="py-3 px-5 font-label text-xs font-semibold text-on-surface-variant text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="font-body text-sm divide-y divide-outline-variant">
+<!-- Row 1 -->
+<tr class="hover:bg-surface-container-low/50 transition-colors">
+<td class="py-4 px-5">
+<div class="w-10 h-10 rounded-lg bg-surface-container border border-outline-variant flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">smart_toy</span>
+</div>
+</td>
+<td class="py-4 px-5">
+<span class="font-semibold text-on-background block">AI &amp; Machine Learning</span>
+<span class="text-xs text-on-surface-variant">Focus on predictive models and NLP.</span>
+</td>
+<td class="py-4 px-5">
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded-full bg-tertiary-container text-on-tertiary-container flex items-center justify-center text-xs font-bold">AT</div>
+<span class="text-on-background">Dr. Alan Turing</span>
+</div>
+</td>
+<td class="py-4 px-5">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container text-on-surface text-xs font-medium border border-outline-variant">
+<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+                                    24 Teams
+                                </span>
+</td>
+<td class="py-4 px-5">
+<span class="inline-flex items-center px-2 py-1 rounded-md bg-[#059669]/10 text-[#059669] text-xs font-bold font-label">
+                                    PUBLISHED
+                                </span>
+</td>
+<td class="py-4 px-5 text-right">
+<button class="text-on-surface-variant hover:text-primary p-1 rounded transition-colors">
+<span class="material-symbols-outlined text-[20px]">edit</span>
+</button>
+<button class="text-on-surface-variant hover:text-error p-1 rounded transition-colors ml-1">
+<span class="material-symbols-outlined text-[20px]">delete</span>
+</button>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-surface-container-low/50 transition-colors">
+<td class="py-4 px-5">
+<div class="w-10 h-10 rounded-lg bg-surface-container border border-outline-variant flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined">web</span>
+</div>
+</td>
+<td class="py-4 px-5">
+<span class="font-semibold text-on-background block">Web App Innovation</span>
+<span class="text-xs text-on-surface-variant">Full-stack solutions for campus life.</span>
+</td>
+<td class="py-4 px-5">
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center text-xs font-bold">SC</div>
+<span class="text-on-background">Prof. Sarah Chen</span>
+</div>
+</td>
+<td class="py-4 px-5">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container text-on-surface text-xs font-medium border border-outline-variant">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+                                    32 Teams
+                                </span>
+</td>
+<td class="py-4 px-5">
+<span class="inline-flex items-center px-2 py-1 rounded-md bg-[#059669]/10 text-[#059669] text-xs font-bold font-label">
+                                    PUBLISHED
+                                </span>
+</td>
+<td class="py-4 px-5 text-right">
+<button class="text-on-surface-variant hover:text-primary p-1 rounded transition-colors">
+<span class="material-symbols-outlined text-[20px]">edit</span>
+</button>
+<button class="text-on-surface-variant hover:text-error p-1 rounded transition-colors ml-1">
+<span class="material-symbols-outlined text-[20px]">delete</span>
+</button>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-surface-container-low/50 transition-colors">
+<td class="py-4 px-5">
+<div class="w-10 h-10 rounded-lg bg-surface-container border border-outline-variant flex items-center justify-center text-on-surface">
+<span class="material-symbols-outlined">security</span>
+</div>
+</td>
+<td class="py-4 px-5">
+<span class="font-semibold text-on-background block">Cybersecurity</span>
+<span class="text-xs text-on-surface-variant">Threat detection and system defense.</span>
+</td>
+<td class="py-4 px-5">
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded-full bg-surface-variant text-on-surface-variant flex items-center justify-center text-xs font-bold">JD</div>
+<span class="text-on-background">Dr. James Doe</span>
+</div>
+</td>
+<td class="py-4 px-5">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container text-on-surface text-xs font-medium border border-outline-variant">
+<span class="w-1.5 h-1.5 rounded-full bg-on-surface-variant"></span>
+                                    18 Teams
+                                </span>
+</td>
+<td class="py-4 px-5">
+<span class="inline-flex items-center px-2 py-1 rounded-md bg-[#D97706]/10 text-[#D97706] text-xs font-bold font-label">
+                                    DRAFTING
+                                </span>
+</td>
+<td class="py-4 px-5 text-right">
+<button class="text-on-surface-variant hover:text-primary p-1 rounded transition-colors">
+<span class="material-symbols-outlined text-[20px]">edit</span>
+</button>
+<button class="text-on-surface-variant hover:text-error p-1 rounded transition-colors ml-1">
+<span class="material-symbols-outlined text-[20px]">delete</span>
+</button>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="hover:bg-surface-container-low/50 transition-colors">
+<td class="py-4 px-5">
+<div class="w-10 h-10 rounded-lg bg-surface-container border border-outline-variant flex items-center justify-center text-[#059669]">
+<span class="material-symbols-outlined">eco</span>
+</div>
+</td>
+<td class="py-4 px-5">
+<span class="font-semibold text-on-background block">Green Tech</span>
+<span class="text-xs text-on-surface-variant">Sustainable tech solutions.</span>
+</td>
+<td class="py-4 px-5">
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded-full bg-[#059669]/20 text-[#059669] flex items-center justify-center text-xs font-bold">EW</div>
+<span class="text-on-background">Prof. Emma Watts</span>
+</div>
+</td>
+<td class="py-4 px-5">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container text-on-surface text-xs font-medium border border-outline-variant">
+<span class="w-1.5 h-1.5 rounded-full bg-[#059669]"></span>
+                                    44 Teams
+                                </span>
+</td>
+<td class="py-4 px-5">
+<span class="inline-flex items-center px-2 py-1 rounded-md bg-[#059669]/10 text-[#059669] text-xs font-bold font-label">
+                                    PUBLISHED
+                                </span>
+</td>
+<td class="py-4 px-5 text-right">
+<button class="text-on-surface-variant hover:text-primary p-1 rounded transition-colors">
+<span class="material-symbols-outlined text-[20px]">edit</span>
+</button>
+<button class="text-on-surface-variant hover:text-error p-1 rounded transition-colors ml-1">
+<span class="material-symbols-outlined text-[20px]">delete</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="p-4 border-t border-outline-variant bg-surface flex justify-between items-center text-sm font-body text-on-surface-variant">
+<span>Showing 4 of 4 tracks</span>
+<div class="flex gap-2">
+<button class="px-3 py-1 border border-outline-variant rounded hover:bg-surface-container-low disabled:opacity-50" disabled="">Previous</button>
+<button class="px-3 py-1 border border-outline-variant rounded hover:bg-surface-container-low disabled:opacity-50" disabled="">Next</button>
+</div>
+</div>
+</div>
+</main>
+</body></html>

@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Criteria Template Editor - HackathonOS Admin</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;700;800;900&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-tertiary-container": "#f39461",
+                      "surface-tint": "#4059aa",
+                      "secondary-fixed": "#acedff",
+                      "primary-container": "#1e3a8a",
+                      "surface-container-high": "#e9e7ef",
+                      "on-background": "#1a1b21",
+                      "on-secondary": "#ffffff",
+                      "inverse-primary": "#b6c4ff",
+                      "secondary-fixed-dim": "#4cd7f6",
+                      "on-surface-variant": "#444651",
+                      "on-tertiary-fixed": "#341100",
+                      "on-surface": "#1a1b21",
+                      "outline": "#757682",
+                      "surface-container-low": "#f4f3fa",
+                      "surface": "#faf8ff",
+                      "secondary": "#00687a",
+                      "error": "#ba1a1a",
+                      "surface-container": "#eeedf4",
+                      "on-tertiary": "#ffffff",
+                      "on-secondary-container": "#006172",
+                      "secondary-container": "#57dffe",
+                      "on-primary-fixed-variant": "#264191",
+                      "on-primary-fixed": "#00164e",
+                      "inverse-surface": "#2f3036",
+                      "tertiary-fixed-dim": "#ffb691",
+                      "on-tertiary-fixed-variant": "#773205",
+                      "inverse-on-surface": "#f1f0f7",
+                      "surface-container-lowest": "#ffffff",
+                      "on-secondary-fixed-variant": "#004e5c",
+                      "error-container": "#ffdad6",
+                      "tertiary-fixed": "#ffdbcb",
+                      "surface-bright": "#faf8ff",
+                      "surface-variant": "#e3e1e9",
+                      "on-primary": "#ffffff",
+                      "background": "#faf8ff",
+                      "on-secondary-fixed": "#001f26",
+                      "tertiary": "#4b1c00",
+                      "primary": "#00236f",
+                      "on-primary-container": "#90a8ff",
+                      "primary-fixed": "#dce1ff",
+                      "primary-fixed-dim": "#b6c4ff",
+                      "tertiary-container": "#6e2c00",
+                      "outline-variant": "#c5c5d3",
+                      "surface-dim": "#dad9e1",
+                      "on-error": "#ffffff",
+                      "surface-container-highest": "#e3e1e9",
+                      "on-error-container": "#93000a"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {},
+              "fontFamily": {
+                      "headline": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "display": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "body": [
+                              "Inter"
+                      ],
+                      "label": [
+                              "JetBrains Mono"
+                      ]
+              },
+              "fontSize": {}
+      },
+          },
+        }
+      </script>
+<style>
+          .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+          }
+          .material-symbols-outlined.fill {
+            font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+          }
+      </style>
+</head>
+<body class="bg-background text-on-background font-body antialiased min-h-screen overflow-hidden flex">
+<!-- TopNavBar (Hidden on MD up to use SideNav, shown on Mobile) -->
+<header class="md:hidden flex justify-between items-center px-6 h-16 w-full max-w-[1280px] mx-auto bg-surface border-b border-outline-variant shadow-sm z-10 relative">
+<div class="text-lg font-headline font-black text-primary">HackathonOS Admin</div>
+<div class="flex items-center gap-4 text-primary">
+<span class="material-symbols-outlined cursor-pointer active:opacity-80 hover:text-secondary transition-colors" data-icon="notifications">notifications</span>
+<span class="material-symbols-outlined cursor-pointer active:opacity-80 hover:text-secondary transition-colors" data-icon="settings">settings</span>
+</div>
+</header>
+<!-- SideNavBar (Hidden on Mobile) -->
+<nav class="hidden md:flex flex-col h-screen fixed left-0 top-0 border-r border-outline-variant p-4 bg-surface-container-low shadow-sm docked left-0 h-full w-64 z-10">
+<div class="mb-8 px-4">
+<div class="text-lg font-headline font-black text-primary mb-1">Admin Panel</div>
+<div class="text-xs font-label text-on-surface-variant">Global Coordinator</div>
+</div>
+<button class="w-full bg-primary text-on-primary py-2 px-4 rounded-lg font-bold mb-6 hover:bg-on-primary-fixed-variant transition-colors flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm" data-icon="add">add</span>
+            Create Event
+        </button>
+<div class="flex-1 overflow-y-auto space-y-1 font-label text-sm">
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all active:scale-95 duration-150 rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+                Overview
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all active:scale-95 duration-150 rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="person_add">person_add</span>
+                Registration
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all active:scale-95 duration-150 rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="groups">groups</span>
+                Teams
+            </a>
+<!-- Active State: Judging context -->
+<a class="flex items-center gap-3 px-4 py-3 bg-primary-container text-on-primary-container rounded-lg font-bold active:scale-95 duration-150" href="#">
+<span class="material-symbols-outlined fill" data-icon="gavel" data-weight="fill">gavel</span>
+                Judging
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all active:scale-95 duration-150 rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="terminal">terminal</span>
+                Workshops
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all active:scale-95 duration-150 rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="payments">payments</span>
+                Sponsorship
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all active:scale-95 duration-150 rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="monitoring">monitoring</span>
+                Analytics
+            </a>
+</div>
+<div class="mt-auto pt-4 border-t border-outline-variant space-y-1 font-label text-sm">
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all active:scale-95 duration-150 rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+                Help Center
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all active:scale-95 duration-150 rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="description">description</span>
+                Documentation
+            </a>
+</div>
+</nav>
+<!-- Main Content Area (Behind Modal) -->
+<main class="flex-1 md:ml-64 p-6 md:p-8 h-screen overflow-y-auto filter blur-sm grayscale-[30%] pointer-events-none transition-all duration-300">
+<div class="max-w-[1280px] mx-auto">
+<header class="mb-8">
+<h1 class="font-headline font-extrabold text-3xl text-primary mb-2">Criteria Management</h1>
+<p class="text-on-surface-variant text-base">Define and manage the scoring dimensions for evaluators.</p>
+</header>
+<!-- Dummy content for the background -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<div class="col-span-1 lg:col-span-2 space-y-4">
+<!-- Dummy Cards -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-4 shadow-[0px_2px_4px_rgba(15,23,42,0.05)]">
+<div class="flex justify-between items-start mb-2">
+<h3 class="font-bold text-on-surface">Technical Complexity</h3>
+<span class="bg-surface-container-low text-on-surface-variant px-2 py-1 rounded text-xs font-label">30% Weight</span>
+</div>
+<p class="text-sm text-on-surface-variant">Code quality, architecture, and technical difficulty.</p>
+</div>
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-4 shadow-[0px_2px_4px_rgba(15,23,42,0.05)]">
+<div class="flex justify-between items-start mb-2">
+<h3 class="font-bold text-on-surface">Innovation &amp; Originality</h3>
+<span class="bg-surface-container-low text-on-surface-variant px-2 py-1 rounded text-xs font-label">25% Weight</span>
+</div>
+<p class="text-sm text-on-surface-variant">Uniqueness of the solution and creative approach.</p>
+</div>
+</div>
+<div class="col-span-1">
+<div class="bg-surface-container border border-outline-variant rounded-xl p-4 h-full">
+<h3 class="font-bold text-on-surface mb-4">Round Summary</h3>
+<div class="space-y-2">
+<div class="flex justify-between text-sm"><span>Prelims:</span> <span class="font-label">3 Criteria</span></div>
+<div class="flex justify-between text-sm"><span>Finals:</span> <span class="font-label">5 Criteria</span></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Overlay/Backdrop -->
+<div class="fixed inset-0 bg-on-background/40 z-40 transition-opacity"></div>
+<!-- Side Panel / Modal Editor -->
+<aside class="fixed inset-y-0 right-0 w-full max-w-lg bg-surface-container-lowest shadow-[-10px_0px_15px_-3px_rgba(15,23,42,0.1)] z-50 flex flex-col border-l border-outline-variant transform transition-transform duration-300 translate-x-0">
+<!-- Panel Header -->
+<header class="flex items-center justify-between px-6 py-5 border-b border-outline-variant bg-surface">
+<div>
+<h2 class="font-headline font-bold text-xl text-primary">Edit Criterion</h2>
+<p class="text-sm text-on-surface-variant mt-1">Modify scoring parameters and guidance.</p>
+</div>
+<button class="text-outline hover:text-on-surface transition-colors p-1 rounded-full hover:bg-surface-container-high">
+<span class="material-symbols-outlined" data-icon="close">close</span>
+</button>
+</header>
+<!-- Panel Body (Scrollable) -->
+<div class="flex-1 overflow-y-auto px-6 py-6 space-y-8">
+<!-- Basic Info Section -->
+<section class="space-y-5">
+<div>
+<label class="block text-sm font-semibold text-on-surface mb-1.5" for="crit-name">Name</label>
+<input class="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-4 py-2.5 text-on-surface focus:outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/20 transition-all font-medium" id="crit-name" type="text" value="Technical Complexity"/>
+</div>
+<div>
+<label class="block text-sm font-semibold text-on-surface mb-1.5" for="crit-desc">Description</label>
+<textarea class="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-4 py-2.5 text-on-surface focus:outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/20 transition-all text-sm resize-none" id="crit-desc" rows="3">Code quality and architecture. Evaluates the depth of technical challenges overcome and the elegance of the implementation.</textarea>
+</div>
+</section>
+<!-- Metrics Section (Bento-style grid) -->
+<section class="grid grid-cols-2 gap-4">
+<div class="bg-surface-container-low p-4 rounded-xl border border-outline-variant/50">
+<label class="block text-sm font-semibold text-on-surface mb-2 flex items-center gap-1.5" for="crit-weight">
+<span class="material-symbols-outlined text-sm text-primary" data-icon="scale">scale</span>
+                        Weight (%)
+                    </label>
+<div class="relative">
+<input class="w-full bg-surface-container-lowest border border-outline-variant rounded-lg pl-4 pr-8 py-2 text-on-surface font-label text-lg focus:outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/20 transition-all" id="crit-weight" type="number" value="30"/>
+<span class="absolute right-3 top-1/2 -translate-y-1/2 text-on-surface-variant font-label">%</span>
+</div>
+</div>
+<div class="bg-surface-container-low p-4 rounded-xl border border-outline-variant/50">
+<label class="block text-sm font-semibold text-on-surface mb-2 flex items-center gap-1.5" for="crit-scale">
+<span class="material-symbols-outlined text-sm text-primary" data-icon="format_list_numbered">format_list_numbered</span>
+                        Scale Type
+                    </label>
+<select class="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-3 py-2 text-on-surface text-sm focus:outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/20 transition-all appearance-none" id="crit-scale">
+<option value="0-10">Numeric 0-10</option>
+<option value="1-5">Numeric 1-5</option>
+<option value="pass-fail">Pass / Fail</option>
+<option value="custom">Custom Rubric</option>
+</select>
+<!-- Custom select arrow could go here -->
+</div>
+</section>
+<!-- Scoring Guidance (Rich Text placeholder) -->
+<section>
+<label class="block text-sm font-semibold text-on-surface mb-2 flex justify-between items-end">
+                    Scoring Guidance
+                    <span class="text-xs font-normal text-on-surface-variant">Visible to judges</span>
+</label>
+<div class="border border-outline-variant rounded-xl overflow-hidden flex flex-col shadow-[0px_2px_4px_rgba(15,23,42,0.05)]">
+<!-- Toolbar dummy -->
+<div class="bg-surface-container flex items-center gap-1 p-2 border-b border-outline-variant">
+<button class="p-1.5 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface rounded transition-colors" title="Bold"><span class="material-symbols-outlined text-sm" data-icon="format_bold">format_bold</span></button>
+<button class="p-1.5 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface rounded transition-colors" title="Italic"><span class="material-symbols-outlined text-sm" data-icon="format_italic">format_italic</span></button>
+<div class="w-px h-4 bg-outline-variant mx-1"></div>
+<button class="p-1.5 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface rounded transition-colors" title="Bulleted List"><span class="material-symbols-outlined text-sm" data-icon="format_list_bulleted">format_list_bulleted</span></button>
+</div>
+<!-- Editor area -->
+<div class="bg-surface-container-lowest p-4 min-h-[120px] text-sm text-on-surface focus-within:bg-white transition-colors" contenteditable="true">
+<ul class="list-disc pl-5 space-y-1">
+<li><strong>8-10:</strong> Exceptional use of modern frameworks, clean architecture, minimal technical debt.</li>
+<li><strong>5-7:</strong> Functional code, standard architecture, some messy areas but generally solid.</li>
+<li><strong>0-4:</strong> Spaghetti code, severe performance issues, or heavily reliant on pre-built templates without modification.</li>
+</ul>
+</div>
+</div>
+</section>
+<!-- Applies to Rounds -->
+<section class="bg-surface p-5 rounded-xl border border-outline-variant">
+<label class="block text-sm font-semibold text-on-surface mb-3 flex items-center gap-2">
+<span class="material-symbols-outlined text-sm text-secondary" data-icon="account_tree">account_tree</span>
+                    Applies to Rounds
+                </label>
+<div class="space-y-3">
+<label class="flex items-center gap-3 cursor-pointer group">
+<div class="relative flex items-center">
+<input checked="" class="peer sr-only" type="checkbox"/>
+<div class="w-5 h-5 border-2 border-outline rounded bg-surface-container-lowest peer-checked:bg-secondary peer-checked:border-secondary transition-all flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-[14px] opacity-0 peer-checked:opacity-100" data-icon="check">check</span>
+</div>
+</div>
+<span class="text-sm text-on-surface group-hover:text-primary transition-colors">Prelims</span>
+</label>
+<label class="flex items-center gap-3 cursor-pointer group">
+<div class="relative flex items-center">
+<input checked="" class="peer sr-only" type="checkbox"/>
+<div class="w-5 h-5 border-2 border-outline rounded bg-surface-container-lowest peer-checked:bg-secondary peer-checked:border-secondary transition-all flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-[14px] opacity-0 peer-checked:opacity-100" data-icon="check">check</span>
+</div>
+</div>
+<span class="text-sm text-on-surface group-hover:text-primary transition-colors">Qualifier</span>
+</label>
+<label class="flex items-center gap-3 cursor-pointer group">
+<div class="relative flex items-center">
+<input class="peer sr-only" type="checkbox"/>
+<div class="w-5 h-5 border-2 border-outline rounded bg-surface-container-lowest peer-checked:bg-secondary peer-checked:border-secondary transition-all flex items-center justify-center">
+<span class="material-symbols-outlined text-white text-[14px] opacity-0 peer-checked:opacity-100" data-icon="check">check</span>
+</div>
+</div>
+<span class="text-sm text-on-surface group-hover:text-primary transition-colors">Finals</span>
+</label>
+</div>
+</section>
+</div>
+<!-- Panel Footer / Actions -->
+<footer class="p-6 border-t border-outline-variant bg-surface-container-lowest flex justify-end gap-3 mt-auto">
+<button class="px-5 py-2.5 rounded-lg text-sm font-semibold text-on-surface-variant hover:bg-surface-container-low transition-colors border border-transparent">
+                Cancel
+            </button>
+<button class="px-5 py-2.5 rounded-lg text-sm font-semibold bg-primary text-on-primary hover:bg-on-primary-fixed-variant transition-colors shadow-[0px_2px_4px_rgba(15,23,42,0.05)]">
+                Save Criterion
+            </button>
+</footer>
+</aside>
+</body></html>

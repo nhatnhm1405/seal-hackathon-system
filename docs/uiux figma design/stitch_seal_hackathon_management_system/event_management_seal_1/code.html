@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Event Management - Academic Hackathon Portal</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800;900&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-tertiary-fixed-variant": "#773205",
+                    "on-primary": "#ffffff",
+                    "primary": "#00236f",
+                    "on-primary-fixed-variant": "#264191",
+                    "error": "#ba1a1a",
+                    "surface-container-lowest": "#ffffff",
+                    "on-tertiary-container": "#f39461",
+                    "on-surface-variant": "#444651",
+                    "surface-container": "#eeedf4",
+                    "on-secondary": "#ffffff",
+                    "on-primary-fixed": "#00164e",
+                    "on-secondary-fixed-variant": "#004e5c",
+                    "surface": "#faf8ff",
+                    "tertiary-fixed-dim": "#ffb691",
+                    "secondary-container": "#57dffe",
+                    "on-primary-container": "#90a8ff",
+                    "tertiary-container": "#6e2c00",
+                    "on-secondary-fixed": "#001f26",
+                    "outline-variant": "#c5c5d3",
+                    "surface-container-high": "#e9e7ef",
+                    "on-background": "#1a1b21",
+                    "on-error": "#ffffff",
+                    "surface-container-low": "#f4f3fa",
+                    "tertiary": "#4b1c00",
+                    "inverse-surface": "#2f3036",
+                    "secondary": "#00687a",
+                    "surface-dim": "#dad9e1",
+                    "surface-container-highest": "#e3e1e9",
+                    "secondary-fixed": "#acedff",
+                    "error-container": "#ffdad6",
+                    "primary-container": "#1e3a8a",
+                    "on-tertiary-fixed": "#341100",
+                    "tertiary-fixed": "#ffdbcb",
+                    "surface-bright": "#faf8ff",
+                    "inverse-primary": "#b6c4ff",
+                    "primary-fixed-dim": "#b6c4ff",
+                    "primary-fixed": "#dce1ff",
+                    "on-surface": "#1a1b21",
+                    "inverse-on-surface": "#f1f0f7",
+                    "surface-variant": "#e3e1e9",
+                    "surface-tint": "#4059aa",
+                    "outline": "#757682",
+                    "background": "#faf8ff",
+                    "on-secondary-container": "#006172",
+                    "on-tertiary": "#ffffff",
+                    "secondary-fixed-dim": "#4cd7f6",
+                    "on-error-container": "#93000a"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Plus Jakarta Sans"],
+                    "display": ["Plus Jakarta Sans"],
+                    "body": ["Inter"],
+                    "label": ["JetBrains Mono"]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+      body {
+        background-color: theme('colors.surface-container-low');
+        color: theme('colors.on-surface');
+      }
+    </style>
+</head>
+<body class="font-body min-h-screen flex text-on-surface bg-surface-container-low">
+<!-- SideNavBar -->
+<nav class="h-screen w-64 fixed left-0 top-0 border-r border-outline-variant bg-surface flex flex-col p-4 gap-2 z-50">
+<div class="mb-8 px-4 flex flex-col gap-1">
+<span class="text-xl font-headline font-black text-primary">Event Admin</span>
+<span class="text-sm font-body text-on-surface-variant">University Lead</span>
+</div>
+<div class="flex flex-col gap-2 flex-grow">
+<!-- Dashboard -->
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface rounded-lg transition-colors group" href="#">
+<span class="material-symbols-outlined text-[20px] group-hover:scale-95 transition-transform duration-150">dashboard</span>
+<span class="font-label font-medium">Dashboard</span>
+</a>
+<!-- Events (Active) -->
+<a class="flex items-center gap-3 px-4 py-3 bg-primary-container text-on-primary-container font-bold rounded-lg group" href="#">
+<span class="material-symbols-outlined text-[20px] scale-95 transition-transform duration-150" style="font-variation-settings: 'FILL' 1;">event</span>
+<span class="font-label">Events</span>
+</a>
+<!-- Participants -->
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface rounded-lg transition-colors group" href="#">
+<span class="material-symbols-outlined text-[20px] group-hover:scale-95 transition-transform duration-150">groups</span>
+<span class="font-label font-medium">Participants</span>
+</a>
+<!-- Submissions -->
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface rounded-lg transition-colors group" href="#">
+<span class="material-symbols-outlined text-[20px] group-hover:scale-95 transition-transform duration-150">description</span>
+<span class="font-label font-medium">Submissions</span>
+</a>
+<!-- Judging -->
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface rounded-lg transition-colors group" href="#">
+<span class="material-symbols-outlined text-[20px] group-hover:scale-95 transition-transform duration-150">gavel</span>
+<span class="font-label font-medium">Judging</span>
+</a>
+<!-- Settings -->
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface rounded-lg transition-colors group" href="#">
+<span class="material-symbols-outlined text-[20px] group-hover:scale-95 transition-transform duration-150">settings</span>
+<span class="font-label font-medium">Settings</span>
+</a>
+</div>
+<div class="mt-auto">
+<button class="w-full bg-primary text-on-primary font-label font-medium py-3 px-4 rounded-lg flex items-center justify-center gap-2 hover:bg-on-primary-fixed-variant transition-colors">
+<span class="material-symbols-outlined text-[18px]">add</span>
+                Create New Hackathon
+            </button>
+</div>
+</nav>
+<!-- Main Content Wrapper -->
+<div class="flex-1 ml-64 flex flex-col min-h-screen">
+<!-- TopNavBar -->
+<header class="docked full-width top-0 sticky z-40 border-b border-outline-variant shadow-sm bg-surface flex justify-between items-center w-full h-16 px-6">
+<div class="flex items-center gap-8">
+<span class="text-lg font-headline font-bold text-primary">Academic Hackathon Portal</span>
+<div class="hidden md:flex gap-6 h-full items-center">
+<a class="text-on-surface-variant hover:text-primary transition-colors hover:bg-surface-container-low px-2 py-1 rounded font-label text-sm" href="#">Global View</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors hover:bg-surface-container-low px-2 py-1 rounded font-label text-sm" href="#">Analytics</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors hover:bg-surface-container-low px-2 py-1 rounded font-label text-sm" href="#">Resources</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="text-on-surface-variant hover:bg-surface-container-low p-2 rounded-full transition-all">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="text-on-surface-variant hover:bg-surface-container-low p-2 rounded-full transition-all">
+<span class="material-symbols-outlined">help</span>
+</button>
+<button class="text-on-surface-variant hover:bg-surface-container-low p-2 rounded-full transition-all">
+<span class="material-symbols-outlined">dark_mode</span>
+</button>
+<div class="w-8 h-8 rounded-full bg-surface-container-highest border border-outline-variant overflow-hidden ml-2 flex-shrink-0">
+<img alt="User Profile" data-alt="A professional headshot of a young male university administrator in a modern office setting. Bright, natural lighting highlights his features. He is wearing a crisp blue shirt, fitting the Corporate Modern aesthetic of the Academic Hackathon Portal. The background is a slightly blurred, clean architectural space, reinforcing a sense of institutional authority and prestige." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCMejckT0JIjh70lL9u2L4lV8bCWwmZZToaRQFAUkKjBgu8gThw7STNz6scggVqJzXQl0terEGFgKpZlWd0KjnBaBEoqFIh4uO8_N5QzCLAZbuqjDmvI-fn5kggact5X2X-OQ1DLF1DW4gj3z_8zZKmYZAiBz0RlbAMCRR2SD3FOX1mPyCMDMFK8gWsQrZ2mljg-9_nnL0BXEpjDl_9o-j27EvQsHxoGroY9mWsxhxxkUXc3B2o7vlzMje5uEK8hGcnoUXkn7xFHgY"/>
+</div>
+</div>
+</header>
+<!-- Canvas -->
+<main class="flex-1 p-8 max-w-[1280px] w-full mx-auto">
+<!-- Page Header -->
+<div class="flex justify-between items-end mb-8">
+<div>
+<h1 class="text-3xl font-headline font-bold text-on-surface mb-2">Event Management</h1>
+<p class="text-on-surface-variant font-body">Manage and monitor all hackathon events across seasons.</p>
+</div>
+<button class="bg-primary text-on-primary px-6 py-2.5 rounded-lg font-label font-medium flex items-center gap-2 hover:bg-on-primary-fixed-variant transition-colors shadow-[0px_2px_4px_rgba(15,23,42,0.05)]">
+<span class="material-symbols-outlined text-[20px]">add_circle</span>
+                    Create New Event
+                </button>
+</div>
+<!-- Filters Bar -->
+<div class="bg-surface border border-outline-variant rounded-xl p-4 mb-8 flex items-center gap-4 shadow-[0px_2px_4px_rgba(15,23,42,0.05)]">
+<div class="flex items-center gap-2 text-on-surface-variant mr-4">
+<span class="material-symbols-outlined text-[20px]">filter_list</span>
+<span class="font-label font-medium text-sm uppercase tracking-wider">Filters</span>
+</div>
+<div class="flex gap-4 flex-1">
+<div class="flex-1 max-w-[200px]">
+<label class="sr-only">Season</label>
+<select class="w-full bg-surface-container-lowest border border-outline-variant text-on-surface text-sm rounded-lg focus:ring-secondary-container focus:border-secondary-container block p-2.5 font-body">
+<option selected="">Season: All</option>
+<option value="spring">Spring</option>
+<option value="summer">Summer</option>
+<option value="fall">Fall</option>
+<option value="winter">Winter</option>
+</select>
+</div>
+<div class="flex-1 max-w-[200px]">
+<label class="sr-only">Year</label>
+<select class="w-full bg-surface-container-lowest border border-outline-variant text-on-surface text-sm rounded-lg focus:ring-secondary-container focus:border-secondary-container block p-2.5 font-body">
+<option>Year: All</option>
+<option selected="" value="2026">2026</option>
+<option value="2025">2025</option>
+<option value="2024">2024</option>
+</select>
+</div>
+<div class="flex-1 max-w-[200px]">
+<label class="sr-only">Status</label>
+<select class="w-full bg-surface-container-lowest border border-outline-variant text-on-surface text-sm rounded-lg focus:ring-secondary-container focus:border-secondary-container block p-2.5 font-body">
+<option selected="">Status: All</option>
+<option value="open">Open</option>
+<option value="ongoing">Ongoing</option>
+<option value="closed">Closed</option>
+</select>
+</div>
+</div>
+<div class="ml-auto flex items-center gap-2">
+<div class="relative">
+<div class="absolute inset-y-0 start-0 flex items-center ps-3 pointer-events-none">
+<span class="material-symbols-outlined text-on-surface-variant text-[18px]">search</span>
+</div>
+<input class="bg-surface-container-lowest border border-outline-variant text-on-surface text-sm rounded-lg focus:ring-secondary-container focus:border-secondary-container block w-full ps-10 p-2.5 font-body placeholder-on-surface-variant" placeholder="Search events..." type="text"/>
+</div>
+</div>
+</div>
+<!-- Data Table Container -->
+<div class="bg-surface border border-outline-variant rounded-xl shadow-[0px_2px_4px_rgba(15,23,42,0.05)] overflow-hidden">
+<table class="w-full text-left font-body">
+<thead class="bg-surface-container-low text-on-surface-variant font-label text-xs uppercase border-b border-outline-variant">
+<tr>
+<th class="px-6 py-4 font-medium tracking-wider" scope="col">Event Name</th>
+<th class="px-6 py-4 font-medium tracking-wider" scope="col">Season</th>
+<th class="px-6 py-4 font-medium tracking-wider" scope="col">Year</th>
+<th class="px-6 py-4 font-medium tracking-wider" scope="col">Date Range</th>
+<th class="px-6 py-4 font-medium tracking-wider text-right" scope="col">Tracks</th>
+<th class="px-6 py-4 font-medium tracking-wider text-right" scope="col">Teams</th>
+<th class="px-6 py-4 font-medium tracking-wider" scope="col">Status</th>
+<th class="px-6 py-4 font-medium tracking-wider text-right" scope="col">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant">
+<!-- Row 1: SEAL Spring 2026 -->
+<tr class="hover:bg-surface-container-lowest transition-colors group">
+<td class="px-6 py-4">
+<div class="font-headline font-semibold text-on-surface">SEAL Spring 2026</div>
+<div class="text-xs text-on-surface-variant mt-1">Software Engineering &amp; Applied Logic</div>
+</td>
+<td class="px-6 py-4">
+<span class="bg-secondary-fixed text-on-secondary-fixed px-2.5 py-1 rounded-full text-xs font-label font-medium border border-secondary-fixed-dim">Spring</span>
+</td>
+<td class="px-6 py-4 font-label text-sm">2026</td>
+<td class="px-6 py-4 text-sm">Apr 10 - Apr 12</td>
+<td class="px-6 py-4 text-sm text-right font-label">4</td>
+<td class="px-6 py-4 text-sm text-right font-label">42</td>
+<td class="px-6 py-4">
+<span class="bg-secondary-container text-on-secondary-container px-2.5 py-1 rounded-full text-xs font-label font-medium border border-[#57dffe]/30 inline-flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+                                    Ongoing
+                                </span>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-on-surface-variant hover:text-primary p-1 rounded hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined text-[20px]">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Row 2: DATA Fall 2025 -->
+<tr class="hover:bg-surface-container-lowest transition-colors group">
+<td class="px-6 py-4">
+<div class="font-headline font-semibold text-on-surface">DATA Fall 2025</div>
+<div class="text-xs text-on-surface-variant mt-1">Data Analytics &amp; Tech Applications</div>
+</td>
+<td class="px-6 py-4">
+<span class="bg-tertiary-fixed text-on-tertiary-fixed px-2.5 py-1 rounded-full text-xs font-label font-medium border border-tertiary-fixed-dim">Fall</span>
+</td>
+<td class="px-6 py-4 font-label text-sm">2025</td>
+<td class="px-6 py-4 text-sm">Nov 05 - Nov 07</td>
+<td class="px-6 py-4 text-sm text-right font-label">3</td>
+<td class="px-6 py-4 text-sm text-right font-label">68</td>
+<td class="px-6 py-4">
+<span class="bg-surface-container-highest text-on-surface-variant px-2.5 py-1 rounded-full text-xs font-label font-medium border border-outline-variant inline-flex items-center gap-1">
+                                    Closed
+                                </span>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-on-surface-variant hover:text-primary p-1 rounded hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined text-[20px]">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Row 3: IGNITE Summer 2026 -->
+<tr class="hover:bg-surface-container-lowest transition-colors group">
+<td class="px-6 py-4">
+<div class="font-headline font-semibold text-on-surface">IGNITE Summer 2026</div>
+<div class="text-xs text-on-surface-variant mt-1">Innovation &amp; Global Network Initiative</div>
+</td>
+<td class="px-6 py-4">
+<span class="bg-error-container text-on-error-container px-2.5 py-1 rounded-full text-xs font-label font-medium border border-[#ffdad6]">Summer</span>
+</td>
+<td class="px-6 py-4 font-label text-sm">2026</td>
+<td class="px-6 py-4 text-sm">Jul 15 - Jul 20</td>
+<td class="px-6 py-4 text-sm text-right font-label">5</td>
+<td class="px-6 py-4 text-sm text-right font-label">12</td>
+<td class="px-6 py-4">
+<span class="bg-primary-fixed text-on-primary-fixed px-2.5 py-1 rounded-full text-xs font-label font-medium border border-primary-fixed-dim inline-flex items-center gap-1">
+<span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+                                    Open
+                                </span>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-on-surface-variant hover:text-primary p-1 rounded hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined text-[20px]">more_vert</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+<!-- Pagination -->
+<div class="px-6 py-4 border-t border-outline-variant bg-surface flex items-center justify-between">
+<span class="text-sm text-on-surface-variant font-body">Showing <span class="font-medium text-on-surface">1</span> to <span class="font-medium text-on-surface">3</span> of <span class="font-medium text-on-surface">12</span> events</span>
+<div class="flex gap-2">
+<button class="px-3 py-1 border border-outline-variant rounded bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container-low disabled:opacity-50 text-sm font-label" disabled="">Prev</button>
+<button class="px-3 py-1 border border-outline-variant rounded bg-surface-container-lowest text-on-surface-variant hover:bg-surface-container-low text-sm font-label">Next</button>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

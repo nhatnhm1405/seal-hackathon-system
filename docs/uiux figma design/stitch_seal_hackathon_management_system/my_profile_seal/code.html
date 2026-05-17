@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>User Profile - SEAL Hackathon Management</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;700;800;900&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-error": "#ffffff",
+                        "surface-tint": "#4059aa",
+                        "error-container": "#ffdad6",
+                        "background": "#faf8ff",
+                        "surface-container-low": "#f4f3fa",
+                        "inverse-primary": "#b6c4ff",
+                        "surface-container-highest": "#e3e1e9",
+                        "on-tertiary-fixed": "#341100",
+                        "secondary": "#00687a",
+                        "secondary-container": "#57dffe",
+                        "inverse-surface": "#2f3036",
+                        "primary-container": "#1e3a8a",
+                        "on-background": "#1a1b21",
+                        "secondary-fixed-dim": "#4cd7f6",
+                        "surface-dim": "#dad9e1",
+                        "primary-fixed": "#dce1ff",
+                        "tertiary-container": "#6e2c00",
+                        "on-tertiary": "#ffffff",
+                        "outline": "#757682",
+                        "surface-variant": "#e3e1e9",
+                        "inverse-on-surface": "#f1f0f7",
+                        "primary-fixed-dim": "#b6c4ff",
+                        "on-secondary-container": "#006172",
+                        "error": "#ba1a1a",
+                        "surface-container-high": "#e9e7ef",
+                        "tertiary": "#4b1c00",
+                        "surface-container": "#eeedf4",
+                        "secondary-fixed": "#acedff",
+                        "surface-container-lowest": "#ffffff",
+                        "on-primary-fixed": "#00164e",
+                        "tertiary-fixed": "#ffdbcb",
+                        "on-primary-container": "#90a8ff",
+                        "on-primary": "#ffffff",
+                        "on-surface-variant": "#444651",
+                        "surface": "#faf8ff",
+                        "on-primary-fixed-variant": "#264191",
+                        "primary": "#00236f",
+                        "on-error-container": "#93000a",
+                        "on-secondary-fixed": "#001f26",
+                        "on-surface": "#1a1b21",
+                        "on-tertiary-container": "#f39461",
+                        "on-secondary-fixed-variant": "#004e5c",
+                        "on-secondary": "#ffffff",
+                        "outline-variant": "#c5c5d3",
+                        "on-tertiary-fixed-variant": "#773205",
+                        "surface-bright": "#faf8ff",
+                        "tertiary-fixed-dim": "#ffb691"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {},
+                    "fontFamily": {
+                        "headline": ["Plus Jakarta Sans"],
+                        "display": ["Plus Jakarta Sans"],
+                        "body": ["Inter"],
+                        "label": ["JetBrains Mono"]
+                    },
+                    "fontSize": {}
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-background text-on-background font-body antialiased selection:bg-primary-container selection:text-on-primary-container min-h-screen flex flex-col">
+<!-- TopNavBar -->
+<nav class="bg-surface dark:bg-surface-dim shadow-sm border-b border-outline-variant dark:border-outline docked full-width top-0 z-50">
+<div class="flex justify-between items-center w-full px-6 py-4 max-w-7xl mx-auto">
+<div class="flex items-center gap-8">
+<a class="text-2xl font-headline font-black tracking-tighter text-primary dark:text-primary-fixed-dim" href="#">SEAL</a>
+<div class="hidden md:flex gap-6 font-headline text-body-md font-medium tracking-tight">
+<a class="text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed transition-colors hover:bg-surface-container-low dark:hover:bg-surface-container-highest transition-all duration-200 active:scale-95 transition-transform duration-200" href="#">Events</a>
+<a class="text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed transition-colors hover:bg-surface-container-low dark:hover:bg-surface-container-highest transition-all duration-200 active:scale-95 transition-transform duration-200" href="#">Leaderboard</a>
+<a class="text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed transition-colors hover:bg-surface-container-low dark:hover:bg-surface-container-highest transition-all duration-200 active:scale-95 transition-transform duration-200" href="#">Schedule</a>
+<a class="text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed transition-colors hover:bg-surface-container-low dark:hover:bg-surface-container-highest transition-all duration-200 active:scale-95 transition-transform duration-200" href="#">Rules</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="font-headline font-bold text-sm bg-primary text-on-primary px-4 py-2 rounded-lg hover:bg-primary-container transition-colors shadow-sm">Register</button>
+<button class="font-headline font-bold text-sm text-primary border border-primary px-4 py-2 rounded-lg hover:bg-surface-container-low transition-colors">Login</button>
+<img alt="User Profile Avatar" class="w-10 h-10 rounded-full border-2 border-outline-variant object-cover" data-alt="A professional headshot of a young male software engineering student looking confidently at the camera. He has short dark hair and is wearing a neat, dark navy collared shirt. The background is a soft, blurred modern office or library setting with bright, natural lighting. The image evokes an academic yet modern and professional mood, fitting for a prestigious university hackathon profile avatar." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDjUI1kJq-JKL_KUvYNo9ZN_tdGYkmT8DxIC5-eD_gOFnnG3k08oDDf2rkVCR4I4JeZFTT4t8vZb1di8k0xQfV_z3YDJKrMCSWUE7iuWpPDUpICWkr9xTe9sRCw_VcT4Zhoa2Wcpdsypvkt83adzAf5ULuWhb2w2CPhH_y1t17ZpwQI1H599xaVgCbVpnyNjCTk55ALgbx3gVP2Y5zUb82O5mzvw1-r7TiqO0Sk50qaimWJrmX_30Bb3tSsFWmCJ0r-iYYa4a4G96k"/>
+</div>
+</div>
+</nav>
+<!-- Main Content Canvas -->
+<main class="flex-grow w-full max-w-7xl mx-auto px-4 md:px-6 py-8 md:py-12 grid grid-cols-1 md:grid-cols-12 gap-8">
+<!-- Sidebar Navigation -->
+<aside class="md:col-span-3">
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-[0px_2px_4px_rgba(15,23,42,0.05)] overflow-hidden sticky top-24">
+<div class="p-6 border-b border-outline-variant text-center">
+<div class="relative inline-block mb-4">
+<img alt="Profile Picture" class="w-24 h-24 rounded-full border-4 border-surface shadow-sm object-cover mx-auto" data-alt="A professional headshot of a young male software engineering student looking confidently at the camera. He has short dark hair and is wearing a neat, dark navy collared shirt. The background is a soft, blurred modern office or library setting with bright, natural lighting. The image evokes an academic yet modern and professional mood, fitting for a prestigious university hackathon profile avatar." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAAJeAn1G5t1jKAaPq2-KImfgb7tqexlytVtMLKOmKCDMXAbaomVLAMqzABSRXg39_8lEY3hZQxUBaGSJOjw8pnS_xIYfNtr17WSB1SvX0e8keb1QQhEmPct_bBoBTG31a8m5fu414kTILzlml1g3d82t1lHAii3vREW2r2fmSf9xnpKgI5BHQv0TvijXGKIKQUf1xv5b3n3ShpW1d7bv_9KHEVvF157_ZHtAMuPDUzQ8lwKXg16lLY9uI_OjPs5Nr0-Yu5e6FR6ao"/>
+<button aria-label="Edit Profile Picture" class="absolute bottom-0 right-0 bg-primary text-on-primary rounded-full p-1.5 shadow-md hover:bg-primary-container transition-colors">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+</button>
+</div>
+<h2 class="font-headline font-bold text-lg text-on-surface mb-1">Nguyen Van A</h2>
+<p class="font-body text-sm text-on-surface-variant mb-3">nguyenvana@fpt.edu.vn</p>
+<div class="flex flex-wrap justify-center gap-2">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-label bg-secondary-container text-on-secondary-container">Team Leader</span>
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-label bg-surface-variant text-on-surface-variant">FPT Student</span>
+</div>
+</div>
+<nav class="flex flex-col py-2 font-headline font-medium text-sm">
+<a class="flex items-center gap-3 px-6 py-3 bg-primary-container/10 text-primary border-r-4 border-primary" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">person</span>
+                        Profile Info
+                    </a>
+<a class="flex items-center gap-3 px-6 py-3 text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors" href="#">
+<span class="material-symbols-outlined">lock</span>
+                        Change Password
+                    </a>
+<a class="flex items-center gap-3 px-6 py-3 text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors" href="#">
+<span class="material-symbols-outlined">notifications</span>
+                        Notification Preferences
+                    </a>
+<a class="flex items-center gap-3 px-6 py-3 text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors" href="#">
+<span class="material-symbols-outlined">history</span>
+                        Activity History
+                    </a>
+</nav>
+</div>
+</aside>
+<!-- Main Profile Form Area -->
+<section class="md:col-span-9">
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-[0px_2px_4px_rgba(15,23,42,0.05)] p-6 md:p-8">
+<header class="mb-8 border-b border-outline-variant pb-6 flex justify-between items-end">
+<div>
+<h1 class="font-headline font-extrabold text-2xl text-on-surface tracking-tight mb-2">Profile Information</h1>
+<p class="font-body text-on-surface-variant text-sm">Manage your personal details and academic affiliation for SEAL Hackathons.</p>
+</div>
+<span class="material-symbols-outlined text-4xl text-outline-variant opacity-50">badge</span>
+</header>
+<form>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+<!-- Full Name -->
+<div class="col-span-1 md:col-span-2">
+<label class="block font-headline font-semibold text-sm text-on-surface mb-2" for="fullName">Full Name</label>
+<input class="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-4 py-2.5 font-body text-on-surface focus:outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/20 transition-all" id="fullName" name="fullName" type="text" value="Nguyen Van A"/>
+</div>
+<!-- Email Address -->
+<div class="col-span-1">
+<label class="block font-headline font-semibold text-sm text-on-surface mb-2" for="email">Email Address</label>
+<input class="w-full bg-surface-container-low border border-outline-variant border-dashed rounded-lg px-4 py-2.5 font-body text-on-surface-variant cursor-not-allowed" disabled="" id="email" name="email" type="email" value="nguyenvana@fpt.edu.vn"/>
+<p class="mt-1.5 text-xs font-body text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">info</span>
+                                Contact support to change your email.
+                            </p>
+</div>
+<!-- Phone Number -->
+<div class="col-span-1">
+<label class="block font-headline font-semibold text-sm text-on-surface mb-2" for="phone">Phone Number</label>
+<input class="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-4 py-2.5 font-body text-on-surface focus:outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/20 transition-all" id="phone" name="phone" type="tel" value="+84 987 654 321"/>
+</div>
+<!-- Divider -->
+<div class="col-span-1 md:col-span-2 py-4">
+<div class="h-px w-full bg-outline-variant/50"></div>
+</div>
+<!-- Academic Section Header -->
+<div class="col-span-1 md:col-span-2">
+<h3 class="font-headline font-bold text-lg text-on-surface mb-1">Academic Details</h3>
+<p class="font-body text-sm text-on-surface-variant">Your university affiliation is verified for SEAL participation.</p>
+</div>
+<!-- University -->
+<div class="col-span-1">
+<label class="block font-headline font-semibold text-sm text-on-surface mb-2" for="university">University / Institution</label>
+<div class="relative">
+<input class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-4 py-2.5 font-body text-on-surface focus:outline-none cursor-default pr-10" id="university" name="university" readonly="" type="text" value="FPT University HCMC"/>
+<span class="material-symbols-outlined absolute right-3 top-2.5 text-secondary" style="font-variation-settings: 'FILL' 1;">verified</span>
+</div>
+</div>
+<!-- Student ID -->
+<div class="col-span-1">
+<label class="block font-headline font-semibold text-sm text-on-surface mb-2" for="studentId">Student ID</label>
+<input class="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-4 py-2.5 font-label text-sm text-on-surface focus:outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/20 transition-all" id="studentId" name="studentId" type="text" value="SE123456"/>
+</div>
+<!-- Classification Badge -->
+<div class="col-span-1 md:col-span-2">
+<label class="block font-headline font-semibold text-sm text-on-surface mb-2">Participant Classification</label>
+<div class="flex items-center gap-3 p-3 border border-outline-variant rounded-lg bg-surface-container-lowest">
+<div class="w-10 h-10 rounded-full bg-secondary-container/20 flex items-center justify-center text-on-secondary-container">
+<span class="material-symbols-outlined">school</span>
+</div>
+<div>
+<p class="font-headline font-bold text-sm text-on-surface">FPT Student</p>
+<p class="font-body text-xs text-on-surface-variant">Eligible for all internal SEAL hackathon tracks.</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Action Buttons -->
+<div class="mt-10 pt-6 border-t border-outline-variant flex justify-end gap-4">
+<button class="font-headline font-bold text-sm px-6 py-2.5 rounded-lg border border-outline text-on-surface-variant hover:bg-surface-container-low transition-colors" type="button">
+                            Cancel
+                        </button>
+<button class="font-headline font-bold text-sm px-6 py-2.5 rounded-lg bg-primary text-on-primary hover:bg-primary-container transition-colors shadow-sm flex items-center gap-2" type="submit">
+<span class="material-symbols-outlined text-[18px]">save</span>
+                            Save Changes
+                        </button>
+</div>
+</form>
+</div>
+</section>
+</main>
+<!-- Footer -->
+<footer class="bg-surface-container-lowest dark:bg-surface-container-low border-t border-outline-variant dark:border-outline full-width bottom-0 mt-auto">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8 w-full px-6 py-12 max-w-7xl mx-auto">
+<div class="flex flex-col gap-4">
+<span class="font-headline font-extrabold text-lg text-primary dark:text-primary-fixed">SEAL</span>
+<p class="font-body text-sm leading-relaxed text-secondary dark:text-secondary-fixed">© 2024 SEAL Software Engineering Hackathon Management. FPT University HCMC.</p>
+</div>
+<div class="flex flex-col sm:flex-row gap-6 md:justify-end font-body text-sm leading-relaxed">
+<a class="text-on-surface-variant dark:text-surface-variant hover:text-secondary dark:hover:text-secondary-fixed underline transition-colors transition-opacity hover:opacity-80" href="#">University Home</a>
+<a class="text-on-surface-variant dark:text-surface-variant hover:text-secondary dark:hover:text-secondary-fixed underline transition-colors transition-opacity hover:opacity-80" href="#">Terms of Service</a>
+<a class="text-on-surface-variant dark:text-surface-variant hover:text-secondary dark:hover:text-secondary-fixed underline transition-colors transition-opacity hover:opacity-80" href="#">Privacy Policy</a>
+<a class="text-on-surface-variant dark:text-surface-variant hover:text-secondary dark:hover:text-secondary-fixed underline transition-colors transition-opacity hover:opacity-80" href="#">Technical Support</a>
+</div>
+</div>
+</footer>
+</body></html>

@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SEAL Hackathons - Event List</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&amp;family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-error": "#ffffff",
+                        "surface-tint": "#4059aa",
+                        "error-container": "#ffdad6",
+                        "background": "#faf8ff",
+                        "surface-container-low": "#f4f3fa",
+                        "inverse-primary": "#b6c4ff",
+                        "surface-container-highest": "#e3e1e9",
+                        "on-tertiary-fixed": "#341100",
+                        "secondary": "#00687a",
+                        "secondary-container": "#57dffe",
+                        "inverse-surface": "#2f3036",
+                        "primary-container": "#1e3a8a",
+                        "on-background": "#1a1b21",
+                        "secondary-fixed-dim": "#4cd7f6",
+                        "surface-dim": "#dad9e1",
+                        "primary-fixed": "#dce1ff",
+                        "tertiary-container": "#6e2c00",
+                        "on-tertiary": "#ffffff",
+                        "outline": "#757682",
+                        "surface-variant": "#e3e1e9",
+                        "inverse-on-surface": "#f1f0f7",
+                        "primary-fixed-dim": "#b6c4ff",
+                        "on-secondary-container": "#006172",
+                        "error": "#ba1a1a",
+                        "surface-container-high": "#e9e7ef",
+                        "tertiary": "#4b1c00",
+                        "surface-container": "#eeedf4",
+                        "secondary-fixed": "#acedff",
+                        "surface-container-lowest": "#ffffff",
+                        "on-primary-fixed": "#00164e",
+                        "tertiary-fixed": "#ffdbcb",
+                        "on-primary-container": "#90a8ff",
+                        "on-primary": "#ffffff",
+                        "on-surface-variant": "#444651",
+                        "surface": "#faf8ff",
+                        "on-primary-fixed-variant": "#264191",
+                        "primary": "#00236f",
+                        "on-error-container": "#93000a",
+                        "on-secondary-fixed": "#001f26",
+                        "on-surface": "#1a1b21",
+                        "on-tertiary-container": "#f39461",
+                        "on-secondary-fixed-variant": "#004e5c",
+                        "on-secondary": "#ffffff",
+                        "outline-variant": "#c5c5d3",
+                        "on-tertiary-fixed-variant": "#773205",
+                        "surface-bright": "#faf8ff",
+                        "tertiary-fixed-dim": "#ffb691"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Plus Jakarta Sans"],
+                        "display": ["Plus Jakarta Sans"],
+                        "body": ["Inter"],
+                        "label": ["JetBrains Mono"]
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-surface text-on-surface font-body antialiased selection:bg-primary-container selection:text-on-primary-container min-h-screen flex flex-col">
+<!-- TopNavBar -->
+<header class="bg-surface dark:bg-surface-dim font-headline text-body-md font-medium tracking-tight border-b border-outline-variant dark:border-outline shadow-sm full-width top-0 z-50 sticky transition-all">
+<div class="flex justify-between items-center w-full px-6 py-4 max-w-7xl mx-auto">
+<!-- Brand -->
+<div class="flex items-center gap-2">
+<span class="text-2xl font-headline font-black tracking-tighter text-primary dark:text-primary-fixed-dim">SEAL</span>
+</div>
+<!-- Navigation Links -->
+<nav class="hidden md:flex gap-8">
+<a class="text-primary dark:text-primary-fixed font-bold border-b-2 border-primary dark:border-primary-fixed pb-1 active:scale-95 transition-transform duration-200 hover:bg-surface-container-low dark:hover:bg-surface-container-highest transition-all duration-200" href="#">Events</a>
+<a class="text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed transition-colors active:scale-95 transition-transform duration-200 hover:bg-surface-container-low dark:hover:bg-surface-container-highest transition-all duration-200" href="#">Leaderboard</a>
+<a class="text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed transition-colors active:scale-95 transition-transform duration-200 hover:bg-surface-container-low dark:hover:bg-surface-container-highest transition-all duration-200" href="#">Schedule</a>
+<a class="text-on-surface-variant dark:text-surface-variant hover:text-primary dark:hover:text-primary-fixed transition-colors active:scale-95 transition-transform duration-200 hover:bg-surface-container-low dark:hover:bg-surface-container-highest transition-all duration-200" href="#">Rules</a>
+</nav>
+<!-- Actions -->
+<div class="flex items-center gap-4">
+<a class="hidden md:inline-flex items-center justify-center text-sm font-semibold text-primary dark:text-primary-fixed bg-transparent border border-primary dark:border-primary-fixed px-4 py-2 rounded hover:bg-surface-container-low dark:hover:bg-surface-container-highest transition-colors" href="#">Login</a>
+<a class="inline-flex items-center justify-center text-sm font-semibold text-on-primary dark:text-on-primary-fixed bg-primary dark:bg-primary-fixed px-4 py-2 rounded shadow-sm hover:bg-primary/90 dark:hover:bg-primary-fixed/90 transition-colors" href="#">Register</a>
+<!-- Search Icon (Search Bar on Right) -->
+<button aria-label="Search" class="text-on-surface-variant hover:text-primary p-2 rounded-full hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined">search</span>
+</button>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-grow w-full max-w-7xl mx-auto px-4 md:px-6 py-12 lg:py-20 flex flex-col gap-12">
+<!-- Page Header & Filter Section -->
+<section class="flex flex-col gap-8">
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-6">
+<div class="max-w-2xl">
+<h1 class="font-display text-4xl md:text-5xl font-extrabold text-on-surface tracking-tight mb-4">Discover Hackathons</h1>
+<p class="text-on-surface-variant text-lg leading-relaxed">Browse upcoming, ongoing, and past SEAL engineering challenges. Filter by season, year, or current status to find the right arena for your skills.</p>
+</div>
+<!-- Filters -->
+<div class="flex flex-wrap items-center gap-3 bg-surface-container-low p-2 rounded-lg border border-outline-variant/50">
+<!-- Season Dropdown -->
+<div class="relative">
+<select class="appearance-none bg-surface-container-lowest border border-outline-variant text-on-surface text-sm font-medium rounded-DEFAULT px-4 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-secondary/20 focus:border-secondary transition-colors cursor-pointer w-full min-w-[120px]">
+<option value="">All Seasons</option>
+<option value="spring">Spring</option>
+<option value="summer">Summer</option>
+<option value="fall">Fall</option>
+</select>
+<div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-on-surface-variant">
+<span class="material-symbols-outlined text-[20px]">expand_more</span>
+</div>
+</div>
+<!-- Year Dropdown -->
+<div class="relative">
+<select class="appearance-none bg-surface-container-lowest border border-outline-variant text-on-surface text-sm font-medium rounded-DEFAULT px-4 py-2 pr-10 focus:outline-none focus:ring-2 focus:ring-secondary/20 focus:border-secondary transition-colors cursor-pointer w-full min-w-[100px]">
+<option value="">All Years</option>
+<option value="2026">2026</option>
+<option value="2025">2025</option>
+<option value="2024">2024</option>
+</select>
+<div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-on-surface-variant">
+<span class="material-symbols-outlined text-[20px]">expand_more</span>
+</div>
+</div>
+<!-- Status Filter Group -->
+<div class="flex bg-surface-container-lowest rounded-DEFAULT border border-outline-variant overflow-hidden">
+<button class="px-4 py-2 text-sm font-semibold bg-surface-tint/10 text-primary border-r border-outline-variant/50 hover:bg-surface-tint/20 transition-colors">Open</button>
+<button class="px-4 py-2 text-sm font-medium text-on-surface-variant border-r border-outline-variant/50 hover:bg-surface-container hover:text-on-surface transition-colors">Ongoing</button>
+<button class="px-4 py-2 text-sm font-medium text-on-surface-variant hover:bg-surface-container hover:text-on-surface transition-colors">Closed</button>
+</div>
+</div>
+</div>
+</section>
+<!-- Event Grid -->
+<section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+<!-- Event Card 1 (Open - High Priority) -->
+<article class="group bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm hover:shadow-[0_10px_15px_-3px_rgba(15,23,42,0.1)] transition-all duration-300 overflow-hidden flex flex-col h-full">
+<!-- Cover Image Area -->
+<div class="relative h-48 w-full bg-surface-container overflow-hidden">
+<img alt="Event Cover" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="A brightly lit, modern university tech lab filled with students collaborating on laptops. The setting is academic and professional, with clean white desks and deep navy architectural accents. The mood is focused and energetic, capturing the essence of an engineering hackathon in a corporate-modern style." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAPQKx6FXxpgm6-b05VASgcK9BjtZr-7iWlBFqfCSHWgXNjIZfvqWUZ39y7wANBvAv5cKsKUyV-ClPdDLasFJNqyCwGBA2JU5qW-CFRloVcBYn9Bl9Gqm8jFwe4hZ8tfd-MGCzcEphOacmWTOFFn2koKFKcc39v1OQDP0-E9Y4w9CcQT_gw5sF8A-kzKFDXS1mQHT_WdS4ElnuAghUnGySgb0VaNFwdVHUnOMTcZWU_2QsIYAVfYp7_a72ryAtMXRs7b9hYQKosze8"/>
+<!-- Top Badges Overlay -->
+<div class="absolute top-4 left-4 flex gap-2">
+<span class="bg-primary/90 backdrop-blur-sm text-on-primary font-label text-xs px-2.5 py-1 rounded-full uppercase tracking-wider font-semibold border border-primary-container shadow-sm">Spring</span>
+<span class="bg-surface-container-lowest/90 backdrop-blur-sm text-on-surface font-label text-xs px-2.5 py-1 rounded-full uppercase tracking-wider font-semibold border border-outline-variant shadow-sm">2026</span>
+</div>
+<div class="absolute top-4 right-4">
+<span class="bg-secondary-container text-on-secondary-container font-headline text-xs px-3 py-1.5 rounded-full font-bold shadow-sm flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]" data-weight="fill">radio_button_checked</span> Open
+                         </span>
+</div>
+</div>
+<!-- Card Content -->
+<div class="p-6 flex flex-col flex-grow">
+<h3 class="font-headline text-xl font-bold text-on-surface mb-2 group-hover:text-primary transition-colors">SEAL Spring 2026</h3>
+<!-- Date & Countdown -->
+<div class="flex flex-col gap-3 mb-6">
+<div class="flex items-center text-sm text-on-surface-variant font-medium gap-2">
+<span class="material-symbols-outlined text-[18px] text-outline">calendar_today</span>
+                            March 15 - March 17, 2026
+                        </div>
+<!-- Urgent Countdown -->
+<div class="flex items-center bg-error-container/30 border border-error-container text-on-error-container text-sm px-3 py-2 rounded-DEFAULT font-label font-medium gap-2">
+<span class="material-symbols-outlined text-[18px]">timer</span>
+                             Registration ends in 14d 08h 22m
+                        </div>
+</div>
+<!-- Meta Data Grid -->
+<div class="grid grid-cols-2 gap-4 pt-4 border-t border-outline-variant/50 mt-auto mb-6">
+<div class="flex flex-col">
+<span class="text-xs text-on-surface-variant font-label uppercase tracking-wider mb-1">Tracks</span>
+<span class="font-headline font-semibold text-on-surface text-base flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-primary">route</span> 4 Tracks
+                            </span>
+</div>
+<div class="flex flex-col">
+<span class="text-xs text-on-surface-variant font-label uppercase tracking-wider mb-1">Registered</span>
+<span class="font-headline font-semibold text-on-surface text-base flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-secondary">groups</span> 42 Teams
+                            </span>
+</div>
+</div>
+<!-- Action -->
+<button class="w-full bg-surface-container-lowest border border-outline text-on-surface font-semibold py-2.5 rounded-lg hover:border-primary hover:text-primary hover:bg-surface-container-low transition-all duration-200">
+                        View Details
+                    </button>
+</div>
+</article>
+<!-- Event Card 2 (Ongoing) -->
+<article class="group bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm hover:shadow-[0_10px_15px_-3px_rgba(15,23,42,0.1)] transition-all duration-300 overflow-hidden flex flex-col h-full opacity-90">
+<div class="relative h-48 w-full bg-surface-container overflow-hidden">
+<img alt="Event Cover" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 grayscale-[20%]" data-alt="Close up of a computer screen displaying complex code in a dark mode IDE, reflecting the technical intensity of a software engineering hackathon. The scene is illuminated by the cool glow of the monitor against a dim background, emphasizing deep navy and slate tones with crisp white text for a modern, focused aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDgsxFiDlzW-lbEC5wis1mJPMv4I580qt8RSJovWQzl0hUef6Qa02MAnuPnqUxuXuurJh1coEx3ovC1yOZ7OfzGOo176qgwq5DidclUik_O0vCtvccTL4B3R5ilRa6zvI3E8QnJs4yiRqK-3OuAfvxbIRiDvKk3hvjiYuL6ehBuJWNWifHWcbI0jZ2s4J9Uhxgjw8qlZ05JOlGIN_GmxxInLVaYhIwzxk6oqqf7LYI3f1Ts-FirNLQjoYYcg9wZbnzhjFCpv24ToOs"/>
+<div class="absolute top-4 left-4 flex gap-2">
+<span class="bg-surface-variant/90 backdrop-blur-sm text-on-surface-variant font-label text-xs px-2.5 py-1 rounded-full uppercase tracking-wider font-semibold border border-outline-variant shadow-sm">Winter</span>
+<span class="bg-surface-container-lowest/90 backdrop-blur-sm text-on-surface font-label text-xs px-2.5 py-1 rounded-full uppercase tracking-wider font-semibold border border-outline-variant shadow-sm">2025</span>
+</div>
+<div class="absolute top-4 right-4">
+<span class="bg-tertiary-fixed text-on-tertiary-fixed font-headline text-xs px-3 py-1.5 rounded-full font-bold shadow-sm flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]" data-weight="fill">play_circle</span> Ongoing
+                         </span>
+</div>
+</div>
+<div class="p-6 flex flex-col flex-grow">
+<h3 class="font-headline text-xl font-bold text-on-surface mb-2 group-hover:text-primary transition-colors">Winter Code Jam '25</h3>
+<div class="flex flex-col gap-3 mb-6">
+<div class="flex items-center text-sm text-on-surface-variant font-medium gap-2">
+<span class="material-symbols-outlined text-[18px] text-outline">calendar_today</span>
+                            Dec 01 - Dec 03, 2025
+                        </div>
+<div class="flex items-center bg-surface-container-high text-on-surface text-sm px-3 py-2 rounded-DEFAULT font-label font-medium gap-2">
+<span class="material-symbols-outlined text-[18px]">hourglass_top</span>
+                             Hacking ends in 22h 15m
+                        </div>
+</div>
+<div class="grid grid-cols-2 gap-4 pt-4 border-t border-outline-variant/50 mt-auto mb-6">
+<div class="flex flex-col">
+<span class="text-xs text-on-surface-variant font-label uppercase tracking-wider mb-1">Tracks</span>
+<span class="font-headline font-semibold text-on-surface text-base flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-primary">route</span> 2 Tracks
+                            </span>
+</div>
+<div class="flex flex-col">
+<span class="text-xs text-on-surface-variant font-label uppercase tracking-wider mb-1">Active</span>
+<span class="font-headline font-semibold text-on-surface text-base flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-secondary">groups</span> 86 Teams
+                            </span>
+</div>
+</div>
+<button class="w-full bg-surface-container-lowest border border-outline text-on-surface font-semibold py-2.5 rounded-lg hover:border-primary hover:text-primary hover:bg-surface-container-low transition-all duration-200">
+                        View Details
+                    </button>
+</div>
+</article>
+<!-- Event Card 3 (Closed) -->
+<article class="group bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm transition-all duration-300 overflow-hidden flex flex-col h-full opacity-75 grayscale-[30%] hover:grayscale-0">
+<div class="relative h-48 w-full bg-surface-container overflow-hidden">
+<img alt="Event Cover" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="A wide shot of a large university auditorium filled with teams presenting their final hackathon projects. The atmosphere is academic and accomplished. The lighting is bright and institutional, focusing on the presenters on a stage against a backdrop of deep blue branding and clean white presentation screens." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAZk9jO7TqlabD7hKCEbPMbV5H7gshfais4KHWToqcDwMVL5PXazvl6pX8_U29-MakMeSSxb30Ucft3P4sfEAvkbSGJLA_d-3zQ1igH7aMcKt-xazwti-HcUeGGCeD8DZaYO7OQh8c6afyn-jfWq8-dOq52xjvCBmZ0l4U-yY3XFOQt8O9xwX-lI92T0nLGdegxkOmreaxLbIu7KTaPJ_XXiWh0w4UaBpJjOmVkfkllyhfTToC_0pPJ5rHEf8oVN467PnJYp7FkDo0"/>
+<div class="absolute top-4 left-4 flex gap-2">
+<span class="bg-surface-variant/90 backdrop-blur-sm text-on-surface-variant font-label text-xs px-2.5 py-1 rounded-full uppercase tracking-wider font-semibold border border-outline-variant shadow-sm">Fall</span>
+<span class="bg-surface-container-lowest/90 backdrop-blur-sm text-on-surface font-label text-xs px-2.5 py-1 rounded-full uppercase tracking-wider font-semibold border border-outline-variant shadow-sm">2024</span>
+</div>
+<div class="absolute top-4 right-4">
+<span class="bg-surface-container-high text-on-surface-variant font-headline text-xs px-3 py-1.5 rounded-full font-bold shadow-sm flex items-center gap-1 border border-outline-variant">
+<span class="material-symbols-outlined text-[14px]">lock</span> Closed
+                         </span>
+</div>
+</div>
+<div class="p-6 flex flex-col flex-grow bg-surface-container-lowest">
+<h3 class="font-headline text-xl font-bold text-on-surface mb-2 group-hover:text-primary transition-colors">Fall Engineering Showcase</h3>
+<div class="flex flex-col gap-3 mb-6">
+<div class="flex items-center text-sm text-on-surface-variant font-medium gap-2">
+<span class="material-symbols-outlined text-[18px] text-outline">calendar_today</span>
+                            Oct 10 - Oct 12, 2024
+                        </div>
+<div class="flex items-center text-on-surface-variant text-sm px-3 py-2 rounded-DEFAULT font-label font-medium gap-2 border border-outline-variant/30 bg-surface">
+<span class="material-symbols-outlined text-[18px]">workspace_premium</span>
+                             Results Published
+                        </div>
+</div>
+<div class="grid grid-cols-2 gap-4 pt-4 border-t border-outline-variant/50 mt-auto mb-6">
+<div class="flex flex-col">
+<span class="text-xs text-on-surface-variant font-label uppercase tracking-wider mb-1">Tracks</span>
+<span class="font-headline font-semibold text-on-surface text-base flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-outline">route</span> 3 Tracks
+                            </span>
+</div>
+<div class="flex flex-col">
+<span class="text-xs text-on-surface-variant font-label uppercase tracking-wider mb-1">Finalists</span>
+<span class="font-headline font-semibold text-on-surface text-base flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[16px] text-outline">groups</span> 120 Teams
+                            </span>
+</div>
+</div>
+<button class="w-full bg-surface-container-lowest border border-outline text-on-surface font-semibold py-2.5 rounded-lg hover:bg-surface-container-low transition-all duration-200">
+                        View Archive
+                    </button>
+</div>
+</article>
+</section>
+<!-- Pagination (Empty state styling hint) -->
+<div class="flex justify-center mt-8">
+<nav class="flex items-center gap-2">
+<button class="p-2 text-outline hover:text-primary hover:bg-surface-container-low rounded-DEFAULT transition-colors disabled:opacity-50" disabled="">
+<span class="material-symbols-outlined">chevron_left</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-DEFAULT bg-primary-container text-on-primary-container font-headline font-bold text-sm">1</button>
+<button class="p-2 text-outline hover:text-primary hover:bg-surface-container-low rounded-DEFAULT transition-colors">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+</nav>
+</div>
+</main>
+<!-- Footer -->
+<footer class="bg-surface-container-lowest dark:bg-surface-container-low font-body text-sm leading-relaxed border-t border-outline-variant dark:border-outline flat no shadows full-width bottom-0 mt-auto">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8 w-full px-6 py-12 max-w-7xl mx-auto">
+<!-- Brand & Copyright -->
+<div class="flex flex-col gap-4">
+<span class="font-headline font-extrabold text-lg text-primary dark:text-primary-fixed">SEAL</span>
+<p class="text-on-surface-variant dark:text-surface-variant">© 2024 SEAL Software Engineering Hackathon Management. FPT University HCMC.</p>
+</div>
+<!-- Links -->
+<div class="flex flex-wrap md:justify-end gap-x-8 gap-y-4">
+<a class="text-on-surface-variant dark:text-surface-variant hover:text-secondary dark:hover:text-secondary-fixed underline transition-colors transition-opacity hover:opacity-80" href="#">University Home</a>
+<a class="text-on-surface-variant dark:text-surface-variant hover:text-secondary dark:hover:text-secondary-fixed underline transition-colors transition-opacity hover:opacity-80" href="#">Terms of Service</a>
+<a class="text-on-surface-variant dark:text-surface-variant hover:text-secondary dark:hover:text-secondary-fixed underline transition-colors transition-opacity hover:opacity-80" href="#">Privacy Policy</a>
+<a class="text-on-surface-variant dark:text-surface-variant hover:text-secondary dark:hover:text-secondary-fixed underline transition-colors transition-opacity hover:opacity-80" href="#">Technical Support</a>
+</div>
+</div>
+</footer>
+</body></html>

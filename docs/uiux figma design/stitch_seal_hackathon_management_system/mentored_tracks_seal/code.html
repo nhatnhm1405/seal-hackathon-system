@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SEAL - Mentored Tracks</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;700;800&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-tertiary-fixed": "#341100",
+                    "error-container": "#ffdad6",
+                    "secondary-container": "#57dffe",
+                    "secondary-fixed-dim": "#4cd7f6",
+                    "outline-variant": "#c5c5d3",
+                    "surface-container-high": "#e9e7ef",
+                    "tertiary-container": "#6e2c00",
+                    "on-tertiary-fixed-variant": "#773205",
+                    "inverse-primary": "#b6c4ff",
+                    "surface-container-lowest": "#ffffff",
+                    "primary-fixed": "#dce1ff",
+                    "surface-container": "#eeedf4",
+                    "surface-tint": "#4059aa",
+                    "on-primary-fixed-variant": "#264191",
+                    "on-surface-variant": "#444651",
+                    "tertiary": "#4b1c00",
+                    "on-error-container": "#93000a",
+                    "surface": "#faf8ff",
+                    "error": "#ba1a1a",
+                    "on-primary-container": "#90a8ff",
+                    "tertiary-fixed-dim": "#ffb691",
+                    "secondary-fixed": "#acedff",
+                    "primary-container": "#1e3a8a",
+                    "surface-container-highest": "#e3e1e9",
+                    "on-tertiary-container": "#f39461",
+                    "on-primary": "#ffffff",
+                    "on-secondary-container": "#006172",
+                    "on-primary-fixed": "#00164e",
+                    "secondary": "#00687a",
+                    "primary-fixed-dim": "#b6c4ff",
+                    "outline": "#757682",
+                    "surface-container-low": "#f4f3fa",
+                    "tertiary-fixed": "#ffdbcb",
+                    "on-secondary": "#ffffff",
+                    "background": "#faf8ff",
+                    "on-secondary-fixed-variant": "#004e5c",
+                    "inverse-on-surface": "#f1f0f7",
+                    "surface-variant": "#e3e1e9",
+                    "primary": "#00236f",
+                    "on-tertiary": "#ffffff",
+                    "on-secondary-fixed": "#001f26",
+                    "surface-bright": "#faf8ff",
+                    "surface-dim": "#dad9e1",
+                    "on-background": "#1a1b21",
+                    "on-surface": "#1a1b21",
+                    "on-error": "#ffffff",
+                    "inverse-surface": "#2f3036"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+              "md": "16px",
+              "xxl": "64px"
+            },
+            "fontFamily": {
+                    "headline": [
+                            "Plus Jakarta Sans"
+                    ],
+                    "display": [
+                            "Plus Jakarta Sans"
+                    ],
+                    "body": [
+                            "Inter"
+                    ],
+                    "label": [
+                            "JetBrains Mono"
+                    ]
+            },
+            "fontSize": {}
+          },
+        },
+      }
+    </script>
+<style>
+        body { background-color: #F8FAFC; } /* Base neutral background from guidance */
+    </style>
+</head>
+<body class="font-body text-on-surface bg-surface antialiased flex">
+<!-- SideNavBar (Shared Component) -->
+<nav class="hidden lg:flex flex-col h-full w-64 fixed left-0 top-0 py-6 px-4 gap-4 bg-primary dark:bg-primary-container border-r border-outline-variant shadow-md z-40">
+<div class="mb-8 px-4">
+<h1 class="text-headline-sm font-headline font-bold text-on-primary dark:text-on-primary-container tracking-tight">SEAL Dashboard</h1>
+<p class="text-sm text-on-primary/70 mt-1">Mentor View</p>
+</div>
+<div class="flex flex-col gap-2 flex-grow">
+<!-- Active state semantic matching: Dashboard -> My Tracks -->
+<a class="flex items-center gap-3 px-4 py-3 bg-secondary-container text-on-secondary-container rounded-lg font-bold cursor-pointer transition-all duration-200" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-body text-label-sm">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-primary/70 dark:text-on-primary-container/70 hover:bg-primary-container/20 dark:hover:bg-primary/20 transition-all cursor-pointer rounded-lg" href="#">
+<span class="material-symbols-outlined">groups</span>
+<span class="font-body text-label-sm">My Team</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-primary/70 dark:text-on-primary-container/70 hover:bg-primary-container/20 dark:hover:bg-primary/20 transition-all cursor-pointer rounded-lg" href="#">
+<span class="material-symbols-outlined">upload_file</span>
+<span class="font-body text-label-sm">Submissions</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-primary/70 dark:text-on-primary-container/70 hover:bg-primary-container/20 dark:hover:bg-primary/20 transition-all cursor-pointer rounded-lg" href="#">
+<span class="material-symbols-outlined">emoji_events</span>
+<span class="font-body text-label-sm">Results</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-primary/70 dark:text-on-primary-container/70 hover:bg-primary-container/20 dark:hover:bg-primary/20 transition-all cursor-pointer rounded-lg" href="#">
+<span class="material-symbols-outlined">notifications</span>
+<span class="font-body text-label-sm">Notifications</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-primary/70 dark:text-on-primary-container/70 hover:bg-primary-container/20 dark:hover:bg-primary/20 transition-all cursor-pointer rounded-lg" href="#">
+<span class="material-symbols-outlined">account_circle</span>
+<span class="font-body text-label-sm">Profile</span>
+</a>
+</div>
+<div class="mt-auto px-2">
+<button class="w-full py-3 bg-secondary-container text-on-secondary-container rounded-lg font-bold shadow-sm hover:opacity-90 transition-opacity">Submit Project</button>
+</div>
+</nav>
+<!-- Main Content Area -->
+<div class="flex-1 lg:ml-64 flex flex-col min-h-screen">
+<!-- TopNavBar (Shared Component) -->
+<header class="sticky top-0 z-50 flex justify-between items-center px-6 py-3 w-full bg-surface-container-lowest shadow-sm border-b border-outline-variant dark:border-outline-variant">
+<div class="flex items-center gap-4 lg:hidden">
+<span class="material-symbols-outlined text-primary cursor-pointer">menu</span>
+<span class="text-headline-md font-headline font-extrabold text-primary dark:text-primary-fixed-dim tracking-tight">SEAL</span>
+</div>
+<div class="hidden lg:flex items-center text-sm font-medium text-on-surface-variant bg-surface-container py-2 px-4 rounded-full border border-outline-variant/30">
+<span class="material-symbols-outlined text-sm mr-2 text-primary">info</span>
+                You are also judging Track: Education Tech. Switch role in top header.
+            </div>
+<div class="flex items-center gap-4">
+<div class="relative cursor-pointer hover:bg-surface-container-low dark:hover:bg-surface-container-high transition-colors p-2 rounded-full">
+<span class="material-symbols-outlined text-on-surface-variant dark:text-on-surface-variant">notifications</span>
+<span class="absolute top-1 right-1 w-2.5 h-2.5 bg-error rounded-full"></span>
+</div>
+<div class="cursor-pointer hover:bg-surface-container-low dark:hover:bg-surface-container-high transition-colors p-2 rounded-full">
+<span class="material-symbols-outlined text-on-surface-variant dark:text-on-surface-variant">settings</span>
+</div>
+<div class="w-8 h-8 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center font-bold text-sm ml-2 border border-outline-variant cursor-pointer">
+                    JS
+                </div>
+</div>
+</header>
+<!-- Canvas -->
+<main class="flex-1 p-4 md:p-8 max-w-[1280px] mx-auto w-full">
+<div class="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
+<div>
+<h2 class="text-3xl font-headline font-extrabold text-primary mb-2">Mentored Tracks</h2>
+<p class="text-on-surface-variant">Manage and review your assigned hackathon tracks.</p>
+</div>
+<div class="flex gap-3">
+<button class="px-4 py-2 bg-surface-container-lowest border border-outline-variant text-on-surface rounded-lg font-medium text-sm shadow-sm hover:bg-surface-container-low transition-colors flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">filter_list</span>
+                        Filter Tracks
+                    </button>
+</div>
+</div>
+<!-- Bento Grid Layout for Tracks -->
+<div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
+<!-- Track Card 1: Web App Innovation -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-hidden flex flex-col">
+<div class="p-6 border-b border-outline-variant/50 relative overflow-hidden">
+<div class="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-bl-full -z-10"></div>
+<div class="flex justify-between items-start mb-4">
+<div class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-label bg-secondary-container/20 text-on-secondary-container mb-3 border border-secondary-container/30">
+                                ACTIVE TRACK
+                            </div>
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</div>
+<h3 class="text-2xl font-headline font-bold text-primary mb-2">Web App Innovation</h3>
+<p class="text-on-surface-variant text-sm leading-relaxed max-w-md">Focus on building responsive, scalable, and user-centric web applications utilizing modern frameworks and cloud infrastructure.</p>
+</div>
+<div class="p-6 bg-surface-container-low/30 flex-1">
+<div class="grid grid-cols-2 gap-4 mb-6">
+<div class="bg-surface-container-lowest p-4 rounded-lg border border-outline-variant/50 shadow-sm flex flex-col justify-center">
+<span class="text-on-surface-variant text-xs font-label mb-1">REGISTERED TEAMS</span>
+<span class="text-3xl font-headline font-bold text-primary">6</span>
+</div>
+<div class="bg-surface-container-lowest p-4 rounded-lg border border-outline-variant/50 shadow-sm flex flex-col justify-center">
+<span class="text-on-surface-variant text-xs font-label mb-1">TOTAL PRIZE POOL</span>
+<span class="text-3xl font-headline font-bold text-secondary">$5k</span>
+</div>
+</div>
+<h4 class="font-label text-sm text-on-surface-variant mb-3 uppercase tracking-wider">Judging Criteria</h4>
+<ul class="space-y-3 mb-6">
+<li class="flex items-center justify-between p-3 bg-surface-container-lowest rounded-lg border border-outline-variant/50">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-primary/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-sm">code</span>
+</div>
+<span class="font-medium text-sm">Technical Execution</span>
+</div>
+<span class="font-label text-primary font-bold">30%</span>
+</li>
+<li class="flex items-center justify-between p-3 bg-surface-container-lowest rounded-lg border border-outline-variant/50">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-secondary/10 flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined text-sm">design_services</span>
+</div>
+<span class="font-medium text-sm">UX/UI Design</span>
+</div>
+<span class="font-label text-secondary font-bold">25%</span>
+</li>
+<li class="flex items-center justify-between p-3 bg-surface-container-lowest rounded-lg border border-outline-variant/50">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-tertiary-container/10 flex items-center justify-center text-tertiary">
+<span class="material-symbols-outlined text-sm">lightbulb</span>
+</div>
+<span class="font-medium text-sm">Innovation</span>
+</div>
+<span class="font-label text-tertiary font-bold">25%</span>
+</li>
+</ul>
+</div>
+<div class="p-4 bg-surface-container-lowest border-t border-outline-variant flex justify-between items-center">
+<div class="flex -space-x-2">
+<div class="w-8 h-8 rounded-full border-2 border-surface-container-lowest bg-surface-variant"></div>
+<div class="w-8 h-8 rounded-full border-2 border-surface-container-lowest bg-surface-variant"></div>
+<div class="w-8 h-8 rounded-full border-2 border-surface-container-lowest bg-surface-variant"></div>
+<div class="w-8 h-8 rounded-full border-2 border-surface-container-lowest bg-primary-container text-on-primary-container flex items-center justify-center text-xs font-bold">+3</div>
+</div>
+<button class="px-5 py-2.5 bg-primary text-white rounded-lg font-medium text-sm shadow-sm hover:opacity-90 transition-opacity">
+                            Review Submissions
+                        </button>
+</div>
+</div>
+<!-- Track Card 2: AI & Machine Learning -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-hidden flex flex-col">
+<div class="p-6 border-b border-outline-variant/50 relative overflow-hidden">
+<div class="absolute top-0 right-0 w-32 h-32 bg-secondary/5 rounded-bl-full -z-10"></div>
+<div class="flex justify-between items-start mb-4">
+<div class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-label bg-secondary-container/20 text-on-secondary-container mb-3 border border-secondary-container/30">
+                                ACTIVE TRACK
+                            </div>
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined">more_vert</span>
+</button>
+</div>
+<h3 class="text-2xl font-headline font-bold text-primary mb-2">AI &amp; Machine Learning</h3>
+<p class="text-on-surface-variant text-sm leading-relaxed max-w-md">Develop innovative solutions utilizing LLMs, predictive modeling, or computer vision to solve complex real-world problems.</p>
+</div>
+<div class="p-6 bg-surface-container-low/30 flex-1">
+<div class="grid grid-cols-2 gap-4 mb-6">
+<div class="bg-surface-container-lowest p-4 rounded-lg border border-outline-variant/50 shadow-sm flex flex-col justify-center">
+<span class="text-on-surface-variant text-xs font-label mb-1">REGISTERED TEAMS</span>
+<span class="text-3xl font-headline font-bold text-primary">8</span>
+</div>
+<div class="bg-surface-container-lowest p-4 rounded-lg border border-outline-variant/50 shadow-sm flex flex-col justify-center">
+<span class="text-on-surface-variant text-xs font-label mb-1">TOTAL PRIZE POOL</span>
+<span class="text-3xl font-headline font-bold text-secondary">$10k</span>
+</div>
+</div>
+<h4 class="font-label text-sm text-on-surface-variant mb-3 uppercase tracking-wider">Judging Criteria</h4>
+<ul class="space-y-3 mb-6">
+<li class="flex items-center justify-between p-3 bg-surface-container-lowest rounded-lg border border-outline-variant/50">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-primary/10 flex items-center justify-center text-primary">
+<span class="material-symbols-outlined text-sm">memory</span>
+</div>
+<span class="font-medium text-sm">Model Accuracy</span>
+</div>
+<span class="font-label text-primary font-bold">40%</span>
+</li>
+<li class="flex items-center justify-between p-3 bg-surface-container-lowest rounded-lg border border-outline-variant/50">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-tertiary-container/10 flex items-center justify-center text-tertiary">
+<span class="material-symbols-outlined text-sm">psychology</span>
+</div>
+<span class="font-medium text-sm">Problem Fit</span>
+</div>
+<span class="font-label text-tertiary font-bold">30%</span>
+</li>
+<li class="flex items-center justify-between p-3 bg-surface-container-lowest rounded-lg border border-outline-variant/50">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-secondary/10 flex items-center justify-center text-secondary">
+<span class="material-symbols-outlined text-sm">dataset</span>
+</div>
+<span class="font-medium text-sm">Data Handling</span>
+</div>
+<span class="font-label text-secondary font-bold">20%</span>
+</li>
+</ul>
+</div>
+<div class="p-4 bg-surface-container-lowest border-t border-outline-variant flex justify-between items-center">
+<div class="flex -space-x-2">
+<div class="w-8 h-8 rounded-full border-2 border-surface-container-lowest bg-surface-variant"></div>
+<div class="w-8 h-8 rounded-full border-2 border-surface-container-lowest bg-surface-variant"></div>
+<div class="w-8 h-8 rounded-full border-2 border-surface-container-lowest bg-surface-variant"></div>
+<div class="w-8 h-8 rounded-full border-2 border-surface-container-lowest bg-primary-container text-on-primary-container flex items-center justify-center text-xs font-bold">+5</div>
+</div>
+<button class="px-5 py-2.5 bg-primary text-white rounded-lg font-medium text-sm shadow-sm hover:opacity-90 transition-opacity">
+                            Review Submissions
+                        </button>
+</div>
+</div>
+</div>
+<!-- Round Summary Table Section (Glassmorphism inspired) -->
+<div class="mt-xxl bg-surface-container-lowest rounded-xl shadow-sm border border-outline-variant overflow-hidden">
+<div class="p-6 border-b border-outline-variant bg-surface-container-low/50">
+<h3 class="text-xl font-headline font-bold text-primary">Round Submission Status</h3>
+<p class="text-sm text-on-surface-variant mt-1">Global view across all mentored tracks</p>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-highest/30 border-b border-outline-variant">
+<th class="p-4 font-label text-sm text-on-surface-variant">TRACK</th>
+<th class="p-4 font-label text-sm text-on-surface-variant">ROUND 1 (Ideation)</th>
+<th class="p-4 font-label text-sm text-on-surface-variant">ROUND 2 (MVP)</th>
+<th class="p-4 font-label text-sm text-on-surface-variant">FINAL SUBMISSION</th>
+</tr>
+</thead>
+<tbody>
+<tr class="border-b border-outline-variant hover:bg-surface-container-lowest transition-colors">
+<td class="p-4 font-medium text-primary">Web App Innovation</td>
+<td class="p-4">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-secondary-container"></span>
+<span class="text-sm font-medium">6/6 Submitted</span>
+</div>
+</td>
+<td class="p-4">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-tertiary-container"></span>
+<span class="text-sm font-medium text-on-surface-variant">4/6 Submitted</span>
+</div>
+</td>
+<td class="p-4">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-outline-variant"></span>
+<span class="text-sm font-medium text-on-surface-variant">Pending</span>
+</div>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-lowest transition-colors">
+<td class="p-4 font-medium text-primary">AI &amp; Machine Learning</td>
+<td class="p-4">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-secondary-container"></span>
+<span class="text-sm font-medium">8/8 Submitted</span>
+</div>
+</td>
+<td class="p-4">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-secondary-container"></span>
+<span class="text-sm font-medium">8/8 Submitted</span>
+</div>
+</td>
+<td class="p-4">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-tertiary-container"></span>
+<span class="text-sm font-medium text-on-surface-variant">2/8 Submitted</span>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</main>
+</div>
+</body></html>

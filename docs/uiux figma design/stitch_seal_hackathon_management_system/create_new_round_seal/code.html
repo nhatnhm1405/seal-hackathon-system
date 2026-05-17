@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Academic Hackathon Portal - Create Round</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;700;800;900&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary-fixed-variant": "#773205",
+                        "on-primary": "#ffffff",
+                        "primary": "#00236f",
+                        "on-primary-fixed-variant": "#264191",
+                        "error": "#ba1a1a",
+                        "surface-container-lowest": "#ffffff",
+                        "on-tertiary-container": "#f39461",
+                        "on-surface-variant": "#444651",
+                        "surface-container": "#eeedf4",
+                        "on-secondary": "#ffffff",
+                        "on-primary-fixed": "#00164e",
+                        "on-secondary-fixed-variant": "#004e5c",
+                        "surface": "#faf8ff",
+                        "tertiary-fixed-dim": "#ffb691",
+                        "secondary-container": "#57dffe",
+                        "on-primary-container": "#90a8ff",
+                        "tertiary-container": "#6e2c00",
+                        "on-secondary-fixed": "#001f26",
+                        "outline-variant": "#c5c5d3",
+                        "surface-container-high": "#e9e7ef",
+                        "on-background": "#1a1b21",
+                        "on-error": "#ffffff",
+                        "surface-container-low": "#f4f3fa",
+                        "tertiary": "#4b1c00",
+                        "inverse-surface": "#2f3036",
+                        "secondary": "#00687a",
+                        "surface-dim": "#dad9e1",
+                        "surface-container-highest": "#e3e1e9",
+                        "secondary-fixed": "#acedff",
+                        "error-container": "#ffdad6",
+                        "primary-container": "#1e3a8a",
+                        "on-tertiary-fixed": "#341100",
+                        "tertiary-fixed": "#ffdbcb",
+                        "surface-bright": "#faf8ff",
+                        "inverse-primary": "#b6c4ff",
+                        "primary-fixed-dim": "#b6c4ff",
+                        "primary-fixed": "#dce1ff",
+                        "on-surface": "#1a1b21",
+                        "inverse-on-surface": "#f1f0f7",
+                        "surface-variant": "#e3e1e9",
+                        "surface-tint": "#4059aa",
+                        "outline": "#757682",
+                        "background": "#faf8ff",
+                        "on-secondary-container": "#006172",
+                        "on-tertiary": "#ffffff",
+                        "secondary-fixed-dim": "#4cd7f6",
+                        "on-error-container": "#93000a"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Plus Jakarta Sans"],
+                        "display": ["Plus Jakarta Sans"],
+                        "body": ["Inter"],
+                        "label": ["JetBrains Mono"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; background-color: #faf8ff; color: #1a1b21; }
+        h1, h2, h3, h4, h5, h6, .font-headline { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .font-label, code, pre { font-family: 'JetBrains Mono', monospace; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .icon-fill { font-variation-settings: 'FILL' 1; }
+    </style>
+</head>
+<body class="bg-surface text-on-surface min-h-screen flex">
+<!-- SideNavBar -->
+<nav class="bg-surface dark:bg-surface-dim border-r border-outline-variant dark:border-outline h-screen w-64 fixed left-0 top-0 flex flex-col p-4 gap-2 z-50">
+<div class="mb-8 px-2 pt-2">
+<h1 class="text-xl font-headline font-black text-primary dark:text-inverse-primary">Event Admin</h1>
+<p class="font-body text-sm text-on-surface-variant">University Lead</p>
+</div>
+<div class="flex-1 space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface rounded-lg transition-colors font-body text-sm" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="dashboard">dashboard</span>
+                Dashboard
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface rounded-lg transition-colors font-body text-sm" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="event">event</span>
+                Events
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface rounded-lg transition-colors font-body text-sm" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="groups">groups</span>
+                Participants
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface rounded-lg transition-colors font-body text-sm" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="description">description</span>
+                Submissions
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 bg-primary-container text-on-primary-container font-bold rounded-lg font-body text-sm active scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined text-[20px] icon-fill" data-icon="gavel" data-weight="fill">gavel</span>
+                Judging
+            </a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface rounded-lg transition-colors font-body text-sm" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="settings">settings</span>
+                Settings
+            </a>
+</div>
+<div class="mt-auto">
+<button class="w-full bg-primary text-on-primary hover:opacity-90 font-bold py-2.5 px-4 rounded-lg flex items-center justify-center gap-2 transition-opacity font-body text-sm">
+<span class="material-symbols-outlined text-[20px]">add</span>
+                Create New Hackathon
+            </button>
+</div>
+</nav>
+<!-- Main Content Area -->
+<div class="flex-1 ml-64 flex flex-col min-h-screen">
+<!-- TopNavBar -->
+<header class="bg-surface dark:bg-surface-bright border-b border-outline-variant dark:border-outline shadow-sm docked full-width top-0 sticky z-40 h-16 px-6 flex justify-between items-center w-full max-w-[calc(100vw-16rem)]">
+<div class="flex items-center gap-6">
+<span class="text-lg font-headline font-bold text-primary dark:text-inverse-primary">Academic Hackathon Portal</span>
+<nav class="hidden lg:flex gap-1 ml-4">
+<a class="px-4 py-2 text-on-surface-variant hover:text-primary hover:bg-surface-container-low transition-all rounded font-body text-sm font-medium" href="#">Global View</a>
+<a class="px-4 py-2 text-on-surface-variant hover:text-primary hover:bg-surface-container-low transition-all rounded font-body text-sm font-medium" href="#">Analytics</a>
+<a class="px-4 py-2 text-on-surface-variant hover:text-primary hover:bg-surface-container-low transition-all rounded font-body text-sm font-medium" href="#">Resources</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative hidden md:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[20px]">search</span>
+<input class="pl-10 pr-4 py-1.5 bg-surface-container border border-outline-variant rounded-full text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary w-64 font-body" placeholder="Search..." type="text"/>
+</div>
+<div class="flex items-center gap-2">
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-low rounded-full transition-all">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-low rounded-full transition-all">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-low rounded-full transition-all">
+<span class="material-symbols-outlined" data-icon="dark_mode">dark_mode</span>
+</button>
+<img alt="User Profile" class="w-8 h-8 rounded-full ml-2 border border-outline-variant" data-alt="A small, professional portrait photograph of an academic professional used as a user avatar, featuring neutral lighting and a clean background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDQu7ZfWVCvdFnDqDHpev6ylrmFYWQenZMaux9b-cs9EYtNntWsPsThecauUModnEVZq_HDKGpPWyeNJXa93_e6HuUFhxDOFEXKCwqmo0-f8IQXammo-PD9-IK4jUKozMh4j5ej6ca4NWoH_erIwGTI40mYjnkiFF_y7pqQOSZ-p_ml_d3fTFsqjck4lV1m3U3IzXeG7uGki8A1LxJ-_Pm0ttMHCoJnSa97uQsMubbzIgVbLbjB3iZhSIRgzffwkysyUZPo5WO4frk"/>
+</div>
+</div>
+</header>
+<!-- Main Canvas -->
+<main class="flex-1 p-8 max-w-5xl mx-auto w-full">
+<div class="mb-8">
+<div class="flex items-center gap-2 text-sm text-on-surface-variant font-label mb-2">
+<a class="hover:text-primary" href="#">Events</a>
+<span class="material-symbols-outlined text-[16px]">chevron_right</span>
+<a class="hover:text-primary" href="#">Spring Hackathon 2024</a>
+<span class="material-symbols-outlined text-[16px]">chevron_right</span>
+<a class="hover:text-primary" href="#">Judging</a>
+<span class="material-symbols-outlined text-[16px]">chevron_right</span>
+<span class="text-on-surface">Create Round</span>
+</div>
+<div class="flex justify-between items-end">
+<div>
+<h2 class="text-3xl font-headline font-bold text-on-surface">Create Judging Round</h2>
+<p class="text-on-surface-variant mt-2 font-body max-w-2xl">Configure a new evaluation phase for submitted projects. Define criteria, timelines, and assign academic and guest evaluators.</p>
+</div>
+<div class="flex gap-3">
+<button class="px-4 py-2 border border-outline-variant text-on-surface hover:bg-surface-container-low rounded-lg font-body font-medium transition-colors">Cancel</button>
+<button class="px-6 py-2 bg-primary text-on-primary hover:opacity-90 rounded-lg font-body font-bold shadow-sm transition-opacity">Save Round</button>
+</div>
+</div>
+</div>
+<!-- Warning Banner -->
+<div class="bg-error-container border border-error/20 rounded-lg p-4 mb-8 flex items-start gap-3 shadow-sm">
+<span class="material-symbols-outlined text-error mt-0.5">warning</span>
+<div>
+<h3 class="font-headline font-bold text-on-error-container text-sm">Schedule Conflict Detected</h3>
+<p class="font-body text-sm text-on-error-container mt-1">Round overlaps with Qualifier dates. Please review the start and end dates before proceeding.</p>
+</div>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+<!-- Left Column (Form Main) -->
+<div class="lg:col-span-2 space-y-8">
+<!-- Basic Info Card -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 shadow-sm">
+<h3 class="font-headline font-bold text-lg mb-6 border-b border-outline-variant pb-2">Round Details</h3>
+<div class="space-y-6">
+<div>
+<label class="block font-label text-sm font-bold text-on-surface mb-2">Round Name</label>
+<input class="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-4 py-2.5 font-body focus:outline-none focus:border-secondary focus:ring-1 focus:ring-secondary/20 transition-all" placeholder="e.g., Final Presentations, Technical Review" type="text"/>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div>
+<label class="block font-label text-sm font-bold text-on-surface mb-2">Start Date &amp; Time</label>
+<div class="relative">
+<input class="w-full bg-surface-container-lowest border border-outline-variant rounded-lg pl-4 pr-10 py-2.5 font-body focus:outline-none focus:border-secondary focus:ring-1 focus:ring-secondary/20 transition-all text-sm" type="datetime-local"/>
+</div>
+</div>
+<div>
+<label class="block font-label text-sm font-bold text-on-surface mb-2">End Date &amp; Time</label>
+<div class="relative">
+<input class="w-full bg-error/10 border border-error rounded-lg pl-4 pr-10 py-2.5 font-body focus:outline-none focus:border-error focus:ring-1 focus:ring-error/20 transition-all text-sm" type="datetime-local"/>
+</div>
+</div>
+</div>
+<div>
+<label class="block font-label text-sm font-bold text-on-surface mb-2">Round Instructions</label>
+<textarea class="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-4 py-2.5 font-body focus:outline-none focus:border-secondary focus:ring-1 focus:ring-secondary/20 transition-all resize-none" placeholder="Provide specific instructions or focus areas for judges during this round..." rows="4"></textarea>
+<p class="text-xs text-on-surface-variant mt-2 font-body">Markdown is supported for formatting.</p>
+</div>
+</div>
+</div>
+<!-- Tracks & Criteria Card -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 shadow-sm">
+<h3 class="font-headline font-bold text-lg mb-6 border-b border-outline-variant pb-2">Scope &amp; Evaluation</h3>
+<div class="space-y-6">
+<div>
+<label class="block font-label text-sm font-bold text-on-surface mb-2">Applicable Tracks</label>
+<p class="text-sm text-on-surface-variant mb-3 font-body">Select which project tracks this judging round applies to.</p>
+<div class="flex flex-wrap gap-2">
+<label class="inline-flex items-center bg-surface-container-low border border-outline-variant rounded-full px-4 py-1.5 cursor-pointer hover:bg-surface-container transition-colors">
+<input checked="" class="form-checkbox h-4 w-4 text-primary rounded border-outline-variant focus:ring-primary" type="checkbox"/>
+<span class="ml-2 font-body text-sm font-medium">Web App</span>
+</label>
+<label class="inline-flex items-center bg-primary-container/20 border border-primary rounded-full px-4 py-1.5 cursor-pointer hover:bg-primary-container/30 transition-colors">
+<input checked="" class="form-checkbox h-4 w-4 text-primary rounded border-outline-variant focus:ring-primary" type="checkbox"/>
+<span class="ml-2 font-body text-sm font-medium text-primary">AI &amp; Machine Learning</span>
+</label>
+<label class="inline-flex items-center bg-surface-container-low border border-outline-variant rounded-full px-4 py-1.5 cursor-pointer hover:bg-surface-container transition-colors">
+<input class="form-checkbox h-4 w-4 text-primary rounded border-outline-variant focus:ring-primary" type="checkbox"/>
+<span class="ml-2 font-body text-sm font-medium">Hardware</span>
+</label>
+<label class="inline-flex items-center bg-surface-container-low border border-outline-variant rounded-full px-4 py-1.5 cursor-pointer hover:bg-surface-container transition-colors">
+<input class="form-checkbox h-4 w-4 text-primary rounded border-outline-variant focus:ring-primary" type="checkbox"/>
+<span class="ml-2 font-body text-sm font-medium">Data Visualization</span>
+</label>
+</div>
+</div>
+<div class="pt-4 border-t border-outline-variant/50">
+<label class="block font-label text-sm font-bold text-on-surface mb-2">Scoring Criteria</label>
+<div class="flex items-center gap-4 bg-surface-container-low border border-outline-variant rounded-lg p-4">
+<div class="flex-shrink-0 w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">rule</span>
+</div>
+<div class="flex-1">
+<h4 class="font-headline font-bold text-sm">Standard Technical Evaluation</h4>
+<p class="font-body text-xs text-on-surface-variant">Innovation (30%), Execution (40%), Design (30%)</p>
+</div>
+<button class="text-primary hover:text-primary-container font-label text-sm font-bold flex items-center gap-1">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+                                        Change Rubric
+                                    </button>
+</div>
+<div class="mt-2 text-right">
+<a class="text-sm font-label text-secondary hover:underline flex items-center justify-end gap-1" href="#">
+<span class="material-symbols-outlined text-[16px]">open_in_new</span>
+                                        View full criteria document
+                                    </a>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Column (Judges) -->
+<div class="lg:col-span-1">
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 shadow-sm sticky top-24">
+<div class="flex justify-between items-center mb-6 border-b border-outline-variant pb-2">
+<h3 class="font-headline font-bold text-lg">Assigned Judges</h3>
+<span class="bg-surface-container-high text-on-surface px-2 py-0.5 rounded text-xs font-label font-bold">3 Selected</span>
+</div>
+<div class="mb-4 relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[18px]">search</span>
+<input class="w-full bg-surface-container-lowest border border-outline-variant rounded-lg pl-9 pr-4 py-2 font-body text-sm focus:outline-none focus:border-secondary focus:ring-1 focus:ring-secondary/20 transition-all" placeholder="Search faculty or guests..." type="text"/>
+</div>
+<div class="space-y-3 max-h-[400px] overflow-y-auto pr-2">
+<!-- Judge Item -->
+<div class="flex items-center gap-3 p-3 border border-primary/20 bg-primary/5 rounded-lg">
+<input checked="" class="form-checkbox h-4 w-4 text-primary rounded border-outline-variant focus:ring-primary" type="checkbox"/>
+<img alt="Prof. Sarah Jenkins" class="w-8 h-8 rounded-full border border-outline-variant" data-alt="A small, professional portrait photograph of a female academic professional with short hair, used as an avatar list item." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA0-3Q2HFzSeUO0EjA7H_AxoN_C9dtsHHdQc0XtI7fmYaibZNxIv3JLPib22L6kLXV_X4GR-Nh0MfSuGFdLzE2PwJtgozhSJhtmNXyt9PZJ_YZRttAVPNSNP3NJqEBvI0XldsA2TmaeP77uOsVR2wVzdXRdq4V9HbMMVxwTDqKR6RvOfgkknxNYSWnEqBaRsNWyEOzadoh9csNT_4hDnCZv4JAsrh3sMoEDqRDjDll9waPOK8TGt1gQudXYBacJSx4QvMrO837y3TA"/>
+<div class="flex-1 min-w-0">
+<p class="font-body text-sm font-bold text-on-surface truncate">Prof. Sarah Jenkins</p>
+<p class="font-body text-xs text-on-surface-variant truncate">Computer Science</p>
+</div>
+<span class="bg-surface-container-high text-on-surface-variant px-2 py-0.5 rounded text-[10px] font-label uppercase tracking-wider">Internal</span>
+</div>
+<!-- Judge Item -->
+<div class="flex items-center gap-3 p-3 border border-primary/20 bg-primary/5 rounded-lg">
+<input checked="" class="form-checkbox h-4 w-4 text-primary rounded border-outline-variant focus:ring-primary" type="checkbox"/>
+<div class="w-8 h-8 rounded-full bg-tertiary-container text-on-tertiary-container flex items-center justify-center font-headline font-bold text-xs">
+                                    DT
+                                </div>
+<div class="flex-1 min-w-0">
+<p class="font-body text-sm font-bold text-on-surface truncate">David Chen</p>
+<p class="font-body text-xs text-on-surface-variant truncate">Industry Expert (Google)</p>
+</div>
+<span class="bg-secondary/10 text-secondary border border-secondary/20 px-2 py-0.5 rounded text-[10px] font-label uppercase tracking-wider">Guest</span>
+</div>
+<!-- Judge Item -->
+<div class="flex items-center gap-3 p-3 border border-primary/20 bg-primary/5 rounded-lg">
+<input checked="" class="form-checkbox h-4 w-4 text-primary rounded border-outline-variant focus:ring-primary" type="checkbox"/>
+<img alt="Dr. Marcus Webb" class="w-8 h-8 rounded-full border border-outline-variant" data-alt="A small, professional portrait photograph of a male academic professional with a beard, used as an avatar list item." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCfZyp_PEdAHlVkCUiG2wqYtiBmAnmNPNjmeLYuMnmbN5P2OyNGv7nEAxEcI0TfIZ5k5n4XqSS5DgjvM0XNn5lLyXBaJoeCTh1fh0RFDOBqlEixGSuCceUygz-RMRvvOSE29stqF__Lm3qaIvomRU0XtiIUwiuOWXm2A_bRYgAzfKCDnO029TOahQJtygHZfZ65HYNPiP7hpnSipfd6fUVTQeiC4s-iqkOWXbt_vqJbAyPlr2vjL6_jrwm5g5sWzqZSymcTBP0Iwgc"/>
+<div class="flex-1 min-w-0">
+<p class="font-body text-sm font-bold text-on-surface truncate">Dr. Marcus Webb</p>
+<p class="font-body text-xs text-on-surface-variant truncate">Engineering Dept</p>
+</div>
+<span class="bg-surface-container-high text-on-surface-variant px-2 py-0.5 rounded text-[10px] font-label uppercase tracking-wider">Internal</span>
+</div>
+<!-- Unselected Judge -->
+<div class="flex items-center gap-3 p-3 border border-outline-variant/50 hover:border-outline-variant rounded-lg opacity-70 hover:opacity-100 transition-opacity">
+<input class="form-checkbox h-4 w-4 text-primary rounded border-outline-variant focus:ring-primary" type="checkbox"/>
+<div class="w-8 h-8 rounded-full bg-surface-container-high text-on-surface-variant flex items-center justify-center font-headline font-bold text-xs">
+                                    AL
+                                </div>
+<div class="flex-1 min-w-0">
+<p class="font-body text-sm font-bold text-on-surface truncate">Anita Lopez</p>
+<p class="font-body text-xs text-on-surface-variant truncate">Alumni Mentor</p>
+</div>
+<span class="bg-secondary/10 text-secondary border border-secondary/20 px-2 py-0.5 rounded text-[10px] font-label uppercase tracking-wider">Guest</span>
+</div>
+</div>
+<button class="w-full mt-4 py-2 border border-dashed border-outline-variant rounded-lg text-on-surface-variant hover:text-primary hover:border-primary hover:bg-primary/5 font-body text-sm font-medium transition-all flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-[18px]">person_add</span>
+                            Invite New Judge
+                        </button>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

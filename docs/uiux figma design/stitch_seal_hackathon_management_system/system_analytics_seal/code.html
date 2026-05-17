@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SEAL - System Statistics</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;family=Plus+Jakarta+Sans:wght@500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary": "#ffffff",
+                        "on-secondary-container": "#006172",
+                        "outline": "#757682",
+                        "on-tertiary-container": "#f39461",
+                        "outline-variant": "#c5c5d3",
+                        "surface-tint": "#4059aa",
+                        "on-error-container": "#93000a",
+                        "primary-container": "#1e3a8a",
+                        "background": "#faf8ff",
+                        "surface-variant": "#e3e1e9",
+                        "on-surface": "#1a1b21",
+                        "on-primary-container": "#90a8ff",
+                        "on-tertiary-fixed": "#341100",
+                        "inverse-surface": "#2f3036",
+                        "surface": "#faf8ff",
+                        "on-primary-fixed-variant": "#264191",
+                        "error-container": "#ffdad6",
+                        "surface-container-low": "#f4f3fa",
+                        "surface-container-highest": "#e3e1e9",
+                        "surface-bright": "#faf8ff",
+                        "tertiary-container": "#6e2c00",
+                        "inverse-on-surface": "#f1f0f7",
+                        "on-tertiary-fixed-variant": "#773205",
+                        "secondary-container": "#57dffe",
+                        "on-secondary": "#ffffff",
+                        "secondary": "#00687a",
+                        "primary-fixed": "#dce1ff",
+                        "on-secondary-fixed": "#001f26",
+                        "surface-container-high": "#e9e7ef",
+                        "secondary-fixed": "#acedff",
+                        "tertiary-fixed": "#ffdbcb",
+                        "inverse-primary": "#b6c4ff",
+                        "primary-fixed-dim": "#b6c4ff",
+                        "tertiary": "#4b1c00",
+                        "secondary-fixed-dim": "#4cd7f6",
+                        "primary": "#00236f",
+                        "on-primary": "#ffffff",
+                        "error": "#ba1a1a",
+                        "on-surface-variant": "#444651",
+                        "on-secondary-fixed-variant": "#004e5c",
+                        "tertiary-fixed-dim": "#ffb691",
+                        "surface-container-lowest": "#ffffff",
+                        "on-primary-fixed": "#00164e",
+                        "on-error": "#ffffff",
+                        "on-background": "#1a1b21",
+                        "surface-dim": "#dad9e1",
+                        "surface-container": "#eeedf4"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Plus Jakarta Sans"],
+                        "display": ["Plus Jakarta Sans"],
+                        "body": ["Inter"],
+                        "label": ["JetBrains Mono"]
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-surface text-on-surface font-body antialiased min-h-screen">
+<!-- TopAppBar -->
+<header class="bg-surface dark:bg-surface text-primary dark:text-primary-fixed-dim font-body text-on-surface fixed top-0 right-0 w-[calc(100%-16rem)] h-16 border-b border-outline-variant flex justify-between items-center px-8 h-16 ml-64 z-20">
+<!-- Logo hidden as per JSON style_brand_logo: "hidden" -->
+<div class="flex-1"></div> <!-- Spacer for search_bar on_left (not implemented as functional element here, just placeholder layout) -->
+<div class="flex items-center space-x-6">
+<button class="text-on-surface-variant hover:text-primary transition-colors hover:opacity-80 transition-opacity">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors hover:opacity-80 transition-opacity">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<button class="flex items-center space-x-2 text-primary font-bold hover:text-primary transition-colors hover:opacity-80 transition-opacity">
+<img alt="Administrator Profile" class="w-8 h-8 rounded-full border border-outline-variant" data-alt="A professional headshot of an administrator, clean corporate lighting, white background, high-trust academic administrative aesthetic, sharp focus." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCtSGmlIBqdBLBPHWQcnOoF1EXB875yW5T7cTEplNAlktYWQmKfc1oExmh418vcAq4Vd2K_Mj0Yiij6l37h4YluKUhfFWjV8BdSPEhZ83ucUVPufrRXV8NGI4vokg-XTWKldGHWpN1Zvq9djsYPhfT8CA3hg6I3903yIGTp81Rg9ZyfdWYViocz6Bfik7d3EirjwxqGzMA3jfbwGrbtxXmP2zMOgFFswZwBTkTxCM7DBFGuFAKGB-f1z3mEFjzt7wdAgmZ-ChVTTtc"/>
+<span>Profile</span>
+</button>
+</div>
+</header>
+<!-- SideNavBar -->
+<nav class="bg-primary dark:bg-primary text-on-primary dark:text-on-primary font-headline text-on-primary w-64 h-screen fixed left-0 top-0 shadow-md flex flex-col h-full p-4 space-y-2 z-30">
+<div class="mb-8 flex flex-col items-center pt-4">
+<div class="text-xl font-headline font-black text-on-primary mb-6">Hackathon Admin</div>
+<img alt="Admin User Profile" class="w-16 h-16 rounded-full border-2 border-on-primary/20 mb-3" data-alt="A corporate modern headshot of a university system administrator, clear lighting, professional attire, conveying prestige and authority." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCrMy2-uRP4o6shD-1wcpFYwAP4NiDRjwtwLZYiPYPCMp5f4hlsw25pukfmVckzPmEc6DkQ9yZaL2FGVX5m2g9CA9qU_HleIVn4KW1M_d4xisNIi-iZ3fzsIX8I_ZMzWAni7AhAIbGlKIDanmVM8e9NrPmsPQqz5B_-5IkNFaSvLSN1KDLms3BjstnveiWql4d0Q0-0F2Di6XcSHPUEkc0zf9aTWBcihb3GgpisykBzPM2SAc3-fB3Q9cca-7C_bsUREnF8ebnIN4o"/>
+<div class="font-bold text-sm">Hackathon Admin</div>
+<div class="text-xs text-on-primary/70 mb-4">University System</div>
+<button class="w-full py-2 bg-on-primary text-primary rounded-lg font-bold text-sm hover:bg-primary-fixed-dim/20 transition-all">Administrator</button>
+</div>
+<div class="flex flex-col space-y-1 overflow-y-auto flex-1">
+<a class="flex items-center px-4 py-3 rounded-lg text-on-primary/70 hover:text-on-primary hover:bg-primary-fixed-dim/20 transition-colors Active: scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined mr-3">dashboard</span>
+<span class="text-sm font-medium">Dashboard</span>
+</a>
+<a class="flex items-center px-4 py-3 rounded-lg text-on-primary/70 hover:text-on-primary hover:bg-primary-fixed-dim/20 transition-colors Active: scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined mr-3">group</span>
+<span class="text-sm font-medium">Users</span>
+</a>
+<a class="flex items-center px-4 py-3 rounded-lg text-on-primary/70 hover:text-on-primary hover:bg-primary-fixed-dim/20 transition-colors Active: scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined mr-3">security</span>
+<span class="text-sm font-medium">Roles &amp; Permissions</span>
+</a>
+<a class="flex items-center px-4 py-3 rounded-lg text-on-primary/70 hover:text-on-primary hover:bg-primary-fixed-dim/20 transition-colors Active: scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined mr-3">rule</span>
+<span class="text-sm font-medium">Criteria Template</span>
+</a>
+<a class="flex items-center px-4 py-3 text-on-primary-container bg-primary-container rounded-lg font-bold Active: scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined mr-3" style="font-variation-settings: 'FILL' 1;">bar_chart</span>
+<span class="text-sm">Statistics</span>
+</a>
+<a class="flex items-center px-4 py-3 rounded-lg text-on-primary/70 hover:text-on-primary hover:bg-primary-fixed-dim/20 transition-colors Active: scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined mr-3">history</span>
+<span class="text-sm font-medium">Audit Log</span>
+</a>
+<a class="flex items-center px-4 py-3 rounded-lg text-on-primary/70 hover:text-on-primary hover:bg-primary-fixed-dim/20 transition-colors Active: scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined mr-3">settings</span>
+<span class="text-sm font-medium">System Settings</span>
+</a>
+<a class="flex items-center px-4 py-3 rounded-lg text-on-primary/70 hover:text-on-primary hover:bg-primary-fixed-dim/20 transition-colors Active: scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined mr-3">notifications</span>
+<span class="text-sm font-medium">Notifications</span>
+</a>
+</div>
+</nav>
+<!-- Main Content -->
+<main class="ml-64 pt-24 px-8 pb-12">
+<div class="max-w-7xl mx-auto">
+<div class="flex justify-between items-end mb-8 border-b border-outline-variant pb-4">
+<div>
+<h1 class="text-3xl font-headline font-bold text-on-surface">System Statistics</h1>
+<p class="text-on-surface-variant mt-2">Comprehensive performance and usage analytics.</p>
+</div>
+<button class="bg-primary text-on-primary px-6 py-2 rounded-lg font-medium hover:bg-primary-container transition-colors shadow-sm flex items-center space-x-2">
+<span class="material-symbols-outlined text-sm">download</span>
+<span>Export Full Report</span>
+</button>
+</div>
+<!-- Tabs -->
+<div class="flex space-x-8 mb-8 border-b border-outline-variant">
+<button class="pb-3 text-on-surface-variant font-medium hover:text-primary transition-colors border-b-2 border-transparent">Users</button>
+<button class="pb-3 text-on-surface-variant font-medium hover:text-primary transition-colors border-b-2 border-transparent">Events</button>
+<button class="pb-3 text-on-surface-variant font-medium hover:text-primary transition-colors border-b-2 border-transparent">Engagement</button>
+<button class="pb-3 text-primary font-bold border-b-2 border-primary">Performance</button>
+</div>
+<!-- Bento Grid Layout for Performance -->
+<div class="grid grid-cols-12 gap-6">
+<!-- KPI Cards -->
+<div class="col-span-12 md:col-span-4 bg-surface-container-lowest border border-outline-variant rounded-xl p-6 shadow-[0px_2px_4px_rgba(15,23,42,0.05)]">
+<div class="text-sm font-label text-on-surface-variant mb-2">Avg Response Time</div>
+<div class="flex items-end space-x-2">
+<span class="text-4xl font-headline font-bold text-on-surface">124<span class="text-lg text-on-surface-variant">ms</span></span>
+<span class="text-secondary font-medium text-sm bg-secondary-container/20 px-2 py-1 rounded-md mb-1">-12ms</span>
+</div>
+</div>
+<div class="col-span-12 md:col-span-4 bg-surface-container-lowest border border-outline-variant rounded-xl p-6 shadow-[0px_2px_4px_rgba(15,23,42,0.05)]">
+<div class="text-sm font-label text-on-surface-variant mb-2">System Error Rate</div>
+<div class="flex items-end space-x-2">
+<span class="text-4xl font-headline font-bold text-on-surface">0.02<span class="text-lg text-on-surface-variant">%</span></span>
+<span class="text-on-surface-variant font-medium text-sm bg-surface-variant px-2 py-1 rounded-md mb-1">Stable</span>
+</div>
+</div>
+<div class="col-span-12 md:col-span-4 bg-surface-container-lowest border border-outline-variant rounded-xl p-6 shadow-[0px_2px_4px_rgba(15,23,42,0.05)]">
+<div class="text-sm font-label text-on-surface-variant mb-2">Uptime (30d)</div>
+<div class="flex items-end space-x-2">
+<span class="text-4xl font-headline font-bold text-on-surface">99.99<span class="text-lg text-on-surface-variant">%</span></span>
+</div>
+</div>
+<!-- Main Chart: API Response Time -->
+<div class="col-span-12 md:col-span-8 bg-surface-container-lowest border border-outline-variant rounded-xl p-6 shadow-[0px_2px_4px_rgba(15,23,42,0.05)]">
+<h3 class="font-headline font-bold text-lg mb-6">API Response Time (ms)</h3>
+<!-- Mock Chart Area -->
+<div class="h-64 w-full relative">
+<!-- Y-axis -->
+<div class="absolute left-0 top-0 h-full flex flex-col justify-between text-xs text-on-surface-variant font-label pb-6">
+<span>200</span>
+<span>150</span>
+<span>100</span>
+<span>50</span>
+<span>0</span>
+</div>
+<!-- X-axis -->
+<div class="absolute bottom-0 left-8 right-0 flex justify-between text-xs text-on-surface-variant font-label border-t border-outline-variant pt-2">
+<span>00:00</span>
+<span>04:00</span>
+<span>08:00</span>
+<span>12:00</span>
+<span>16:00</span>
+<span>20:00</span>
+</div>
+<!-- Grid lines -->
+<div class="absolute left-8 right-0 top-0 bottom-6 flex flex-col justify-between">
+<div class="w-full border-b border-outline-variant/30 h-0"></div>
+<div class="w-full border-b border-outline-variant/30 h-0"></div>
+<div class="w-full border-b border-outline-variant/30 h-0"></div>
+<div class="w-full border-b border-outline-variant/30 h-0"></div>
+<div class="w-full border-b border-outline-variant/30 h-0"></div>
+</div>
+<!-- Line (CSS placeholder) -->
+<svg class="absolute left-8 right-0 top-0 bottom-6 w-[calc(100%-2rem)] h-full" preserveaspectratio="none" viewbox="0 0 100 100">
+<path class="opacity-80" d="M0,70 Q10,60 20,65 T40,50 T60,80 T80,40 T100,45" fill="none" stroke="#00687a" stroke-width="2"></path>
+<!-- Fill -->
+<path d="M0,70 Q10,60 20,65 T40,50 T60,80 T80,40 T100,45 L100,100 L0,100 Z" fill="url(#grad1)" opacity="0.1"></path>
+<defs>
+<lineargradient id="grad1" x1="0%" x2="0%" y1="0%" y2="100%">
+<stop offset="0%" style="stop-color:#00687a;stop-opacity:1"></stop>
+<stop offset="100%" style="stop-color:#00687a;stop-opacity:0"></stop>
+</lineargradient>
+</defs>
+</svg>
+</div>
+</div>
+<!-- Secondary Chart: Error Rate -->
+<div class="col-span-12 md:col-span-4 bg-surface-container-lowest border border-outline-variant rounded-xl p-6 shadow-[0px_2px_4px_rgba(15,23,42,0.05)] flex flex-col">
+<h3 class="font-headline font-bold text-lg mb-6">Error Rate (%)</h3>
+<div class="h-64 w-full relative flex-1">
+<!-- Y-axis -->
+<div class="absolute left-0 top-0 h-full flex flex-col justify-between text-xs text-on-surface-variant font-label pb-6">
+<span>0.10</span>
+<span>0.05</span>
+<span>0.00</span>
+</div>
+<!-- Grid lines -->
+<div class="absolute left-8 right-0 top-0 bottom-6 flex flex-col justify-between">
+<div class="w-full border-b border-outline-variant/30 h-0"></div>
+<div class="w-full border-b border-outline-variant/30 h-0"></div>
+<div class="w-full border-b border-outline-variant/30 h-0"></div>
+</div>
+<!-- Line (CSS placeholder) -->
+<svg class="absolute left-8 right-0 top-0 bottom-6 w-[calc(100%-2rem)] h-full" preserveaspectratio="none" viewbox="0 0 100 100">
+<path class="opacity-80" d="M0,95 L20,98 L40,90 L60,95 L80,85 L100,92" fill="none" stroke="#ba1a1a" stroke-width="2"></path>
+</svg>
+</div>
+</div>
+<!-- Bar Chart: Peak Load Periods -->
+<div class="col-span-12 bg-surface-container-lowest border border-outline-variant rounded-xl p-6 shadow-[0px_2px_4px_rgba(15,23,42,0.05)]">
+<h3 class="font-headline font-bold text-lg mb-6">Peak Load Periods (Requests/min)</h3>
+<div class="h-48 w-full flex items-end space-x-2 pt-4">
+<!-- Bars -->
+<div class="flex-1 bg-secondary/20 hover:bg-secondary/40 transition-colors rounded-t-sm h-[20%] relative group">
+<div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-inverse-surface text-inverse-on-surface text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">2.4k (Mon)</div>
+</div>
+<div class="flex-1 bg-secondary/30 hover:bg-secondary/50 transition-colors rounded-t-sm h-[35%] relative group"></div>
+<div class="flex-1 bg-secondary/60 hover:bg-secondary/80 transition-colors rounded-t-sm h-[60%] relative group"></div>
+<div class="flex-1 bg-secondary rounded-t-sm h-[90%] relative group">
+<div class="absolute -top-8 left-1/2 -translate-x-1/2 bg-inverse-surface text-inverse-on-surface text-xs py-1 px-2 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">14.2k (Thu)</div>
+</div>
+<div class="flex-1 bg-secondary/80 hover:bg-secondary transition-colors rounded-t-sm h-[75%] relative group"></div>
+<div class="flex-1 bg-secondary/40 hover:bg-secondary/60 transition-colors rounded-t-sm h-[40%] relative group"></div>
+<div class="flex-1 bg-secondary/20 hover:bg-secondary/40 transition-colors rounded-t-sm h-[15%] relative group"></div>
+</div>
+<div class="flex justify-between w-full mt-2 text-xs font-label text-on-surface-variant border-t border-outline-variant pt-2">
+<span>Mon</span>
+<span>Tue</span>
+<span>Wed</span>
+<span>Thu</span>
+<span>Fri</span>
+<span>Sat</span>
+<span>Sun</span>
+</div>
+</div>
+</div>
+</div>
+</main>
+</body></html>

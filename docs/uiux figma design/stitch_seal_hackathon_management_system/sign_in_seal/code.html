@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SEAL - Sign In</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+         .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-error": "#ffffff",
+                    "surface-tint": "#4059aa",
+                    "error-container": "#ffdad6",
+                    "background": "#faf8ff",
+                    "surface-container-low": "#f4f3fa",
+                    "inverse-primary": "#b6c4ff",
+                    "surface-container-highest": "#e3e1e9",
+                    "on-tertiary-fixed": "#341100",
+                    "secondary": "#00687a",
+                    "secondary-container": "#57dffe",
+                    "inverse-surface": "#2f3036",
+                    "primary-container": "#1e3a8a",
+                    "on-background": "#1a1b21",
+                    "secondary-fixed-dim": "#4cd7f6",
+                    "surface-dim": "#dad9e1",
+                    "primary-fixed": "#dce1ff",
+                    "tertiary-container": "#6e2c00",
+                    "on-tertiary": "#ffffff",
+                    "outline": "#757682",
+                    "surface-variant": "#e3e1e9",
+                    "inverse-on-surface": "#f1f0f7",
+                    "primary-fixed-dim": "#b6c4ff",
+                    "on-secondary-container": "#006172",
+                    "error": "#ba1a1a",
+                    "surface-container-high": "#e9e7ef",
+                    "tertiary": "#4b1c00",
+                    "surface-container": "#eeedf4",
+                    "secondary-fixed": "#acedff",
+                    "surface-container-lowest": "#ffffff",
+                    "on-primary-fixed": "#00164e",
+                    "tertiary-fixed": "#ffdbcb",
+                    "on-primary-container": "#90a8ff",
+                    "on-primary": "#ffffff",
+                    "on-surface-variant": "#444651",
+                    "surface": "#faf8ff",
+                    "on-primary-fixed-variant": "#264191",
+                    "primary": "#00236f",
+                    "on-error-container": "#93000a",
+                    "on-secondary-fixed": "#001f26",
+                    "on-surface": "#1a1b21",
+                    "on-tertiary-container": "#f39461",
+                    "on-secondary-fixed-variant": "#004e5c",
+                    "on-secondary": "#ffffff",
+                    "outline-variant": "#c5c5d3",
+                    "on-tertiary-fixed-variant": "#773205",
+                    "surface-bright": "#faf8ff",
+                    "tertiary-fixed-dim": "#ffb691"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {},
+            "fontFamily": {
+                    "headline": [
+                            "Plus Jakarta Sans"
+                    ],
+                    "display": [
+                            "Plus Jakarta Sans"
+                    ],
+                    "body": [
+                            "Inter"
+                    ],
+                    "label": [
+                            "Jetbrains Mono"
+                    ]
+            },
+            "fontSize": {}
+    },
+        },
+      }
+    </script>
+</head>
+<body class="min-h-screen flex items-center justify-center bg-gradient-to-br from-surface to-primary-fixed/40 p-4 font-body text-on-surface selection:bg-primary-container selection:text-on-primary-container">
+<main class="w-full max-w-[420px] bg-surface-container-lowest rounded-xl shadow-[0px_10px_15px_-3px_rgba(15,23,42,0.1)] border border-surface-variant p-8 relative overflow-hidden">
+<div class="absolute top-0 left-0 w-full h-2 bg-primary"></div>
+<div class="flex flex-col items-center mb-8">
+<div class="flex items-center justify-center w-12 h-12 bg-primary-container rounded-lg mb-4">
+<span class="material-symbols-outlined text-on-primary-container text-2xl" style="font-variation-settings: 'FILL' 1;">token</span>
+</div>
+<h1 class="text-2xl font-headline font-black tracking-tighter text-primary">SEAL</h1>
+</div>
+<div class="mb-8 text-center">
+<h2 class="font-headline text-2xl font-bold text-on-surface mb-2 tracking-tight">Welcome back</h2>
+<p class="text-sm text-on-surface-variant leading-relaxed">Sign in to your academic hackathon dashboard to manage submissions and team data.</p>
+</div>
+<form action="#" class="space-y-5" method="POST">
+<div>
+<label class="block font-label text-xs font-semibold text-on-surface mb-1.5 uppercase tracking-wider" for="email">Email Address</label>
+<div class="relative">
+<span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-outline-variant">
+<span class="material-symbols-outlined text-xl">mail</span>
+</span>
+<input class="block w-full pl-11 pr-4 py-2.5 bg-surface-container-lowest border border-outline-variant rounded-lg text-body text-sm text-on-surface focus:ring-2 focus:ring-secondary/20 focus:border-secondary transition-all" id="email" name="email" placeholder="name@university.edu" required="" type="email"/>
+</div>
+</div>
+<div>
+<label class="block font-label text-xs font-semibold text-on-surface mb-1.5 uppercase tracking-wider" for="password">Password</label>
+<div class="relative">
+<span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-outline-variant">
+<span class="material-symbols-outlined text-xl">lock</span>
+</span>
+<input class="block w-full pl-11 pr-11 py-2.5 bg-surface-container-lowest border border-outline-variant rounded-lg text-body text-sm text-on-surface focus:ring-2 focus:ring-secondary/20 focus:border-secondary transition-all" id="password" name="password" placeholder="••••••••" required="" type="password"/>
+<button aria-label="Toggle password visibility" class="absolute inset-y-0 right-0 pr-3.5 flex items-center text-outline hover:text-on-surface transition-colors cursor-pointer" type="button">
+<span class="material-symbols-outlined text-xl">visibility_off</span>
+</button>
+</div>
+</div>
+<div class="flex items-center justify-between pt-1">
+<div class="flex items-center">
+<input class="h-4 w-4 rounded border-outline-variant text-primary focus:ring-primary bg-surface-container-lowest cursor-pointer transition-colors" id="remember-me" name="remember-me" type="checkbox"/>
+<label class="ml-2.5 block text-sm font-medium text-on-surface-variant cursor-pointer select-none" for="remember-me">Remember me</label>
+</div>
+<div class="text-sm">
+<a class="font-semibold text-primary hover:text-primary-container transition-colors" href="#">Forgot password?</a>
+</div>
+</div>
+<div class="pt-4">
+<button class="w-full flex justify-center items-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-bold text-on-primary bg-primary hover:bg-on-primary-fixed-variant focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-colors" type="submit">
+                    Sign In
+                    <span class="material-symbols-outlined ml-2 text-lg">login</span>
+</button>
+</div>
+</form>
+<div class="mt-8 pt-6 border-t border-surface-variant text-center">
+<p class="text-sm text-on-surface-variant font-medium">
+                Don't have an account?
+                <a class="font-bold text-primary hover:text-primary-container transition-colors ml-1" href="#">Register here</a>
+</p>
+</div>
+</main>
+</body></html>

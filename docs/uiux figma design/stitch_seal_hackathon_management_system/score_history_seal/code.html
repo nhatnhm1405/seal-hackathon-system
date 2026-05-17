@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Score History - SEAL Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;700;800&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary": "#00236f",
+                        "tertiary-fixed-dim": "#ffb691",
+                        "primary-fixed-dim": "#b6c4ff",
+                        "inverse-surface": "#2f3036",
+                        "error-container": "#ffdad6",
+                        "on-tertiary-fixed-variant": "#773205",
+                        "surface-variant": "#e3e1e9",
+                        "surface-container-high": "#e9e7ef",
+                        "secondary-container": "#57dffe",
+                        "on-secondary-container": "#006172",
+                        "on-primary": "#ffffff",
+                        "outline-variant": "#c5c5d3",
+                        "surface-tint": "#4059aa",
+                        "on-secondary-fixed-variant": "#004e5c",
+                        "surface": "#faf8ff",
+                        "on-error": "#ffffff",
+                        "on-primary-container": "#90a8ff",
+                        "on-tertiary-container": "#f39461",
+                        "inverse-on-surface": "#f1f0f7",
+                        "surface-container": "#eeedf4",
+                        "on-secondary": "#ffffff",
+                        "secondary-fixed-dim": "#4cd7f6",
+                        "inverse-primary": "#b6c4ff",
+                        "on-primary-fixed": "#00164e",
+                        "surface-dim": "#dad9e1",
+                        "on-secondary-fixed": "#001f26",
+                        "on-tertiary": "#ffffff",
+                        "on-tertiary-fixed": "#341100",
+                        "on-error-container": "#93000a",
+                        "surface-container-lowest": "#ffffff",
+                        "on-surface": "#1a1b21",
+                        "background": "#faf8ff",
+                        "surface-bright": "#faf8ff",
+                        "primary-container": "#1e3a8a",
+                        "primary-fixed": "#dce1ff",
+                        "outline": "#757682",
+                        "on-background": "#1a1b21",
+                        "tertiary-container": "#6e2c00",
+                        "tertiary": "#4b1c00",
+                        "secondary-fixed": "#acedff",
+                        "on-surface-variant": "#444651",
+                        "error": "#ba1a1a",
+                        "on-primary-fixed-variant": "#264191",
+                        "surface-container-low": "#f4f3fa",
+                        "tertiary-fixed": "#ffdbcb",
+                        "surface-container-highest": "#e3e1e9",
+                        "secondary": "#00687a"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Plus Jakarta Sans"],
+                        "display": ["Plus Jakarta Sans"],
+                        "body": ["Inter"],
+                        "label": ["JetBrains Mono"]
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-background text-on-background font-body antialiased selection:bg-primary-container selection:text-on-primary-container">
+<!-- TopNavBar (Mobile Only) -->
+<nav class="md:hidden sticky top-0 z-50 flex justify-between items-center px-6 py-3 w-full bg-surface-container-lowest border-b border-outline-variant shadow-sm text-primary font-body text-label-sm">
+<div class="text-headline-md font-headline font-extrabold text-primary tracking-tight">SEAL</div>
+<div class="flex items-center gap-4 text-primary">
+<span class="material-symbols-outlined cursor-pointer hover:bg-surface-container-low transition-colors rounded-full p-1" data-icon="notifications">notifications</span>
+<span class="material-symbols-outlined cursor-pointer hover:bg-surface-container-low transition-colors rounded-full p-1" data-icon="settings">settings</span>
+<img alt="User profile avatar" class="w-8 h-8 rounded-full border border-outline-variant cursor-pointer" data-alt="A small, circular avatar portrait of a professional individual in a corporate setting. The lighting is soft and flattering, suitable for a professional profile picture. The background is slightly blurred to emphasize the subject. This image maintains a clean, modern aesthetic fitting for a dashboard interface." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB2GnraF65zEAAe7DZg12MKQ61y_7UTzaFpQQm3upwRwDXBeCxQa70ZoBHvKGz8z-p9cgRr-AJ5xaEa2Q07-tINQY7H-YvR-XczXlYzmvveMGKciYW9Cy7AjV3jMDWG8_C2kLcF_DYpQRoNJzI98AG9P2q6a39Bzs55bQDLqsaAwSyeBzQnfKX612BBr2TQj43FMAhyt8wDkLOGD0ctUj4mw0xMcJv_UF2eL4Am178AWvtf285L3WCUtdMJOVK9gfKL4aFkq62bAn0"/>
+</div>
+</nav>
+<!-- SideNavBar (Web Only) -->
+<aside class="hidden md:flex flex-col h-screen w-64 fixed left-0 top-0 py-6 px-4 gap-4 bg-primary text-on-primary border-r border-outline-variant shadow-md z-40">
+<div class="flex items-center gap-3 mb-8 px-2">
+<div class="w-10 h-10 rounded-lg bg-surface flex items-center justify-center overflow-hidden flex-shrink-0">
+<img alt="SEAL Hackathon Logo" class="object-cover w-full h-full" data-alt="A stylized logo featuring geometric shapes representing academic excellence and innovation. The colors are predominantly deep navy blue and stark white, fitting the corporate modern aesthetic of the application. The lighting on the logo creates a slight 3D effect, suggesting depth and professionalism. The overall look is clean, authoritative, and inspiring." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCbi1_2VFlADoMW_ZYDWCDVsk0GUZ6C2OR3C0SCqfOL2kIziiMybdkPNEfhZ297gmD5AdvfTowQlsy__YbHAlRSId2U0iqDrsSj21OkNE718rrwfqyQ27MvCioFyAHwOtnYhnMjodQbuXcPAaishjHuil7E8kbpORjixWV22bANfC7BRoYVqjsE4kr8G871AfdfN5Fu4lnw0Z6bvebt0MOF0DiUSuTfJNPvW3AqQZlmhxarLeXf30Z5iGhnr57avJf7FdSifgqzXjs"/>
+</div>
+<div class="flex flex-col">
+<span class="text-headline-sm font-headline font-bold text-on-primary tracking-tight">SEAL Dashboard</span>
+<span class="text-xs text-on-primary/70 font-label">Team Leader</span>
+</div>
+</div>
+<nav class="flex flex-col gap-2 font-body text-label-sm">
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-primary/70 hover:bg-primary-container/20 transition-all duration-200 cursor-pointer" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="dashboard">dashboard</span>
+<span>Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-primary/70 hover:bg-primary-container/20 transition-all duration-200 cursor-pointer" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="groups">groups</span>
+<span>My Team</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-primary/70 hover:bg-primary-container/20 transition-all duration-200 cursor-pointer" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="upload_file">upload_file</span>
+<span>Submissions</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-secondary-container text-on-secondary-container font-bold cursor-pointer transition-all duration-200 shadow-sm" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="emoji_events">emoji_events</span>
+<span>Results</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-primary/70 hover:bg-primary-container/20 transition-all duration-200 cursor-pointer" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="notifications">notifications</span>
+<span>Notifications</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-on-primary/70 hover:bg-primary-container/20 transition-all duration-200 cursor-pointer" href="#">
+<span class="material-symbols-outlined text-[20px]" data-icon="account_circle">account_circle</span>
+<span>Profile</span>
+</a>
+</nav>
+<div class="mt-auto pt-4">
+<button class="w-full flex items-center justify-center gap-2 bg-on-primary text-primary px-4 py-2.5 rounded-lg font-bold text-sm hover:bg-surface-container-high transition-colors shadow-sm cursor-pointer">
+<span class="material-symbols-outlined text-[18px]">add_circle</span>
+                Submit Project
+            </button>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="md:ml-64 min-h-screen p-4 md:p-8 xl:p-12 lg:flex lg:justify-center">
+<div class="w-full max-w-[1280px] grid grid-cols-4 md:grid-cols-8 lg:grid-cols-12 gap-4 md:gap-6">
+<!-- Page Header -->
+<div class="col-span-4 md:col-span-8 lg:col-span-12 mb-8">
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-4">
+<div>
+<h1 class="text-3xl font-headline font-extrabold text-on-background tracking-tight mb-2">Score History</h1>
+<p class="text-on-surface-variant font-body text-base max-w-2xl">Review and manage evaluation records for hackathon submissions. Access historical scoring data and manage revision requests.</p>
+</div>
+</div>
+</div>
+<!-- Transparency Notice -->
+<div class="col-span-4 md:col-span-8 lg:col-span-12 mb-6">
+<div class="bg-surface-container-low border border-outline-variant rounded-lg p-4 flex items-start gap-3 shadow-sm">
+<span class="material-symbols-outlined text-secondary mt-0.5" data-weight="fill">info</span>
+<div>
+<h3 class="font-bold text-on-background text-sm mb-1">Audit Trail Active</h3>
+<p class="text-sm text-on-surface-variant">All revisions are logged to the audit log for transparency and accountability purposes.</p>
+</div>
+</div>
+</div>
+<!-- Data Table Card -->
+<div class="col-span-4 md:col-span-8 lg:col-span-12">
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-[0px_2px_4px_rgba(15,23,42,0.05)] overflow-hidden">
+<!-- Table Toolbar -->
+<div class="p-4 border-b border-outline-variant flex flex-col sm:flex-row justify-between items-center gap-4 bg-surface-bright">
+<div class="relative w-full sm:w-72">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline text-[20px]">search</span>
+<input class="w-full pl-10 pr-4 py-2 bg-surface-container-lowest border border-outline-variant rounded-lg text-sm focus:border-secondary focus:ring-2 focus:ring-secondary/20 outline-none transition-all font-body text-on-surface" placeholder="Search by Team ID..." type="text"/>
+</div>
+<div class="flex gap-2 w-full sm:w-auto">
+<button class="flex items-center justify-center gap-2 px-4 py-2 border border-outline-variant rounded-lg text-sm font-medium hover:bg-surface-container-low transition-colors flex-1 sm:flex-none">
+<span class="material-symbols-outlined text-[18px]">filter_list</span>
+                                Filter
+                            </button>
+<button class="flex items-center justify-center gap-2 px-4 py-2 border border-outline-variant rounded-lg text-sm font-medium hover:bg-surface-container-low transition-colors flex-1 sm:flex-none">
+<span class="material-symbols-outlined text-[18px]">download</span>
+                                Export
+                            </button>
+</div>
+</div>
+<!-- Table Container -->
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low border-b border-outline-variant">
+<th class="py-3 px-4 font-label text-xs uppercase tracking-wider text-on-surface-variant font-medium">Round</th>
+<th class="py-3 px-4 font-label text-xs uppercase tracking-wider text-on-surface-variant font-medium">Team ID</th>
+<th class="py-3 px-4 font-label text-xs uppercase tracking-wider text-on-surface-variant font-medium">Submitted Score</th>
+<th class="py-3 px-4 font-label text-xs uppercase tracking-wider text-on-surface-variant font-medium">Submitted At</th>
+<th class="py-3 px-4 font-label text-xs uppercase tracking-wider text-on-surface-variant font-medium">Status</th>
+<th class="py-3 px-4 font-label text-xs uppercase tracking-wider text-on-surface-variant font-medium text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant font-body text-sm">
+<!-- Row 1 -->
+<tr class="hover:bg-surface-container-low/50 transition-colors group">
+<td class="py-4 px-4 text-on-surface">Finals</td>
+<td class="py-4 px-4 font-label text-on-surface">Team #14</td>
+<td class="py-4 px-4">
+<div class="flex items-center gap-2">
+<span class="font-bold text-primary">92</span>
+<span class="text-on-surface-variant text-xs">/ 100</span>
+</div>
+</td>
+<td class="py-4 px-4 text-on-surface-variant">Oct 24, 2023 - 14:30</td>
+<td class="py-4 px-4">
+<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-[#ecfdf5] text-[#065f46] border border-[#a7f3d0]">Final</span>
+</td>
+<td class="py-4 px-4 text-right">
+<div class="flex justify-end gap-2">
+<button class="p-1.5 text-on-surface-variant hover:text-primary hover:bg-surface-container-highest rounded-md transition-colors" title="View Details">
+<span class="material-symbols-outlined text-[20px]">visibility</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-surface-container-low/50 transition-colors group">
+<td class="py-4 px-4 text-on-surface">Semi-Finals</td>
+<td class="py-4 px-4 font-label text-on-surface">Team #42</td>
+<td class="py-4 px-4">
+<div class="flex items-center gap-2">
+<span class="font-bold text-primary">88</span>
+<span class="text-on-surface-variant text-xs">/ 100</span>
+</div>
+</td>
+<td class="py-4 px-4 text-on-surface-variant">Oct 22, 2023 - 09:15</td>
+<td class="py-4 px-4">
+<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-surface-container-highest text-on-surface border border-outline-variant">Revised</span>
+</td>
+<td class="py-4 px-4 text-right">
+<div class="flex justify-end gap-2">
+<button class="p-1.5 text-on-surface-variant hover:text-primary hover:bg-surface-container-highest rounded-md transition-colors" title="View Details">
+<span class="material-symbols-outlined text-[20px]">visibility</span>
+</button>
+</div>
+</td>
+</tr>
+<!-- Row 3 (Recent - Revise Active) -->
+<tr class="hover:bg-surface-container-low/50 transition-colors group bg-surface-container-low/20">
+<td class="py-4 px-4 text-on-surface">Finals</td>
+<td class="py-4 px-4 font-label text-on-surface">Team #07</td>
+<td class="py-4 px-4">
+<div class="flex items-center gap-2">
+<span class="font-bold text-primary">75</span>
+<span class="text-on-surface-variant text-xs">/ 100</span>
+</div>
+</td>
+<td class="py-4 px-4 text-on-surface-variant">Today - 10:45</td>
+<td class="py-4 px-4">
+<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-[#fef3c7] text-[#92400e] border border-[#fde68a]">Pending Review</span>
+</td>
+<td class="py-4 px-4 text-right">
+<div class="flex justify-end gap-2">
+<button class="p-1.5 text-on-surface-variant hover:text-primary hover:bg-surface-container-highest rounded-md transition-colors" title="View Details">
+<span class="material-symbols-outlined text-[20px]">visibility</span>
+</button>
+<button class="px-3 py-1.5 bg-primary text-on-primary rounded-md text-xs font-medium hover:bg-primary/90 transition-colors shadow-sm" title="Revise Score">
+                                                Revise
+                                            </button>
+</div>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Pagination -->
+<div class="p-4 border-t border-outline-variant bg-surface-bright flex items-center justify-between">
+<span class="text-sm text-on-surface-variant">Showing 1 to 3 of 15 entries</span>
+<div class="flex gap-1">
+<button class="p-1 rounded text-outline hover:bg-surface-container-low disabled:opacity-50" disabled="">
+<span class="material-symbols-outlined">chevron_left</span>
+</button>
+<button class="w-8 h-8 rounded bg-primary text-on-primary text-sm font-medium flex items-center justify-center">1</button>
+<button class="w-8 h-8 rounded text-on-surface hover:bg-surface-container-low text-sm font-medium flex items-center justify-center transition-colors">2</button>
+<button class="w-8 h-8 rounded text-on-surface hover:bg-surface-container-low text-sm font-medium flex items-center justify-center transition-colors">3</button>
+<button class="p-1 rounded text-on-surface hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</body></html>

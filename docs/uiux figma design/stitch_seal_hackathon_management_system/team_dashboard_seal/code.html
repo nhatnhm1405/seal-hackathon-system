@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SEAL Hackathon - Team Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500;700&amp;family=Plus+Jakarta+Sans:wght@500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "surface-container-lowest": "#ffffff",
+                        "on-secondary": "#ffffff",
+                        "on-background": "#1a1b21",
+                        "background": "#faf8ff",
+                        "secondary-fixed-dim": "#4cd7f6",
+                        "surface-container": "#eeedf4",
+                        "primary-fixed": "#dce1ff",
+                        "on-primary-fixed": "#00164e",
+                        "inverse-surface": "#2f3036",
+                        "tertiary-fixed-dim": "#ffb691",
+                        "surface-container-highest": "#e3e1e9",
+                        "on-tertiary": "#ffffff",
+                        "on-error-container": "#93000a",
+                        "on-error": "#ffffff",
+                        "secondary": "#00687a",
+                        "secondary-fixed": "#acedff",
+                        "tertiary-fixed": "#ffdbcb",
+                        "tertiary-container": "#6e2c00",
+                        "surface-container-high": "#e9e7ef",
+                        "tertiary": "#4b1c00",
+                        "inverse-primary": "#b6c4ff",
+                        "surface": "#faf8ff",
+                        "secondary-container": "#57dffe",
+                        "primary": "#00236f",
+                        "error-container": "#ffdad6",
+                        "on-tertiary-fixed-variant": "#773205",
+                        "on-secondary-fixed-variant": "#004e5c",
+                        "on-surface-variant": "#444651",
+                        "surface-bright": "#faf8ff",
+                        "on-primary": "#ffffff",
+                        "on-tertiary-fixed": "#341100",
+                        "surface-dim": "#dad9e1",
+                        "primary-fixed-dim": "#b6c4ff",
+                        "on-surface": "#1a1b21",
+                        "on-primary-container": "#90a8ff",
+                        "on-primary-fixed-variant": "#264191",
+                        "primary-container": "#1e3a8a",
+                        "error": "#ba1a1a",
+                        "outline": "#757682",
+                        "surface-tint": "#4059aa",
+                        "inverse-on-surface": "#f1f0f7",
+                        "surface-container-low": "#f4f3fa",
+                        "outline-variant": "#c5c5d3",
+                        "on-secondary-container": "#006172",
+                        "on-secondary-fixed": "#001f26",
+                        "surface-variant": "#e3e1e9",
+                        "on-tertiary-container": "#f39461"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    fontFamily: {
+                        "headline": ["Plus Jakarta Sans"],
+                        "display": ["Plus Jakarta Sans"],
+                        "body": ["Inter"],
+                        "label": ["JetBrains Mono"]
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-background text-on-background font-body antialiased min-h-screen flex">
+<!-- SideNavBar Component -->
+<nav class="hidden md:flex flex-col h-screen w-64 fixed left-0 top-0 py-6 px-4 gap-4 bg-primary text-on-primary border-r border-outline-variant shadow-md z-40">
+<!-- Header / Identity -->
+<div class="flex flex-col items-center justify-center mb-6">
+<div class="w-16 h-16 rounded-full bg-surface-container-lowest flex items-center justify-center mb-3">
+<span class="material-symbols-outlined text-primary text-3xl" data-icon="school">school</span>
+</div>
+<h1 class="text-headline-sm font-headline font-bold text-on-primary text-center">SEAL Dashboard</h1>
+<span class="mt-1 px-2 py-1 text-xs font-label bg-primary-container text-on-primary-container rounded-full uppercase tracking-wider">Team Leader</span>
+</div>
+<!-- Navigation Links -->
+<ul class="flex flex-col gap-2 flex-grow">
+<!-- Active Tab: Dashboard -->
+<li>
+<a class="flex items-center gap-3 px-3 py-2 bg-secondary-container text-on-secondary-container rounded-lg font-bold transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="font-body text-label-sm">Dashboard</span>
+</a>
+</li>
+<!-- Inactive Tabs -->
+<li>
+<a class="flex items-center gap-3 px-3 py-2 text-on-primary/70 hover:bg-primary-container/20 transition-all duration-200 rounded-lg cursor-pointer" href="#">
+<span class="material-symbols-outlined" data-icon="groups">groups</span>
+<span class="font-body text-label-sm">My Team</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-3 py-2 text-on-primary/70 hover:bg-primary-container/20 transition-all duration-200 rounded-lg cursor-pointer" href="#">
+<span class="material-symbols-outlined" data-icon="upload_file">upload_file</span>
+<span class="font-body text-label-sm">Submissions</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-3 py-2 text-on-primary/70 hover:bg-primary-container/20 transition-all duration-200 rounded-lg cursor-pointer" href="#">
+<span class="material-symbols-outlined" data-icon="emoji_events">emoji_events</span>
+<span class="font-body text-label-sm">Results</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-3 py-2 text-on-primary/70 hover:bg-primary-container/20 transition-all duration-200 rounded-lg cursor-pointer" href="#">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+<span class="font-body text-label-sm">Notifications</span>
+</a>
+</li>
+<li>
+<a class="flex items-center gap-3 px-3 py-2 text-on-primary/70 hover:bg-primary-container/20 transition-all duration-200 rounded-lg cursor-pointer" href="#">
+<span class="material-symbols-outlined" data-icon="account_circle">account_circle</span>
+<span class="font-body text-label-sm">Profile</span>
+</a>
+</li>
+</ul>
+<!-- Bottom CTA -->
+<div class="mt-auto pt-4 border-t border-primary-container">
+<button class="w-full flex items-center justify-center gap-2 bg-secondary text-on-secondary py-3 px-4 rounded-lg font-bold hover:bg-secondary/90 transition-colors shadow-sm">
+<span class="material-symbols-outlined text-sm" data-icon="send">send</span>
+<span>Submit Project</span>
+</button>
+</div>
+</nav>
+<!-- Main Content Area -->
+<main class="flex-grow md:ml-64 min-h-screen">
+<!-- TopNavBar Component (Mobile Only or as Secondary Header) -->
+<header class="sticky top-0 z-30 flex justify-between items-center px-6 py-3 w-full bg-surface-container-lowest border-b border-outline-variant shadow-sm md:hidden">
+<div class="text-headline-md font-headline font-extrabold text-primary tracking-tight">SEAL</div>
+<div class="flex items-center gap-4 text-primary">
+<button class="hover:bg-surface-container-low p-2 rounded-full transition-colors active:scale-95">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button>
+<button class="hover:bg-surface-container-low p-2 rounded-full transition-colors active:scale-95">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+</button>
+</div>
+</header>
+<div class="p-4 md:p-8 max-w-7xl mx-auto space-y-8">
+<!-- Welcome & Event Banner Section -->
+<div class="relative overflow-hidden rounded-xl bg-surface-container-lowest border border-outline-variant shadow-sm flex flex-col md:flex-row items-center justify-between p-6 md:p-8">
+<!-- Background Pattern (Subtle) -->
+<div class="absolute inset-0 opacity-5 pointer-events-none" style="background-image: radial-gradient(#00236f 1px, transparent 1px); background-size: 20px 20px;"></div>
+<div class="relative z-10 space-y-2 text-center md:text-left mb-6 md:mb-0">
+<h2 class="text-display-sm font-headline font-bold text-on-surface">Welcome back, Team <span class="text-primary">NeonGenesis</span>!</h2>
+<p class="text-on-surface-variant font-body">Ready to build the future? Check your upcoming deadlines below.</p>
+</div>
+<div class="relative z-10 bg-primary-container text-on-primary-container px-6 py-4 rounded-lg flex items-center gap-4 shadow-sm">
+<div class="bg-surface-container-lowest p-2 rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined text-primary" data-icon="event">event</span>
+</div>
+<div>
+<div class="text-xs font-label uppercase tracking-wider opacity-80">Current Event</div>
+<div class="font-bold text-lg">SEAL Spring 2026</div>
+</div>
+</div>
+</div>
+<!-- Bento Grid: Stats Cards -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+<!-- Stat Card 1 -->
+<div class="bg-surface-container-lowest p-5 rounded-xl border border-outline-variant shadow-sm flex flex-col justify-between">
+<div class="flex justify-between items-start mb-4">
+<div class="text-xs font-label text-on-surface-variant uppercase tracking-wider">Registered Track</div>
+<span class="material-symbols-outlined text-secondary-container" data-icon="rocket_launch">rocket_launch</span>
+</div>
+<div>
+<div class="text-lg font-bold text-on-surface leading-tight">Web App Innovation</div>
+<div class="text-sm text-on-surface-variant mt-1">Primary Category</div>
+</div>
+</div>
+<!-- Stat Card 2 (Countdown) -->
+<div class="bg-surface-container-lowest p-5 rounded-xl border border-outline-variant shadow-sm flex flex-col justify-between border-t-4 border-t-error">
+<div class="flex justify-between items-start mb-4">
+<div class="text-xs font-label text-on-surface-variant uppercase tracking-wider">Next Deadline</div>
+<span class="material-symbols-outlined text-error" data-icon="timer">timer</span>
+</div>
+<div>
+<div class="text-2xl font-headline font-bold text-on-surface tabular-nums">2d 14h 22m</div>
+<div class="text-sm font-medium text-error mt-1">Preliminary Submission</div>
+</div>
+</div>
+<!-- Stat Card 3 -->
+<div class="bg-surface-container-lowest p-5 rounded-xl border border-outline-variant shadow-sm flex flex-col justify-between">
+<div class="flex justify-between items-start mb-4">
+<div class="text-xs font-label text-on-surface-variant uppercase tracking-wider">Submission Status</div>
+<span class="material-symbols-outlined text-outline" data-icon="save">save</span>
+</div>
+<div>
+<div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container-high text-on-surface-variant text-sm font-medium">
+<span class="w-2 h-2 rounded-full bg-outline"></span>
+                            Draft Saved
+                        </div>
+<div class="text-xs text-on-surface-variant mt-2">Last edited 2 hours ago</div>
+</div>
+</div>
+<!-- Stat Card 4 -->
+<div class="bg-surface-container-lowest p-5 rounded-xl border border-outline-variant shadow-sm flex flex-col justify-between">
+<div class="flex justify-between items-start mb-4">
+<div class="text-xs font-label text-on-surface-variant uppercase tracking-wider">Current Rank</div>
+<span class="material-symbols-outlined text-tertiary-container" data-icon="leaderboard">leaderboard</span>
+</div>
+<div>
+<div class="text-2xl font-headline font-bold text-on-surface">12th <span class="text-base text-on-surface-variant font-normal">/ 45</span></div>
+<div class="text-sm text-on-surface-variant mt-1">Top 30% of Teams</div>
+</div>
+</div>
+</div>
+<!-- Main Content Layout (Grid) -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+<!-- Center Column (Wider) -->
+<div class="lg:col-span-2 space-y-8">
+<!-- Upcoming Round Section -->
+<section class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm overflow-hidden">
+<div class="border-b border-outline-variant p-5 bg-surface-container-low flex justify-between items-center">
+<h3 class="text-lg font-headline font-bold flex items-center gap-2">
+<span class="material-symbols-outlined text-primary" data-icon="assignment">assignment</span>
+                                Upcoming Round: Preliminary Review
+                            </h3>
+<button class="text-primary text-sm font-medium hover:underline">View Guidelines</button>
+</div>
+<div class="p-5">
+<p class="text-on-surface-variant mb-4">To pass the preliminary review, your submission must meet the following criteria. Ensure all items are completed before the deadline.</p>
+<ul class="space-y-3">
+<li class="flex items-start gap-3 p-3 rounded-lg border border-outline-variant bg-surface-bright">
+<span class="material-symbols-outlined text-outline mt-0.5" data-icon="check_circle">check_circle</span>
+<div>
+<div class="font-medium text-on-surface">Executive Summary (Max 500 words)</div>
+<div class="text-sm text-on-surface-variant">Provide a clear overview of the problem and your proposed solution.</div>
+</div>
+</li>
+<li class="flex items-start gap-3 p-3 rounded-lg border border-outline-variant bg-surface-bright">
+<span class="material-symbols-outlined text-outline mt-0.5" data-icon="check_circle">check_circle</span>
+<div>
+<div class="font-medium text-on-surface">Architecture Diagram</div>
+<div class="text-sm text-on-surface-variant">Upload a high-level system architecture diagram (PDF or PNG).</div>
+</div>
+</li>
+<li class="flex items-start gap-3 p-3 rounded-lg border border-primary/30 bg-primary/5">
+<span class="material-symbols-outlined text-primary mt-0.5" data-icon="pending">pending</span>
+<div>
+<div class="font-medium text-primary">Working Prototype Demo (Video)</div>
+<div class="text-sm text-on-surface-variant">Provide a 2-minute recorded demo of core functionality.</div>
+</div>
+</li>
+</ul>
+</div>
+</section>
+<!-- Two-Column Inner Layout -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+<!-- Team Roster -->
+<section class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm p-5">
+<div class="flex justify-between items-center mb-5">
+<h3 class="text-base font-headline font-bold">Team Roster</h3>
+<button class="text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-sm" data-icon="edit">edit</span>
+</button>
+</div>
+<div class="flex items-center gap-2 mb-2">
+<div class="w-12 h-12 rounded-full bg-surface-container-high border-2 border-surface-container-lowest flex items-center justify-center text-sm font-bold text-on-surface-variant relative z-10 shadow-sm">
+                                    JD
+                                </div>
+<div class="w-12 h-12 rounded-full bg-primary/10 border-2 border-surface-container-lowest flex items-center justify-center text-sm font-bold text-primary relative z-20 -ml-4 shadow-sm">
+                                    AS
+                                </div>
+<div class="w-12 h-12 rounded-full bg-secondary/10 border-2 border-surface-container-lowest flex items-center justify-center text-sm font-bold text-secondary relative z-30 -ml-4 shadow-sm">
+                                    MK
+                                </div>
+<div class="w-12 h-12 rounded-full bg-tertiary/10 border-2 border-surface-container-lowest flex items-center justify-center text-sm font-bold text-tertiary relative z-40 -ml-4 shadow-sm">
+                                    RL
+                                </div>
+</div>
+<div class="text-sm text-on-surface-variant mt-3">4 Members (1 Slot Remaining)</div>
+</section>
+<!-- Quick Actions -->
+<section class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm p-5">
+<h3 class="text-base font-headline font-bold mb-4">Quick Actions</h3>
+<div class="flex flex-col gap-2">
+<button class="flex items-center gap-3 w-full p-2.5 rounded-lg border border-outline-variant hover:border-primary hover:bg-surface-container-low transition-colors text-left group">
+<span class="material-symbols-outlined text-outline group-hover:text-primary" data-icon="publish">publish</span>
+<span class="font-medium text-sm text-on-surface">Submit Work</span>
+</button>
+<button class="flex items-center gap-3 w-full p-2.5 rounded-lg border border-outline-variant hover:border-primary hover:bg-surface-container-low transition-colors text-left group">
+<span class="material-symbols-outlined text-outline group-hover:text-primary" data-icon="group_add">group_add</span>
+<span class="font-medium text-sm text-on-surface">Manage Team</span>
+</button>
+<button class="flex items-center gap-3 w-full p-2.5 rounded-lg border border-outline-variant hover:border-primary hover:bg-surface-container-low transition-colors text-left group">
+<span class="material-symbols-outlined text-outline group-hover:text-primary" data-icon="bar_chart">bar_chart</span>
+<span class="font-medium text-sm text-on-surface">View Past Results</span>
+</button>
+</div>
+</section>
+</div>
+</div>
+<!-- Right Sidebar Column -->
+<div class="space-y-8">
+<!-- Notifications Preview -->
+<section class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm p-5">
+<div class="flex justify-between items-center mb-4">
+<h3 class="text-base font-headline font-bold">Recent Activity</h3>
+<span class="bg-error/10 text-error text-xs font-bold px-2 py-0.5 rounded-full">2 New</span>
+</div>
+<div class="space-y-4">
+<div class="flex gap-3 relative">
+<div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 z-10">
+<span class="material-symbols-outlined text-primary text-sm" data-icon="person_add">person_add</span>
+</div>
+<div class="absolute left-4 top-8 bottom-[-16px] w-px bg-outline-variant"></div>
+<div>
+<div class="text-sm font-medium text-on-surface">Alex S. joined the team</div>
+<div class="text-xs text-on-surface-variant mt-0.5">2 hours ago</div>
+</div>
+</div>
+<div class="flex gap-3 relative">
+<div class="w-8 h-8 rounded-full bg-secondary-container/30 flex items-center justify-center flex-shrink-0 z-10">
+<span class="material-symbols-outlined text-secondary-container text-sm" data-icon="edit_document">edit_document</span>
+</div>
+<div>
+<div class="text-sm font-medium text-on-surface">Draft updated by You</div>
+<div class="text-xs text-on-surface-variant mt-0.5">Yesterday, 4:30 PM</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Mini Roadmap / Timeline -->
+<section class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm p-5">
+<h3 class="text-base font-headline font-bold mb-5">Event Timeline</h3>
+<div class="relative pl-6 space-y-6">
+<!-- Timeline Line -->
+<div class="absolute left-2.5 top-2 bottom-2 w-0.5 bg-outline-variant/50"></div>
+<!-- Milestone 1 (Completed) -->
+<div class="relative">
+<div class="absolute -left-6 top-1 w-3 h-3 rounded-full bg-outline border-2 border-surface-container-lowest"></div>
+<div class="text-xs font-label text-outline uppercase tracking-wide">Feb 10</div>
+<div class="text-sm font-medium text-on-surface line-through opacity-70">Registration Closes</div>
+</div>
+<!-- Milestone 2 (Current) -->
+<div class="relative">
+<div class="absolute -left-6 top-1 w-3 h-3 rounded-full bg-primary border-2 border-surface-container-lowest ring-2 ring-primary/20"></div>
+<div class="text-xs font-label text-primary font-bold uppercase tracking-wide">Feb 25 (Current)</div>
+<div class="text-sm font-medium text-on-surface">Preliminary Submission</div>
+</div>
+<!-- Milestone 3 (Future) -->
+<div class="relative">
+<div class="absolute -left-6 top-1 w-3 h-3 rounded-full bg-surface-container-highest border-2 border-surface-container-lowest"></div>
+<div class="text-xs font-label text-on-surface-variant uppercase tracking-wide">Mar 05</div>
+<div class="text-sm font-medium text-on-surface">Finalists Announced</div>
+</div>
+<!-- Milestone 4 (Future) -->
+<div class="relative">
+<div class="absolute -left-6 top-1 w-3 h-3 rounded-full bg-surface-container-highest border-2 border-surface-container-lowest"></div>
+<div class="text-xs font-label text-on-surface-variant uppercase tracking-wide">Mar 15</div>
+<div class="text-sm font-medium text-on-surface">Final Pitch Event</div>
+</div>
+</div>
+</section>
+</div>
+</div>
+</div>
+</main>
+</body></html>

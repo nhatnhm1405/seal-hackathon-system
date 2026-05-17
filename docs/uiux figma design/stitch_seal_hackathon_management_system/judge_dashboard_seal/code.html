@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>SEAL Judge Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;family=Plus+Jakarta+Sans:wght@500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "primary": "#00236f",
+                      "tertiary-fixed-dim": "#ffb691",
+                      "primary-fixed-dim": "#b6c4ff",
+                      "inverse-surface": "#2f3036",
+                      "error-container": "#ffdad6",
+                      "on-tertiary-fixed-variant": "#773205",
+                      "surface-variant": "#e3e1e9",
+                      "surface-container-high": "#e9e7ef",
+                      "secondary-container": "#57dffe",
+                      "on-secondary-container": "#006172",
+                      "on-primary": "#ffffff",
+                      "outline-variant": "#c5c5d3",
+                      "surface-tint": "#4059aa",
+                      "on-secondary-fixed-variant": "#004e5c",
+                      "surface": "#faf8ff",
+                      "on-error": "#ffffff",
+                      "on-primary-container": "#90a8ff",
+                      "on-tertiary-container": "#f39461",
+                      "inverse-on-surface": "#f1f0f7",
+                      "surface-container": "#eeedf4",
+                      "on-secondary": "#ffffff",
+                      "secondary-fixed-dim": "#4cd7f6",
+                      "inverse-primary": "#b6c4ff",
+                      "on-primary-fixed": "#00164e",
+                      "surface-dim": "#dad9e1",
+                      "on-secondary-fixed": "#001f26",
+                      "on-tertiary": "#ffffff",
+                      "on-tertiary-fixed": "#341100",
+                      "on-error-container": "#93000a",
+                      "surface-container-lowest": "#ffffff",
+                      "on-surface": "#1a1b21",
+                      "background": "#faf8ff",
+                      "surface-bright": "#faf8ff",
+                      "primary-container": "#1e3a8a",
+                      "primary-fixed": "#dce1ff",
+                      "outline": "#757682",
+                      "on-background": "#1a1b21",
+                      "tertiary-container": "#6e2c00",
+                      "tertiary": "#4b1c00",
+                      "secondary-fixed": "#acedff",
+                      "on-surface-variant": "#444651",
+                      "error": "#ba1a1a",
+                      "on-primary-fixed-variant": "#264191",
+                      "surface-container-low": "#f4f3fa",
+                      "tertiary-fixed": "#ffdbcb",
+                      "surface-container-highest": "#e3e1e9",
+                      "secondary": "#00687a"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {},
+              "fontFamily": {
+                      "headline": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "display": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "body": [
+                              "Inter"
+                      ],
+                      "label": [
+                              "JetBrains Mono"
+                      ]
+              },
+              "fontSize": {}
+      },
+          },
+        }
+      </script>
+</head>
+<body class="bg-surface text-on-surface font-body min-h-screen flex antialiased">
+<!-- SideNavBar -->
+<nav class="hidden lg:flex flex-col h-full w-64 fixed left-0 top-0 py-6 px-4 gap-4 bg-primary text-on-primary shadow-md border-r border-outline-variant z-40">
+<div class="flex items-center gap-3 px-2 mb-8">
+<div class="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center text-on-secondary-container font-headline font-bold text-xl">S</div>
+<div>
+<h1 class="text-headline-sm font-headline font-bold text-on-primary tracking-tight">SEAL Dashboard</h1>
+<p class="text-xs text-on-primary/70">Judge Portal</p>
+</div>
+</div>
+<div class="flex flex-col gap-2 flex-grow">
+<!-- Active Tab: Dashboard -->
+<a class="flex items-center gap-3 px-4 py-3 bg-secondary-container text-on-secondary-container rounded-lg font-bold transition-all duration-200" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">dashboard</span>
+<span class="font-body text-sm">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-primary/70 hover:bg-primary-container/20 transition-all duration-200 rounded-lg cursor-pointer" href="#">
+<span class="material-symbols-outlined">upload_file</span>
+<span class="font-body text-sm">Submissions</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-primary/70 hover:bg-primary-container/20 transition-all duration-200 rounded-lg cursor-pointer" href="#">
+<span class="material-symbols-outlined">history</span>
+<span class="font-body text-sm">Score History</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-primary/70 hover:bg-primary-container/20 transition-all duration-200 rounded-lg cursor-pointer" href="#">
+<span class="material-symbols-outlined">tune</span>
+<span class="font-body text-sm">Calibration</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-primary/70 hover:bg-primary-container/20 transition-all duration-200 rounded-lg cursor-pointer" href="#">
+<span class="material-symbols-outlined">notifications</span>
+<span class="font-body text-sm">Notifications</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-primary/70 hover:bg-primary-container/20 transition-all duration-200 rounded-lg cursor-pointer mt-auto" href="#">
+<span class="material-symbols-outlined">account_circle</span>
+<span class="font-body text-sm">Profile</span>
+</a>
+</div>
+</nav>
+<!-- Main Content Canvas -->
+<main class="flex-1 lg:ml-64 flex flex-col min-h-screen">
+<!-- TopNavBar (Mobile Only / Responsive Support) -->
+<header class="lg:hidden sticky top-0 z-50 flex justify-between items-center px-6 py-3 w-full bg-surface-container-lowest shadow-sm border-b border-outline-variant">
+<div class="text-headline-md font-headline font-extrabold text-primary tracking-tight">SEAL</div>
+<div class="flex gap-4">
+<button class="text-on-surface-variant hover:bg-surface-container-low p-2 rounded-full transition-colors cursor-pointer active:scale-95">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="text-on-surface-variant hover:bg-surface-container-low p-2 rounded-full transition-colors cursor-pointer active:scale-95">
+<span class="material-symbols-outlined">menu</span>
+</button>
+</div>
+</header>
+<div class="p-6 md:p-8 max-w-7xl mx-auto w-full space-y-8">
+<!-- Welcome Header -->
+<section class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+<div>
+<h2 class="text-3xl font-headline font-bold text-primary mb-2">Welcome, Dr. Nguyen Van A</h2>
+<div class="inline-flex items-center gap-2 px-3 py-1 bg-secondary-container/20 text-on-secondary-container rounded-full border border-secondary-container/30">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">verified</span>
+<span class="text-xs font-semibold font-body tracking-wide uppercase">Internal Faculty Judge</span>
+</div>
+</div>
+<button class="bg-primary hover:bg-primary-container text-white px-6 py-3 rounded-lg font-bold flex items-center gap-2 transition-colors shadow-sm">
+<span class="material-symbols-outlined">play_arrow</span>
+                    Continue Scoring
+                </button>
+</section>
+<!-- KPI Cards Grid -->
+<section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+<!-- KPI 1 -->
+<div class="bg-surface-container-lowest p-6 rounded-xl border border-surface-variant shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
+<div class="flex justify-between items-start mb-4">
+<p class="text-sm font-medium text-on-surface-variant">Pending</p>
+<span class="material-symbols-outlined text-tertiary-container bg-tertiary-fixed-dim/20 p-2 rounded-lg">pending_actions</span>
+</div>
+<div>
+<h3 class="text-4xl font-headline font-bold text-on-surface">12</h3>
+<p class="text-xs text-on-surface-variant mt-1">Submissions to score</p>
+</div>
+</div>
+<!-- KPI 2 -->
+<div class="bg-surface-container-lowest p-6 rounded-xl border border-surface-variant shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
+<div class="flex justify-between items-start mb-4">
+<p class="text-sm font-medium text-on-surface-variant">Scored</p>
+<span class="material-symbols-outlined text-secondary bg-secondary-fixed-dim/20 p-2 rounded-lg">task_alt</span>
+</div>
+<div>
+<h3 class="text-4xl font-headline font-bold text-on-surface">8</h3>
+<p class="text-xs text-on-surface-variant mt-1">Completed evaluations</p>
+</div>
+</div>
+<!-- KPI 3 -->
+<div class="bg-surface-container-lowest p-6 rounded-xl border border-surface-variant shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow">
+<div class="flex justify-between items-start mb-4">
+<p class="text-sm font-medium text-on-surface-variant">Assignments</p>
+<span class="material-symbols-outlined text-primary bg-primary-fixed/50 p-2 rounded-lg">assignment_ind</span>
+</div>
+<div>
+<h3 class="text-4xl font-headline font-bold text-on-surface">2</h3>
+<p class="text-xs text-on-surface-variant mt-1">Active rounds</p>
+</div>
+</div>
+<!-- KPI 4 Countdown -->
+<div class="bg-primary text-on-primary p-6 rounded-xl border border-primary-container shadow-md flex flex-col justify-between relative overflow-hidden">
+<div class="absolute top-0 right-0 p-4 opacity-20">
+<span class="material-symbols-outlined text-6xl">timer</span>
+</div>
+<div class="relative z-10">
+<p class="text-sm font-medium text-on-primary/80 mb-2">Scoring Deadline</p>
+<div class="font-label text-2xl font-bold tracking-tight mb-1">2d 14h 22m</div>
+<p class="text-xs text-on-primary/60">Round 1 Closes Soon</p>
+</div>
+</div>
+</section>
+<!-- Main Layout Grid -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+<!-- Main Panel: Queue -->
+<div class="lg:col-span-2 space-y-6">
+<div class="flex justify-between items-center border-b border-surface-variant pb-4">
+<h3 class="text-xl font-headline font-bold text-primary">Pending Scoring Queue</h3>
+<button class="text-sm font-medium text-secondary flex items-center gap-1 hover:underline">
+                            View All <span class="material-symbols-outlined text-sm">arrow_forward</span>
+</button>
+</div>
+<div class="space-y-4">
+<!-- Queue Item 1 -->
+<div class="bg-surface-container-lowest border border-surface-variant rounded-lg p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 hover:border-secondary transition-colors group cursor-pointer shadow-sm hover:shadow-md">
+<div class="flex-1">
+<div class="flex items-center gap-3 mb-2">
+<h4 class="font-headline font-bold text-lg text-on-surface group-hover:text-primary transition-colors">Team NeonGenesis</h4>
+<span class="px-2 py-0.5 bg-error-container/50 text-error text-[10px] font-bold rounded uppercase tracking-wider">High Priority</span>
+</div>
+<div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-on-surface-variant font-label">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">code</span> AI Track</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">flag</span> Round 1</span>
+<span class="flex items-center gap-1 text-error"><span class="material-symbols-outlined text-[16px]">schedule</span> 2h remaining</span>
+</div>
+</div>
+<button class="bg-white border border-primary text-primary px-4 py-2 rounded-lg font-medium text-sm hover:bg-surface-container-low transition-colors whitespace-nowrap self-stretch md:self-auto flex items-center justify-center gap-2">
+                                Score Now <span class="material-symbols-outlined text-sm">edit</span>
+</button>
+</div>
+<!-- Queue Item 2 -->
+<div class="bg-surface-container-lowest border border-surface-variant rounded-lg p-5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 hover:border-secondary transition-colors group cursor-pointer shadow-sm hover:shadow-md">
+<div class="flex-1">
+<div class="flex items-center gap-3 mb-2">
+<h4 class="font-headline font-bold text-lg text-on-surface group-hover:text-primary transition-colors">Team Alpha</h4>
+</div>
+<div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-on-surface-variant font-label">
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">database</span> Data Track</span>
+<span class="flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">flag</span> Round 1</span>
+</div>
+</div>
+<button class="bg-white border border-outline-variant text-on-surface-variant px-4 py-2 rounded-lg font-medium text-sm hover:border-primary hover:text-primary transition-colors whitespace-nowrap self-stretch md:self-auto flex items-center justify-center gap-2">
+                                Score Now <span class="material-symbols-outlined text-sm">edit</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Side Panel -->
+<div class="space-y-6">
+<!-- Guidelines Card -->
+<div class="bg-surface-container-low border border-surface-variant rounded-xl p-6">
+<div class="flex items-center gap-2 mb-4 text-primary">
+<span class="material-symbols-outlined">menu_book</span>
+<h3 class="font-headline font-bold text-lg">Scoring Guidelines</h3>
+</div>
+<p class="text-sm text-on-surface-variant leading-relaxed mb-4">
+                            Please ensure evaluations are objective and based solely on the provided criteria. Submissions must compile and execute to receive a technical score.
+                        </p>
+<a class="text-secondary font-medium text-sm flex items-center gap-1 hover:underline" href="#">
+                            Read full documentation <span class="material-symbols-outlined text-[16px]">open_in_new</span>
+</a>
+</div>
+<!-- Criteria Quick Reference -->
+<div class="bg-surface-container-lowest border border-surface-variant rounded-xl p-6 shadow-sm">
+<h3 class="font-headline font-bold text-lg text-on-surface mb-4">Criteria Quick Reference</h3>
+<ul class="space-y-3">
+<li class="flex items-start gap-3 pb-3 border-b border-surface-variant">
+<div class="w-8 h-8 rounded bg-primary-container text-on-primary-container flex items-center justify-center font-bold text-sm shrink-0">30%</div>
+<div>
+<p class="text-sm font-bold text-on-surface">Technical Complexity</p>
+<p class="text-xs text-on-surface-variant mt-0.5">Architecture, code quality, challenge difficulty.</p>
+</div>
+</li>
+<li class="flex items-start gap-3 pb-3 border-b border-surface-variant">
+<div class="w-8 h-8 rounded bg-secondary-container text-on-secondary-container flex items-center justify-center font-bold text-sm shrink-0">30%</div>
+<div>
+<p class="text-sm font-bold text-on-surface">Innovation</p>
+<p class="text-xs text-on-surface-variant mt-0.5">Originality of approach, unique problem solving.</p>
+</div>
+</li>
+<li class="flex items-start gap-3">
+<div class="w-8 h-8 rounded bg-surface-variant text-on-surface-variant flex items-center justify-center font-bold text-sm shrink-0">40%</div>
+<div>
+<p class="text-sm font-bold text-on-surface">Impact &amp; Feasibility</p>
+<p class="text-xs text-on-surface-variant mt-0.5">Real-world application, completeness of solution.</p>
+</div>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</div>
+</main>
+</body></html>

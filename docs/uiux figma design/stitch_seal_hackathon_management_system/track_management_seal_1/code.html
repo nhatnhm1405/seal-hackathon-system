@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Track Management - SEAL Spring 2026</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;700;800;900&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-tertiary-fixed-variant": "#773205",
+                      "on-primary": "#ffffff",
+                      "primary": "#00236f",
+                      "on-primary-fixed-variant": "#264191",
+                      "error": "#ba1a1a",
+                      "surface-container-lowest": "#ffffff",
+                      "on-tertiary-container": "#f39461",
+                      "on-surface-variant": "#444651",
+                      "surface-container": "#eeedf4",
+                      "on-secondary": "#ffffff",
+                      "on-primary-fixed": "#00164e",
+                      "on-secondary-fixed-variant": "#004e5c",
+                      "surface": "#faf8ff",
+                      "tertiary-fixed-dim": "#ffb691",
+                      "secondary-container": "#57dffe",
+                      "on-primary-container": "#90a8ff",
+                      "tertiary-container": "#6e2c00",
+                      "on-secondary-fixed": "#001f26",
+                      "outline-variant": "#c5c5d3",
+                      "surface-container-high": "#e9e7ef",
+                      "on-background": "#1a1b21",
+                      "on-error": "#ffffff",
+                      "surface-container-low": "#f4f3fa",
+                      "tertiary": "#4b1c00",
+                      "inverse-surface": "#2f3036",
+                      "secondary": "#00687a",
+                      "surface-dim": "#dad9e1",
+                      "surface-container-highest": "#e3e1e9",
+                      "secondary-fixed": "#acedff",
+                      "error-container": "#ffdad6",
+                      "primary-container": "#1e3a8a",
+                      "on-tertiary-fixed": "#341100",
+                      "tertiary-fixed": "#ffdbcb",
+                      "surface-bright": "#faf8ff",
+                      "inverse-primary": "#b6c4ff",
+                      "primary-fixed-dim": "#b6c4ff",
+                      "primary-fixed": "#dce1ff",
+                      "on-surface": "#1a1b21",
+                      "inverse-on-surface": "#f1f0f7",
+                      "surface-variant": "#e3e1e9",
+                      "surface-tint": "#4059aa",
+                      "outline": "#757682",
+                      "background": "#faf8ff",
+                      "on-secondary-container": "#006172",
+                      "on-tertiary": "#ffffff",
+                      "secondary-fixed-dim": "#4cd7f6",
+                      "on-error-container": "#93000a"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {},
+              "fontFamily": {
+                      "headline": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "display": [
+                              "Plus Jakarta Sans"
+                      ],
+                      "body": [
+                              "Inter"
+                      ],
+                      "label": [
+                              "JetBrains Mono"
+                      ]
+              },
+              "fontSize": {}
+      },
+          },
+        }
+      </script>
+</head>
+<body class="bg-background text-on-background font-body min-h-screen flex">
+<!-- SideNavBar Component -->
+<nav class="bg-surface dark:bg-surface-dim h-screen w-64 fixed left-0 top-0 border-r border-outline-variant dark:border-outline flex flex-col h-full p-4 gap-2 z-50">
+<div class="px-4 py-6">
+<h1 class="text-xl font-headline font-black text-primary dark:text-inverse-primary tracking-tight">Event Admin</h1>
+<p class="text-sm font-label text-on-surface-variant mt-1">University Lead</p>
+</div>
+<div class="flex-1 overflow-y-auto py-2 flex flex-col gap-1">
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface rounded-lg transition-colors font-label text-sm hover:scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">dashboard</span>
+                Dashboard
+            </a>
+<!-- Active State mapped to Events for "Tracks" context -->
+<a class="flex items-center gap-3 px-4 py-3 bg-primary-container text-on-primary-container font-bold rounded-lg font-label text-sm scale-95 transition-transform duration-150 shadow-sm" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">event</span>
+                Events
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface rounded-lg transition-colors font-label text-sm hover:scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">groups</span>
+                Participants
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface rounded-lg transition-colors font-label text-sm hover:scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">description</span>
+                Submissions
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface rounded-lg transition-colors font-label text-sm hover:scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">gavel</span>
+                Judging
+            </a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface rounded-lg transition-colors font-label text-sm hover:scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 0;">settings</span>
+                Settings
+            </a>
+</div>
+<div class="mt-auto pt-4 border-t border-outline-variant/30">
+<button class="w-full bg-primary text-on-primary py-3 rounded-lg font-label text-sm font-bold shadow-md hover:opacity-90 transition-opacity">
+                Create New Hackathon
+            </button>
+</div>
+</nav>
+<!-- Main Content Wrapper -->
+<div class="flex-1 ml-64 flex flex-col min-h-screen">
+<!-- TopNavBar Component -->
+<header class="bg-surface dark:bg-surface-bright flex justify-between items-center w-full h-16 px-6 max-w-full docked top-0 sticky z-40 border-b border-outline-variant dark:border-outline shadow-sm">
+<div class="flex items-center gap-8">
+<span class="text-lg font-headline font-bold text-primary dark:text-inverse-primary">Academic Hackathon Portal</span>
+<nav class="hidden md:flex gap-6 h-full items-center">
+<a class="text-primary border-b-2 border-primary pb-1 font-label text-sm opacity-80 h-full flex items-center pt-1" href="#">Global View</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors hover:bg-surface-container-low transition-all font-label text-sm h-full flex items-center px-2" href="#">Analytics</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors hover:bg-surface-container-low transition-all font-label text-sm h-full flex items-center px-2" href="#">Resources</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="text-on-surface-variant hover:text-primary transition-colors p-2 rounded-full hover:bg-surface-container-low">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors p-2 rounded-full hover:bg-surface-container-low">
+<span class="material-symbols-outlined">help</span>
+</button>
+<button class="text-on-surface-variant hover:text-primary transition-colors p-2 rounded-full hover:bg-surface-container-low">
+<span class="material-symbols-outlined">dark_mode</span>
+</button>
+<img alt="User Profile" class="w-8 h-8 rounded-full border border-outline-variant" data-alt="A professional headshot of a university event administrator, bright lighting, corporate modern style, isolated on a clean white background." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCsexPktSAxKxFmAfMxSLUaPrWPHrWW4BKsMrdhkiTOojTygtTGtTCnXWMrzhGzsmJ5fN15LGukyrr6NLwfsUo9I2w4CedjRHRFdGHyIDYaLbpjuJFMGOosBm-5XcRy3z0sQ7_jIcmta3htUyJjnUUTnVq1_RbFpIVj5BIRjisqqmDW32XhZi_q25PGEnMimYkrlsDV3hpfu-TUATkWf2PS9wUyaQBTgUbIrGe7P0SF52juaJjz1NdMp0K5fq6pkZj3xpSXtzSB9vM"/>
+</div>
+</header>
+<!-- Page Content -->
+<main class="flex-1 p-8 max-w-[1280px] w-full mx-auto">
+<!-- Header Section -->
+<div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+<div>
+<h2 class="text-3xl font-headline font-extrabold text-on-surface tracking-tight text-primary">Tracks for SEAL Spring 2026</h2>
+<p class="text-on-surface-variant mt-2 font-body text-sm max-w-2xl">Manage competition categories, assign mentors, and monitor team distribution across all technical domains.</p>
+</div>
+<button class="bg-primary text-on-primary px-5 py-2.5 rounded-lg font-label text-sm font-bold shadow-[0px_2px_4px_rgba(15,23,42,0.05)] hover:bg-primary/90 transition-colors flex items-center gap-2 border border-primary">
+<span class="material-symbols-outlined text-[20px]">add</span>
+                    Create Track
+                </button>
+</div>
+<!-- Bento Grid of Tracks -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+<!-- Card 1 -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0px_2px_4px_rgba(15,23,42,0.05)] p-5 flex flex-col relative group hover:border-primary/30 transition-colors">
+<div class="flex justify-between items-start mb-4">
+<div class="w-10 h-10 rounded-lg bg-surface-container-low flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">language</span>
+</div>
+<button class="text-on-surface-variant hover:text-primary p-1 rounded-md">
+<span class="material-symbols-outlined text-[20px]">more_vert</span>
+</button>
+</div>
+<h3 class="font-headline font-bold text-lg text-on-surface mb-1">Web App Innovation</h3>
+<p class="text-xs font-label text-on-surface-variant mb-4 flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">groups</span>
+                        42 Teams Enrolled
+                    </p>
+<div class="flex items-center justify-between mt-auto pt-4 border-t border-outline-variant/50">
+<div class="flex items-center gap-2">
+<img class="w-6 h-6 rounded-full border border-surface-container-lowest" data-alt="Small circular avatar of a software engineering mentor, casual professional attire, soft neutral background, high resolution." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCtxlrpH5mdyA1FgWcjyWl1VSGh8rOxxcdn3i0temaXB3gnIsfMjjKIpc_2yMIbDUgFDNmwR6CLB5rRtZCMd_mw7n1AmFT-iVv66TtmGE2gk2RbE1MQSFc2oc5V8jz4ONA6S78Oj1emtazS2x9TrW5KkiCG9d4JyA78LbtP2du8Nwno-kGGEYILoeWI5ohevxFgZgUCcVqUb8IYuQHIS664eTAd4SqOnG_cOKMY0uxEWLG53OrPG5TTxRF_5794RVFQD1JkBdN9si8"/>
+<span class="text-xs font-label text-on-surface-variant">Lead: Dr. Chen</span>
+</div>
+<div class="bg-secondary-fixed/20 text-on-secondary-fixed-variant px-2 py-1 rounded-full text-[10px] font-label font-bold flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]">check_circle</span>
+                            Criteria Set
+                        </div>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0px_2px_4px_rgba(15,23,42,0.05)] p-5 flex flex-col relative group hover:border-primary/30 transition-colors">
+<div class="flex justify-between items-start mb-4">
+<div class="w-10 h-10 rounded-lg bg-surface-container-low flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">psychology</span>
+</div>
+<button class="text-on-surface-variant hover:text-primary p-1 rounded-md">
+<span class="material-symbols-outlined text-[20px]">more_vert</span>
+</button>
+</div>
+<h3 class="font-headline font-bold text-lg text-on-surface mb-1">AI &amp; Machine Learning</h3>
+<p class="text-xs font-label text-on-surface-variant mb-4 flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">groups</span>
+                        86 Teams Enrolled
+                    </p>
+<div class="flex items-center justify-between mt-auto pt-4 border-t border-outline-variant/50">
+<div class="flex items-center gap-2">
+<img class="w-6 h-6 rounded-full border border-surface-container-lowest" data-alt="Small circular avatar of a data science mentor, glasses, thoughtful expression, clean studio lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAyT4MzEJakq4xvKCIqsyetQh5Rksh2DanScudRE5_X7DRSzugrhORUJvHq_Kq3_cz9F046qzs23dDpY_L3ZLvPZTftgkpYsabzytfh2GADUNbnhVN18KoB3SwOTGU6Bi-OfA_kxY_Bs1fBk6N8UxLZHmEa7ODDyb-XCswsB1Cc7LwRR34Pf3nZ_cj7WsNEHXq3OKvLi1TYvEbkcOjj8qdtXVLtE6yzrf_yLRw8JbpQZH4eGH3GDTl7ECllRs-xXihyhXwwa3OhOY8"/>
+<span class="text-xs font-label text-on-surface-variant">Lead: Prof. Alan</span>
+</div>
+<div class="bg-secondary-fixed/20 text-on-secondary-fixed-variant px-2 py-1 rounded-full text-[10px] font-label font-bold flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]">check_circle</span>
+                            Criteria Set
+                        </div>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0px_2px_4px_rgba(15,23,42,0.05)] p-5 flex flex-col relative group hover:border-primary/30 transition-colors">
+<div class="flex justify-between items-start mb-4">
+<div class="w-10 h-10 rounded-lg bg-surface-container-low flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">school</span>
+</div>
+<button class="text-on-surface-variant hover:text-primary p-1 rounded-md">
+<span class="material-symbols-outlined text-[20px]">more_vert</span>
+</button>
+</div>
+<h3 class="font-headline font-bold text-lg text-on-surface mb-1">Education Tech</h3>
+<p class="text-xs font-label text-on-surface-variant mb-4 flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">groups</span>
+                        24 Teams Enrolled
+                    </p>
+<div class="flex items-center justify-between mt-auto pt-4 border-t border-outline-variant/50">
+<div class="flex items-center gap-2">
+<div class="w-6 h-6 rounded-full bg-surface-variant flex items-center justify-center text-[10px] font-label font-bold text-on-surface-variant">UN</div>
+<span class="text-xs font-label text-on-surface-variant">Lead: Unassigned</span>
+</div>
+<div class="bg-error-container/50 text-on-error-container px-2 py-1 rounded-full text-[10px] font-label font-bold flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]">warning</span>
+                            Needs Review
+                        </div>
+</div>
+</div>
+<!-- Card 4 -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-[0px_2px_4px_rgba(15,23,42,0.05)] p-5 flex flex-col relative group hover:border-primary/30 transition-colors">
+<div class="flex justify-between items-start mb-4">
+<div class="w-10 h-10 rounded-lg bg-surface-container-low flex items-center justify-center text-primary">
+<span class="material-symbols-outlined">public</span>
+</div>
+<button class="text-on-surface-variant hover:text-primary p-1 rounded-md">
+<span class="material-symbols-outlined text-[20px]">more_vert</span>
+</button>
+</div>
+<h3 class="font-headline font-bold text-lg text-on-surface mb-1">Social Impact</h3>
+<p class="text-xs font-label text-on-surface-variant mb-4 flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">groups</span>
+                        31 Teams Enrolled
+                    </p>
+<div class="flex items-center justify-between mt-auto pt-4 border-t border-outline-variant/50">
+<div class="flex items-center gap-2">
+<img class="w-6 h-6 rounded-full border border-surface-container-lowest" data-alt="Small circular avatar of an academic mentor, warm smile, diverse background, high quality portrait." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDOdsR3jnwhUApL1v0k1T9GSdO6h5i4rde5amkP1Y_RDz5RfGCY504AsUejOOkPCsbS4UBwM2KPyAHHYch0cTSe7XbLrUdOniEJDzyHLkwdaW7kJ-ceq12U7aYmbg7UEMTU2wWSxjci_KYFoSvzyHspsoUWDBBJHi8qCrNlb06Thg-qjeLaNzA0XkiMIec9sC0au3-kDDpyoVGwVPLsstdw25p0SeFGeXQpsyVfH5iQwq61Lt1JA5_iFx4ZqEWutIziTic-YJ7Ujuc"/>
+<span class="text-xs font-label text-on-surface-variant">Lead: Dr. Silva</span>
+</div>
+<div class="bg-secondary-fixed/20 text-on-secondary-fixed-variant px-2 py-1 rounded-full text-[10px] font-label font-bold flex items-center gap-1">
+<span class="material-symbols-outlined text-[12px]">check_circle</span>
+                            Criteria Set
+                        </div>
+</div>
+</div>
+</div>
+</main>
+</div>
+</body></html>

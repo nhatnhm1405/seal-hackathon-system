@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Create Track Form - Academic Hackathon Portal</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;700;900&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary-fixed-variant": "#773205",
+                        "on-primary": "#ffffff",
+                        "primary": "#00236f",
+                        "on-primary-fixed-variant": "#264191",
+                        "error": "#ba1a1a",
+                        "surface-container-lowest": "#ffffff",
+                        "on-tertiary-container": "#f39461",
+                        "on-surface-variant": "#444651",
+                        "surface-container": "#eeedf4",
+                        "on-secondary": "#ffffff",
+                        "on-primary-fixed": "#00164e",
+                        "on-secondary-fixed-variant": "#004e5c",
+                        "surface": "#faf8ff",
+                        "tertiary-fixed-dim": "#ffb691",
+                        "secondary-container": "#57dffe",
+                        "on-primary-container": "#90a8ff",
+                        "tertiary-container": "#6e2c00",
+                        "on-secondary-fixed": "#001f26",
+                        "outline-variant": "#c5c5d3",
+                        "surface-container-high": "#e9e7ef",
+                        "on-background": "#1a1b21",
+                        "on-error": "#ffffff",
+                        "surface-container-low": "#f4f3fa",
+                        "tertiary": "#4b1c00",
+                        "inverse-surface": "#2f3036",
+                        "secondary": "#00687a",
+                        "surface-dim": "#dad9e1",
+                        "surface-container-highest": "#e3e1e9",
+                        "secondary-fixed": "#acedff",
+                        "error-container": "#ffdad6",
+                        "primary-container": "#1e3a8a",
+                        "on-tertiary-fixed": "#341100",
+                        "tertiary-fixed": "#ffdbcb",
+                        "surface-bright": "#faf8ff",
+                        "inverse-primary": "#b6c4ff",
+                        "primary-fixed-dim": "#b6c4ff",
+                        "primary-fixed": "#dce1ff",
+                        "on-surface": "#1a1b21",
+                        "inverse-on-surface": "#f1f0f7",
+                        "surface-variant": "#e3e1e9",
+                        "surface-tint": "#4059aa",
+                        "outline": "#757682",
+                        "background": "#faf8ff",
+                        "on-secondary-container": "#006172",
+                        "on-tertiary": "#ffffff",
+                        "secondary-fixed-dim": "#4cd7f6",
+                        "on-error-container": "#93000a"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Plus Jakarta Sans"],
+                        "display": ["Plus Jakarta Sans"],
+                        "body": ["Inter"],
+                        "label": ["JetBrains Mono"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3, h4, h5, h6, .font-headline { font-family: 'Plus Jakarta Sans', sans-serif; }
+        .font-label, code, pre { font-family: 'JetBrains Mono', monospace; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+    </style>
+</head>
+<body class="bg-background text-on-background antialiased flex">
+<!-- SideNavBar (Suppressed due to form/transactional nature of "Create Track Form", but preserving layout structure if needed for context, though rules say suppress. Actually, rules say "Automatic Suppression: You MUST exclude the navigation shell if the page intent is: Linear/Transactional...". A "Create" form implies a focused task, so I will suppress the SideNav and TopNav to focus on the canvas.) -->
+<main class="flex-1 min-h-screen p-4 md:p-8 lg:p-12 max-w-7xl mx-auto flex flex-col justify-center items-center">
+<div class="w-full max-w-4xl bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-hidden flex flex-col">
+<!-- Header -->
+<header class="px-8 py-6 border-b border-outline-variant bg-surface-bright flex items-center justify-between">
+<div>
+<h1 class="font-headline font-bold text-2xl text-primary">Create New Track</h1>
+<p class="text-on-surface-variant font-body mt-1">Define the parameters and criteria for a new hackathon track.</p>
+</div>
+<button aria-label="Close form" class="text-on-surface-variant hover:text-primary transition-colors flex items-center justify-center p-2 rounded-full hover:bg-surface-container-low" type="button">
+<span class="material-symbols-outlined">close</span>
+</button>
+</header>
+<!-- Form Content -->
+<form class="p-8 space-y-10 font-body">
+<!-- Section 1: Basic Info -->
+<section class="space-y-6">
+<h2 class="font-headline font-bold text-lg text-on-surface border-b border-surface-variant pb-2">Basic Information</h2>
+<div class="space-y-4">
+<div>
+<label class="block text-sm font-label text-on-surface mb-1" for="track_name">Track Name</label>
+<input class="w-full px-4 py-3 bg-surface-container-lowest border border-outline-variant rounded-lg focus:ring-2 focus:ring-secondary-container focus:border-secondary-container transition-shadow text-on-surface placeholder-on-surface-variant" id="track_name" name="track_name" placeholder="e.g., Sustainable Mobility" type="text"/>
+</div>
+<div>
+<label class="block text-sm font-label text-on-surface mb-1" for="description">Description</label>
+<div class="border border-outline-variant rounded-lg overflow-hidden flex flex-col">
+<div class="bg-surface-container-low px-3 py-2 border-b border-outline-variant flex gap-2">
+<button class="p-1 text-on-surface-variant hover:text-primary rounded" type="button"><span class="material-symbols-outlined text-sm">format_bold</span></button>
+<button class="p-1 text-on-surface-variant hover:text-primary rounded" type="button"><span class="material-symbols-outlined text-sm">format_italic</span></button>
+<button class="p-1 text-on-surface-variant hover:text-primary rounded" type="button"><span class="material-symbols-outlined text-sm">format_list_bulleted</span></button>
+</div>
+<textarea class="w-full px-4 py-3 bg-surface-container-lowest border-0 focus:ring-0 text-on-surface placeholder-on-surface-variant resize-y" id="description" name="description" placeholder="Describe the objectives and expectations of this track..." rows="5"></textarea>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 2: Visual Identity -->
+<section class="space-y-6">
+<h2 class="font-headline font-bold text-lg text-on-surface border-b border-surface-variant pb-2">Visual Identity</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+<div>
+<label class="block text-sm font-label text-on-surface mb-3">Icon Picker</label>
+<div class="grid grid-cols-5 gap-3">
+<button class="aspect-square flex items-center justify-center rounded-lg border border-outline-variant hover:border-primary text-on-surface-variant hover:text-primary transition-colors bg-surface-container-lowest hover:bg-surface-container-low" type="button"><span class="material-symbols-outlined">eco</span></button>
+<button class="aspect-square flex items-center justify-center rounded-lg border-2 border-primary text-primary bg-primary-fixed transition-colors" type="button"><span class="material-symbols-outlined">electric_car</span></button>
+<button class="aspect-square flex items-center justify-center rounded-lg border border-outline-variant hover:border-primary text-on-surface-variant hover:text-primary transition-colors bg-surface-container-lowest hover:bg-surface-container-low" type="button"><span class="material-symbols-outlined">health_and_safety</span></button>
+<button class="aspect-square flex items-center justify-center rounded-lg border border-outline-variant hover:border-primary text-on-surface-variant hover:text-primary transition-colors bg-surface-container-lowest hover:bg-surface-container-low" type="button"><span class="material-symbols-outlined">smart_toy</span></button>
+<button class="aspect-square flex items-center justify-center rounded-lg border border-outline-variant hover:border-primary text-on-surface-variant hover:text-primary transition-colors bg-surface-container-lowest hover:bg-surface-container-low" type="button"><span class="material-symbols-outlined">database</span></button>
+<button class="aspect-square flex items-center justify-center rounded-lg border border-outline-variant hover:border-primary text-on-surface-variant hover:text-primary transition-colors bg-surface-container-lowest hover:bg-surface-container-low" type="button"><span class="material-symbols-outlined">public</span></button>
+<button class="aspect-square flex items-center justify-center rounded-lg border border-outline-variant hover:border-primary text-on-surface-variant hover:text-primary transition-colors bg-surface-container-lowest hover:bg-surface-container-low" type="button"><span class="material-symbols-outlined">security</span></button>
+<button class="aspect-square flex items-center justify-center rounded-lg border border-outline-variant hover:border-primary text-on-surface-variant hover:text-primary transition-colors bg-surface-container-lowest hover:bg-surface-container-low" type="button"><span class="material-symbols-outlined">rocket_launch</span></button>
+</div>
+</div>
+<div>
+<label class="block text-sm font-label text-on-surface mb-3">Color Theme</label>
+<div class="flex flex-wrap gap-3">
+<button aria-label="Select Navy theme" class="w-10 h-10 rounded-full border-2 border-surface-container-lowest ring-2 ring-primary bg-primary shadow-sm" type="button"></button>
+<button aria-label="Select Teal theme" class="w-10 h-10 rounded-full border border-outline-variant bg-secondary shadow-sm hover:ring-2 hover:ring-outline" type="button"></button>
+<button aria-label="Select Rust theme" class="w-10 h-10 rounded-full border border-outline-variant bg-tertiary shadow-sm hover:ring-2 hover:ring-outline" type="button"></button>
+<button aria-label="Select Red theme" class="w-10 h-10 rounded-full border border-outline-variant bg-error shadow-sm hover:ring-2 hover:ring-outline" type="button"></button>
+<button aria-label="Select Emerald theme" class="w-10 h-10 rounded-full border border-outline-variant bg-[#10b981] shadow-sm hover:ring-2 hover:ring-outline" type="button"></button>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 3: Configuration -->
+<section class="space-y-6">
+<h2 class="font-headline font-bold text-lg text-on-surface border-b border-surface-variant pb-2">Configuration</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+<div>
+<label class="block text-sm font-label text-on-surface mb-1" for="max_teams">Max Teams</label>
+<input class="w-full px-4 py-3 bg-surface-container-lowest border border-outline-variant rounded-lg focus:ring-2 focus:ring-secondary-container focus:border-secondary-container transition-shadow text-on-surface" id="max_teams" name="max_teams" type="number" value="40"/>
+</div>
+<div>
+<label class="block text-sm font-label text-on-surface mb-1" for="mentor">Lead Mentor (Faculty)</label>
+<div class="relative">
+<select class="w-full px-4 py-3 bg-surface-container-lowest border border-outline-variant rounded-lg appearance-none focus:ring-2 focus:ring-secondary-container focus:border-secondary-container transition-shadow text-on-surface" id="mentor" name="mentor">
+<option>Select Faculty Mentor</option>
+<option>Dr. Sarah Jenkins</option>
+<option>Prof. Marcus Thorne</option>
+<option>Dr. Elena Rostova</option>
+</select>
+<div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-on-surface-variant">
+<span class="material-symbols-outlined text-sm">expand_more</span>
+</div>
+</div>
+</div>
+</div>
+<div class="flex items-center justify-between p-4 border border-outline-variant rounded-lg bg-surface-container-low">
+<div>
+<span class="block font-label text-sm text-on-surface font-medium">Track-Specific Criteria</span>
+<span class="text-xs text-on-surface-variant">Enable custom judging rubrics unique to this track.</span>
+</div>
+<button aria-checked="true" class="relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent bg-primary transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2" role="switch" type="button">
+<span class="translate-x-5 pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"></span>
+</button>
+</div>
+</section>
+</form>
+<!-- Footer Actions -->
+<footer class="px-8 py-6 border-t border-outline-variant bg-surface-bright flex justify-end gap-4 mt-auto">
+<button class="px-6 py-2.5 font-label text-sm text-on-surface-variant border border-outline-variant rounded-lg hover:bg-surface-container-low transition-colors bg-surface-container-lowest" type="button">
+                    Cancel
+                </button>
+<button class="px-6 py-2.5 font-label text-sm bg-primary text-on-primary rounded-lg shadow-sm hover:bg-on-primary-fixed-variant transition-colors" type="submit">
+                    Save Track
+                </button>
+</footer>
+</div>
+</main>
+</body></html>

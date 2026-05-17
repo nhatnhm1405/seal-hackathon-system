@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Roles &amp; Permissions - SEAL Admin</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;700;800&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary": "#ffffff",
+                        "on-secondary-container": "#006172",
+                        "outline": "#757682",
+                        "on-tertiary-container": "#f39461",
+                        "outline-variant": "#c5c5d3",
+                        "surface-tint": "#4059aa",
+                        "on-error-container": "#93000a",
+                        "primary-container": "#1e3a8a",
+                        "background": "#faf8ff",
+                        "surface-variant": "#e3e1e9",
+                        "on-surface": "#1a1b21",
+                        "on-primary-container": "#90a8ff",
+                        "on-tertiary-fixed": "#341100",
+                        "inverse-surface": "#2f3036",
+                        "surface": "#faf8ff",
+                        "on-primary-fixed-variant": "#264191",
+                        "error-container": "#ffdad6",
+                        "surface-container-low": "#f4f3fa",
+                        "surface-container-highest": "#e3e1e9",
+                        "surface-bright": "#faf8ff",
+                        "tertiary-container": "#6e2c00",
+                        "inverse-on-surface": "#f1f0f7",
+                        "on-tertiary-fixed-variant": "#773205",
+                        "secondary-container": "#57dffe",
+                        "on-secondary": "#ffffff",
+                        "secondary": "#00687a",
+                        "primary-fixed": "#dce1ff",
+                        "on-secondary-fixed": "#001f26",
+                        "surface-container-high": "#e9e7ef",
+                        "secondary-fixed": "#acedff",
+                        "tertiary-fixed": "#ffdbcb",
+                        "inverse-primary": "#b6c4ff",
+                        "primary-fixed-dim": "#b6c4ff",
+                        "tertiary": "#4b1c00",
+                        "secondary-fixed-dim": "#4cd7f6",
+                        "primary": "#00236f",
+                        "on-primary": "#ffffff",
+                        "error": "#ba1a1a",
+                        "on-surface-variant": "#444651",
+                        "on-secondary-fixed-variant": "#004e5c",
+                        "tertiary-fixed-dim": "#ffb691",
+                        "surface-container-lowest": "#ffffff",
+                        "on-primary-fixed": "#00164e",
+                        "on-error": "#ffffff",
+                        "on-background": "#1a1b21",
+                        "surface-dim": "#dad9e1",
+                        "surface-container": "#eeedf4"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Plus Jakarta Sans"],
+                        "display": ["Plus Jakarta Sans"],
+                        "body": ["Inter"],
+                        "label": ["JetBrains Mono"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .material-symbols-outlined[data-weight="fill"] {
+            font-variation-settings: 'FILL' 1;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body antialiased min-h-screen">
+<!-- SideNavBar -->
+<nav class="w-64 h-screen fixed left-0 top-0 bg-primary dark:bg-primary shadow-md z-50 flex flex-col h-full p-4 space-y-2">
+<div class="mb-8 px-4">
+<h1 class="text-xl font-headline font-black text-on-primary">Hackathon Admin</h1>
+<p class="text-sm font-body text-on-primary/70">University System</p>
+</div>
+<div class="flex-1 space-y-1">
+<a class="flex items-center space-x-3 px-4 py-3 rounded-lg text-on-primary/70 hover:text-on-primary hover:bg-primary-fixed-dim/20 transition-all" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-body">Dashboard</span>
+</a>
+<a class="flex items-center space-x-3 px-4 py-3 rounded-lg text-on-primary/70 hover:text-on-primary hover:bg-primary-fixed-dim/20 transition-all" href="#">
+<span class="material-symbols-outlined">group</span>
+<span class="font-body">Users</span>
+</a>
+<a class="flex items-center space-x-3 px-4 py-3 rounded-lg text-on-primary-container bg-primary-container font-bold hover:bg-primary-fixed-dim/20 transition-all transform hover:scale-95 duration-150" href="#">
+<span class="material-symbols-outlined" data-weight="fill">security</span>
+<span class="font-body">Roles &amp; Permissions</span>
+</a>
+<a class="flex items-center space-x-3 px-4 py-3 rounded-lg text-on-primary/70 hover:text-on-primary hover:bg-primary-fixed-dim/20 transition-all" href="#">
+<span class="material-symbols-outlined">rule</span>
+<span class="font-body">Criteria Template</span>
+</a>
+<a class="flex items-center space-x-3 px-4 py-3 rounded-lg text-on-primary/70 hover:text-on-primary hover:bg-primary-fixed-dim/20 transition-all" href="#">
+<span class="material-symbols-outlined">bar_chart</span>
+<span class="font-body">Statistics</span>
+</a>
+<a class="flex items-center space-x-3 px-4 py-3 rounded-lg text-on-primary/70 hover:text-on-primary hover:bg-primary-fixed-dim/20 transition-all" href="#">
+<span class="material-symbols-outlined">history</span>
+<span class="font-body">Audit Log</span>
+</a>
+<a class="flex items-center space-x-3 px-4 py-3 rounded-lg text-on-primary/70 hover:text-on-primary hover:bg-primary-fixed-dim/20 transition-all" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-body">System Settings</span>
+</a>
+<a class="flex items-center space-x-3 px-4 py-3 rounded-lg text-on-primary/70 hover:text-on-primary hover:bg-primary-fixed-dim/20 transition-all" href="#">
+<span class="material-symbols-outlined">notifications</span>
+<span class="font-body">Notifications</span>
+</a>
+</div>
+<div class="mt-auto px-4 py-4 border-t border-on-primary/20">
+<div class="flex items-center space-x-3">
+<div class="w-10 h-10 rounded-full bg-surface overflow-hidden flex items-center justify-center">
+<img alt="Admin User Profile" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCNuo_b0XWJpW-G5E8c8LvZjcK6rSvxu8iIe19IUp-nNT0eDtGCoiueQtwYRUQgPNXqzn4Uun2fxqxJnbWjmQW29Uv15re6L_XxyEXIaH7Y9uOBmNE6_jBz4eCZyQc7GLv9NVGzjG36lW8UefbAqdvMSihpHEPH6DYNFQNZ0EKGU6UDCcuCVebv_2vo1DfxYVwaX6SzFBibZn1d0eIRx3M4y1yyUAwVuOVHA7ihzQNO0vWOklsKuY3wZiwk6FB_Ey2sT0ONZAal4t0"/>
+</div>
+<div>
+<p class="font-headline text-on-primary text-sm font-bold">Admin Profile</p>
+<p class="font-body text-on-primary/70 text-xs">Administrator</p>
+</div>
+</div>
+</div>
+</nav>
+<!-- TopAppBar -->
+<header class="fixed top-0 right-0 w-[calc(100%-16rem)] h-16 bg-surface border-b border-outline-variant z-40 flex justify-between items-center px-8">
+<div class="flex items-center flex-1">
+<!-- Search bar on left -->
+<div class="relative w-64">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-sm">search</span>
+<input class="w-full bg-surface-container-low border border-outline-variant rounded-lg pl-10 pr-4 py-2 text-sm font-body text-on-surface focus:outline-none focus:border-secondary focus:ring-1 focus:ring-secondary/20 transition-colors" placeholder="Search..." type="text"/>
+</div>
+</div>
+<div class="flex items-center space-x-4">
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors hover:opacity-80">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 text-on-surface-variant hover:text-primary transition-colors hover:opacity-80">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="h-8 w-px bg-outline-variant mx-2"></div>
+<button class="flex items-center space-x-2 text-primary font-bold border-b-2 border-primary pb-1 hover:opacity-80 transition-opacity">
+<img alt="Administrator Profile" class="w-8 h-8 rounded-full border border-outline-variant" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBX9RLX4gTOWvQSgCtgMJwQ9XMypLRbP-9lKdmSDmB0Vu_AliWByb6pamKQYA09Vlgo7cJ6m2nS0w4gQvd6lXcTyBRWTJVWdAovOu1Km1VaXhmwldW3YM3W2Xz1TaeYbk42ny_ohNyheO_eSp2Z0KhSgr9nGGfzvHETbbvnowwrDuB_4k-kva8jbHNGHSfAeFYJRzqz9h1DIUVVEKJwkVcZ1GqS7vrtE_OgYw2bKmyRmBNYWcDswn2FuIW8QLpBBoSkppU0jqrpT-0"/>
+<span class="font-headline text-sm">Profile</span>
+</button>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="ml-64 pt-16 min-h-screen p-8">
+<div class="max-w-7xl mx-auto">
+<div class="mb-8">
+<h2 class="text-3xl font-headline font-extrabold text-on-surface mb-2">Roles &amp; Permissions Management</h2>
+<p class="text-on-surface-variant font-body">Configure access control levels across the hackathon platform.</p>
+</div>
+<!-- Two Column Layout -->
+<div class="grid grid-cols-12 gap-6">
+<!-- Left Column: Role List -->
+<div class="col-span-12 md:col-span-4 lg:col-span-3 flex flex-col space-y-4">
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm overflow-hidden">
+<div class="p-4 border-b border-outline-variant bg-surface-container-low flex justify-between items-center">
+<h3 class="font-headline font-bold text-on-surface">Available Roles</h3>
+<button class="text-secondary hover:text-secondary-container transition-colors">
+<span class="material-symbols-outlined text-sm">add</span>
+</button>
+</div>
+<ul class="divide-y divide-outline-variant">
+<li>
+<button class="w-full text-left px-4 py-3 font-body text-on-surface-variant hover:bg-surface-container-low transition-colors flex justify-between items-center">
+<span>System Admin</span>
+<span class="material-symbols-outlined text-xs text-outline">chevron_right</span>
+</button>
+</li>
+<li>
+<button class="w-full text-left px-4 py-3 font-body text-primary bg-primary-fixed/20 border-l-4 border-primary flex justify-between items-center font-semibold">
+<span>Event Coordinator</span>
+<span class="material-symbols-outlined text-xs">chevron_right</span>
+</button>
+</li>
+<li>
+<button class="w-full text-left px-4 py-3 font-body text-on-surface-variant hover:bg-surface-container-low transition-colors flex justify-between items-center">
+<span>Internal Judge</span>
+<span class="material-symbols-outlined text-xs text-outline">chevron_right</span>
+</button>
+</li>
+<li>
+<button class="w-full text-left px-4 py-3 font-body text-on-surface-variant hover:bg-surface-container-low transition-colors flex justify-between items-center">
+<span>Guest Judge</span>
+<span class="material-symbols-outlined text-xs text-outline">chevron_right</span>
+</button>
+</li>
+<li>
+<button class="w-full text-left px-4 py-3 font-body text-on-surface-variant hover:bg-surface-container-low transition-colors flex justify-between items-center">
+<span>Mentor</span>
+<span class="material-symbols-outlined text-xs text-outline">chevron_right</span>
+</button>
+</li>
+<li>
+<button class="w-full text-left px-4 py-3 font-body text-on-surface-variant hover:bg-surface-container-low transition-colors flex justify-between items-center">
+<span>Team Leader</span>
+<span class="material-symbols-outlined text-xs text-outline">chevron_right</span>
+</button>
+</li>
+<li>
+<button class="w-full text-left px-4 py-3 font-body text-on-surface-variant hover:bg-surface-container-low transition-colors flex justify-between items-center">
+<span>Team Member</span>
+<span class="material-symbols-outlined text-xs text-outline">chevron_right</span>
+</button>
+</li>
+</ul>
+</div>
+</div>
+<!-- Right Column: Role Details & Matrix -->
+<div class="col-span-12 md:col-span-8 lg:col-span-9 flex flex-col space-y-6">
+<!-- Role Info Card -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm p-6">
+<div class="flex justify-between items-start mb-4">
+<div>
+<h3 class="text-2xl font-headline font-bold text-on-surface mb-1">Event Coordinator</h3>
+<p class="text-on-surface-variant font-body text-sm">Manages logistics, scheduling, and general administration for specific hackathon events.</p>
+</div>
+<span class="bg-secondary-container text-on-secondary-container px-3 py-1 rounded-full font-label text-xs font-semibold">Custom Role</span>
+</div>
+<div class="grid grid-cols-2 gap-4 mt-6">
+<div>
+<label class="block font-label text-xs text-on-surface-variant mb-1 uppercase tracking-wider">Role Name</label>
+<input class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-3 py-2 font-body text-sm text-on-surface focus:border-secondary focus:ring-1 focus:ring-secondary/20 transition-colors" type="text" value="Event Coordinator"/>
+</div>
+<div>
+<label class="block font-label text-xs text-on-surface-variant mb-1 uppercase tracking-wider">Base Template</label>
+<select class="w-full bg-surface-container-low border border-outline-variant rounded-lg px-3 py-2 font-body text-sm text-on-surface focus:border-secondary focus:ring-1 focus:ring-secondary/20 transition-colors">
+<option>Standard Admin</option>
+</select>
+</div>
+</div>
+</div>
+<!-- Permission Matrix -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm overflow-hidden flex-1 flex flex-col">
+<div class="p-4 border-b border-outline-variant bg-surface-container-low flex justify-between items-center">
+<h4 class="font-headline font-bold text-on-surface">Permission Matrix</h4>
+<div class="flex items-center space-x-2 text-xs font-body text-on-surface-variant">
+<span class="material-symbols-outlined text-sm">info</span>
+<span>Checkboxes autosave locally before final submission.</span>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead class="bg-surface-container-high border-b border-outline-variant">
+<tr>
+<th class="py-3 px-4 font-label text-xs text-on-surface-variant font-medium w-1/4">Feature Area</th>
+<th class="py-3 px-2 font-label text-xs text-on-surface-variant font-medium text-center">Create</th>
+<th class="py-3 px-2 font-label text-xs text-on-surface-variant font-medium text-center">Read</th>
+<th class="py-3 px-2 font-label text-xs text-on-surface-variant font-medium text-center">Update</th>
+<th class="py-3 px-2 font-label text-xs text-on-surface-variant font-medium text-center">Delete</th>
+<th class="py-3 px-2 font-label text-xs text-on-surface-variant font-medium text-center">Approve</th>
+<th class="py-3 px-2 font-label text-xs text-on-surface-variant font-medium text-center">Export</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant font-body text-sm">
+<!-- Events Area -->
+<tr class="hover:bg-surface-container-low/50 transition-colors">
+<td class="py-4 px-4 font-medium text-on-surface flex items-center space-x-2">
+<span class="material-symbols-outlined text-outline text-sm">event</span>
+<span>Events &amp; Schedules</span>
+</td>
+<td class="py-4 px-2 text-center"><input checked="" class="rounded border-outline-variant text-primary focus:ring-primary/20 w-4 h-4" type="checkbox"/></td>
+<td class="py-4 px-2 text-center"><input checked="" class="rounded border-outline-variant text-primary focus:ring-primary/20 w-4 h-4" type="checkbox"/></td>
+<td class="py-4 px-2 text-center"><input checked="" class="rounded border-outline-variant text-primary focus:ring-primary/20 w-4 h-4" type="checkbox"/></td>
+<td class="py-4 px-2 text-center"><input class="rounded border-outline-variant text-primary focus:ring-primary/20 w-4 h-4" type="checkbox"/></td>
+<td class="py-4 px-2 text-center"><input checked="" class="rounded border-outline-variant text-primary focus:ring-primary/20 w-4 h-4" type="checkbox"/></td>
+<td class="py-4 px-2 text-center"><input checked="" class="rounded border-outline-variant text-primary focus:ring-primary/20 w-4 h-4" type="checkbox"/></td>
+</tr>
+<!-- Teams Area -->
+<tr class="hover:bg-surface-container-low/50 transition-colors">
+<td class="py-4 px-4 font-medium text-on-surface flex items-center space-x-2">
+<span class="material-symbols-outlined text-outline text-sm">groups</span>
+<span>Team Management</span>
+</td>
+<td class="py-4 px-2 text-center"><input class="rounded border-outline-variant text-primary focus:ring-primary/20 w-4 h-4" type="checkbox"/></td>
+<td class="py-4 px-2 text-center"><input checked="" class="rounded border-outline-variant text-primary focus:ring-primary/20 w-4 h-4" type="checkbox"/></td>
+<td class="py-4 px-2 text-center"><input checked="" class="rounded border-outline-variant text-primary focus:ring-primary/20 w-4 h-4" type="checkbox"/></td>
+<td class="py-4 px-2 text-center"><input class="rounded border-outline-variant text-primary focus:ring-primary/20 w-4 h-4" type="checkbox"/></td>
+<td class="py-4 px-2 text-center"><input class="rounded border-outline-variant text-primary focus:ring-primary/20 w-4 h-4" type="checkbox"/></td>
+<td class="py-4 px-2 text-center"><input checked="" class="rounded border-outline-variant text-primary focus:ring-primary/20 w-4 h-4" type="checkbox"/></td>
+</tr>
+<!-- Submissions Area -->
+<tr class="hover:bg-surface-container-low/50 transition-colors">
+<td class="py-4 px-4 font-medium text-on-surface flex items-center space-x-2">
+<span class="material-symbols-outlined text-outline text-sm">upload_file</span>
+<span>Project Submissions</span>
+</td>
+<td class="py-4 px-2 text-center"><input class="rounded border-outline-variant text-primary focus:ring-primary/20 w-4 h-4" type="checkbox"/></td>
+<td class="py-4 px-2 text-center"><input checked="" class="rounded border-outline-variant text-primary focus:ring-primary/20 w-4 h-4" type="checkbox"/></td>
+<td class="py-4 px-2 text-center"><input class="rounded border-outline-variant text-primary focus:ring-primary/20 w-4 h-4" type="checkbox"/></td>
+<td class="py-4 px-2 text-center"><input class="rounded border-outline-variant text-primary focus:ring-primary/20 w-4 h-4" type="checkbox"/></td>
+<td class="py-4 px-2 text-center"><input checked="" class="rounded border-outline-variant text-primary focus:ring-primary/20 w-4 h-4" type="checkbox"/></td>
+<td class="py-4 px-2 text-center"><input checked="" class="rounded border-outline-variant text-primary focus:ring-primary/20 w-4 h-4" type="checkbox"/></td>
+</tr>
+<!-- Scoring Area -->
+<tr class="hover:bg-surface-container-low/50 transition-colors">
+<td class="py-4 px-4 font-medium text-on-surface flex items-center space-x-2">
+<span class="material-symbols-outlined text-outline text-sm">scoreboard</span>
+<span>Scoring &amp; Judging</span>
+</td>
+<td class="py-4 px-2 text-center"><input class="rounded border-outline-variant text-primary focus:ring-primary/20 w-4 h-4" type="checkbox"/></td>
+<td class="py-4 px-2 text-center"><input checked="" class="rounded border-outline-variant text-primary focus:ring-primary/20 w-4 h-4" type="checkbox"/></td>
+<td class="py-4 px-2 text-center"><input class="rounded border-outline-variant text-primary focus:ring-primary/20 w-4 h-4" type="checkbox"/></td>
+<td class="py-4 px-2 text-center"><input class="rounded border-outline-variant text-primary focus:ring-primary/20 w-4 h-4" type="checkbox"/></td>
+<td class="py-4 px-2 text-center"><input class="rounded border-outline-variant text-primary focus:ring-primary/20 w-4 h-4" type="checkbox"/></td>
+<td class="py-4 px-2 text-center"><input checked="" class="rounded border-outline-variant text-primary focus:ring-primary/20 w-4 h-4" type="checkbox"/></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="p-6 bg-surface-container-lowest mt-auto border-t border-outline-variant flex justify-end space-x-4">
+<button class="px-6 py-2 rounded-lg font-headline font-bold text-primary bg-transparent border border-primary hover:bg-primary-fixed/20 transition-colors">Cancel</button>
+<button class="px-6 py-2 rounded-lg font-headline font-bold text-on-primary bg-primary hover:bg-primary/90 shadow-md transition-colors flex items-center space-x-2">
+<span class="material-symbols-outlined text-sm">save</span>
+<span>Save Changes</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+</body></html>

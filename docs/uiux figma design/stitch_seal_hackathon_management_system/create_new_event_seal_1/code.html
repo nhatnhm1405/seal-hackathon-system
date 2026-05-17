@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Create Event - Academic Hackathon Portal</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;family=Plus+Jakarta+Sans:wght@500;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary-fixed-variant": "#773205",
+                        "on-primary": "#ffffff",
+                        "primary": "#00236f",
+                        "on-primary-fixed-variant": "#264191",
+                        "error": "#ba1a1a",
+                        "surface-container-lowest": "#ffffff",
+                        "on-tertiary-container": "#f39461",
+                        "on-surface-variant": "#444651",
+                        "surface-container": "#eeedf4",
+                        "on-secondary": "#ffffff",
+                        "on-primary-fixed": "#00164e",
+                        "on-secondary-fixed-variant": "#004e5c",
+                        "surface": "#faf8ff",
+                        "tertiary-fixed-dim": "#ffb691",
+                        "secondary-container": "#57dffe",
+                        "on-primary-container": "#90a8ff",
+                        "tertiary-container": "#6e2c00",
+                        "on-secondary-fixed": "#001f26",
+                        "outline-variant": "#c5c5d3",
+                        "surface-container-high": "#e9e7ef",
+                        "on-background": "#1a1b21",
+                        "on-error": "#ffffff",
+                        "surface-container-low": "#f4f3fa",
+                        "tertiary": "#4b1c00",
+                        "inverse-surface": "#2f3036",
+                        "secondary": "#00687a",
+                        "surface-dim": "#dad9e1",
+                        "surface-container-highest": "#e3e1e9",
+                        "secondary-fixed": "#acedff",
+                        "error-container": "#ffdad6",
+                        "primary-container": "#1e3a8a",
+                        "on-tertiary-fixed": "#341100",
+                        "tertiary-fixed": "#ffdbcb",
+                        "surface-bright": "#faf8ff",
+                        "inverse-primary": "#b6c4ff",
+                        "primary-fixed-dim": "#b6c4ff",
+                        "primary-fixed": "#dce1ff",
+                        "on-surface": "#1a1b21",
+                        "inverse-on-surface": "#f1f0f7",
+                        "surface-variant": "#e3e1e9",
+                        "surface-tint": "#4059aa",
+                        "outline": "#757682",
+                        "background": "#faf8ff",
+                        "on-secondary-container": "#006172",
+                        "on-tertiary": "#ffffff",
+                        "secondary-fixed-dim": "#4cd7f6",
+                        "on-error-container": "#93000a"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {},
+                    "fontFamily": {
+                        "headline": [
+                            "Plus Jakarta Sans"
+                        ],
+                        "display": [
+                            "Plus Jakarta Sans"
+                        ],
+                        "body": [
+                            "Inter"
+                        ],
+                        "label": [
+                            "Jetbrains Mono"
+                        ]
+                    },
+                    "fontSize": {}
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body min-h-screen antialiased flex">
+<!-- SideNavBar -->
+<nav class="bg-surface dark:bg-surface-dim border-r border-outline-variant dark:border-outline h-screen w-64 fixed left-0 top-0 flex flex-col p-4 gap-2 z-50">
+<div class="mb-8 px-2 flex items-center gap-3">
+<div class="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-on-primary font-headline font-bold">EH</div>
+<div>
+<h2 class="text-sm font-headline font-bold text-primary dark:text-inverse-primary leading-tight">Event Admin</h2>
+<p class="text-xs font-label text-on-surface-variant">University Lead</p>
+</div>
+</div>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface rounded-lg transition-colors font-body text-sm font-medium" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+            Dashboard
+        </a>
+<a class="flex items-center gap-3 px-4 py-3 bg-primary-container text-on-primary-container font-bold rounded-lg scale-95 transition-transform duration-150 font-body text-sm" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">event</span>
+            Events
+        </a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface rounded-lg transition-colors font-body text-sm font-medium" href="#">
+<span class="material-symbols-outlined">groups</span>
+            Participants
+        </a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface rounded-lg transition-colors font-body text-sm font-medium" href="#">
+<span class="material-symbols-outlined">description</span>
+            Submissions
+        </a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface rounded-lg transition-colors font-body text-sm font-medium" href="#">
+<span class="material-symbols-outlined">gavel</span>
+            Judging
+        </a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface rounded-lg transition-colors font-body text-sm font-medium mt-auto" href="#">
+<span class="material-symbols-outlined">settings</span>
+            Settings
+        </a>
+<button class="mt-4 w-full bg-primary text-on-primary py-3 rounded-lg font-headline font-bold text-sm hover:bg-primary-container hover:text-on-primary-container transition-colors shadow-[0px_2px_4px_rgba(15,23,42,0.05)]">
+            Create New Hackathon
+        </button>
+</nav>
+<!-- Main Content Area -->
+<div class="flex-1 ml-64 flex flex-col min-h-screen">
+<!-- TopNavBar -->
+<header class="bg-surface dark:bg-surface-bright border-b border-outline-variant dark:border-outline shadow-sm docked full-width top-0 sticky z-40 flex justify-between items-center w-full h-16 px-6">
+<div class="flex items-center gap-6">
+<h1 class="text-lg font-headline font-bold text-primary dark:text-inverse-primary tracking-tight">Academic Hackathon Portal</h1>
+<nav class="hidden md:flex items-center gap-6 ml-4">
+<a class="text-sm font-body font-medium text-on-surface-variant hover:text-primary transition-colors py-5 border-b-2 border-transparent" href="#">Global View</a>
+<a class="text-sm font-body font-medium text-on-surface-variant hover:text-primary transition-colors py-5 border-b-2 border-transparent" href="#">Analytics</a>
+<a class="text-sm font-body font-medium text-on-surface-variant hover:text-primary transition-colors py-5 border-b-2 border-transparent" href="#">Resources</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="text-on-surface-variant hover:bg-surface-container-low p-2 rounded-full transition-all flex items-center justify-center">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="text-on-surface-variant hover:bg-surface-container-low p-2 rounded-full transition-all flex items-center justify-center">
+<span class="material-symbols-outlined">help</span>
+</button>
+<button class="text-on-surface-variant hover:bg-surface-container-low p-2 rounded-full transition-all flex items-center justify-center">
+<span class="material-symbols-outlined">dark_mode</span>
+</button>
+<div class="w-8 h-8 rounded-full overflow-hidden border border-outline-variant ml-2">
+<img alt="User Profile" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuBaVl69AIEhnZQadHeRbxzIQ1znERjMywc3kX88y4c4VJOYvTfQtQhawb6SVYFsL09ZjmYTdTfd4KQ_dkwabuUxjTbnNzRx6yW2fbuc5VdJIZASzKXuWGf7LqwaBIVyCv1-fYbjNYFEAX2OWnuwsjlIf4o46uYeKr_6kWgPALG_mq35-Z6OQstA_GgbvBdgyYG7_g_jdw_FxKr_AF3oAFJ9kZQfMb4SSDqM_JRb3L5y_3qOQEANx8V-eBKO-OM7QQUFEtZcLkblOC8"/>
+</div>
+</div>
+</header>
+<!-- Canvas -->
+<main class="flex-1 p-8 max-w-[1280px] mx-auto w-full">
+<div class="mb-8 flex justify-between items-end">
+<div>
+<div class="flex items-center gap-2 text-sm font-label text-on-surface-variant mb-2">
+<a class="hover:text-primary transition-colors" href="#">Events</a>
+<span class="material-symbols-outlined text-[16px]">chevron_right</span>
+<span class="text-primary font-medium">Create New Event</span>
+</div>
+<h2 class="text-3xl font-headline font-extrabold text-on-surface tracking-tight">Create Hackathon</h2>
+<p class="text-on-surface-variant font-body mt-1">Configure your upcoming academic hackathon event details.</p>
+</div>
+<div class="flex gap-3">
+<button class="px-4 py-2 border border-outline-variant bg-surface-container-lowest text-on-surface font-body font-medium rounded-lg hover:bg-surface-container-low transition-colors text-sm shadow-[0px_2px_4px_rgba(15,23,42,0.05)]">
+                        Preview
+                    </button>
+</div>
+</div>
+<!-- Bento Grid Layout -->
+<div class="grid grid-cols-12 gap-6">
+<!-- Left Column (Main Form) -->
+<div class="col-span-12 lg:col-span-8 flex flex-col gap-8">
+<!-- Section 1: Basic Info -->
+<section class="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 shadow-[0px_2px_4px_rgba(15,23,42,0.05)] relative overflow-hidden">
+<div class="absolute top-0 left-0 w-1 h-full bg-primary"></div>
+<h3 class="text-xl font-headline font-bold text-on-surface mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">info</span>
+                            Basic Information
+                        </h3>
+<div class="space-y-5">
+<div>
+<label class="block text-sm font-headline font-bold text-on-surface mb-1">Event Name</label>
+<input class="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-4 py-2 text-sm font-body text-on-surface focus:outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/20 transition-all shadow-[0px_2px_4px_rgba(15,23,42,0.05)]" placeholder="e.g., Spring Innovation Hackathon 2024" type="text"/>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div>
+<label class="block text-sm font-headline font-bold text-on-surface mb-1">Season</label>
+<select class="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-4 py-2 text-sm font-body text-on-surface focus:outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/20 transition-all shadow-[0px_2px_4px_rgba(15,23,42,0.05)] appearance-none">
+<option>Spring</option>
+<option>Summer</option>
+<option>Fall</option>
+<option>Winter</option>
+</select>
+</div>
+<div>
+<label class="block text-sm font-headline font-bold text-on-surface mb-1">Year</label>
+<input class="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-4 py-2 text-sm font-body text-on-surface focus:outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/20 transition-all shadow-[0px_2px_4px_rgba(15,23,42,0.05)]" placeholder="2024" type="number"/>
+</div>
+</div>
+<div>
+<label class="block text-sm font-headline font-bold text-on-surface mb-1">Cover Image</label>
+<div class="border-2 border-dashed border-outline-variant rounded-lg bg-surface-container-low p-8 text-center hover:bg-surface-container transition-colors cursor-pointer group">
+<span class="material-symbols-outlined text-4xl text-outline-variant group-hover:text-primary mb-2 transition-colors">cloud_upload</span>
+<p class="text-sm font-body text-on-surface-variant font-medium">Click to upload or drag and drop</p>
+<p class="text-xs font-label text-outline mt-1">PNG, JPG up to 5MB (1920x1080 recommended)</p>
+</div>
+</div>
+<div>
+<label class="block text-sm font-headline font-bold text-on-surface mb-1">Description</label>
+<div class="border border-outline-variant rounded-lg overflow-hidden flex flex-col shadow-[0px_2px_4px_rgba(15,23,42,0.05)]">
+<div class="bg-surface-container border-b border-outline-variant p-2 flex gap-2">
+<button class="p-1 text-on-surface-variant hover:bg-surface-container-high rounded"><span class="material-symbols-outlined text-sm">format_bold</span></button>
+<button class="p-1 text-on-surface-variant hover:bg-surface-container-high rounded"><span class="material-symbols-outlined text-sm">format_italic</span></button>
+<button class="p-1 text-on-surface-variant hover:bg-surface-container-high rounded"><span class="material-symbols-outlined text-sm">format_list_bulleted</span></button>
+<button class="p-1 text-on-surface-variant hover:bg-surface-container-high rounded"><span class="material-symbols-outlined text-sm">link</span></button>
+</div>
+<textarea class="w-full bg-surface-container-lowest border-none px-4 py-3 text-sm font-body text-on-surface focus:outline-none focus:ring-0 resize-y" placeholder="Provide a detailed description of the event..." rows="5"></textarea>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 3: Rules & Eligibility -->
+<section class="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 shadow-[0px_2px_4px_rgba(15,23,42,0.05)]">
+<h3 class="text-xl font-headline font-bold text-on-surface mb-6 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary">gavel</span>
+                            Rules &amp; Eligibility
+                        </h3>
+<div class="space-y-4">
+<div>
+<label class="block text-sm font-headline font-bold text-on-surface mb-1">Eligibility Criteria</label>
+<textarea class="w-full bg-surface-container-lowest border border-outline-variant rounded-lg px-4 py-2 text-sm font-body text-on-surface focus:outline-none focus:border-secondary focus:ring-2 focus:ring-secondary/20 transition-all shadow-[0px_2px_4px_rgba(15,23,42,0.05)]" placeholder="Define who can participate (e.g., Undergraduate students only)..." rows="3"></textarea>
+</div>
+<div class="bg-surface-container-low p-4 rounded-lg border border-outline-variant">
+<div class="flex items-center justify-between mb-2">
+<span class="text-sm font-headline font-bold text-on-surface">Code of Conduct</span>
+<button class="text-xs font-label text-primary hover:underline">Select Template</button>
+</div>
+<p class="text-xs font-body text-on-surface-variant mb-3">Attach the standard university hackathon code of conduct rules.</p>
+<label class="flex items-center gap-2 cursor-pointer">
+<input class="w-4 h-4 rounded border-outline-variant text-primary focus:ring-primary/20 bg-surface-container-lowest" type="checkbox"/>
+<span class="text-sm font-body text-on-surface">Require participants to agree upon registration</span>
+</label>
+</div>
+</div>
+</section>
+</div>
+<!-- Right Column (Sidebar Sections) -->
+<div class="col-span-12 lg:col-span-4 flex flex-col gap-6">
+<!-- Section 2: Timeline -->
+<section class="bg-surface-container-lowest border border-outline-variant rounded-xl p-5 shadow-[0px_2px_4px_rgba(15,23,42,0.05)]">
+<h3 class="text-lg font-headline font-bold text-on-surface mb-4 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-xl">calendar_month</span>
+                            Timeline
+                        </h3>
+<div class="space-y-4">
+<div class="relative">
+<label class="block text-xs font-label text-outline mb-1 uppercase tracking-wider">Registration Opens</label>
+<div class="flex items-center bg-surface-container-lowest border border-outline-variant rounded-lg focus-within:border-secondary focus-within:ring-2 focus-within:ring-secondary/20 transition-all overflow-hidden shadow-[0px_2px_4px_rgba(15,23,42,0.05)]">
+<span class="material-symbols-outlined text-outline-variant pl-3">event</span>
+<input class="w-full border-none bg-transparent px-3 py-2 text-sm font-body text-on-surface focus:outline-none focus:ring-0" type="datetime-local"/>
+</div>
+</div>
+<div class="relative">
+<label class="block text-xs font-label text-outline mb-1 uppercase tracking-wider">Registration Deadline</label>
+<div class="flex items-center bg-surface-container-lowest border border-outline-variant rounded-lg focus-within:border-secondary focus-within:ring-2 focus-within:ring-secondary/20 transition-all overflow-hidden shadow-[0px_2px_4px_rgba(15,23,42,0.05)]">
+<span class="material-symbols-outlined text-outline-variant pl-3">event_busy</span>
+<input class="w-full border-none bg-transparent px-3 py-2 text-sm font-body text-on-surface focus:outline-none focus:ring-0" type="datetime-local"/>
+</div>
+</div>
+<div class="h-[1px] w-full bg-outline-variant my-2"></div>
+<div class="relative">
+<label class="block text-xs font-label text-outline mb-1 uppercase tracking-wider">Event Start</label>
+<div class="flex items-center bg-surface-container-lowest border border-outline-variant rounded-lg focus-within:border-secondary focus-within:ring-2 focus-within:ring-secondary/20 transition-all overflow-hidden shadow-[0px_2px_4px_rgba(15,23,42,0.05)]">
+<span class="material-symbols-outlined text-outline-variant pl-3">play_circle</span>
+<input class="w-full border-none bg-transparent px-3 py-2 text-sm font-body text-on-surface focus:outline-none focus:ring-0" type="datetime-local"/>
+</div>
+</div>
+<div class="relative">
+<label class="block text-xs font-label text-outline mb-1 uppercase tracking-wider">Event End</label>
+<div class="flex items-center bg-surface-container-lowest border border-outline-variant rounded-lg focus-within:border-secondary focus-within:ring-2 focus-within:ring-secondary/20 transition-all overflow-hidden shadow-[0px_2px_4px_rgba(15,23,42,0.05)]">
+<span class="material-symbols-outlined text-outline-variant pl-3">stop_circle</span>
+<input class="w-full border-none bg-transparent px-3 py-2 text-sm font-body text-on-surface focus:outline-none focus:ring-0" type="datetime-local"/>
+</div>
+</div>
+</div>
+</section>
+<!-- Section 4: Prize Structure -->
+<section class="bg-surface-container-lowest border border-outline-variant rounded-xl p-5 shadow-[0px_2px_4px_rgba(15,23,42,0.05)]">
+<div class="flex justify-between items-center mb-4">
+<h3 class="text-lg font-headline font-bold text-on-surface flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-xl">emoji_events</span>
+                                Prize Structure
+                            </h3>
+<button class="text-xs font-label text-primary hover:bg-surface-container-low p-1 rounded transition-colors flex items-center">
+<span class="material-symbols-outlined text-[16px]">add</span> Add Tier
+                            </button>
+</div>
+<div class="space-y-3">
+<!-- Prize Item -->
+<div class="bg-surface border border-outline-variant rounded-lg p-3 relative group">
+<button class="absolute top-2 right-2 text-outline hover:text-error opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-[18px]">close</span>
+</button>
+<div class="flex items-center justify-between mb-2">
+<span class="text-sm font-headline font-bold text-on-surface">1st Place</span>
+<span class="text-sm font-label font-medium text-primary bg-primary-container px-2 py-0.5 rounded">$2000</span>
+</div>
+<div class="text-xs font-body text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">groups</span>
+                                    1 Winner (Team)
+                                </div>
+<p class="text-xs font-body text-on-surface mt-2 border-t border-outline-variant pt-2">Overall best execution and innovation across all tracks.</p>
+</div>
+<!-- Placeholder for another tier -->
+<div class="border border-dashed border-outline-variant rounded-lg p-3 flex items-center justify-center text-outline-variant hover:text-primary hover:border-primary cursor-pointer transition-colors bg-surface-container-low">
+<span class="text-sm font-body font-medium flex items-center gap-1">
+<span class="material-symbols-outlined text-[18px]">add</span>
+                                    Define 2nd Place
+                                </span>
+</div>
+</div>
+</section>
+<!-- Section 5: Visibility -->
+<section class="bg-surface-container-lowest border border-outline-variant rounded-xl p-5 shadow-[0px_2px_4px_rgba(15,23,42,0.05)]">
+<h3 class="text-lg font-headline font-bold text-on-surface mb-4 flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-xl">visibility</span>
+                            Visibility
+                        </h3>
+<div class="space-y-3">
+<label class="flex items-start gap-3 p-3 border border-primary bg-primary-fixed/30 rounded-lg cursor-pointer">
+<input checked="" class="mt-1 w-4 h-4 text-primary focus:ring-primary/20 border-outline-variant" name="visibility" type="radio"/>
+<div>
+<span class="block text-sm font-headline font-bold text-on-surface">Public</span>
+<span class="block text-xs font-body text-on-surface-variant mt-0.5">Visible to all users on the academic portal. Open for registration.</span>
+</div>
+</label>
+<label class="flex items-start gap-3 p-3 border border-outline-variant bg-surface rounded-lg cursor-pointer hover:bg-surface-container-low transition-colors">
+<input class="mt-1 w-4 h-4 text-primary focus:ring-primary/20 border-outline-variant" name="visibility" type="radio"/>
+<div>
+<span class="block text-sm font-headline font-bold text-on-surface">Private (Invite Only)</span>
+<span class="block text-xs font-body text-on-surface-variant mt-0.5">Only accessible via direct link. Hidden from main discovery feed.</span>
+</div>
+</label>
+</div>
+</section>
+</div>
+</div>
+<!-- Bottom Actions -->
+<div class="mt-8 pt-6 border-t border-outline-variant flex justify-end gap-4 items-center">
+<span class="text-xs font-body text-on-surface-variant mr-auto flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">cloud_done</span>
+                    Draft saved 2 mins ago
+                </span>
+<button class="px-6 py-2.5 bg-transparent text-secondary font-headline font-bold rounded-lg border border-secondary hover:bg-secondary/5 transition-colors text-sm">
+                    Save Draft
+                </button>
+<button class="px-6 py-2.5 bg-primary text-on-primary font-headline font-bold rounded-lg shadow-[0px_2px_4px_rgba(15,23,42,0.05)] hover:bg-primary-container hover:text-on-primary-container transition-colors text-sm flex items-center gap-2">
+                    Publish Event
+                    <span class="material-symbols-outlined text-[18px]">send</span>
+</button>
+</div>
+</main>
+</div>
+</body></html>
