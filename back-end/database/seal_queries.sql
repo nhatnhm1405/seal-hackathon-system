@@ -3,6 +3,37 @@ USE seal_hackathon;
 -- =====================================================
 -- USEFUL SELECT QUERIES
 -- =====================================================
+SELECT 'Role' AS table_name; SELECT * FROM Role;
+
+SELECT 'User' AS table_name; SELECT * FROM User;
+
+SELECT 'HackathonEvent' AS table_name; SELECT * FROM HackathonEvent;
+
+SELECT 'Track' AS table_name; SELECT * FROM Track;
+
+SELECT 'Round' AS table_name; SELECT * FROM Round;
+
+SELECT 'UserEventRole' AS table_name; SELECT * FROM UserEventRole;
+
+SELECT 'Team' AS table_name; SELECT * FROM Team;
+
+SELECT 'TeamMember' AS table_name; SELECT * FROM TeamMember;
+
+SELECT 'Submission' AS table_name; SELECT * FROM Submission;
+
+SELECT 'ScoringCriteriaTemplate' AS table_name; SELECT * FROM ScoringCriteriaTemplate;
+
+SELECT 'ScoringCriteria' AS table_name; SELECT * FROM ScoringCriteria;
+
+SELECT 'Score' AS table_name; SELECT * FROM Score;
+
+SELECT 'RoundResult' AS table_name; SELECT * FROM RoundResult;
+
+SELECT 'Prize' AS table_name; SELECT * FROM Prize;
+
+SELECT 'Notification' AS table_name; SELECT * FROM Notification;
+
+SELECT 'AuditLog' AS table_name; SELECT * FROM AuditLog;
 
 -- -------------------------------------------------------
 -- 1. Danh sách tất cả user kèm role trong event
