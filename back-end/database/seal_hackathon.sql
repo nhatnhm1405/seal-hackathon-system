@@ -16,7 +16,7 @@ USE seal_hackathon;
 
 CREATE TABLE Role (
   role_id     INT           NOT NULL AUTO_INCREMENT,
-  role_name   VARCHAR(50)   NOT NULL COMMENT 'TEAM_MEMBER, TEAM_LEADER, MENTOR, JUDGE, EVENT_COORDINATOR, ADMIN',
+  role_name   VARCHAR(50)   NOT NULL COMMENT 'MENTOR, JUDGE, EVENT_COORDINATOR',
   description VARCHAR(255),
   PRIMARY KEY (role_id),
   UNIQUE KEY uq_role_name (role_name)
@@ -28,12 +28,12 @@ CREATE TABLE User (
   password_hash VARCHAR(255)  NOT NULL,
   full_name     VARCHAR(255)  NOT NULL,
   user_type     VARCHAR(20)   NOT NULL COMMENT 'FPT_STUDENT, EXTERNAL_STUDENT, FACULTY, GUEST',
-  student_code  VARCHAR(50)   COMMENT 'FPT student ID or external student ID',
+  student_id  VARCHAR(50)   COMMENT 'FPT student ID or external student ID',
   university    VARCHAR(255)  COMMENT 'For external students',
   is_approved   BOOLEAN       NOT NULL DEFAULT FALSE,
   is_active     BOOLEAN       NOT NULL DEFAULT TRUE,
   created_at    DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at    DATETIME      ON UPDATE CURRENT_TIMESTAMP,
+  expired_at    DATETIME      ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (user_id),
   UNIQUE KEY uq_email (email),
   KEY idx_user_type (user_type)
