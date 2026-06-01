@@ -1,5 +1,8 @@
-import { createBrowserRouter, useNavigate } from "react-router";
+import { createBrowserRouter, Navigate, useNavigate } from "react-router";
 import { LandingPage } from "@/features/landing/LandingPage";
+import { LoginPage } from "@/features/auth/LoginPage";
+import { RegisterPage } from "@/features/auth/RegisterPage";
+import { PendingApprovalPage } from "@/features/auth/PendingApprovalPage";
 
 function LandingPageWrapper() {
     const navigate = useNavigate();
@@ -15,5 +18,8 @@ function LandingPageWrapper() {
 
 export const router = createBrowserRouter([
     { path: "/", Component: LandingPageWrapper },
-    { path: "*", element: <LandingPageWrapper /> },
+    { path: "/login", Component: LoginPage },
+    { path: "/register", Component: RegisterPage },
+    { path: "/pending-approval", Component: PendingApprovalPage },
+    { path: "*", element: <Navigate to="/" replace /> },
 ]);
