@@ -20,7 +20,7 @@ export function LoginPage() {
         setError(null);
         const result = login(email, password);
         if (result === 'ok') {
-            navigate('/dashboard');
+            navigate('/coordinator/dashboard');
         } else if (result === 'pending_approval') {
             navigate('/pending-approval');
         } else {
