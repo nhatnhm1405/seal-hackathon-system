@@ -3,10 +3,10 @@ import { useNavigate } from "react-router";
 import {
     C, GradientText, PixelButton, PixelCard, PixelBadge,
     FloatingParticles, TerminalWindow, TypingText, SectionHeader, CircuitLines,
-} from "../../components/common/PixelComponents";
-import { useAuth } from "../../lib/AuthContext";
-import { SealFooter } from "../../components/common/SealFooter";
-import sealLogo from "../../assets/image.png";
+} from "@/shared/components/PixelComponents";
+import { useAuth } from "@/app/providers/AuthContext";
+import { SealFooter } from "@/shared/components/SealFooter";
+import sealLogo from "@/assets/image.png";
 
 type Page = "landing" | "auth" | "dashboard" | "events" | "teams" | "submissions" | "leaderboard" | "judge" | "admin" | "profile";
 

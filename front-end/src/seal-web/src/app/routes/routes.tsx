@@ -1,5 +1,5 @@
 import { createBrowserRouter, useNavigate } from "react-router";
-import { LandingPage } from "./features/landing/LandingPage";
+import { LandingPage } from "@/features/landing/LandingPage";
 
 function LandingPageWrapper() {
     const navigate = useNavigate();
