@@ -1,0 +1,281 @@
+{
+  "info": {
+    "name": "SEAL Hackathon – Auth API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl",          "value": "http://localhost:8080" },
+    { "key": "coordinatorToken", "value": "" },
+    { "key": "participantToken", "value": "" },
+    { "key": "userId",           "value": "" }
+  ],
+  "item": [
+
+    {
+      "name": "1. AUTH",
+      "item": [
+
+        {
+          "name": "Register – FPT Student",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/auth/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"student.test@fpt.edu.vn\",\n  \"password\": \"Test@1234\",\n  \"fullName\": \"Nguyen Van Test\",\n  \"userType\": \"FPT_STUDENT\",\n  \"studentId\": \"SE210001\"\n}"
+            }
+          }
+        },
+
+        {
+          "name": "Register – External Student",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/auth/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"student.ext@hcmut.edu.vn\",\n  \"password\": \"Test@1234\",\n  \"fullName\": \"Tran Thi External\",\n  \"userType\": \"EXTERNAL_STUDENT\",\n  \"studentId\": \"BK2100999\",\n  \"university\": \"HCMUT\"\n}"
+            }
+          }
+        },
+
+        {
+          "name": "Register – Staff (self)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/auth/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"staff.new@fpt.edu.vn\",\n  \"password\": \"Test@1234\",\n  \"fullName\": \"Le Van Staff\",\n  \"userType\": \"STAFF\"\n}"
+            }
+          }
+        },
+
+        {
+          "name": "Login – Coordinator (lưu token)",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "var res = pm.response.json();",
+                "if (res.data && res.data.token) {",
+                "  pm.collectionVariables.set('coordinatorToken', res.data.token);",
+                "  console.log('Coordinator token saved');",
+                "}"
+              ]
+            }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"coordinator@fpt.edu.vn\",\n  \"password\": \"Test@1234\"\n}"
+            }
+          }
+        },
+
+        {
+          "name": "Login – Participant (lưu token)",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "var res = pm.response.json();",
+                "if (res.data && res.data.token) {",
+                "  pm.collectionVariables.set('participantToken', res.data.token);",
+                "  pm.collectionVariables.set('userId', res.data.userId);",
+                "  console.log('Participant token saved');",
+                "}"
+              ]
+            }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"leader1@fpt.edu.vn\",\n  \"password\": \"Test@1234\"\n}"
+            }
+          }
+        },
+
+        {
+          "name": "Login – Trước khi được duyệt (expect 403)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"student.test@fpt.edu.vn\",\n  \"password\": \"Test@1234\"\n}"
+            }
+          }
+        },
+
+        {
+          "name": "GET /me – Xem profile hiện tại",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{participantToken}}" }],
+            "url": "{{baseUrl}}/api/auth/me"
+          }
+        },
+
+        {
+          "name": "POST /logout",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{participantToken}}" }],
+            "url": "{{baseUrl}}/api/auth/logout"
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "2. ACCOUNT APPROVAL",
+      "item": [
+
+        {
+          "name": "GET pending approvals",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{coordinatorToken}}" }],
+            "url": "{{baseUrl}}/api/account-approvals/pending"
+          }
+        },
+
+        {
+          "name": "PUT approve user",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{coordinatorToken}}" }],
+            "url": "{{baseUrl}}/api/account-approvals/13/approve"
+          }
+        },
+
+        {
+          "name": "PUT reject user",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{coordinatorToken}}" }],
+            "url": "{{baseUrl}}/api/account-approvals/13/reject"
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "3. USER MANAGEMENT",
+      "item": [
+
+        {
+          "name": "GET all users",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{coordinatorToken}}" }],
+            "url": "{{baseUrl}}/api/users"
+          }
+        },
+
+        {
+          "name": "GET user by ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{coordinatorToken}}" }],
+            "url": "{{baseUrl}}/api/users/5"
+          }
+        },
+
+        {
+          "name": "POST create staff (guest judge)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{coordinatorToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/users/staff",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"guestjudge@company.com\",\n  \"password\": \"Test@1234\",\n  \"fullName\": \"Nguyen Guest Judge\",\n  \"roleName\": \"JUDGE\",\n  \"judgeType\": \"GUEST\",\n  \"eventId\": 1,\n  \"roundId\": 2\n}"
+            }
+          }
+        },
+
+        {
+          "name": "POST assign role to staff",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{coordinatorToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/users/2/roles",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roleName\": \"MENTOR\",\n  \"eventId\": 1,\n  \"trackId\": 2\n}"
+            }
+          }
+        },
+
+        {
+          "name": "PUT deactivate user",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{coordinatorToken}}" }],
+            "url": "{{baseUrl}}/api/users/13/deactivate"
+          }
+        },
+
+        {
+          "name": "PUT activate user",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{coordinatorToken}}" }],
+            "url": "{{baseUrl}}/api/users/13/activate"
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "4. SECURITY TESTS",
+      "item": [
+
+        {
+          "name": "Không có token → expect 401",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/auth/me"
+          }
+        },
+
+        {
+          "name": "Token sai → expect 401",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer token_gia_mao" }],
+            "url": "{{baseUrl}}/api/auth/me"
+          }
+        },
+
+        {
+          "name": "Participant gọi API coordinator → expect 403",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{participantToken}}" }],
+            "url": "{{baseUrl}}/api/account-approvals/pending"
+          }
+        }
+      ]
+    }
+
+  ]
+}
