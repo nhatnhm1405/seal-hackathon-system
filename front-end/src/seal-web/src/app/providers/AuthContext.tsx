@@ -3,8 +3,8 @@ import { createContext, useContext, useState, type ReactNode } from "react";
 import {
     users, userEventRoles, teamMembers, events, tracks, rounds,
     teams, MOCK_CREDENTIALS,
-} from "../mockData.ts";
-import type { HackathonEvent } from "../mockData.ts";
+} from "../../shared/mocks/mockData.ts";
+import type { HackathonEvent } from "../../shared/mocks/mockData.ts";
 
 export interface AuthUser {
     user_id: number;
