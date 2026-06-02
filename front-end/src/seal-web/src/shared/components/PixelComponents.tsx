@@ -627,6 +627,11 @@ interface SectionHeaderProps {
 export function SectionHeader({ prefix = "//", title, subtitle, align = "center", gradient = false }: SectionHeaderProps) {
     return (
         <div style={{ textAlign: align }}>
+            {prefix && (
+                <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", marginBottom: 6 }}>
+                    {prefix}
+                </div>
+            )}
             <h2 style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "clamp(22px, 3vw, 32px)", fontWeight: 800, lineHeight: 1.2 }}>
                 {gradient ? (
                     <GradientText>{title}</GradientText>

@@ -58,7 +58,7 @@ function buildAuthUser(userId: number): AuthUser | null {
         full_name: user.full_name,
         email: user.email,
         role: deriveRole(userId),
-        student_type: user.user_type,           // 'FPT_STUDENT' | 'EXTERNAL_STUDENT' | 'STAFF'
+        student_type: user.user_type,
         is_leader: membership ? membership.member_role === 'LEADER' : false,
         team_id: membership?.team_id ?? null,
     };
