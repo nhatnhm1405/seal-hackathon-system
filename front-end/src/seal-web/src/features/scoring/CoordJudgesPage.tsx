@@ -1,0 +1,165 @@
+﻿import { useState } from "react";
+import {
+  C, GradientText, PixelCard, PixelButton, PixelBadge, PixelInput,
+} from "@/shared/components/PixelComponents";
+import {
+  judgeAssignments as initialAssignments, users as initialUsers, rounds, events,
+  JudgeAssignment, User,
+} from "@/shared/mocks/mockData";
+
+export function CoordJudgesPage() {
+  const [assignments, setAssignments] = useState<JudgeAssignment[]>(initialAssignments);
+  const [users, setUsers] = useState<User[]>(initialUsers);
+  const [showAssign, setShowAssign] = useState(false);
+  const [showGuest, setShowGuest] = useState(false);
+
+  const [searchUser, setSearchUser] = useState("");
+  const [selectedJudgeId, setSelectedJudgeId] = useState<number>(0);
+  const [selectedRoundId, setSelectedRoundId] = useState<number>(0);
+  const [judgeType, setJudgeType] = useState<'INTERNAL' | 'GUEST'>('INTERNAL');
+
+  const [guestName, setGuestName] = useState("");
+  const [guestEmail, setGuestEmail] = useState("");
+  const [guestPwd, setGuestPwd] = useState("");
+
+  const judgesPool = users.filter(u => u.role === 'JUDGE' && (searchUser === "" || u.full_name.toLowerCase().includes(searchUser.toLowerCase())));
+
+  function assign() {
+    if (!selectedJudgeId || !selectedRoundId) return;
+    setAssignments(prev => [...prev, {
+      assignment_id: Math.max(0, ...prev.map(a => a.assignment_id)) + 1,
+      judge_id: selectedJudgeId,
+      round_id: selectedRoundId,
+      judge_type: judgeType,
+    }]);
+    setSelectedJudgeId(0); setSelectedRoundId(0);
+    setShowAssign(false);
+  }
+
+  function removeAssignment(id: number) {
+    setAssignments(prev => prev.filter(a => a.assignment_id !== id));
+  }
+
+  function createGuest() {
+    if (!guestName || !guestEmail) return;
+    const newId = Math.max(0, ...users.map(u => u.user_id)) + 1;
+    setUsers(prev => [...prev, {
+      user_id: newId, role: 'JUDGE', email: guestEmail, full_name: guestName,
+      student_type: 'EXTERNAL', student_id: null, university_name: 'Guest', status: 'ACTIVE',
+    }]);
+    setGuestName(""); setGuestEmail(""); setGuestPwd("");
+    setShowGuest(false);
+  }
+
+  // Group by event > round
+  const eventGroups = events.map(ev => {
+    const evRounds = rounds.filter(r => r.event_id === ev.event_id);
+    return { event: ev, rounds: evRounds };
+  });
+
+  return (
+    <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+        <div>
+          <h1 style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 28, fontWeight: 800 }}>
+            <GradientText>Judges</GradientText>
+          </h1>
+        </div>
+        <div style={{ display: "flex", gap: 10 }}>
+          <PixelButton variant="secondary" onClick={() => setShowGuest(!showGuest)}>CREATE GUEST ACCOUNT</PixelButton>
+          <PixelButton variant="cyber" onClick={() => setShowAssign(!showAssign)}>ASSIGN JUDGE</PixelButton>
+        </div>
+      </div>
+
+      {showAssign && (
+        <PixelCard style={{ padding: 18 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 150px auto", gap: 10, alignItems: "end" }}>
+            <PixelInput label="Search Judge" value={searchUser} onChange={(e) => setSearchUser(e.target.value)} placeholder="Name..." />
+            <div>
+              <label style={{ color: C.greenMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase" }}>Judge</label>
+              <select value={selectedJudgeId} onChange={(e) => setSelectedJudgeId(Number(e.target.value))} style={selectStyle}>
+                <option value={0}>Select...</option>
+                {judgesPool.map(u => <option key={u.user_id} value={u.user_id}>{u.full_name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={{ color: C.greenMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase" }}>Round</label>
+              <select value={selectedRoundId} onChange={(e) => setSelectedRoundId(Number(e.target.value))} style={selectStyle}>
+                <option value={0}>Select...</option>
+                {rounds.map(r => <option key={r.round_id} value={r.round_id}>{r.round_name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={{ color: C.greenMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase" }}>Type</label>
+              <select value={judgeType} onChange={(e) => setJudgeType(e.target.value as 'INTERNAL'|'GUEST')} style={selectStyle}>
+                <option value="INTERNAL">Internal</option>
+                <option value="GUEST">Guest</option>
+              </select>
+            </div>
+            <PixelButton variant="cyber" onClick={assign}>ASSIGN</PixelButton>
+          </div>
+        </PixelCard>
+      )}
+
+      {showGuest && (
+        <PixelCard style={{ padding: 18 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr auto", gap: 10, alignItems: "end" }}>
+            <PixelInput label="Name" value={guestName} onChange={(e) => setGuestName(e.target.value)} />
+            <PixelInput label="Email" type="email" value={guestEmail} onChange={(e) => setGuestEmail(e.target.value)} />
+            <PixelInput label="Temp Password" type="password" value={guestPwd} onChange={(e) => setGuestPwd(e.target.value)} />
+            <PixelButton variant="cyber" onClick={createGuest}>CREATE</PixelButton>
+          </div>
+        </PixelCard>
+      )}
+
+      {eventGroups.map(({ event, rounds: evRounds }) => (
+        <PixelCard key={event.event_id} glow gradient style={{ padding: 18 }}>
+          <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 16, fontWeight: 700, marginBottom: 14 }}>
+            {event.event_name}
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            {evRounds.map(r => {
+              const roundJudges = assignments.filter(a => a.round_id === r.round_id);
+              return (
+                <div key={r.round_id} style={{ padding: 14, background: C.surface2, border: `1px solid ${C.border}` }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                    <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 600 }}>{r.round_name}</div>
+                    <PixelBadge color={r.status === 'ACTIVE' ? 'green' : r.status === 'UPCOMING' ? 'yellow' : 'red'}>{r.status}</PixelBadge>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {roundJudges.length === 0 && <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}>No judges assigned</div>}
+                    {roundJudges.map(a => {
+                      const j = users.find(u => u.user_id === a.judge_id);
+                      return (
+                        <div key={a.assignment_id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 10px", background: C.surface, border: `1px solid ${C.border}` }}>
+                          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                            <span style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>{j?.full_name}</span>
+                            <PixelBadge color={a.judge_type === 'INTERNAL' ? 'blue' : 'cyan'}>{a.judge_type}</PixelBadge>
+                          </div>
+                          <PixelButton size="sm" variant="danger" onClick={() => removeAssignment(a.assignment_id)}>REMOVE</PixelButton>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </PixelCard>
+      ))}
+    </div>
+  );
+}
+
+const selectStyle: React.CSSProperties = {
+  marginTop: 6,
+  padding: "10px 12px",
+  background: C.surface2,
+  border: `1px solid ${C.border}`,
+  color: C.text,
+  fontFamily: "'JetBrains Mono', monospace",
+  fontSize: 12,
+  borderRadius: 0,
+  outline: "none",
+  width: "100%",
+};
