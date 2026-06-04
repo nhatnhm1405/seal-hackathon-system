@@ -17,6 +17,7 @@ export function TeamLeaderDashboard() {
   const { currentUser } = useAuth();
   if (!currentUser) return null;
 
+  // No team yet
   if (currentUser.team_id === null) {
     return (
       <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
@@ -63,6 +64,7 @@ export function TeamLeaderDashboard() {
         </div>
       </PixelCard>
 
+      {/* Action buttons */}
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
         <PixelButton variant="cyber" onClick={() => navigate('/team/manage')}>MANAGE TEAM</PixelButton>
         <PixelButton variant="secondary" onClick={() => navigate('/team/submit')}>SUBMIT PROJECT</PixelButton>

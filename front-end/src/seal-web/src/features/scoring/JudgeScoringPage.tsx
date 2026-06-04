@@ -1,4 +1,4 @@
-﻿import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useAuth } from "@/app/providers/AuthProvider";
 import {
   C, GradientText, PixelCard, PixelButton, PixelBadge, PixelInput,
@@ -19,17 +19,27 @@ interface ScoreInput {
 }
 
 export function JudgeScoringPage() {
-  const { currentUser } = useAuth();
+  const { currentUser, currentEvent } = useAuth();
   const myAssignments = currentUser ? judgeAssignments.filter(j => j.judge_id === currentUser.user_id) : [];
   const myRoundIds = myAssignments.map(a => a.round_id);
-  const myRounds = rounds.filter(r => myRoundIds.includes(r.round_id));
+  const allMyRounds = rounds.filter(r => myRoundIds.includes(r.round_id));
+  const myRounds = currentEvent
+    ? allMyRounds.filter(r => r.event_id === currentEvent.event_id)
+    : allMyRounds;
 
   const [selectedRoundId, setSelectedRoundId] = useState<number | null>(myRounds[0]?.round_id ?? null);
   const [selectedSubId, setSelectedSubId] = useState<number | null>(null);
   const [filter, setFilter] = useState<FilterType>("all");
   const [scoreInputs, setScoreInputs] = useState<Record<number, ScoreInput>>({});
-  const [scoreState] = useState(initialScores);
+  const [scoreState, setScoreState] = useState(initialScores);
   const [submittedMsg, setSubmittedMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    setSelectedRoundId(myRounds[0]?.round_id ?? null);
+    setSelectedSubId(null);
+    setScoreInputs({});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentEvent?.event_id]);
 
   if (!currentUser) return null;
 
@@ -93,6 +103,31 @@ export function JudgeScoringPage() {
   }
   function updateComment(critId: number, comment: string) {
     setScoreInputs(prev => ({ ...prev, [critId]: { value: prev[critId]?.value ?? 0, comment } }));
+  }
+
+  function saveScores(isDraft: boolean) {
+    if (!selectedSub || !currentUser) return;
+    const now = new Date().toISOString();
+    setScoreState(prev => {
+      const without = prev.filter(
+        s => !(s.submission_id === selectedSub.submission_id && s.judge_id === currentUser.user_id)
+      );
+      const maxId = prev.length > 0 ? Math.max(...prev.map(s => s.score_id)) : 0;
+      return [
+        ...without,
+        ...criteria.map((c, i) => ({
+          score_id: maxId + i + 1,
+          submission_id: selectedSub.submission_id,
+          judge_id: currentUser.user_id,
+          criteria_id: c.criteria_id,
+          score_value: scoreInputs[c.criteria_id]?.value ?? existingScores[c.criteria_id] ?? 0,
+          is_draft: isDraft,
+          scored_at: now,
+        })),
+      ];
+    });
+    if (!isDraft) setScoreInputs({});
+    setSubmittedMsg(isDraft ? "Draft saved." : "Scores submitted as final.");
   }
 
   return (
@@ -321,8 +356,8 @@ export function JudgeScoringPage() {
 
               {!isReadOnly && (
                 <div style={{ display: "flex", gap: 12 }}>
-                  <PixelButton variant="secondary" onClick={() => setSubmittedMsg("Draft saved.")}>SAVE DRAFT</PixelButton>
-                  <PixelButton variant="cyber" onClick={() => setSubmittedMsg("Scores submitted as final.")}>SUBMIT FINAL</PixelButton>
+                  <PixelButton variant="secondary" onClick={() => saveScores(true)}>SAVE DRAFT</PixelButton>
+                  <PixelButton variant="cyber" onClick={() => saveScores(false)}>SUBMIT FINAL</PixelButton>
                 </div>
               )}
             </div>

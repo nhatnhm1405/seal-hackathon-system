@@ -66,7 +66,7 @@ export function CoordTeamsPage() {
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'JetBrains Mono', monospace" }}>
             <thead>
-              <tr style={{ background: "linear-gradient(90deg, #0d1117, #0a1020)", borderBottom: `1px solid ${C.border}` }}>
+              <tr style={{ background: C.surface2, borderBottom: `1px solid ${C.border}` }}>
                 {["Team", "Track", "Event", "Leader", "Members", "Status", "Actions"].map(h => (
                   <th key={h} style={{ color: C.green, fontSize: 10, letterSpacing: "0.12em", textAlign: "left", padding: "12px 14px", fontWeight: 600, textTransform: "uppercase" }}>{h}</th>
                 ))}
@@ -82,7 +82,7 @@ export function CoordTeamsPage() {
                 return (
                   <React.Fragment key={t.team_id}>
                     <tr onClick={() => setExpandedTeamId(expanded ? null : t.team_id)}
-                      style={{ borderBottom: `1px solid rgba(34,197,94,0.06)`, background: i % 2 === 0 ? C.surface : "rgba(10,12,15,0.5)", cursor: "pointer" }}>
+                      style={{ borderBottom: `1px solid rgba(34,197,94,0.06)`, background: i % 2 === 0 ? C.surface : C.surface2, cursor: "pointer" }}>
                       <td style={{ color: C.text, fontSize: 13, padding: "12px 14px" }}>{t.team_name}</td>
                       <td style={{ color: C.textMuted, fontSize: 12, padding: "12px 14px" }}>{track?.track_name}</td>
                       <td style={{ color: C.textMuted, fontSize: 12, padding: "12px 14px" }}>{ev?.event_name}</td>

@@ -1,77 +1,121 @@
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import {
   C, GradientText, PixelCard, PixelButton, PixelBadge, PixelTabs,
 } from "@/shared/components/PixelComponents";
-import type { AccountApproval, User } from "@/shared/mocks/mockData";
-import { approveUser, getPendingApprovals, rejectUser } from "./usersApi";
+import { apiFetch, ApiError } from "@/shared/apiClient";
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
+// Shape the API returns for a pending approval entry
+interface ApiApprovalItem {
+  approvalId?: number;
+  approval_id?: number;
+  userId?: number;
+  user_id?: number;
+  email?: string;
+  fullName?: string;
+  full_name?: string;
+  userType?: string;
+  user_type?: string;
+  studentId?: string | null;
+  student_id?: string | null;
+  university?: string | null;
+  universityName?: string | null;
+  university_name?: string | null;
+  createdAt?: string;
+  created_at?: string;
+  note?: string | null;
+}
+
+interface ApprovalRow {
+  approvalId: number;
+  userId: number;
+  email: string;
+  fullName: string;
+  userType: string;
+  studentId: string | null;
+  universityName: string | null;
+  createdAt: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  note: string | null;
+}
+
+function normalizeApproval(item: ApiApprovalItem, status: 'PENDING' | 'APPROVED' | 'REJECTED'): ApprovalRow {
+  return {
+    approvalId:    item.approvalId ?? item.approval_id ?? 0,
+    userId:        item.userId ?? item.user_id ?? 0,
+    email:         item.email ?? '',
+    fullName:      item.fullName ?? item.full_name ?? '',
+    userType:      item.userType ?? item.user_type ?? '',
+    studentId:     item.studentId ?? item.student_id ?? null,
+    universityName: item.universityName ?? item.university_name ?? item.university ?? null,
+    createdAt:     item.createdAt ?? item.created_at ?? '',
+    status,
+    note:          item.note ?? null,
+  };
+}
+
+function studentTypeBadge(userType: string) {
+  if (userType === 'FPT_STUDENT') return <PixelBadge color="green">FPT</PixelBadge>;
+  if (userType === 'EXTERNAL_STUDENT') return <PixelBadge color="cyan">EXTERNAL</PixelBadge>;
+  if (userType === 'STAFF') return <PixelBadge color="blue">STAFF</PixelBadge>;
+  return null;
+}
+
 export function CoordAccountsPage() {
-  const [approvals, setApprovals] = useState<AccountApproval[]>([]);
-  const [userDirectory, setUserDirectory] = useState<User[]>([]);
+  const [approvals, setApprovals] = useState<ApprovalRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'PENDING' | 'APPROVED' | 'REJECTED'>('PENDING');
   const [rejectingId, setRejectingId] = useState<number | null>(null);
   const [rejectNote, setRejectNote] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
-  const [actionUserId, setActionUserId] = useState<number | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
-    setIsLoading(true);
-
-    getPendingApprovals()
-      .then(({ approvals: apiApprovals, users: apiUsers }) => {
-        if (cancelled) return;
-        setApprovals(apiApprovals);
-        setUserDirectory(apiUsers);
+    setLoading(true);
+    setFetchError(null);
+    apiFetch<{ data: ApiApprovalItem[] }>('/api/account-approvals/pending')
+      .then(res => {
+        setApprovals((res.data ?? []).map(item => normalizeApproval(item, 'PENDING')));
       })
-      .catch((err) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load pending approvals");
+      .catch(err => {
+        setFetchError(err instanceof ApiError ? err.message : "Failed to load approvals.");
       })
-      .finally(() => {
-        if (!cancelled) setIsLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
+      .finally(() => setLoading(false));
   }, []);
 
-  const pendingCount = approvals.filter(a => a.status === 'PENDING').length;
+  const pendingCount  = approvals.filter(a => a.status === 'PENDING').length;
   const approvedCount = approvals.filter(a => a.status === 'APPROVED').length;
   const rejectedCount = approvals.filter(a => a.status === 'REJECTED').length;
 
   const rows = approvals.filter(a => a.status === activeTab);
 
-  async function approve(approval: AccountApproval) {
-    setError(null);
-    setActionUserId(approval.user_id);
+  async function approve(approvalId: number) {
+    setActionError(null);
     try {
-      await approveUser(approval.user_id);
-      setApprovals(prev => prev.map(a => a.approval_id === approval.approval_id ? { ...a, status: 'APPROVED' } : a));
+      await apiFetch(`/api/account-approvals/${approvalId}/approve`, { method: 'PUT' });
+      setApprovals(prev => prev.map(a => a.approvalId === approvalId ? { ...a, status: 'APPROVED' } : a));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to approve user");
-    } finally {
-      setActionUserId(null);
+      setActionError(err instanceof ApiError ? err.message : "Action failed.");
     }
   }
 
-  async function confirmReject(approval: AccountApproval) {
-    setError(null);
-    setActionUserId(approval.user_id);
+  async function confirmReject(approvalId: number) {
+    setActionError(null);
     try {
-      await rejectUser(approval.user_id);
-      setApprovals(prev => prev.map(a => a.approval_id === approval.approval_id ? { ...a, status: 'REJECTED', note: rejectNote || "Rejected" } : a));
+      await apiFetch(`/api/account-approvals/${approvalId}/reject`, {
+        method: 'PUT',
+        body: rejectNote ? JSON.stringify({ note: rejectNote }) : undefined,
+      });
+      setApprovals(prev => prev.map(a =>
+        a.approvalId === approvalId ? { ...a, status: 'REJECTED', note: rejectNote || "Rejected" } : a,
+      ));
       setRejectingId(null);
       setRejectNote("");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to reject user");
-    } finally {
-      setActionUserId(null);
+      setActionError(err instanceof ApiError ? err.message : "Action failed.");
     }
   }
 
@@ -83,9 +127,15 @@ export function CoordAccountsPage() {
         </h1>
       </div>
 
+      {actionError && (
+        <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.35)", color: C.red, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, padding: "10px 14px" }}>
+          ERROR: {actionError}
+        </div>
+      )}
+
       <PixelTabs
         tabs={[
-          { id: "PENDING", label: `Pending (${pendingCount})` },
+          { id: "PENDING",  label: `Pending (${pendingCount})` },
           { id: "APPROVED", label: `Approved (${approvedCount})` },
           { id: "REJECTED", label: `Rejected (${rejectedCount})` },
         ]}
@@ -93,20 +143,12 @@ export function CoordAccountsPage() {
         onChange={(id) => setActiveTab(id as 'PENDING' | 'APPROVED' | 'REJECTED')}
       />
 
-      {error && (
-        <PixelCard style={{ padding: 12, borderColor: "rgba(239,68,68,0.35)" }}>
-          <span style={{ color: C.red, fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}>
-            ERROR: {error}
-          </span>
-        </PixelCard>
-      )}
-
       <PixelCard style={{ padding: 0, overflow: "hidden" }}>
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'JetBrains Mono', monospace" }}>
             <thead>
-              <tr style={{ background: "linear-gradient(90deg, #0d1117, #0a1020)", borderBottom: `1px solid ${C.border}` }}>
-                {["Full Name", "Email", "Role", "Student Type", "Student ID", "University", "Applied", "Actions"].map(h => (
+              <tr style={{ background: C.surface2, borderBottom: `1px solid ${C.border}` }}>
+                {["Full Name", "Email", "Student Type", "Student ID", "University", "Applied", "Actions"].map(h => (
                   <th key={h} style={{ color: C.green, fontSize: 10, letterSpacing: "0.12em", textAlign: "left", padding: "12px 14px", fontWeight: 600, textTransform: "uppercase" }}>
                     {h}
                   </th>
@@ -114,54 +156,48 @@ export function CoordAccountsPage() {
               </tr>
             </thead>
             <tbody>
-              {rows.length === 0 && (
-                <tr>
-                  <td colSpan={8} style={{ padding: 20, color: C.textMuted, fontSize: 12, textAlign: "center" }}>
-                    {isLoading ? "Loading..." : "No records"}
+              {loading && (
+                <tr><td colSpan={7} style={{ padding: 20, color: C.textMuted, fontSize: 12, textAlign: "center" }}>Loading...</td></tr>
+              )}
+              {!loading && fetchError && (
+                <tr><td colSpan={7} style={{ padding: 20, color: C.red, fontSize: 12, textAlign: "center" }}>{fetchError}</td></tr>
+              )}
+              {!loading && !fetchError && rows.length === 0 && (
+                <tr><td colSpan={7} style={{ padding: 20, color: C.textMuted, fontSize: 12, textAlign: "center" }}>No records</td></tr>
+              )}
+              {!loading && rows.map((a, i) => (
+                <tr key={a.approvalId} style={{ borderBottom: `1px solid rgba(34,197,94,0.06)`, background: i % 2 === 0 ? C.surface : C.surface2 }}>
+                  <td style={{ color: C.text, fontSize: 12, padding: "12px 14px" }}>{a.fullName}</td>
+                  <td style={{ color: C.textMuted, fontSize: 11, padding: "12px 14px" }}>{a.email}</td>
+                  <td style={{ padding: "12px 14px" }}>{studentTypeBadge(a.userType)}</td>
+                  <td style={{ color: C.textMuted, fontSize: 11, padding: "12px 14px" }}>{a.studentId ?? "—"}</td>
+                  <td style={{ color: C.textMuted, fontSize: 11, padding: "12px 14px" }}>{a.universityName ?? "—"}</td>
+                  <td style={{ color: C.textMuted, fontSize: 11, padding: "12px 14px" }}>{a.createdAt ? fmtDate(a.createdAt) : "—"}</td>
+                  <td style={{ padding: "12px 14px" }}>
+                    {activeTab === 'PENDING' && rejectingId !== a.approvalId && (
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <PixelButton size="sm" variant="cyber" onClick={() => approve(a.approvalId)}>APPROVE</PixelButton>
+                        <PixelButton size="sm" variant="danger" onClick={() => { setRejectingId(a.approvalId); setActionError(null); }}>REJECT</PixelButton>
+                      </div>
+                    )}
+                    {rejectingId === a.approvalId && (
+                      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                        <input
+                          value={rejectNote}
+                          onChange={(e) => setRejectNote(e.target.value)}
+                          placeholder="Reason..."
+                          style={{ padding: "4px 8px", background: C.surface2, border: `1px solid ${C.border}`, color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, outline: "none", borderRadius: 0 }}
+                        />
+                        <PixelButton size="sm" variant="danger" onClick={() => confirmReject(a.approvalId)}>CONFIRM</PixelButton>
+                        <PixelButton size="sm" variant="ghost" onClick={() => setRejectingId(null)}>CANCEL</PixelButton>
+                      </div>
+                    )}
+                    {activeTab === 'REJECTED' && a.note && (
+                      <span style={{ color: C.red, fontSize: 11 }}>{a.note}</span>
+                    )}
                   </td>
                 </tr>
-              )}
-              {rows.map((a, i) => {
-                const u = userDirectory.find(uu => uu.user_id === a.user_id);
-                if (!u) return null;
-                return (
-                  <tr key={a.approval_id} style={{ borderBottom: `1px solid rgba(34,197,94,0.06)`, background: i % 2 === 0 ? C.surface : "rgba(10,12,15,0.5)" }}>
-                    <td style={{ color: C.text, fontSize: 12, padding: "12px 14px" }}>{u.full_name}</td>
-                    <td style={{ color: C.textMuted, fontSize: 11, padding: "12px 14px" }}>{u.email}</td>
-                    <td style={{ padding: "12px 14px" }}><PixelBadge color="blue">{u.role.replace("_", " ")}</PixelBadge></td>
-                    <td style={{ padding: "12px 14px" }}>
-                      {u.student_type && <PixelBadge color={u.student_type === 'FPT' ? 'green' : 'cyan'}>{u.student_type}</PixelBadge>}
-                    </td>
-                    <td style={{ color: C.textMuted, fontSize: 11, padding: "12px 14px" }}>{u.student_id ?? "-"}</td>
-                    <td style={{ color: C.textMuted, fontSize: 11, padding: "12px 14px" }}>{u.university_name ?? "-"}</td>
-                    <td style={{ color: C.textMuted, fontSize: 11, padding: "12px 14px" }}>{fmtDate(a.created_at)}</td>
-                    <td style={{ padding: "12px 14px" }}>
-                      {activeTab === 'PENDING' && rejectingId !== a.approval_id && (
-                        <div style={{ display: "flex", gap: 6 }}>
-                          <PixelButton size="sm" variant="cyber" disabled={actionUserId === a.user_id} onClick={() => approve(a)}>APPROVE</PixelButton>
-                          <PixelButton size="sm" variant="danger" disabled={actionUserId === a.user_id} onClick={() => setRejectingId(a.approval_id)}>REJECT</PixelButton>
-                        </div>
-                      )}
-                      {rejectingId === a.approval_id && (
-                        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                          <input
-                            value={rejectNote}
-                            onChange={(e) => setRejectNote(e.target.value)}
-                            placeholder="Reason..."
-                            disabled={actionUserId === a.user_id}
-                            style={{ padding: "4px 8px", background: C.surface2, border: `1px solid ${C.border}`, color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, outline: "none", borderRadius: 0 }}
-                          />
-                          <PixelButton size="sm" variant="danger" disabled={actionUserId === a.user_id} onClick={() => confirmReject(a)}>CONFIRM</PixelButton>
-                          <PixelButton size="sm" variant="ghost" disabled={actionUserId === a.user_id} onClick={() => setRejectingId(null)}>CANCEL</PixelButton>
-                        </div>
-                      )}
-                      {activeTab === 'REJECTED' && a.note && (
-                        <span style={{ color: C.red, fontSize: 11 }}>{a.note}</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
+              ))}
             </tbody>
           </table>
         </div>

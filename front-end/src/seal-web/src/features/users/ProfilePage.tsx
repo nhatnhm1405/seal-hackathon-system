@@ -1,314 +1,328 @@
-﻿import { useState } from "react";
-import { C, PixelCard, PixelBadge, PixelButton, PixelInput, PixelProgress, PixelTabs, TerminalWindow } from "@/shared/components/PixelComponents";
+import { useState } from "react";
+import { useAuth } from "@/app/providers/AuthProvider";
+import {
+  C, GradientText, PixelCard, PixelButton, PixelBadge, PixelInput, PixelTabs,
+} from "@/shared/components/PixelComponents";
+import { users, teams, tracks } from "@/shared/mocks/mockData";
 
-type Page = "landing" | "auth" | "dashboard" | "events" | "teams" | "submissions" | "leaderboard" | "judge" | "admin" | "profile";
+const MOCK_PASSWORD = "password";
 
-const achievements = [
-  { id: 1, title: "First Hack", desc: "Participated in first hackathon", earned: true },
-  { id: 2, title: "Speed Demon", desc: "Submitted with 6+ hours to spare", earned: true },
-  { id: 3, title: "Team Player", desc: "Joined a team of 4", earned: true },
-  { id: 4, title: "Podium Finish", desc: "Placed in top 3", earned: false },
-  { id: 5, title: "Repeat Hacker", desc: "Participated in 3+ events", earned: false },
-  { id: 6, title: "Community Star", desc: "Received 50+ upvotes", earned: false },
-];
+function EyeToggle({ visible, onToggle }: { visible: boolean; onToggle: () => void }) {
+  const [hover, setHover] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      style={{
+        position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)",
+        background: "none", border: "none", cursor: "pointer", padding: 4,
+        display: "flex", alignItems: "center",
+        color: hover ? C.text : C.textMuted,
+        transition: "color 0.15s",
+      }}
+    >
+      {visible ? (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+          <circle cx="12" cy="12" r="3" />
+        </svg>
+      ) : (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+          <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+          <line x1="1" y1="1" x2="23" y2="23" />
+        </svg>
+      )}
+    </button>
+  );
+}
 
-const activityHistory = [
-  { date: "Jun 17", action: "Submitted K8s Oracle project", type: "submission" },
-  { date: "Jun 15", action: "Joined SEAL Hack 2026", type: "event" },
-  { date: "Jun 12", action: "Formed team Segfault Heroes", type: "team" },
-  { date: "May 20", action: "Earned Speed Demon badge", type: "achievement" },
-  { date: "May 03", action: "AI Sprint 2026 — 4th place finish", type: "result" },
-];
+export function ProfilePage() {
+  const { currentUser } = useAuth();
+  const [tab, setTab] = useState("overview");
+  const userRecord = currentUser ? users.find(u => u.user_id === currentUser.user_id) : null;
 
-const actColors: Record<string, string> = {
-  submission: C.green,
-  event: "#60a5fa",
-  team: "#a78bfa",
-  achievement: "#facc15",
-  result: C.green,
-};
+  const [editName, setEditName] = useState(currentUser?.full_name ?? "");
+  const [editEmail, setEditEmail] = useState(currentUser?.email ?? "");
+  const [profileSaved, setProfileSaved] = useState(false);
 
-export function ProfilePage({ navigate }: { navigate: (page: Page) => void }) {
-  const [activeTab, setActiveTab] = useState("overview");
-  const [editMode, setEditMode] = useState(false);
-  const [bio, setBio] = useState("Full-stack dev & hackathon enthusiast. I love building tools that help other developers ship faster. Go / K8s / React.");
-  const [username, setUsername] = useState("grace_go");
-  const [email, setEmail] = useState("grace@godev.io");
+  // Change password state
+  const [currentPwd, setCurrentPwd] = useState("");
+  const [newPwd, setNewPwd] = useState("");
+  const [confirmPwd, setConfirmPwd] = useState("");
+  const [pwdError, setPwdError] = useState<string | null>(null);
+  const [pwdSuccess, setPwdSuccess] = useState(false);
 
-  const tabs = [
-    { id: "overview", label: "Overview" },
-    { id: "achievements", label: "Achievements" },
-    { id: "history", label: "History" },
-    { id: "settings", label: "Settings" },
-  ];
+  // Show/hide toggles for each password field
+  const [showCurrentPwd, setShowCurrentPwd] = useState(false);
+  const [showNewPwd, setShowNewPwd] = useState(false);
+  const [showConfirmPwd, setShowConfirmPwd] = useState(false);
+
+  if (!currentUser || !userRecord) return null;
+
+  const team = currentUser.team_id ? teams.find(t => t.team_id === currentUser.team_id) : null;
+  const track = team ? tracks.find(tr => tr.track_id === team.track_id) : null;
+
+  function saveProfile() {
+    setProfileSaved(true);
+    setTimeout(() => setProfileSaved(false), 2500);
+  }
+
+  function changePassword(e: React.FormEvent) {
+    e.preventDefault();
+    setPwdError(null);
+    setPwdSuccess(false);
+
+    if (currentPwd !== MOCK_PASSWORD) {
+      setPwdError("Current password is incorrect.");
+      return;
+    }
+    if (newPwd.length < 8) {
+      setPwdError("New password must be at least 8 characters.");
+      return;
+    }
+    if (newPwd !== confirmPwd) {
+      setPwdError("New passwords do not match.");
+      return;
+    }
+    if (newPwd === MOCK_PASSWORD) {
+      setPwdError("New password must be different from the current password.");
+      return;
+    }
+
+    setPwdSuccess(true);
+    setCurrentPwd("");
+    setNewPwd("");
+    setConfirmPwd("");
+    setTimeout(() => setPwdSuccess(false), 3000);
+  }
+
+  const inputStyle: React.CSSProperties = {
+    width: "100%",
+    padding: "10px 14px",
+    background: C.surface2,
+    border: `1px solid ${C.border}`,
+    color: C.text,
+    fontFamily: "'JetBrains Mono', monospace",
+    fontSize: 13,
+    borderRadius: 0,
+    outline: "none",
+    boxSizing: "border-box",
+    transition: "border-color 0.15s, box-shadow 0.15s",
+  };
+
+  function onFocus(e: React.FocusEvent<HTMLInputElement>) {
+    e.currentTarget.style.borderColor = C.green;
+    e.currentTarget.style.boxShadow = "0 0 0 1px rgba(34,197,94,0.35)";
+  }
+  function onBlur(e: React.FocusEvent<HTMLInputElement>) {
+    e.currentTarget.style.borderColor = C.border;
+    e.currentTarget.style.boxShadow = "none";
+  }
 
   return (
-    <div style={{ padding: 24 }}>
-      {/* Profile header */}
-      <PixelCard className="p-6 mb-6" glow>
-        <div className="flex flex-wrap gap-6 items-start">
-          {/* Avatar */}
-          <div style={{ position: "relative" }}>
-            <div
-              style={{
-                width: 80,
-                height: 80,
-                background: "rgba(34,197,94,0.15)",
-                border: `2px solid ${C.green}`,
-                display: "grid",
-                placeItems: "center",
-                boxShadow: `0 0 20px rgba(34,197,94,0.3)`,
-                borderRadius: 0,
-              }}
-            >
-              <span style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 32, fontWeight: 900 }}>G</span>
-            </div>
-            <div
-              style={{
-                position: "absolute",
-                bottom: -4,
-                right: -4,
-                width: 16,
-                height: 16,
-                background: C.green,
-                borderRadius: 0,
-                boxShadow: `0 0 8px ${C.green}`,
-              }}
-            />
-          </div>
+    <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
+      <div>
+        <h1 style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 28, fontWeight: 800 }}>
+          <GradientText>Profile</GradientText>
+        </h1>
+      </div>
 
-          {/* Info */}
-          <div style={{ flex: 1 }}>
-            <div className="flex items-center gap-3 flex-wrap mb-2">
-              <h1 style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 22, fontWeight: 700 }}>
-                @{username}
-              </h1>
-              <PixelBadge color="green">HACKER</PixelBadge>
-              <PixelBadge color="gray">LEVEL 7</PixelBadge>
-            </div>
-            <p style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, lineHeight: 1.7, marginBottom: 12, maxWidth: 500 }}>
-              {bio}
-            </p>
-            <div className="flex flex-wrap gap-4">
-              {[
-                { label: "Events", value: 5 },
-                { label: "Teams", value: 3 },
-                { label: "Submissions", value: 4 },
-                { label: "Best Rank", value: "#3" },
-              ].map((s) => (
-                <div key={s.label} style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                  <div style={{ color: C.green, fontSize: 18, fontWeight: 700 }}>{s.value}</div>
-                  <div style={{ color: C.textMuted, fontSize: 10, textTransform: "uppercase" }}>{s.label}</div>
-                </div>
-              ))}
-            </div>
-          </div>
+      <PixelTabs
+        tabs={[
+          { id: "overview", label: "Overview" },
+          { id: "settings", label: "Settings" },
+        ]}
+        active={tab}
+        onChange={setTab}
+      />
 
-          {/* Actions */}
-          <div className="flex gap-2">
-            <PixelButton variant="secondary" size="sm" onClick={() => setEditMode(!editMode)}>
-              {editMode ? "CANCEL" : "EDIT"}
-            </PixelButton>
-            <PixelButton variant="ghost" size="sm" onClick={() => navigate("landing")}>LOGOUT</PixelButton>
-          </div>
-        </div>
-      </PixelCard>
-
-      <PixelTabs tabs={tabs} active={activeTab} onChange={setActiveTab} className="mb-6" />
-
-      {/* Overview */}
-      {activeTab === "overview" && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Skill radar */}
-          <PixelCard className="p-5">
-            <div className="flex flex-col gap-4">
-              {[
-                { skill: "Go / Backend", level: 92 },
-                { skill: "Kubernetes", level: 85 },
-                { skill: "React / Frontend", level: 70 },
-                { skill: "DevOps / CI/CD", level: 78 },
-                { skill: "Databases", level: 65 },
-                { skill: "Machine Learning", level: 45 },
-              ].map((s) => (
-                <div key={s.skill}>
-                  <div className="flex justify-between mb-1">
-                    <span style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>{s.skill}</span>
-                    <span style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>{s.level}%</span>
-                  </div>
-                  <PixelProgress value={s.level} max={100} showValue={false} />
-                </div>
-              ))}
-            </div>
-          </PixelCard>
-
-          {/* Terminal summary */}
-          <div className="flex flex-col gap-4">
-            <TerminalWindow title="profile.sh">
-              <div style={{ fontSize: 12, display: "flex", flexDirection: "column", gap: 5 }}>
-                <div><span style={{ color: C.green }}>$ </span><span style={{ color: C.textMuted }}>whoami</span></div>
-                <div style={{ color: C.text, paddingLeft: 16 }}>grace_go</div>
-                <div><span style={{ color: C.green }}>$ </span><span style={{ color: C.textMuted }}>cat skills.txt</span></div>
-                <div style={{ color: C.text, paddingLeft: 16 }}>Go, Kubernetes, React, DevOps</div>
-                <div><span style={{ color: C.green }}>$ </span><span style={{ color: C.textMuted }}>hack --stats</span></div>
-                <div style={{ color: C.text, paddingLeft: 16 }}>
-                  <div>Events:      <span style={{ color: C.green }}>5</span></div>
-                  <div>Best rank:   <span style={{ color: C.green }}>#3</span></div>
-                  <div>Total pts:   <span style={{ color: C.green }}>32,440</span></div>
-                  <div>Streak:      <span style={{ color: C.green }}>3 events</span></div>
-                </div>
-                <div><span style={{ color: C.green }}>$ </span><span className="cursor-blink" style={{ color: C.green }}></span></div>
-              </div>
-            </TerminalWindow>
-
-            {/* Current team */}
-            <PixelCard className="p-4" glow>
-              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
-                <div style={{ width: 36, height: 36, background: "rgba(34,197,94,0.1)", border: `1px solid ${C.green}`, display: "grid", placeItems: "center", borderRadius: 0 }}>
-                  <span style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, fontWeight: 700 }}>T</span>
-                </div>
-                <div>
-                  <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 14, fontWeight: 600 }}>Segfault Heroes</div>
-                  <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}>SEAL Hack 2026 · Rank #3</div>
-                </div>
-              </div>
-              <PixelProgress value={8440} max={10000} label="Team score" />
-              <div className="flex gap-2 mt-3">
-                <PixelButton size="sm" onClick={() => navigate("teams")}>VIEW TEAM</PixelButton>
-                <PixelButton size="sm" variant="secondary" onClick={() => navigate("submissions")}>SUBMISSION</PixelButton>
-              </div>
-            </PixelCard>
-          </div>
-        </div>
-      )}
-
-      {/* Achievements */}
-      {activeTab === "achievements" && (
-        <div>
-          <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, marginBottom: 16 }}>
-            {achievements.filter((a) => a.earned).length}/{achievements.length} achievements earned
-          </div>
-          <PixelProgress
-            value={achievements.filter((a) => a.earned).length}
-            max={achievements.length}
-            label="Achievement progress"
-          />
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-6">
-            {achievements.map((ach) => (
-              <PixelCard
-                key={ach.id}
-                className="p-5"
-                glow={ach.earned}
-                style={{ opacity: ach.earned ? 1 : 0.4 }}
-              >
-                <div className="flex items-start gap-4">
-                  <div
-                    style={{
-                      width: 44,
-                      height: 44,
-                      background: ach.earned ? "rgba(34,197,94,0.15)" : C.surface2,
-                      border: `2px solid ${ach.earned ? C.green : C.border}`,
-                      display: "grid",
-                      placeItems: "center",
-                      flexShrink: 0,
-                      borderRadius: 0,
-                      boxShadow: ach.earned ? `0 0 12px rgba(34,197,94,0.3)` : "none",
-                    }}
-                  >
-                    <span style={{ color: ach.earned ? C.green : C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 700 }}>{ach.id}</span>
-                  </div>
-                  <div>
-                    <div style={{ color: ach.earned ? C.text : C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 600, marginBottom: 4 }}>
-                      {ach.title}
-                    </div>
-                    <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, lineHeight: 1.5 }}>
-                      {ach.desc}
-                    </div>
-                    {!ach.earned && (
-                      <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, marginTop: 6 }}>LOCKED</div>
-                    )}
-                  </div>
-                </div>
-              </PixelCard>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* History */}
-      {activeTab === "history" && (
-        <PixelCard className="p-5">
-          <div className="flex flex-col">
-            {activityHistory.map((item, i) => (
-              <div key={i} className="flex gap-4" style={{ marginBottom: i < activityHistory.length - 1 ? 0 : 0 }}>
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 24 }}>
-                  <div style={{ width: 10, height: 10, background: actColors[item.type], borderRadius: 0, flexShrink: 0, marginTop: 4 }} />
-                  {i < activityHistory.length - 1 && (
-                    <div style={{ flex: 1, width: 1, background: `linear-gradient(to bottom, ${actColors[item.type]}, rgba(34,197,94,0.05))`, minHeight: 32, margin: "4px 0" }} />
-                  )}
-                </div>
-                <div style={{ paddingBottom: i < activityHistory.length - 1 ? 20 : 0 }}>
-                  <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, marginBottom: 2 }}>{item.date}</div>
-                  <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13 }}>{item.action}</div>
-                </div>
-              </div>
-            ))}
+      {tab === "overview" && (
+        <PixelCard glow gradient style={{ padding: 24 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 18 }}>
+            <Field label="Full Name" value={userRecord.full_name} />
+            <Field label="Email" value={userRecord.email} />
+            <Field label="Role" badge={<PixelBadge color="blue">{userRecord.role.replace("_", " ")}</PixelBadge>} />
+            <Field label="Student Type" badge={userRecord.student_type ? <PixelBadge color={userRecord.student_type === 'FPT' ? 'green' : 'cyan'}>{userRecord.student_type}</PixelBadge> : <span style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>—</span>} />
+            <Field label="Student ID" value={userRecord.student_id ?? "—"} />
+            <Field label="University" value={userRecord.university_name ?? "—"} />
+            {team && (
+              <>
+                <Field label="Team" value={team.team_name} />
+                <Field label="Track" value={track?.track_name ?? "—"} />
+              </>
+            )}
           </div>
         </PixelCard>
       )}
 
-      {/* Settings */}
-      {activeTab === "settings" && (
-        <div className="flex flex-col gap-5">
-          <PixelCard className="p-5">
-            <div className="flex flex-col gap-4">
-              <PixelInput label="Username" value={username} onChange={(e) => setUsername(e.target.value)} prefix="@" />
-              <PixelInput label="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+      {tab === "settings" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          {/* Profile info */}
+          <PixelCard style={{ padding: 24 }}>
+            <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", marginBottom: 16 }}>
+              // profile_info
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 480 }}>
+              <PixelInput label="Full Name" value={editName} onChange={(e) => setEditName(e.target.value)} />
+              <PixelInput label="Email" type="email" value={editEmail} onChange={(e) => setEditEmail(e.target.value)} />
+              {profileSaved && (
+                <div style={{ background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.35)", color: C.green, padding: "10px 14px", fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>
+                  ✓ Profile changes saved.
+                </div>
+              )}
               <div>
-                <label style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", display: "block", marginBottom: 8, textTransform: "uppercase" }}>
-                  Bio
-                </label>
-                <textarea
-                  value={bio}
-                  onChange={(e) => setBio(e.target.value)}
-                  rows={3}
-                  style={{
-                    width: "100%",
-                    background: C.surface2,
-                    border: `1px solid ${C.border}`,
-                    color: C.text,
-                    fontFamily: "'JetBrains Mono', monospace",
-                    fontSize: 13,
-                    padding: "10px 12px",
-                    resize: "vertical",
-                    outline: "none",
-                    caretColor: C.green,
-                    borderRadius: 0,
-                  }}
-                  onFocus={(e) => (e.target.style.borderColor = C.green)}
-                  onBlur={(e) => (e.target.style.borderColor = C.border)}
-                />
+                <PixelButton variant="cyber" onClick={saveProfile}>SAVE PROFILE</PixelButton>
               </div>
             </div>
           </PixelCard>
 
-          <PixelCard className="p-5">
-            <div className="flex flex-col gap-4">
-              <PixelInput label="Current Password" type="password" placeholder="••••••••" />
-              <PixelInput label="New Password" type="password" placeholder="••••••••" />
-              <PixelInput label="Confirm New Password" type="password" placeholder="••••••••" />
-              <div className="flex items-center gap-3">
-                <input type="checkbox" style={{ accentColor: C.green, width: 16, height: 16 }} />
-                <label style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, cursor: "pointer" }}>
-                  Enable two-factor authentication (2FA)
-                </label>
-              </div>
+          {/* Change password */}
+          <PixelCard style={{ padding: 24 }}>
+            <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", marginBottom: 16 }}>
+              // change_password
             </div>
-          </PixelCard>
+            <form onSubmit={changePassword} style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 480 }}>
+              <div>
+                <label style={{ display: "block", color: C.greenMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>
+                  Current Password
+                </label>
+                <div style={{ position: "relative" }}>
+                  <input
+                    type={showCurrentPwd ? "text" : "password"}
+                    value={currentPwd}
+                    onChange={(e) => { setCurrentPwd(e.target.value); setPwdError(null); setPwdSuccess(false); }}
+                    placeholder="••••••••"
+                    style={{ ...inputStyle, paddingRight: 40 }}
+                    onFocus={onFocus}
+                    onBlur={onBlur}
+                  />
+                  <EyeToggle visible={showCurrentPwd} onToggle={() => setShowCurrentPwd((v) => !v)} />
+                </div>
+              </div>
 
-          <div className="flex gap-3">
-            <PixelButton>SAVE CHANGES</PixelButton>
-            <PixelButton variant="danger">DELETE ACCOUNT</PixelButton>
-          </div>
+              <div style={{ height: 1, background: C.border }} />
+
+              <div>
+                <label style={{ display: "block", color: C.greenMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>
+                  New Password
+                  <span style={{ color: C.textMuted, marginLeft: 8, letterSpacing: "0.06em" }}>(min 8 chars)</span>
+                </label>
+                <div style={{ position: "relative" }}>
+                  <input
+                    type={showNewPwd ? "text" : "password"}
+                    value={newPwd}
+                    onChange={(e) => { setNewPwd(e.target.value); setPwdError(null); setPwdSuccess(false); }}
+                    placeholder="••••••••"
+                    style={{ ...inputStyle, paddingRight: 40 }}
+                    onFocus={onFocus}
+                    onBlur={onBlur}
+                  />
+                  <EyeToggle visible={showNewPwd} onToggle={() => setShowNewPwd((v) => !v)} />
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: "block", color: C.greenMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>
+                  Confirm New Password
+                </label>
+                <div style={{ position: "relative" }}>
+                  <input
+                    type={showConfirmPwd ? "text" : "password"}
+                    value={confirmPwd}
+                    onChange={(e) => { setConfirmPwd(e.target.value); setPwdError(null); setPwdSuccess(false); }}
+                    placeholder="••••••••"
+                    style={{
+                      ...inputStyle,
+                      paddingRight: 40,
+                      borderColor: confirmPwd && newPwd && confirmPwd !== newPwd ? "rgba(239,68,68,0.6)" : C.border,
+                    }}
+                    onFocus={onFocus}
+                    onBlur={onBlur}
+                  />
+                  <EyeToggle visible={showConfirmPwd} onToggle={() => setShowConfirmPwd((v) => !v)} />
+                </div>
+                {confirmPwd && newPwd && confirmPwd !== newPwd && (
+                  <div style={{ color: C.red, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, marginTop: 6, letterSpacing: "0.04em" }}>
+                    Passwords do not match
+                  </div>
+                )}
+              </div>
+
+              {/* Strength hints */}
+              {newPwd && (
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  {[4, 8, 12].map((threshold, i) => (
+                    <div
+                      key={threshold}
+                      style={{
+                        height: 3,
+                        flex: 1,
+                        background: newPwd.length >= threshold
+                          ? i === 0 ? "#ef4444" : i === 1 ? "#eab308" : C.green
+                          : C.surface3,
+                        transition: "background 0.2s",
+                      }}
+                    />
+                  ))}
+                  <span style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 9, whiteSpace: "nowrap", letterSpacing: "0.06em" }}>
+                    {newPwd.length < 4 ? "WEAK" : newPwd.length < 8 ? "FAIR" : newPwd.length < 12 ? "GOOD" : "STRONG"}
+                  </span>
+                </div>
+              )}
+
+              {pwdError && (
+                <div style={{
+                  background: "rgba(239,68,68,0.08)",
+                  border: "1px solid rgba(239,68,68,0.35)",
+                  borderLeft: "3px solid #ef4444",
+                  color: C.red,
+                  fontFamily: "'JetBrains Mono', monospace",
+                  fontSize: 11,
+                  padding: "10px 14px",
+                  letterSpacing: "0.04em",
+                }}>
+                  ERROR: {pwdError}
+                </div>
+              )}
+
+              {pwdSuccess && (
+                <div style={{
+                  background: "rgba(34,197,94,0.08)",
+                  border: "1px solid rgba(34,197,94,0.35)",
+                  borderLeft: `3px solid ${C.green}`,
+                  color: C.green,
+                  fontFamily: "'JetBrains Mono', monospace",
+                  fontSize: 11,
+                  padding: "10px 14px",
+                  letterSpacing: "0.04em",
+                }}>
+                  ✓ Password changed successfully.
+                </div>
+              )}
+
+              <div>
+                <PixelButton type="submit" variant="cyber">UPDATE PASSWORD</PixelButton>
+              </div>
+            </form>
+          </PixelCard>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Field({ label, value, badge }: { label: string; value?: string; badge?: React.ReactNode }) {
+  return (
+    <div>
+      <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>
+        {label}
+      </div>
+      {badge ?? (
+        <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 14, fontWeight: 600 }}>
+          {value}
         </div>
       )}
     </div>

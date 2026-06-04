@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/app/providers/AuthProvider";
 import {
   C, GradientText, PixelCard, PixelBadge, PixelTabs,
@@ -8,15 +8,25 @@ import {
 } from "@/shared/mocks/mockData";
 
 export function MentorTracksPage() {
-  const { currentUser } = useAuth();
+  const { currentUser, currentEvent } = useAuth();
   const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
 
   if (!currentUser) return null;
 
   const myAssignments = mentorAssignments.filter(m => m.mentor_id === currentUser.user_id);
-  const myTracks = tracks.filter(t => myAssignments.some(a => a.track_id === t.track_id));
+  const allMyTracks = tracks.filter(t => myAssignments.some(a => a.track_id === t.track_id));
+  const myTracks = currentEvent
+    ? allMyTracks.filter(t => t.event_id === currentEvent.event_id)
+    : allMyTracks;
 
   const [activeTrackId, setActiveTrackId] = useState<number>(myTracks[0]?.track_id ?? 0);
+
+  // Reset track/team selection when the user switches events
+  useEffect(() => {
+    setActiveTrackId(myTracks[0]?.track_id ?? 0);
+    setSelectedTeamId(null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentEvent?.event_id]);
 
   if (myTracks.length === 0) {
     return (

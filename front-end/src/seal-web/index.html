@@ -5,11 +5,23 @@
       
       <meta charset="UTF-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-      <title>Seal hackathon Hoàn chỉnh</title>
+      <title>SEAL Hackathon Management</title>
       <meta name="description" content="Manage hackathons effortlessly with a pixel-inspired platform featuring event management, team collaboration, and real-time leaderboards for participants." />
       <meta name="robots" content="noindex, nofollow" />
-      <style>html, body { height: 100%; margin: 0; } #root { height: 100%; }</style>
-      
+      <!-- Prevent flash: set theme from localStorage before React renders -->
+      <style>
+        html, body { height: 100%; margin: 0; background: #070c0f; color: #f0fdf4; }
+        #root { height: 100%; }
+      </style>
+      <script>
+        (function () {
+          try {
+            var t = localStorage.getItem('seal-theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', t);
+            if (t === 'dark') document.documentElement.classList.add('dark');
+          } catch (e) {}
+        })();
+      </script>
     </head>
 
     <body>

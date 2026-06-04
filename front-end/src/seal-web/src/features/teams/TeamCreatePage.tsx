@@ -1,12 +1,14 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router";
 import {
   C, GradientText, PixelCard, PixelButton, PixelInput, PixelBadge,
 } from "@/shared/components/PixelComponents";
 import { events, tracks } from "@/shared/mocks/mockData";
+import { useAuth } from "@/app/providers/AuthProvider";
 
 export function TeamCreatePage() {
   const navigate = useNavigate();
+  const { updateLeaderStatus } = useAuth();
   const openEvents = events.filter(e => e.status === 'OPEN');
 
   const [teamName, setTeamName] = useState("");
@@ -19,8 +21,8 @@ export function TeamCreatePage() {
   function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     if (!teamName || !eventId || !trackId) return;
+    updateLeaderStatus(true);
     setCreated(true);
-    setTimeout(() => navigate('/team/manage'), 1500);
   }
 
   if (created) {
@@ -30,9 +32,12 @@ export function TeamCreatePage() {
           <h2 style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 24, fontWeight: 800, lineHeight: 1.2 }}>
             <GradientText>Team Created!</GradientText>
           </h2>
-          <p style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, marginTop: 12 }}>
+          <p style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, marginTop: 12, marginBottom: 24 }}>
             Team created! Awaiting coordinator approval.
           </p>
+          <PixelButton variant="cyber" onClick={() => navigate('/dashboard')}>
+            GO TO DASHBOARD
+          </PixelButton>
         </PixelCard>
       </div>
     );

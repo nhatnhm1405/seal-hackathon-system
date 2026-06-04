@@ -1,11 +1,13 @@
-﻿import { useNavigate } from "react-router";
+import { useNavigate } from "react-router";
+import { useForceDark } from "@/app/providers/ThemeProvider";
 import {
   C, GradientText, PixelButton, PixelCard, FloatingParticles,
 } from "@/shared/components/PixelComponents";
 import { SealFooter } from "@/shared/components/SealFooter";
-import sealLogo from "@/assets/image.png";
+import sealLogo from "@/imports/image.png";
 
 export function PendingApprovalPage() {
+  useForceDark();
   const navigate = useNavigate();
 
   return (

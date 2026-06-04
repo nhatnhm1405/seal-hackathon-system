@@ -1,11 +1,13 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router";
 import { useAuth } from "@/app/providers/AuthProvider";
+import { useNotifications } from "@/app/providers/NotificationProvider";
 import {
   C, GradientText, PixelCard, PixelButton, PixelBadge, CyberStatCard,
 } from "@/shared/components/PixelComponents";
 import {
   teams, tracks, events, rounds, submissions, rankings, auditLogs, users,
+  teamInvites, TeamInvite,
   HackathonEvent, Track,
 } from "@/shared/mocks/mockData";
 
@@ -65,7 +67,7 @@ function EventDetailDrawer({
       <div style={{
         position: "fixed", top: 0, right: 0, bottom: 0,
         width: "min(540px, 100vw)",
-        background: "#090d12",
+        background: C.surface,
         borderLeft: `1px solid ${C.border}`,
         zIndex: 201,
         overflowY: "auto",
@@ -83,14 +85,14 @@ function EventDetailDrawer({
           flexShrink: 0,
           position: "sticky",
           top: 0,
-          background: "#090d12",
+          background: C.surface,
           zIndex: 1,
         }}>
           <button
             onClick={onClose}
             style={{
               background: "none", border: "none", cursor: "pointer",
-              color: C.textMuted, fontSize: 18, padding: "2px 6px",
+              color: C.textMuted, padding: "2px 6px",
               display: "flex", alignItems: "center", gap: 6,
               fontFamily: "'JetBrains Mono', monospace", fontSize: 12,
               transition: "color 0.15s",
@@ -223,7 +225,7 @@ function EventDetailDrawer({
                         marginTop: 14,
                       }} />
                       {!isLast && (
-                        <div style={{ flex: 1, width: 2, background: "rgba(255,255,255,0.08)", minHeight: 24, marginTop: 4 }} />
+                        <div style={{ flex: 1, width: 2, background: C.border, minHeight: 24, marginTop: 4 }} />
                       )}
                     </div>
 
@@ -299,8 +301,8 @@ function CreateTeamScreen({
   const inputStyle: React.CSSProperties = {
     width: "100%",
     padding: "10px 14px",
-    background: "#1a1a24",
-    border: "1px solid #2a2a3a",
+    background: C.surface2,
+    border: `1px solid ${C.border}`,
     color: C.text,
     fontFamily: "'JetBrains Mono', monospace",
     fontSize: 13,
@@ -315,7 +317,7 @@ function CreateTeamScreen({
     e.currentTarget.style.boxShadow = `0 0 0 1px rgba(34,197,94,0.35)`;
   }
   function handleBlur(e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) {
-    e.currentTarget.style.borderColor = "#2a2a3a";
+    e.currentTarget.style.borderColor = C.border;
     e.currentTarget.style.boxShadow = "none";
   }
 
@@ -394,9 +396,9 @@ function CreateTeamScreen({
             onFocus={handleFocus}
             onBlur={handleBlur}
           >
-            <option value="" style={{ background: "#1a1a24" }}>— Select an event —</option>
+            <option value="" style={{ background: C.surface2 }}>— Select an event —</option>
             {openEvents.map(ev => (
-              <option key={ev.event_id} value={ev.event_id} style={{ background: "#1a1a24" }}>{ev.event_name}</option>
+              <option key={ev.event_id} value={ev.event_id} style={{ background: C.surface2 }}>{ev.event_name}</option>
             ))}
           </select>
         </div>
@@ -417,9 +419,9 @@ function CreateTeamScreen({
             onFocus={handleFocus}
             onBlur={handleBlur}
           >
-            <option value="" style={{ background: "#1a1a24" }}>— Select a track —</option>
+            <option value="" style={{ background: C.surface2 }}>— Select a track —</option>
             {eventTracks.map(tr => (
-              <option key={tr.track_id} value={tr.track_id} style={{ background: "#1a1a24" }}>{tr.track_name}</option>
+              <option key={tr.track_id} value={tr.track_id} style={{ background: C.surface2 }}>{tr.track_name}</option>
             ))}
           </select>
 
@@ -447,7 +449,6 @@ function CreateTeamScreen({
         {selectedEvent && selectedTrack && (
           <div style={{
             background: "rgba(34,197,94,0.06)",
-            borderLeft: `3px solid ${C.green}`,
             border: `1px solid rgba(34,197,94,0.25)`,
             borderLeft: `3px solid ${C.green}`,
             padding: "12px 16px",
@@ -485,7 +486,7 @@ function CreateTeamScreen({
           >
             CREATE TEAM
           </PixelButton>
-          <div style={{ color: "rgba(255,255,255,0.2)", fontFamily: "'JetBrains Mono', monospace", fontSize: 10, marginTop: 10, textAlign: "center", lineHeight: 1.6 }}>
+          <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, marginTop: 10, textAlign: "center", lineHeight: 1.6, opacity: 0.65 }}>
             Your team status will be PENDING until approved by a coordinator.
           </div>
         </div>
@@ -511,13 +512,11 @@ function SuccessScreen({
       <div style={{ maxWidth: 480, width: "100%" }}>
         <div style={{
           position: "relative",
-          background: C.surface,
           padding: 40,
           textAlign: "center",
           overflow: "hidden",
-          /* gradient glow border */
           border: "1px solid transparent",
-          background: "linear-gradient(#0d1117, #0d1117) padding-box, linear-gradient(135deg, rgba(34,197,94,0.5), rgba(59,130,246,0.4), rgba(34,197,94,0.2)) border-box",
+          background: `linear-gradient(${C.surface}, ${C.surface}) padding-box, linear-gradient(135deg, rgba(34,197,94,0.5), rgba(59,130,246,0.4), rgba(34,197,94,0.2)) border-box`,
           boxShadow: "0 0 40px rgba(34,197,94,0.12), 0 0 80px rgba(59,130,246,0.08)",
         }}>
           {/* Corner accent */}
@@ -588,16 +587,354 @@ function SuccessScreen({
 }
 
 // ══════════════════════════════════════════════════════════════════
+// INVITATIONS DRAWER
+// ══════════════════════════════════════════════════════════════════
+function InvitationsDrawer({
+  userId,
+  onClose,
+  onAccept,
+  onDecline,
+}: {
+  userId: number;
+  onClose: () => void;
+  onAccept: (invite: TeamInvite) => void;
+  onDecline: (invite: TeamInvite) => void;
+}) {
+  const [localStatus, setLocalStatus] = useState<Record<number, 'ACCEPTED' | 'DECLINED'>>({});
+
+  const myInvites = teamInvites.filter(inv => inv.invited_user_id === userId);
+
+  function getStatus(inv: TeamInvite): 'PENDING' | 'ACCEPTED' | 'DECLINED' {
+    return localStatus[inv.invite_id] ?? inv.status;
+  }
+
+  function handleAccept(inv: TeamInvite) {
+    setLocalStatus(s => ({ ...s, [inv.invite_id]: 'ACCEPTED' }));
+    onAccept(inv);
+  }
+
+  function handleDecline(inv: TeamInvite) {
+    setLocalStatus(s => ({ ...s, [inv.invite_id]: 'DECLINED' }));
+    onDecline(inv);
+  }
+
+  const mono = "'JetBrains Mono', monospace";
+
+  return (
+    <>
+      {/* Backdrop */}
+      <div
+        onClick={onClose}
+        style={{
+          position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)",
+          zIndex: 200, backdropFilter: "blur(2px)",
+        }}
+      />
+
+      {/* Drawer panel */}
+      <div style={{
+        position: "fixed", top: 0, right: 0, bottom: 0,
+        width: "min(520px, 100vw)",
+        background: C.surface,
+        borderLeft: `1px solid ${C.border}`,
+        zIndex: 201,
+        overflowY: "auto",
+        display: "flex",
+        flexDirection: "column",
+        boxShadow: "-8px 0 40px rgba(0,0,0,0.6)",
+      }}>
+        {/* Header */}
+        <div style={{
+          padding: "16px 24px",
+          borderBottom: `1px solid ${C.border}`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          flexShrink: 0,
+          position: "sticky",
+          top: 0,
+          background: C.surface,
+          zIndex: 1,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <button
+              onClick={onClose}
+              style={{
+                background: "none", border: "none", cursor: "pointer",
+                color: C.textMuted, padding: "2px 6px",
+                display: "flex", alignItems: "center", gap: 6,
+                fontFamily: mono, fontSize: 12,
+                transition: "color 0.15s",
+              }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = C.green; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = C.textMuted; }}
+            >
+              ← Back
+            </button>
+            <span style={{ color: C.green, fontFamily: mono, fontSize: 11, letterSpacing: "0.1em" }}>
+              // team_invitations
+            </span>
+          </div>
+          <div style={{
+            background: "rgba(59,130,246,0.12)",
+            border: "1px solid rgba(59,130,246,0.3)",
+            color: C.blue,
+            fontFamily: mono,
+            fontSize: 10,
+            letterSpacing: "0.1em",
+            padding: "2px 10px",
+          }}>
+            {myInvites.filter(inv => getStatus(inv) === 'PENDING').length} PENDING
+          </div>
+        </div>
+
+        <div style={{ padding: "24px", display: "flex", flexDirection: "column", gap: 20 }}>
+          {/* Info banner */}
+          <div style={{
+            background: "rgba(59,130,246,0.06)",
+            border: `1px solid rgba(59,130,246,0.2)`,
+            borderLeft: `3px solid ${C.blue}`,
+            padding: "12px 16px",
+            fontFamily: mono,
+            fontSize: 11,
+            color: C.textMuted,
+            lineHeight: 1.7,
+          }}>
+            Team leaders can invite you directly. Accept an invite to join their team and start competing together.
+          </div>
+
+          {myInvites.length === 0 ? (
+            <div style={{
+              display: "flex", flexDirection: "column", alignItems: "center",
+              justifyContent: "center", padding: "60px 24px", gap: 16, textAlign: "center",
+            }}>
+              <div style={{
+                width: 56, height: 56, borderRadius: "50%",
+                background: "rgba(134,239,172,0.06)",
+                border: `1px solid ${C.border}`,
+                display: "flex", alignItems: "center", justifyContent: "center",
+              }}>
+                <svg width="24" height="24" fill="none" viewBox="0 0 24 24">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke={C.textMuted} strokeWidth="1.5" strokeLinecap="round"/>
+                  <circle cx="9" cy="7" r="4" stroke={C.textMuted} strokeWidth="1.5"/>
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" stroke={C.textMuted} strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+              </div>
+              <div style={{ color: C.textMuted, fontFamily: mono, fontSize: 12 }}>No invitations yet</div>
+              <div style={{ color: "rgba(134,239,172,0.4)", fontFamily: mono, fontSize: 10, lineHeight: 1.7 }}>
+                When a team leader invites you,<br />it will appear here.
+              </div>
+            </div>
+          ) : (
+            myInvites.map(inv => {
+              const status = getStatus(inv);
+              const team   = teams.find(t => t.team_id === inv.team_id);
+              const track  = team ? tracks.find(tr => tr.track_id === team.track_id) : null;
+              const event  = track ? events.find(e => e.event_id === track.event_id) : null;
+              const leader = users.find(u => u.user_id === inv.invited_by);
+
+              const statusStyle: Record<string, React.CSSProperties> = {
+                PENDING:  { bg: "rgba(59,130,246,0.08)", border: "rgba(59,130,246,0.25)", color: C.blue },
+                ACCEPTED: { bg: "rgba(34,197,94,0.08)",  border: "rgba(34,197,94,0.3)",  color: C.green },
+                DECLINED: { bg: "rgba(239,68,68,0.08)",  border: "rgba(239,68,68,0.25)", color: "#ef4444" },
+              };
+              const s = statusStyle[status];
+
+              return (
+                <div
+                  key={inv.invite_id}
+                  style={{
+                    background: C.surface2,
+                    border: `1px solid ${status === 'ACCEPTED' ? 'rgba(34,197,94,0.3)' : status === 'DECLINED' ? 'rgba(239,68,68,0.2)' : C.border}`,
+                    padding: "20px",
+                    display: "flex",
+                    flexDirection: "column",
+                    gap: 14,
+                    position: "relative",
+                    overflow: "hidden",
+                    opacity: status !== 'PENDING' ? 0.7 : 1,
+                    transition: "opacity 0.2s, border-color 0.2s",
+                  }}
+                >
+                  {/* Top accent */}
+                  <div style={{
+                    position: "absolute", top: 0, left: 0, right: 0, height: 2,
+                    background: status === 'ACCEPTED'
+                      ? `linear-gradient(90deg, ${C.green}, transparent)`
+                      : status === 'DECLINED'
+                        ? "linear-gradient(90deg, #ef4444, transparent)"
+                        : `linear-gradient(90deg, ${C.blue}, transparent)`,
+                    opacity: 0.6,
+                  }} />
+
+                  {/* Team name + status */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+                    <div>
+                      <div style={{ color: C.text, fontFamily: mono, fontSize: 15, fontWeight: 700, marginBottom: 4 }}>
+                        {team?.team_name ?? "Unknown Team"}
+                      </div>
+                      <div style={{ color: C.textMuted, fontFamily: mono, fontSize: 11 }}>
+                        {event?.event_name ?? "—"} · {track?.track_name ?? "—"}
+                      </div>
+                    </div>
+                    <div style={{
+                      background: s.bg as string,
+                      border: `1px solid ${s.border as string}`,
+                      color: s.color as string,
+                      fontFamily: mono,
+                      fontSize: 9,
+                      letterSpacing: "0.12em",
+                      padding: "3px 10px",
+                      flexShrink: 0,
+                    }}>
+                      {status}
+                    </div>
+                  </div>
+
+                  {/* Team info chips */}
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <span style={{
+                      background: team?.status === 'APPROVED' ? "rgba(34,197,94,0.08)" : "rgba(234,179,8,0.08)",
+                      border: `1px solid ${team?.status === 'APPROVED' ? "rgba(34,197,94,0.25)" : "rgba(234,179,8,0.25)"}`,
+                      color: team?.status === 'APPROVED' ? C.green : "#eab308",
+                      fontFamily: mono, fontSize: 9, letterSpacing: "0.1em", padding: "2px 10px",
+                    }}>
+                      TEAM {team?.status ?? "UNKNOWN"}
+                    </span>
+                    <span style={{
+                      background: "rgba(6,182,212,0.08)",
+                      border: "1px solid rgba(6,182,212,0.2)",
+                      color: "#06b6d4",
+                      fontFamily: mono, fontSize: 9, letterSpacing: "0.1em", padding: "2px 10px",
+                    }}>
+                      {track?.track_name ?? "—"}
+                    </span>
+                  </div>
+
+                  {/* Message */}
+                  <div style={{
+                    background: "rgba(0,0,0,0.2)",
+                    border: `1px solid ${C.border}`,
+                    padding: "10px 14px",
+                    color: C.textMuted,
+                    fontFamily: mono,
+                    fontSize: 11,
+                    lineHeight: 1.7,
+                    fontStyle: "italic",
+                  }}>
+                    "{inv.message}"
+                  </div>
+
+                  {/* From + date */}
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div style={{ color: "rgba(134,239,172,0.5)", fontFamily: mono, fontSize: 10 }}>
+                      From <span style={{ color: C.textMuted }}>{leader?.full_name ?? "Team Leader"}</span>
+                    </div>
+                    <div style={{ color: "rgba(134,239,172,0.35)", fontFamily: mono, fontSize: 10 }}>
+                      {fmtShort(inv.created_at)}
+                    </div>
+                  </div>
+
+                  {/* Action buttons */}
+                  {status === 'PENDING' && (
+                    <div style={{ display: "flex", gap: 10 }}>
+                      <button
+                        onClick={() => handleAccept(inv)}
+                        style={{
+                          flex: 1,
+                          padding: "9px 12px",
+                          background: "rgba(34,197,94,0.1)",
+                          border: `1px solid rgba(34,197,94,0.4)`,
+                          color: C.green,
+                          fontFamily: mono,
+                          fontSize: 11,
+                          letterSpacing: "0.06em",
+                          cursor: "pointer",
+                          borderRadius: 0,
+                          fontWeight: 700,
+                          transition: "background 0.15s, box-shadow 0.15s",
+                        }}
+                        onMouseEnter={(e) => {
+                          (e.currentTarget as HTMLElement).style.background = "rgba(34,197,94,0.2)";
+                          (e.currentTarget as HTMLElement).style.boxShadow = `0 0 12px rgba(34,197,94,0.25)`;
+                        }}
+                        onMouseLeave={(e) => {
+                          (e.currentTarget as HTMLElement).style.background = "rgba(34,197,94,0.1)";
+                          (e.currentTarget as HTMLElement).style.boxShadow = "none";
+                        }}
+                      >
+                        ACCEPT INVITE
+                      </button>
+                      <button
+                        onClick={() => handleDecline(inv)}
+                        style={{
+                          padding: "9px 16px",
+                          background: "rgba(239,68,68,0.06)",
+                          border: "1px solid rgba(239,68,68,0.25)",
+                          color: "#ef4444",
+                          fontFamily: mono,
+                          fontSize: 11,
+                          letterSpacing: "0.06em",
+                          cursor: "pointer",
+                          borderRadius: 0,
+                          transition: "background 0.15s",
+                        }}
+                        onMouseEnter={(e) => {
+                          (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.12)";
+                        }}
+                        onMouseLeave={(e) => {
+                          (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.06)";
+                        }}
+                      >
+                        DECLINE
+                      </button>
+                    </div>
+                  )}
+
+                  {status === 'ACCEPTED' && (
+                    <div style={{
+                      display: "flex", alignItems: "center", gap: 8,
+                      color: C.green, fontFamily: mono, fontSize: 11, fontWeight: 700,
+                    }}>
+                      <svg width="16" height="16" fill="none" viewBox="0 0 24 24">
+                        <path d="M4 12l5 5L20 7" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                      Invite accepted — welcome to the team!
+                    </div>
+                  )}
+
+                  {status === 'DECLINED' && (
+                    <div style={{
+                      color: "rgba(239,68,68,0.7)", fontFamily: mono, fontSize: 11,
+                    }}>
+                      Invitation declined.
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════════
 // SCREEN 1 — No-Team Dashboard (Join an Event)
 // ══════════════════════════════════════════════════════════════════
 function NoTeamDashboard({
   onCreateTeam,
   onViewDetails,
+  onWaitForInvite,
   pendingTeamName,
+  pendingInviteCount,
 }: {
   onCreateTeam: (eventId?: number, trackId?: number) => void;
   onViewDetails: (event: HackathonEvent) => void;
+  onWaitForInvite: () => void;
   pendingTeamName: string | null;
+  pendingInviteCount: number;
 }) {
   const openEvents = events.filter(e => e.status === 'OPEN');
 
@@ -606,7 +943,7 @@ function NoTeamDashboard({
       {/* Header hero card */}
       <div style={{
         position: "relative",
-        background: "linear-gradient(#0d1117, #0d1117) padding-box, linear-gradient(135deg, rgba(34,197,94,0.45), rgba(59,130,246,0.35), rgba(34,197,94,0.15)) border-box",
+        background: `linear-gradient(${C.surface}, ${C.surface}) padding-box, linear-gradient(135deg, rgba(34,197,94,0.45), rgba(59,130,246,0.35), rgba(34,197,94,0.15)) border-box`,
         border: "1px solid transparent",
         padding: 28,
         overflow: "hidden",
@@ -646,9 +983,33 @@ function NoTeamDashboard({
           <PixelButton variant="cyber" onClick={() => onCreateTeam()}>
             CREATE A TEAM
           </PixelButton>
-          <PixelButton variant="ghost">
-            WAIT FOR INVITE
-          </PixelButton>
+          <div style={{ position: "relative", display: "inline-flex" }}>
+            <PixelButton variant="ghost" onClick={onWaitForInvite}>
+              WAIT FOR INVITE
+            </PixelButton>
+            {pendingInviteCount > 0 && (
+              <span style={{
+                position: "absolute",
+                top: -8,
+                right: -8,
+                minWidth: 18,
+                height: 18,
+                borderRadius: "50%",
+                background: C.blue,
+                color: "#fff",
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: 10,
+                fontWeight: 700,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: `0 0 8px rgba(59,130,246,0.6)`,
+                pointerEvents: "none",
+              }}>
+                {pendingInviteCount}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -758,16 +1119,47 @@ function NoTeamDashboard({
 export function ParticipantDashboard() {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
+  const { addToast } = useNotifications();
 
   const [screen, setScreen]           = useState<Screen>('dashboard');
   const [drawerEvent, setDrawerEvent] = useState<HackathonEvent | null>(null);
   const [createEventId, setCreateEventId] = useState<number | null>(null);
   const [createTrackId, setCreateTrackId] = useState<number | null>(null);
   const [pendingTeamName, setPendingTeamName] = useState<string | null>(null);
+  const [showInvites, setShowInvites]   = useState(false);
+  const [declinedIds, setDeclinedIds]   = useState<number[]>([]);
+  const [acceptedIds, setAcceptedIds]   = useState<number[]>([]);
 
   if (!currentUser) return null;
 
   const { is_leader, team_id } = currentUser;
+
+  const myPendingInvites = teamInvites.filter(
+    inv => inv.invited_user_id === currentUser.user_id
+      && inv.status === 'PENDING'
+      && !declinedIds.includes(inv.invite_id)
+      && !acceptedIds.includes(inv.invite_id)
+  );
+
+  function handleAcceptInvite(inv: TeamInvite) {
+    setAcceptedIds(ids => [...ids, inv.invite_id]);
+    const team = teams.find(t => t.team_id === inv.team_id);
+    addToast({
+      type: "success",
+      title: "Invite Accepted!",
+      message: `You've joined team "${team?.team_name ?? "Unknown"}". The team leader has been notified.`,
+    });
+  }
+
+  function handleDeclineInvite(inv: TeamInvite) {
+    setDeclinedIds(ids => [...ids, inv.invite_id]);
+    const team = teams.find(t => t.team_id === inv.team_id);
+    addToast({
+      type: "info",
+      title: "Invite Declined",
+      message: `You declined the invitation from "${team?.team_name ?? "Unknown"}".`,
+    });
+  }
 
   // ── participant WITH a team — existing dashboard ──────────────
   if (team_id !== null) {
@@ -796,6 +1188,11 @@ export function ParticipantDashboard() {
           setPendingTeamName(teamName);
           setDrawerEvent(null);
           setScreen('success');
+          addToast({
+            type: "success",
+            title: "Team Created!",
+            message: `"${teamName}" is pending coordinator approval.`,
+          });
         }}
       />
     );
@@ -806,6 +1203,7 @@ export function ParticipantDashboard() {
     <div style={{ position: "relative" }}>
       <NoTeamDashboard
         pendingTeamName={pendingTeamName}
+        pendingInviteCount={myPendingInvites.length}
         onCreateTeam={(eventId, trackId) => {
           setCreateEventId(eventId ?? null);
           setCreateTrackId(trackId ?? null);
@@ -813,9 +1211,20 @@ export function ParticipantDashboard() {
           setScreen('create');
         }}
         onViewDetails={(ev) => setDrawerEvent(ev)}
+        onWaitForInvite={() => setShowInvites(true)}
       />
 
-      {/* Drawer overlay */}
+      {/* Invitations drawer */}
+      {showInvites && (
+        <InvitationsDrawer
+          userId={currentUser.user_id}
+          onClose={() => setShowInvites(false)}
+          onAccept={handleAcceptInvite}
+          onDecline={handleDeclineInvite}
+        />
+      )}
+
+      {/* Event detail drawer */}
       {drawerEvent && (
         <EventDetailDrawer
           event={drawerEvent}

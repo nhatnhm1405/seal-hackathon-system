@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { C } from "@/shared/components/PixelComponents";
 
 function GoogleLogo() {
@@ -24,18 +24,14 @@ interface SocialButtonProps {
   onClick?: () => void;
   children: React.ReactNode;
   logo: React.ReactNode;
-  disabled?: boolean;
-  title?: string;
 }
 
-function SocialButton({ onClick, children, logo, disabled = false, title }: SocialButtonProps) {
+function SocialButton({ onClick, children, logo }: SocialButtonProps) {
   const [hovered, setHovered] = useState(false);
   return (
     <button
       type="button"
       onClick={onClick}
-      disabled={disabled}
-      title={title}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
@@ -44,15 +40,14 @@ function SocialButton({ onClick, children, logo, disabled = false, title }: Soci
         alignItems: "center",
         gap: 12,
         padding: "10px 16px",
-        background: hovered && !disabled ? "rgba(255,255,255,0.04)" : "#111",
-        border: hovered && !disabled ? `1px solid ${C.green}` : "1px solid #333",
-        boxShadow: hovered && !disabled ? `0 0 10px rgba(34,197,94,0.15)` : "none",
-        color: hovered && !disabled ? "#ffffff" : "#cccccc",
+        background: hovered ? "rgba(255,255,255,0.04)" : "#111",
+        border: hovered ? `1px solid ${C.green}` : "1px solid #333",
+        boxShadow: hovered ? `0 0 10px rgba(34,197,94,0.15)` : "none",
+        color: hovered ? "#ffffff" : "#cccccc",
         fontFamily: "'JetBrains Mono', monospace",
         fontSize: 13,
         letterSpacing: "0.04em",
-        cursor: disabled ? "not-allowed" : "pointer",
-        opacity: disabled ? 0.45 : 1,
+        cursor: "pointer",
         borderRadius: 0,
         transition: "border-color 0.15s, box-shadow 0.15s, background 0.15s, color 0.15s",
         textAlign: "left",
@@ -78,10 +73,10 @@ export function SocialAuthButtons() {
 
       {/* Buttons */}
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <SocialButton logo={<GoogleLogo />} disabled title="OAuth2 endpoint is not available in the Postman collection">
+        <SocialButton logo={<GoogleLogo />}>
           Continue with Google
         </SocialButton>
-        <SocialButton logo={<GitHubLogo />} disabled title="OAuth2 endpoint is not available in the Postman collection">
+        <SocialButton logo={<GitHubLogo />}>
           Continue with GitHub
         </SocialButton>
       </div>

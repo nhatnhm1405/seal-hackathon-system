@@ -77,7 +77,7 @@ export function CoordScoringPage() {
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'JetBrains Mono', monospace" }}>
             <thead>
-              <tr style={{ background: "linear-gradient(90deg, #0d1117, #0a1020)", borderBottom: `1px solid ${C.border}` }}>
+              <tr style={{ background: C.surface2, borderBottom: `1px solid ${C.border}` }}>
                 {["Team", "Judges Assigned", "Scores Received", "Status"].map(h => (
                   <th key={h} style={{ color: C.green, fontSize: 10, letterSpacing: "0.12em", textAlign: "left", padding: "12px 14px", fontWeight: 600, textTransform: "uppercase" }}>{h}</th>
                 ))}
@@ -93,7 +93,7 @@ export function CoordScoringPage() {
                 const expectedScores = roundJudges.length * criteria.length;
                 const allScored = subScores.length >= expectedScores && expectedScores > 0;
                 return (
-                  <tr key={s.submission_id} style={{ borderBottom: `1px solid rgba(34,197,94,0.06)`, background: i % 2 === 0 ? C.surface : "rgba(10,12,15,0.5)" }}>
+                  <tr key={s.submission_id} style={{ borderBottom: `1px solid rgba(34,197,94,0.06)`, background: i % 2 === 0 ? C.surface : C.surface2 }}>
                     <td style={{ color: C.text, fontSize: 13, padding: "12px 14px" }}>{team?.team_name}</td>
                     <td style={{ color: C.textMuted, fontSize: 12, padding: "12px 14px" }}>{roundJudges.length}</td>
                     <td style={{ color: C.textMuted, fontSize: 12, padding: "12px 14px" }}>{subScores.length}/{expectedScores}</td>
@@ -147,7 +147,7 @@ export function CoordScoringPage() {
                 {roundRankings.sort((a, b) => a.position - b.position).map((r, i) => {
                   const team = teams.find(t => t.team_id === r.team_id);
                   return (
-                    <tr key={r.ranking_id} style={{ borderBottom: `1px solid rgba(34,197,94,0.06)`, background: i % 2 === 0 ? C.surface : "rgba(10,12,15,0.5)" }}>
+                    <tr key={r.ranking_id} style={{ borderBottom: `1px solid rgba(34,197,94,0.06)`, background: i % 2 === 0 ? C.surface : C.surface2 }}>
                       <td style={{ color: C.cyan, fontSize: 14, fontWeight: 700, padding: "12px 14px" }}>#{r.position}</td>
                       <td style={{ color: C.text, fontSize: 13, padding: "12px 14px" }}>{team?.team_name}</td>
                       <td style={{ color: C.green, fontSize: 14, fontWeight: 700, padding: "12px 14px" }}>{r.total_score.toFixed(1)}</td>

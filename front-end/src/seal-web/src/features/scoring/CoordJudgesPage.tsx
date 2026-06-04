@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import {
   C, GradientText, PixelCard, PixelButton, PixelBadge, PixelInput,
 } from "@/shared/components/PixelComponents";
@@ -6,6 +6,7 @@ import {
   judgeAssignments as initialAssignments, users as initialUsers, rounds, events,
   JudgeAssignment, User,
 } from "@/shared/mocks/mockData";
+import { apiFetch, ApiError } from "@/shared/apiClient";
 
 export function CoordJudgesPage() {
   const [assignments, setAssignments] = useState<JudgeAssignment[]>(initialAssignments);
@@ -21,6 +22,9 @@ export function CoordJudgesPage() {
   const [guestName, setGuestName] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
   const [guestPwd, setGuestPwd] = useState("");
+  const [guestRoundId, setGuestRoundId] = useState<number>(0);
+  const [guestError, setGuestError] = useState<string | null>(null);
+  const [guestSubmitting, setGuestSubmitting] = useState(false);
 
   const judgesPool = users.filter(u => u.role === 'JUDGE' && (searchUser === "" || u.full_name.toLowerCase().includes(searchUser.toLowerCase())));
 
@@ -40,15 +44,52 @@ export function CoordJudgesPage() {
     setAssignments(prev => prev.filter(a => a.assignment_id !== id));
   }
 
-  function createGuest() {
-    if (!guestName || !guestEmail) return;
-    const newId = Math.max(0, ...users.map(u => u.user_id)) + 1;
-    setUsers(prev => [...prev, {
-      user_id: newId, role: 'JUDGE', email: guestEmail, full_name: guestName,
-      student_type: 'EXTERNAL', student_id: null, university_name: 'Guest', status: 'ACTIVE',
-    }]);
-    setGuestName(""); setGuestEmail(""); setGuestPwd("");
-    setShowGuest(false);
+  async function createGuest() {
+    if (!guestName || !guestEmail || !guestPwd || !guestRoundId) return;
+    const round = rounds.find(r => r.round_id === guestRoundId);
+    if (!round) return;
+    setGuestError(null);
+    setGuestSubmitting(true);
+    try {
+      const res = await apiFetch<{ data: { userId: number; email: string; fullName: string } }>(
+        '/api/users/staff',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            email: guestEmail,
+            password: guestPwd,
+            fullName: guestName,
+            roleName: 'JUDGE',
+            judgeType: 'GUEST',
+            eventId: round.event_id,
+            roundId: guestRoundId,
+          }),
+        },
+      );
+      const created = res.data;
+      setUsers(prev => [...prev, {
+        user_id: created.userId,
+        role: 'JUDGE',
+        email: created.email,
+        full_name: created.fullName,
+        student_type: 'EXTERNAL',
+        student_id: null,
+        university_name: 'Guest',
+        status: 'ACTIVE',
+      }]);
+      setAssignments(prev => [...prev, {
+        assignment_id: Math.max(0, ...prev.map(a => a.assignment_id)) + 1,
+        judge_id: created.userId,
+        round_id: guestRoundId,
+        judge_type: 'GUEST',
+      }]);
+      setGuestName(""); setGuestEmail(""); setGuestPwd(""); setGuestRoundId(0);
+      setShowGuest(false);
+    } catch (err) {
+      setGuestError(err instanceof ApiError ? err.message : "Network error. Please try again.");
+    } finally {
+      setGuestSubmitting(false);
+    }
   }
 
   // Group by event > round
@@ -103,12 +144,26 @@ export function CoordJudgesPage() {
 
       {showGuest && (
         <PixelCard style={{ padding: 18 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr auto", gap: 10, alignItems: "end" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr auto", gap: 10, alignItems: "end" }}>
             <PixelInput label="Name" value={guestName} onChange={(e) => setGuestName(e.target.value)} />
             <PixelInput label="Email" type="email" value={guestEmail} onChange={(e) => setGuestEmail(e.target.value)} />
-            <PixelInput label="Temp Password" type="password" value={guestPwd} onChange={(e) => setGuestPwd(e.target.value)} />
-            <PixelButton variant="cyber" onClick={createGuest}>CREATE</PixelButton>
+            <PixelInput label="Temp Password" type="password" value={guestPwd} onChange={(e) => setGuestPwd(e.target.value)} showToggle />
+            <div>
+              <label style={{ color: C.greenMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase" }}>Assign to Round</label>
+              <select value={guestRoundId} onChange={(e) => setGuestRoundId(Number(e.target.value))} style={selectStyle}>
+                <option value={0}>Select round...</option>
+                {rounds.map(r => <option key={r.round_id} value={r.round_id}>{r.round_name}</option>)}
+              </select>
+            </div>
+            <PixelButton variant="cyber" onClick={createGuest} disabled={guestSubmitting}>
+              {guestSubmitting ? "..." : "CREATE"}
+            </PixelButton>
           </div>
+          {guestError && (
+            <div style={{ marginTop: 10, color: C.red, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.35)", padding: "8px 12px" }}>
+              ERROR: {guestError}
+            </div>
+          )}
         </PixelCard>
       )}
 

@@ -1,8 +1,8 @@
-﻿import { useAuth } from "@/app/providers/AuthProvider";
-import { ParticipantDashboard } from "./dashboards/ParticipantDashboard";
-import { MentorDashboard } from "./dashboards/MentorDashboard";
-import { JudgeDashboard } from "./dashboards/JudgeDashboard";
-import { CoordinatorDashboard } from "./dashboards/CoordinatorDashboard";
+import { useAuth } from "@/app/providers/AuthProvider";
+import { ParticipantDashboard } from "@/features/dashboard/dashboards/ParticipantDashboard";
+import { MentorDashboard } from "@/features/dashboard/dashboards/MentorDashboard";
+import { JudgeDashboard } from "@/features/dashboard/dashboards/JudgeDashboard";
+import { CoordinatorDashboard } from "@/features/dashboard/dashboards/CoordinatorDashboard";
 
 export function RoleDashboardPage() {
   const { currentUser } = useAuth();

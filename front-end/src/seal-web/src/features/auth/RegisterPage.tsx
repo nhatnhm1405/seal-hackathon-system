@@ -1,16 +1,18 @@
 import { useState } from "react";
+import { useForceDark } from "@/app/providers/ThemeProvider";
 import { useNavigate } from "react-router";
 import {
   C, GradientText, PixelButton, PixelInput, PixelCard, FloatingParticles,
 } from "@/shared/components/PixelComponents";
 import { SealFooter } from "@/shared/components/SealFooter";
-import { SocialAuthButtons } from "./SocialAuthButtons";
-import { registerUser } from "./authApi";
-import sealLogo from "@/assets/image.png";
+import { SocialAuthButtons } from "@/features/auth/SocialAuthButtons";
+import sealLogo from "@/imports/image.png";
+import { apiFetch, ApiError } from "@/shared/apiClient";
 
 type StudentType = 'FPT' | 'EXTERNAL';
 
 export function RegisterPage() {
+  useForceDark();
   const navigate = useNavigate();
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -20,7 +22,7 @@ export function RegisterPage() {
   const [studentId, setStudentId] = useState("");
   const [university, setUniversity] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -33,31 +35,32 @@ export function RegisterPage() {
       setError("Passwords do not match");
       return;
     }
-    if (!studentId) {
-      setError("Please enter your student ID");
-      return;
-    }
-    if (studentType === 'EXTERNAL' && !university) {
-      setError("Please enter your university name");
-      return;
-    }
-
-    setIsSubmitting(true);
+    setSubmitting(true);
     try {
-      await registerUser({
-        fullName,
-        email,
-        password,
-        userType: studentType === 'FPT' ? 'FPT_STUDENT' : 'EXTERNAL_STUDENT',
-        studentId,
-        ...(studentType === 'EXTERNAL' ? { university } : {}),
+      await apiFetch('/api/auth/register', {
+        method: 'POST',
+        body: JSON.stringify({
+          fullName,
+          email,
+          password,
+          userType: studentType === 'FPT' ? 'FPT_STUDENT' : 'EXTERNAL_STUDENT',
+          studentId: studentId || null,
+          university: studentType === 'EXTERNAL' ? (university || null) : null,
+        }),
       });
       navigate('/pending-approval');
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Registration failed";
-      setError(message);
+      if (err instanceof ApiError) {
+        if (err.status === 409) {
+          setError("An account with this email already exists.");
+        } else {
+          setError(err.message || "Registration failed. Please try again.");
+        }
+      } else {
+        setError("Network error. Please check your connection and try again.");
+      }
     } finally {
-      setIsSubmitting(false);
+      setSubmitting(false);
     }
   }
 
@@ -85,12 +88,12 @@ export function RegisterPage() {
 
         <PixelCard glow gradient style={{ padding: 28 }}>
           <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-            <PixelInput label="Full Name" placeholder="Your full name" value={fullName} onChange={(e) => setFullName(e.target.value)} disabled={isSubmitting} />
-            <PixelInput label="Email" type="email" placeholder="you@seal.edu" value={email} onChange={(e) => setEmail(e.target.value)} disabled={isSubmitting} />
+            <PixelInput label="Full Name" placeholder="Your full name" value={fullName} onChange={(e) => setFullName(e.target.value)} />
+            <PixelInput label="Email" type="email" placeholder="you@seal.edu" value={email} onChange={(e) => setEmail(e.target.value)} />
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-              <PixelInput label="Password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} disabled={isSubmitting} />
-              <PixelInput label="Confirm Password" type="password" placeholder="••••••••" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} disabled={isSubmitting} />
+              <PixelInput label="Password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} showToggle />
+              <PixelInput label="Confirm Password" type="password" placeholder="••••••••" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} showToggle />
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -103,7 +106,6 @@ export function RegisterPage() {
                     key={t}
                     type="button"
                     onClick={() => setStudentType(t)}
-                    disabled={isSubmitting}
                     style={{
                       flex: 1,
                       padding: "10px 14px",
@@ -112,8 +114,7 @@ export function RegisterPage() {
                       color: studentType === t ? C.green : C.textMuted,
                       fontFamily: "'JetBrains Mono', monospace",
                       fontSize: 12,
-                      cursor: isSubmitting ? "not-allowed" : "pointer",
-                      opacity: isSubmitting ? 0.55 : 1,
+                      cursor: "pointer",
                       borderRadius: 0,
                       letterSpacing: "0.06em",
                       textTransform: "uppercase",
@@ -127,11 +128,11 @@ export function RegisterPage() {
             </div>
 
             {studentType === 'FPT' ? (
-              <PixelInput label="FPT Student ID" placeholder="SE000000" value={studentId} onChange={(e) => setStudentId(e.target.value)} disabled={isSubmitting} />
+              <PixelInput label="FPT Student ID" placeholder="SE000000" value={studentId} onChange={(e) => setStudentId(e.target.value)} />
             ) : (
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                <PixelInput label="Student ID" placeholder="Your student ID" value={studentId} onChange={(e) => setStudentId(e.target.value)} disabled={isSubmitting} />
-                <PixelInput label="University Name" placeholder="e.g. Hanoi University" value={university} onChange={(e) => setUniversity(e.target.value)} disabled={isSubmitting} />
+                <PixelInput label="Student ID" placeholder="Your student ID" value={studentId} onChange={(e) => setStudentId(e.target.value)} />
+                <PixelInput label="University Name" placeholder="e.g. Hanoi University" value={university} onChange={(e) => setUniversity(e.target.value)} />
               </div>
             )}
 
@@ -148,21 +149,29 @@ export function RegisterPage() {
               </div>
             )}
 
-            <PixelButton type="submit" variant="cyber" size="lg" fullWidth disabled={isSubmitting}>
-              {isSubmitting ? "SUBMITTING..." : "SUBMIT REGISTRATION"}
+            <PixelButton type="submit" variant="cyber" size="lg" fullWidth disabled={submitting}>
+              {submitting ? "SUBMITTING..." : "SUBMIT REGISTRATION"}
             </PixelButton>
 
             <SocialAuthButtons />
           </form>
         </PixelCard>
 
-        <div style={{ marginTop: 24, textAlign: "center" }}>
+        <div style={{ marginTop: 24, textAlign: "center", display: "flex", flexDirection: "column", gap: 12 }}>
           <span style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}>
             ALREADY HAVE AN ACCOUNT?{" "}
             <a onClick={() => navigate('/login')} style={{ color: C.green, cursor: "pointer", letterSpacing: "0.06em" }}>
               LOGIN
             </a>
           </span>
+          <a
+            onClick={() => navigate('/')}
+            style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, cursor: "pointer", letterSpacing: "0.1em", transition: "color 0.15s" }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = C.green; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = C.textMuted; }}
+          >
+            ← BACK TO HOME
+          </a>
         </div>
       </div>
     </div>

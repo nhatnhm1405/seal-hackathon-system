@@ -1,4 +1,4 @@
-﻿import { Separator } from "@/shared/components/ui/separator";
+import { Separator } from '@/shared/components/ui/separator';
 import { Github, Linkedin, Twitter, Mail } from 'lucide-react';
 
 export function Footer() {

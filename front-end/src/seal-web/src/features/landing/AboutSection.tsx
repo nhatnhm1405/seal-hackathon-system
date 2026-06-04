@@ -1,4 +1,4 @@
-﻿import { Card, CardContent } from "@/shared/components/ui/card";
+import { Card, CardContent } from '@/shared/components/ui/card';
 import { Award, Clock, Users, Lightbulb } from 'lucide-react';
 
 export function AboutSection() {

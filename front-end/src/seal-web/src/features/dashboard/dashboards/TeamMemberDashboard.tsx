@@ -25,6 +25,7 @@ export function TeamMemberDashboard() {
 
   return (
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
+      {/* Welcome banner */}
       <PixelCard glow gradient style={{ padding: 24 }}>
         <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", marginBottom: 6 }}>
           // welcome
@@ -37,6 +38,7 @@ export function TeamMemberDashboard() {
         </p>
       </PixelCard>
 
+      {/* Team info card */}
       {team && (
         <PixelCard style={{ padding: 20 }}>
           <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", marginBottom: 12 }}>
@@ -72,6 +74,7 @@ export function TeamMemberDashboard() {
         />
       </div>
 
+      {/* Activity feed */}
       <PixelCard style={{ padding: 20 }}>
         <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", marginBottom: 12 }}>
           // activity_feed

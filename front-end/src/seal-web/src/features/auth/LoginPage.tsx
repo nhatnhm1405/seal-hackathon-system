@@ -1,35 +1,38 @@
 import { useState } from "react";
-import { useLocation, useNavigate } from "react-router";
+import { useForceDark } from "@/app/providers/ThemeProvider";
+import { useNavigate } from "react-router";
 import {
   C, GradientText, PixelButton, PixelInput, FloatingParticles, TerminalWindow,
 } from "@/shared/components/PixelComponents";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { SealFooter } from "@/shared/components/SealFooter";
-import { SocialAuthButtons } from "./SocialAuthButtons";
-import sealLogo from "@/assets/image.png";
+import { SocialAuthButtons } from "@/features/auth/SocialAuthButtons";
+import sealLogo from "@/imports/image.png";
 
 export function LoginPage() {
+  useForceDark();
   const navigate = useNavigate();
-  const location = useLocation();
   const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    setIsSubmitting(true);
-    const result = await login(email, password);
-    setIsSubmitting(false);
-    if (result === 'ok') {
-      const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname ?? '/dashboard';
-      navigate(from);
-    } else if (result === 'pending_approval') {
-      navigate('/pending-approval');
-    } else {
-      setError("Invalid credentials. Please verify your email and password.");
+    setSubmitting(true);
+    try {
+      const result = await login(email, password);
+      if (result === 'ok') {
+        navigate('/dashboard');
+      } else if (result === 'pending_approval') {
+        navigate('/pending-approval');
+      } else {
+        setError("Invalid credentials. Please verify your email and password.");
+      }
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -97,7 +100,6 @@ export function LoginPage() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                disabled={isSubmitting}
               />
               <PixelInput
                 label="Password"
@@ -105,7 +107,7 @@ export function LoginPage() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                disabled={isSubmitting}
+                showToggle
               />
 
               {error && (
@@ -123,13 +125,19 @@ export function LoginPage() {
               )}
 
               <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                <a href="#" style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, textDecoration: "none", letterSpacing: "0.08em" }}>
+                <button
+                  type="button"
+                  onClick={() => navigate("/forgot-password")}
+                  style={{ background: "none", border: "none", cursor: "pointer", color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.08em", padding: 0, transition: "color 0.15s" }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = C.green; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = C.textMuted; }}
+                >
                   FORGOT PASSWORD?
-                </a>
+                </button>
               </div>
 
-              <PixelButton type="submit" variant="cyber" size="lg" fullWidth disabled={isSubmitting}>
-                {isSubmitting ? "AUTHENTICATING..." : "INITIALIZE SESSION"}
+              <PixelButton type="submit" variant="cyber" size="lg" fullWidth disabled={submitting}>
+                {submitting ? "AUTHENTICATING..." : "LOGIN"}
               </PixelButton>
 
               <SocialAuthButtons />

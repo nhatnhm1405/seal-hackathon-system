@@ -7,13 +7,17 @@ import { mentorAssignments, tracks, teams } from "@/shared/mocks/mockData";
 
 export function MentorDashboard() {
   const navigate = useNavigate();
-  const { currentUser } = useAuth();
+  const { currentUser, currentEvent } = useAuth();
   if (!currentUser) return null;
 
   const myAssignments = mentorAssignments.filter(m => m.mentor_id === currentUser.user_id);
   const myTrackIds = myAssignments.map(m => m.track_id);
-  const myTracks = tracks.filter(t => myTrackIds.includes(t.track_id));
-  const myTeams = teams.filter(t => myTrackIds.includes(t.track_id));
+  const allMyTracks = tracks.filter(t => myTrackIds.includes(t.track_id));
+  const myTracks = currentEvent
+    ? allMyTracks.filter(t => t.event_id === currentEvent.event_id)
+    : allMyTracks;
+  const myEventTrackIds = myTracks.map(t => t.track_id);
+  const myTeams = teams.filter(t => myEventTrackIds.includes(t.track_id));
 
   return (
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>

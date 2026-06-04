@@ -2,58 +2,63 @@ import { useState, useEffect, useRef } from "react";
 
 // ── Color tokens ─────────────────────────────────────────────────
 export const C = {
-  // Backgrounds
-  bg:       "#070c0f",
-  surface:  "#0d1117",
-  surface2: "#111827",
-  surface3: "#1a2332",
+  // Backgrounds — theo theme (CSS variables)
+  bg:       "var(--c-bg)",
+  surface:  "var(--c-surface)",
+  surface2: "var(--c-surface2)",
+  surface3: "var(--c-surface3)",
 
-  // Green (primary)
-  green:        "#22c55e",
-  greenBright:  "#4ade80",
-  greenDim:     "#16a34a",
-  greenMuted:   "#86efac",
-  greenGlow:    "rgba(34,197,94,0.3)",
+  // Green (primary accent — cố định)
+  green:         "#22c55e",
+  greenBright:   "#4ade80",
+  greenDim:      "#16a34a",
+  greenMuted:    "var(--c-text-muted)",
+  greenGlow:     "rgba(34,197,94,0.3)",
   greenGlowFaint:"rgba(34,197,94,0.1)",
 
-  // Blue (secondary cyber accent)
-  blue:       "#3b82f6",
-  blueBright: "#60a5fa",
-  blueDim:    "#1d4ed8",
-  blueGlow:   "rgba(59,130,246,0.3)",
-  blueGlowFaint:"rgba(59,130,246,0.1)",
+  // Blue (secondary cyber accent — cố định)
+  blue:          "#3b82f6",
+  blueBright:    "#60a5fa",
+  blueDim:       "#1d4ed8",
+  blueGlow:      "rgba(59,130,246,0.3)",
+  blueGlowFaint: "rgba(59,130,246,0.1)",
 
-  // Cyan (innovation highlight)
+  // Cyan (innovation highlight — cố định)
   cyan:      "#06b6d4",
   cyanBright:"#22d3ee",
   cyanGlow:  "rgba(6,182,212,0.35)",
 
-  // Purple (AI / ML accent)
+  // Purple (AI / ML accent — cố định)
   purple:    "#8b5cf6",
   purpleGlow:"rgba(139,92,246,0.3)",
 
-  // Text
-  text:     "#f0fdf4",
-  textMuted:"#86efac",
-  textDim:  "#4ade80",
-  textBlue: "#93c5fd",
+  // Text — theo theme
+  text:     "var(--c-text)",
+  textMuted:"var(--c-text-muted)",
+  textDim:  "var(--c-text-dim)",
+  textBlue: "var(--c-text-blue)",
 
-  // Borders
-  border:       "rgba(34,197,94,0.2)",
-  borderBright: "#22c55e",
-  borderBlue:   "rgba(59,130,246,0.25)",
+  // Borders — theo theme
+  border:       "var(--c-border)",
+  borderBright: "var(--c-border-bright)",
+  borderBlue:   "var(--c-border-blue)",
 
-  // Status
+  // Status (cố định)
   red:    "#ef4444",
   yellow: "#eab308",
   orange: "#f97316",
 
-  // Gradients (for inline use)
-  gradientPrimary:  "linear-gradient(135deg, #22c55e 0%, #3b82f6 100%)",
-  gradientCyber:    "linear-gradient(135deg, #0d1117 0%, #0a1628 100%)",
-  gradientCard:     "linear-gradient(135deg, rgba(34,197,94,0.06) 0%, rgba(59,130,246,0.04) 100%)",
-  gradientHero:     "linear-gradient(160deg, rgba(34,197,94,0.08) 0%, rgba(59,130,246,0.06) 50%, rgba(6,182,212,0.04) 100%)",
-} as const;
+  // Backgrounds đặc biệt — theo theme
+  navbarBg:  "var(--c-navbar-bg)",
+  footerBg:  "var(--c-footer-bg)",
+  copyright: "var(--c-copyright)",
+
+  // Gradients
+  gradientPrimary: "linear-gradient(135deg, #22c55e 0%, #3b82f6 100%)",
+  gradientCyber:   "linear-gradient(135deg, var(--c-surface) 0%, var(--c-surface2) 100%)",
+  gradientCard:    "linear-gradient(135deg, rgba(34,197,94,0.06) 0%, rgba(59,130,246,0.04) 100%)",
+  gradientHero:    "linear-gradient(160deg, rgba(34,197,94,0.08) 0%, rgba(59,130,246,0.06) 50%, rgba(6,182,212,0.04) 100%)",
+};
 
 // ── Gradient text helper ─────────────────────────────────────────
 interface GradientTextProps {
@@ -286,10 +291,34 @@ interface PixelInputProps {
   prefix?: string;
   className?: string;
   disabled?: boolean;
+  showToggle?: boolean;
 }
 
-export function PixelInput({ label, placeholder, type = "text", value, onChange, prefix, className = "", disabled = false }: PixelInputProps) {
+function EyeOpen() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
+function EyeClosed() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+      <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+      <line x1="1" y1="1" x2="23" y2="23" />
+    </svg>
+  );
+}
+
+export function PixelInput({ label, placeholder, type = "text", value, onChange, prefix, className = "", disabled = false, showToggle = false }: PixelInputProps) {
   const [focused, setFocused] = useState(false);
+  const [visible, setVisible] = useState(false);
+  const [hoverEye, setHoverEye] = useState(false);
+  const isPassword = type === "password";
+  const resolvedType = isPassword && showToggle ? (visible ? "text" : "password") : type;
   return (
     <div className={`flex flex-col gap-1.5 ${className}`}>
       {label && (
@@ -306,18 +335,36 @@ export function PixelInput({ label, placeholder, type = "text", value, onChange,
           borderRadius: 0,
           boxShadow: focused ? `0 0 12px rgba(34,197,94,0.15), 0 0 20px rgba(59,130,246,0.08)` : "none",
           transition: "all 0.15s ease",
+          position: "relative",
         }}
       >
-        
         <input
-          type={type} value={value} onChange={onChange} placeholder={placeholder} disabled={disabled}
+          type={resolvedType} value={value} onChange={onChange} placeholder={placeholder} disabled={disabled}
           onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
           style={{
             background: "transparent", border: "none", outline: "none",
             color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 14,
             padding: prefix ? "10px 12px 10px 0" : "10px 12px", width: "100%", caretColor: C.green,
+            paddingRight: isPassword && showToggle ? 40 : undefined,
           }}
         />
+        {isPassword && showToggle && (
+          <button
+            type="button"
+            onClick={() => setVisible((v) => !v)}
+            onMouseEnter={() => setHoverEye(true)}
+            onMouseLeave={() => setHoverEye(false)}
+            style={{
+              position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)",
+              background: "none", border: "none", cursor: "pointer", padding: 4,
+              display: "flex", alignItems: "center",
+              color: hoverEye ? C.text : C.textMuted,
+              transition: "color 0.15s",
+            }}
+          >
+            {visible ? <EyeOpen /> : <EyeClosed />}
+          </button>
+        )}
       </div>
     </div>
   );
@@ -376,7 +423,7 @@ export function PixelProgress({ value, max = 100, label, color = C.green, showVa
           {showValue && <span style={{ color: C.green, fontSize: 11, fontFamily: "'JetBrains Mono', monospace" }}>{value}/{max}</span>}
         </div>
       )}
-      <div style={{ height: 5, background: "rgba(255,255,255,0.05)", borderRadius: 0, overflow: "hidden", border: `1px solid ${C.border}` }}>
+      <div style={{ height: 5, background: C.surface3, borderRadius: 0, overflow: "hidden", border: `1px solid ${C.border}` }}>
         <div style={{ height: "100%", width: `${pct}%`, background: fill, boxShadow: `0 0 6px ${color}`, transition: "width 0.8s ease" }} />
       </div>
     </div>
@@ -501,7 +548,7 @@ export function PixelTable<T extends Record<string, unknown>>({ columns, data, c
       <div style={{ overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
-            <tr style={{ background: "linear-gradient(90deg, #0d1117, #0a1020)", borderBottom: `1px solid ${C.border}` }}>
+            <tr style={{ background: C.surface2, borderBottom: `1px solid ${C.border}` }}>
               {columns.map((col) => (
                 <th key={String(col.key)} style={{ color: C.green, fontSize: 10, letterSpacing: "0.12em", textAlign: "left", padding: "10px 16px", fontWeight: 600, width: col.width, textTransform: "uppercase" }}>
                   {col.header}
@@ -511,7 +558,7 @@ export function PixelTable<T extends Record<string, unknown>>({ columns, data, c
           </thead>
           <tbody>
             {data.map((row, i) => (
-              <tr key={i} style={{ borderBottom: `1px solid rgba(34,197,94,0.06)`, background: i % 2 === 0 ? C.surface : "rgba(10,12,15,0.5)" }}
+              <tr key={i} style={{ borderBottom: `1px solid rgba(34,197,94,0.06)`, background: i % 2 === 0 ? C.surface : C.surface2 }}
                 className="hover:bg-[rgba(34,197,94,0.03)] transition-colors">
                 {columns.map((col) => (
                   <td key={String(col.key)} style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, padding: "10px 16px" }}>
@@ -627,11 +674,6 @@ interface SectionHeaderProps {
 export function SectionHeader({ prefix = "//", title, subtitle, align = "center", gradient = false }: SectionHeaderProps) {
   return (
     <div style={{ textAlign: align }}>
-      {prefix && (
-        <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", marginBottom: 6 }}>
-          {prefix}
-        </div>
-      )}
       <h2 style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: "clamp(22px, 3vw, 32px)", fontWeight: 800, lineHeight: 1.2 }}>
         {gradient ? (
           <GradientText>{title}</GradientText>

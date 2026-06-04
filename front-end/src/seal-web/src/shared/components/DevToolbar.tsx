@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { useAuth } from "@/app/providers/AuthProvider";
-import { C } from "./PixelComponents";
+import { C } from "@/shared/components/PixelComponents";
 
 interface DemoUser {
   userId: number;

@@ -1,4 +1,4 @@
-﻿import { Button } from "@/shared/components/ui/button";
+import { Button } from '@/shared/components/ui/button';
 import { ArrowRight, Code, Zap, Users } from 'lucide-react';
 
 export function HeroSection() {

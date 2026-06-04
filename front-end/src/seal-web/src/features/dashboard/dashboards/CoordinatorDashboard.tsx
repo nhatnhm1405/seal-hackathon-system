@@ -1,4 +1,4 @@
-﻿import { useNavigate } from "react-router";
+import { useNavigate } from "react-router";
 import { useAuth } from "@/app/providers/AuthProvider";
 import {
   C, GradientText, PixelCard, PixelButton, PixelBadge, CyberStatCard, PixelProgress,

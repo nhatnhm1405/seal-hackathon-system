@@ -117,7 +117,7 @@ export function TeamSubmitPage() {
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'JetBrains Mono', monospace" }}>
               <thead>
-                <tr style={{ background: "linear-gradient(90deg, #0d1117, #0a1020)", borderBottom: `1px solid ${C.border}` }}>
+                <tr style={{ background: C.surface2, borderBottom: `1px solid ${C.border}` }}>
                   {["Round", "Submitted At", "Repo", "Demo", "Slides", "Status"].map(h => (
                     <th key={h} style={{ color: C.green, fontSize: 10, letterSpacing: "0.12em", textAlign: "left", padding: "12px 16px", fontWeight: 600, textTransform: "uppercase" }}>
                       {h}
@@ -129,7 +129,7 @@ export function TeamSubmitPage() {
                 {teamSubs.map((s, i) => {
                   const round = rounds.find(r => r.round_id === s.round_id);
                   return (
-                    <tr key={s.submission_id} style={{ borderBottom: `1px solid rgba(34,197,94,0.06)`, background: i % 2 === 0 ? C.surface : "rgba(10,12,15,0.5)" }}>
+                    <tr key={s.submission_id} style={{ borderBottom: `1px solid rgba(34,197,94,0.06)`, background: i % 2 === 0 ? C.surface : C.surface2 }}>
                       <td style={{ color: C.text, fontSize: 13, padding: "12px 16px" }}>{round?.round_name}</td>
                       <td style={{ color: C.textMuted, fontSize: 12, padding: "12px 16px" }}>{fmtDate(s.submitted_at)}</td>
                       <td style={{ color: C.blueBright, fontSize: 11, padding: "12px 16px" }}>{s.repo_url}</td>
