@@ -67,6 +67,8 @@ public class SecurityConfig {
                 .requestMatchers("/error").permitAll()
                 // Public: Swagger UI (remove in production if desired)
                 .requestMatchers("/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+                // Public: list all hackathon events
+                .requestMatchers("/api/events/**").permitAll()
                 // Coordinator manages approvals, user activation, and role assignments
                 .requestMatchers("/api/account-approvals/**").hasRole("EVENT_COORDINATOR")
                 .requestMatchers("/api/users/**").hasRole("EVENT_COORDINATOR")

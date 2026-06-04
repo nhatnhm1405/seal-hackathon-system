@@ -44,7 +44,8 @@ public class AuthService {
 
         // 3. Create and save the User.
         // No role assignment here — participants are identified by user_type.
-        // Staff roles (COORDINATOR, MENTOR, JUDGE) are assigned later by a coordinator via UserEventRole.
+        // Staff roles (COORDINATOR, MENTOR, JUDGE) are assigned later by a coordinator
+        // via UserEventRole.
         User user = User.builder()
                 .email(request.getEmail().toLowerCase().trim())
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
@@ -89,7 +90,8 @@ public class AuthService {
 
         // 4. Check is_approved
         if (!Boolean.TRUE.equals(user.getIsApproved())) {
-            throw new ForbiddenException("Your account is pending approval. Please wait for an Event Coordinator to review your registration.");
+            throw new ForbiddenException(
+                    "Your account is pending approval. Please wait for an Event Coordinator to review your registration.");
         }
 
         // 5. Generate JWT
@@ -147,8 +149,7 @@ public class AuthService {
             }
             default -> throw new BadRequestException(
                     "Invalid user type: " + request.getUserType() +
-                    ". Must be one of: FPT_STUDENT, EXTERNAL_STUDENT, STAFF."
-            );
+                            ". Must be one of: FPT_STUDENT, EXTERNAL_STUDENT, STAFF.");
         }
     }
 
