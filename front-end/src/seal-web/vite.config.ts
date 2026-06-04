@@ -1,31 +1,32 @@
-import { defineConfig, type Plugin } from 'vite'
-import react from '@vitejs/plugin-react'
+import { defineConfig } from 'vite'
 import path from 'path'
 import tailwindcss from '@tailwindcss/vite'
+import react from '@vitejs/plugin-react'
 
-plugins: [react(), tailwindcss()]
 
-// https://vite.dev/config/
-
-function figmaAssetResolver(): Plugin {
+function figmaAssetResolver() {
   return {
     name: 'figma-asset-resolver',
-    resolveId(id) {
+    resolveId(id: string) {
       if (id.startsWith('figma:asset/')) {
-        return path.resolve(__dirname, 'src/assets', id.replace('figma:asset/', ''))
+        const filename = id.replace('figma:asset/', '')
+        return path.resolve(__dirname, 'src/assets', filename)
       }
-    }
+    },
   }
 }
 
-plugins: [figmaAssetResolver(), react(), tailwindcss()]
-
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [
+    figmaAssetResolver(),
+    // The React and Tailwind plugins are both required for Make, even if
+    // Tailwind is not being actively used – do not remove them
+    react(),
+    tailwindcss(),
+  ],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src')
-
-    }
-  }
+      '@': path.resolve(__dirname, './src'),
+    },
+  },
 })
