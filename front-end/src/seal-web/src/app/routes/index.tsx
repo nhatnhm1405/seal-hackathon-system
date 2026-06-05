@@ -11,8 +11,12 @@ import { LandingPage } from "@/features/landing/LandingPage";
 import { LoginPage } from "@/features/auth/LoginPage";
 import { RegisterPage } from "@/features/auth/RegisterPage";
 import { PendingApprovalPage } from "@/features/auth/PendingApprovalPage";
+import { RoleSelector } from "@/features/auth/RoleSelector";
 import { DashboardLayout } from "@/app/layouts/DashboardLayout";
 import { RoleDashboardPage } from "@/features/dashboard/RoleDashboardPage";
+import { JudgeDashboard } from "@/features/dashboard/dashboards/JudgeDashboard";
+import { MentorDashboard } from "@/features/dashboard/dashboards/MentorDashboard";
+import { CoordinatorDashboard } from "@/features/dashboard/dashboards/CoordinatorDashboard";
 import { LeaderboardPage } from "@/features/scoring/LeaderboardPage";
 import { ProfilePage } from "@/features/users/ProfilePage";
 import { TeamCreatePage } from "@/features/teams/TeamCreatePage";
@@ -59,6 +63,15 @@ function RequireAuth({
     !allowedRoles.includes(currentUser.role)
   ) {
     return <Navigate to="/dashboard" replace />;
+  }
+  return <Outlet />;
+}
+
+// Guards staff-only routes: if a multi-role user hasn't selected yet, send to /select-role
+function RoleGate() {
+  const { availableRoles, activeRole } = useAuth();
+  if (availableRoles.length > 1 && activeRole === null) {
+    return <Navigate to="/select-role" replace />;
   }
   return <Outlet />;
 }
@@ -117,6 +130,12 @@ export const router = createBrowserRouter([
           {
             element: <DashboardWrapper />,
             children: [
+              // Role selector — accessible to any authenticated user
+              {
+                path: "/select-role",
+                Component: RoleSelector,
+              },
+              // Shared routes (all authenticated roles)
               {
                 path: "/dashboard",
                 Component: RoleDashboardPage,
@@ -150,68 +169,87 @@ export const router = createBrowserRouter([
                   },
                 ],
               },
+              // Staff routes — guarded by RoleGate (requires activeRole to be set)
               {
-                element: (
-                  <RequireAuth allowedRoles={["MENTOR"]} />
-                ),
+                element: <RoleGate />,
                 children: [
+                  // Role-specific dashboard entry points (from RoleSelector)
                   {
-                    path: "/mentor/tracks",
-                    Component: MentorTracksPage,
-                  },
-                ],
-              },
-              {
-                element: (
-                  <RequireAuth allowedRoles={["JUDGE"]} />
-                ),
-                children: [
-                  {
-                    path: "/judge/score",
-                    Component: JudgeScoringPage,
+                    path: "/dashboard/judge",
+                    element: <JudgeDashboard />,
                   },
                   {
-                    path: "/judge/history",
-                    Component: JudgeHistoryPage,
-                  },
-                ],
-              },
-              {
-                element: (
-                  <RequireAuth allowedRoles={["COORDINATOR"]} />
-                ),
-                children: [
-                  {
-                    path: "/coordinator/dashboard",
-                    Component: RoleDashboardPage,
+                    path: "/dashboard/mentor",
+                    element: <MentorDashboard />,
                   },
                   {
-                    path: "/coordinator/events",
-                    Component: CoordEventsPage,
+                    path: "/dashboard/coordinator",
+                    element: <CoordinatorDashboard />,
                   },
                   {
-                    path: "/coordinator/accounts",
-                    Component: CoordAccountsPage,
+                    element: (
+                      <RequireAuth allowedRoles={["MENTOR"]} />
+                    ),
+                    children: [
+                      {
+                        path: "/mentor/tracks",
+                        Component: MentorTracksPage,
+                      },
+                    ],
                   },
                   {
-                    path: "/coordinator/teams",
-                    Component: CoordTeamsPage,
+                    element: (
+                      <RequireAuth allowedRoles={["JUDGE"]} />
+                    ),
+                    children: [
+                      {
+                        path: "/judge/score",
+                        Component: JudgeScoringPage,
+                      },
+                      {
+                        path: "/judge/history",
+                        Component: JudgeHistoryPage,
+                      },
+                    ],
                   },
                   {
-                    path: "/coordinator/judges",
-                    Component: CoordJudgesPage,
-                  },
-                  {
-                    path: "/coordinator/scoring",
-                    Component: CoordScoringPage,
-                  },
-                  {
-                    path: "/coordinator/prizes",
-                    Component: CoordPrizesPage,
-                  },
-                  {
-                    path: "/coordinator/audit",
-                    Component: CoordAuditPage,
+                    element: (
+                      <RequireAuth allowedRoles={["COORDINATOR"]} />
+                    ),
+                    children: [
+                      {
+                        path: "/coordinator/dashboard",
+                        Component: RoleDashboardPage,
+                      },
+                      {
+                        path: "/coordinator/events",
+                        Component: CoordEventsPage,
+                      },
+                      {
+                        path: "/coordinator/accounts",
+                        Component: CoordAccountsPage,
+                      },
+                      {
+                        path: "/coordinator/teams",
+                        Component: CoordTeamsPage,
+                      },
+                      {
+                        path: "/coordinator/judges",
+                        Component: CoordJudgesPage,
+                      },
+                      {
+                        path: "/coordinator/scoring",
+                        Component: CoordScoringPage,
+                      },
+                      {
+                        path: "/coordinator/prizes",
+                        Component: CoordPrizesPage,
+                      },
+                      {
+                        path: "/coordinator/audit",
+                        Component: CoordAuditPage,
+                      },
+                    ],
                   },
                 ],
               },

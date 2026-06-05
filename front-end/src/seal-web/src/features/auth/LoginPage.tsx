@@ -5,6 +5,7 @@ import {
   C, GradientText, PixelButton, PixelInput, FloatingParticles, TerminalWindow,
 } from "@/shared/components/PixelComponents";
 import { useAuth } from "@/app/providers/AuthProvider";
+import { useNotifications } from "@/app/providers/NotificationProvider";
 import { SealFooter } from "@/shared/components/SealFooter";
 import { SocialAuthButtons } from "@/features/auth/SocialAuthButtons";
 import sealLogo from "@/imports/image.png";
@@ -13,19 +14,22 @@ export function LoginPage() {
   useForceDark();
   const navigate = useNavigate();
   const { login } = useAuth();
+  const { addAuthToast } = useNotifications();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
     try {
-      const result = await login(email, password);
-      if (result === 'ok') {
-        navigate('/dashboard');
+      const result = await login(email, password, rememberMe);
+      if (result === 'ok' || result === 'ok:select-role') {
+        addAuthToast({ type: 'success', title: 'WELCOME BACK', message: `Authenticated as ${email}` });
+        navigate(result === 'ok:select-role' ? '/select-role' : '/dashboard');
       } else if (result === 'pending_approval') {
         navigate('/pending-approval');
       } else {
@@ -124,7 +128,47 @@ export function LoginPage() {
                 </div>
               )}
 
-              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <label
+                  style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", userSelect: "none" }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = "0.85"; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.opacity = "1"; }}
+                >
+                  <div
+                    onClick={() => setRememberMe(v => !v)}
+                    style={{
+                      width: 14,
+                      height: 14,
+                      border: `1px solid ${rememberMe ? C.green : C.border}`,
+                      background: rememberMe ? "rgba(34,197,94,0.15)" : "transparent",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      cursor: "pointer",
+                      flexShrink: 0,
+                      transition: "border-color 0.15s, background 0.15s",
+                    }}
+                  >
+                    {rememberMe && (
+                      <svg width="9" height="9" viewBox="0 0 9 9" fill="none">
+                        <polyline points="1.5,4.5 3.5,6.5 7.5,2.5" stroke={C.green} strokeWidth="1.5" strokeLinecap="square" />
+                      </svg>
+                    )}
+                  </div>
+                  <span
+                    onClick={() => setRememberMe(v => !v)}
+                    style={{
+                      color: C.textMuted,
+                      fontFamily: "'JetBrains Mono', monospace",
+                      fontSize: 11,
+                      letterSpacing: "0.08em",
+                      cursor: "pointer",
+                    }}
+                  >
+                    REMEMBER ME
+                  </span>
+                </label>
+
                 <button
                   type="button"
                   onClick={() => navigate("/forgot-password")}
