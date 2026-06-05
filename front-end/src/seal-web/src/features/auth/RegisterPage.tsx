@@ -8,12 +8,14 @@ import { SealFooter } from "@/shared/components/SealFooter";
 import { SocialAuthButtons } from "@/features/auth/SocialAuthButtons";
 import sealLogo from "@/imports/image.png";
 import { apiFetch, ApiError } from "@/shared/apiClient";
+import { useNotifications } from "@/app/providers/NotificationProvider";
 
 type StudentType = 'FPT' | 'EXTERNAL';
 
 export function RegisterPage() {
   useForceDark();
   const navigate = useNavigate();
+  const { addAuthToast } = useNotifications();
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -48,6 +50,7 @@ export function RegisterPage() {
           university: studentType === 'EXTERNAL' ? (university || null) : null,
         }),
       });
+      addAuthToast({ type: 'success', title: 'REGISTRATION SUBMITTED', message: 'Your account is pending coordinator approval.' });
       navigate('/pending-approval');
     } catch (err) {
       if (err instanceof ApiError) {

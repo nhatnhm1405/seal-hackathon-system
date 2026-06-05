@@ -14,6 +14,14 @@ export interface Toast {
   message: string;
 }
 
+// ── Auth Toast (iPhone-style, slides from top) ───────────────────────
+export interface AuthToast {
+  id: string;
+  type: "info" | "success" | "warning";
+  title: string;
+  message: string;
+}
+
 // ── Context type ────────────────────────────────────────────────────
 interface NotificationContextType {
   allNotifications: AppNotification[];
@@ -21,6 +29,7 @@ interface NotificationContextType {
   unreadCount: number;
   markAllRead: () => void;
   addToast: (t: Omit<Toast, "id">) => void;
+  addAuthToast: (t: Omit<AuthToast, "id">) => void;
 }
 
 const NotificationContext = createContext<NotificationContextType | null>(null);
@@ -29,6 +38,135 @@ export function useNotifications() {
   const ctx = useContext(NotificationContext);
   if (!ctx) throw new Error("useNotifications must be used within NotificationProvider");
   return ctx;
+}
+
+// ── Auth Toast Item (iPhone-style banner) ───────────────────────────
+function AuthToastItem({ toast, onDismiss }: { toast: AuthToast; onDismiss: (id: string) => void }) {
+  const [entered, setEntered] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+
+  const iconColor =
+    toast.type === "success" ? C.green :
+    toast.type === "warning" ? "#eab308" :
+    "#06b6d4";
+
+  const borderColor =
+    toast.type === "success" ? "rgba(34,197,94,0.4)" :
+    toast.type === "warning" ? "rgba(234,179,8,0.4)" :
+    "rgba(6,182,212,0.4)";
+
+  const glowColor =
+    toast.type === "success" ? "rgba(34,197,94,0.12)" :
+    toast.type === "warning" ? "rgba(234,179,8,0.12)" :
+    "rgba(6,182,212,0.12)";
+
+  const icon = toast.type === "success" ? "✓" : toast.type === "warning" ? "⚠" : "ℹ";
+
+  useEffect(() => {
+    const id1 = requestAnimationFrame(() => {
+      requestAnimationFrame(() => setEntered(true));
+    });
+    const timer = setTimeout(() => {
+      setLeaving(true);
+      setTimeout(() => onDismiss(toast.id), 350);
+    }, 4500);
+    return () => { cancelAnimationFrame(id1); clearTimeout(timer); };
+  }, [toast.id, onDismiss]);
+
+  function dismiss() {
+    if (leaving) return;
+    setLeaving(true);
+    setTimeout(() => onDismiss(toast.id), 350);
+  }
+
+  const isVisible = entered && !leaving;
+
+  return (
+    <div
+      onClick={dismiss}
+      style={{
+        background: "rgba(10, 14, 20, 0.96)",
+        backdropFilter: "blur(24px)",
+        WebkitBackdropFilter: "blur(24px)",
+        border: `1px solid ${borderColor}`,
+        borderTop: `2.5px solid ${iconColor}`,
+        borderRadius: 14,
+        boxShadow: `0 12px 40px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.03), 0 4px 20px ${glowColor}`,
+        padding: "13px 18px 13px 14px",
+        display: "flex",
+        alignItems: "flex-start",
+        gap: 11,
+        minWidth: 300,
+        maxWidth: 420,
+        cursor: "pointer",
+        userSelect: "none",
+        transform: isVisible ? "translateY(0) scale(1)" : "translateY(-110%) scale(0.94)",
+        opacity: isVisible ? 1 : 0,
+        transition: leaving
+          ? "transform 0.3s ease-in, opacity 0.25s ease-in"
+          : "transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease",
+        fontFamily: "'JetBrains Mono', monospace",
+      }}
+    >
+      <div style={{
+        width: 28, height: 28, borderRadius: "50%",
+        background: toast.type === "success" ? "rgba(34,197,94,0.14)" : toast.type === "warning" ? "rgba(234,179,8,0.14)" : "rgba(6,182,212,0.14)",
+        display: "flex", alignItems: "center", justifyContent: "center",
+        flexShrink: 0, marginTop: 1,
+        color: iconColor, fontSize: 13, fontWeight: 700,
+        boxShadow: `0 0 8px ${glowColor}`,
+      }}>
+        {icon}
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ color: "#eef2ff", fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", marginBottom: 3 }}>
+          {toast.title}
+        </div>
+        <div style={{ color: "rgba(148,163,184,0.9)", fontSize: 11, lineHeight: 1.55 }}>
+          {toast.message}
+        </div>
+      </div>
+      <button
+        onClick={(e) => { e.stopPropagation(); dismiss(); }}
+        style={{
+          background: "none", border: "none", cursor: "pointer",
+          color: "rgba(100,116,139,0.8)", fontSize: 13, padding: 0,
+          flexShrink: 0, lineHeight: 1, marginTop: 2,
+          transition: "color 0.15s",
+        }}
+        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "#94a3b8"; }}
+        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(100,116,139,0.8)"; }}
+      >
+        ✕
+      </button>
+    </div>
+  );
+}
+
+// ── Auth Toast Container (fixed top-center) ─────────────────────────
+function AuthToastContainer({ toasts, onDismiss }: { toasts: AuthToast[]; onDismiss: (id: string) => void }) {
+  if (toasts.length === 0) return null;
+  return (
+    <div style={{
+      position: "fixed",
+      top: 0,
+      left: 0,
+      right: 0,
+      zIndex: 9999,
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+      padding: "14px 16px 0",
+      gap: 8,
+      pointerEvents: "none",
+    }}>
+      {toasts.map(t => (
+        <div key={t.id} style={{ pointerEvents: "auto" }}>
+          <AuthToastItem toast={t} onDismiss={onDismiss} />
+        </div>
+      ))}
+    </div>
+  );
 }
 
 // ── Single toast item ───────────────────────────────────────────────
@@ -134,6 +272,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const { currentUser } = useAuth();
   const [allNotifications, setAllNotifications] = useState<AppNotification[]>(seedNotifications);
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [authToasts, setAuthToasts] = useState<AuthToast[]>([]);
   const counterRef = useRef(0);
 
   const userNotifications = currentUser
@@ -160,10 +299,20 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     setToasts(prev => [...prev, { ...t, id }]);
   }, []);
 
+  const dismissAuthToast = useCallback((id: string) => {
+    setAuthToasts(prev => prev.filter(t => t.id !== id));
+  }, []);
+
+  const addAuthToast = useCallback((t: Omit<AuthToast, "id">) => {
+    const id = `auth-toast-${Date.now()}-${counterRef.current++}`;
+    setAuthToasts(prev => [...prev, { ...t, id }]);
+  }, []);
+
   return (
-    <NotificationContext.Provider value={{ allNotifications, userNotifications, unreadCount, markAllRead, addToast }}>
+    <NotificationContext.Provider value={{ allNotifications, userNotifications, unreadCount, markAllRead, addToast, addAuthToast }}>
       {children}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+      <AuthToastContainer toasts={authToasts} onDismiss={dismissAuthToast} />
     </NotificationContext.Provider>
   );
 }
