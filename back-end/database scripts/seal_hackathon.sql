@@ -138,7 +138,7 @@ CREATE TABLE Team (
   status              VARCHAR(20)  NOT NULL DEFAULT 'PENDING' COMMENT 'PENDING, APPROVED, REJECTED, DISQUALIFIED',
   disqualified_reason TEXT,
   disqualified_at     DATETIME,
-  created_at          DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_at          DATETIME   teammember  NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (team_id),
   UNIQUE KEY uq_team_event_name (event_id, name),
   KEY idx_team_track (track_id),
@@ -159,6 +159,28 @@ CREATE TABLE TeamMember (
   CONSTRAINT fk_tm_team FOREIGN KEY (team_id) REFERENCES Team (team_id),
   CONSTRAINT fk_tm_user FOREIGN KEY (user_id) REFERENCES `User` (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 1. Tạo bảng TeamAssignment
+CREATE TABLE IF NOT EXISTS `TeamAssignment` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `team_id` INT NOT NULL,
+    `user_id` INT NOT NULL,
+    `assignment_type` VARCHAR(20) NOT NULL, -- 'MENTOR' hoặc 'JUDGE'
+    `event_id` INT NULL,
+    `round_id` INT NULL,
+    `assigned_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `assigned_by` INT NULL,
+    `is_active` TINYINT(1) NOT NULL DEFAULT 1, -- 1: Active, 0: Inactive
+    
+    -- Khóa ngoại liên kết bảng Team và User
+    CONSTRAINT `fk_assignment_team` FOREIGN KEY (`team_id`) REFERENCES `Team` (`team_id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_assignment_user` FOREIGN KEY (`user_id`) REFERENCES `User` (`user_id`) ON DELETE CASCADE,
+    CONSTRAINT `fk_assignment_assigned_by` FOREIGN KEY (`assigned_by`) REFERENCES `User` (`user_id`) ON DELETE SET NULL,
+    
+    -- Chỉ mục để tối ưu hóa tốc độ truy vấn
+    INDEX `idx_assignment_user_type` (`user_id`, `assignment_type`),
+    INDEX `idx_assignment_team_status` (`team_id`, `is_active`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =====================================================
 -- SUBMISSION
@@ -222,6 +244,7 @@ CREATE TABLE Score (
   value         DECIMAL(5,2)  NOT NULL,
   comment       TEXT,
   is_draft      BOOLEAN       NOT NULL DEFAULT TRUE,
+  scored_at     DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
   scored_at     DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at    DATETIME               ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (score_id),

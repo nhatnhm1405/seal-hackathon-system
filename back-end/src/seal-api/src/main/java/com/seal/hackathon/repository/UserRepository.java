@@ -15,10 +15,12 @@ public interface UserRepository extends JpaRepository<User, Integer> {
 
     boolean existsByEmail(String email);
 
-    // Find a user who previously logged in via OAuth2 with this provider + provider ID
+    // Find a user who previously logged in via OAuth2 with this provider + provider
+    // ID
     Optional<User> findByProviderAndProviderId(String provider, String providerId);
 
     // Users awaiting coordinator approval
+    @Query("SELECT DISTINCT u FROM User u LEFT JOIN FETCH u.userEventRoles uer LEFT JOIN FETCH uer.role WHERE u.isApproved = false AND u.isActive = true")
     List<User> findAllByIsApprovedFalseAndIsActiveTrue();
 
     // Fetch user together with all their roles to avoid N+1 in auth paths
