@@ -3,13 +3,18 @@ const TOKEN_KEY = 'seal_auth_token';
 
 // ── Token helpers ────────────────────────────────────────────────────
 export function getToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY);
+  return localStorage.getItem(TOKEN_KEY) ?? sessionStorage.getItem(TOKEN_KEY);
 }
-export function setToken(token: string): void {
-  localStorage.setItem(TOKEN_KEY, token);
+export function setToken(token: string, remember = true): void {
+  if (remember) {
+    localStorage.setItem(TOKEN_KEY, token);
+  } else {
+    sessionStorage.setItem(TOKEN_KEY, token);
+  }
 }
 export function clearToken(): void {
   localStorage.removeItem(TOKEN_KEY);
+  sessionStorage.removeItem(TOKEN_KEY);
 }
 
 // ── Error shape ──────────────────────────────────────────────────────

@@ -3,7 +3,7 @@ import { useAuth } from "@/app/providers/AuthProvider";
 import {
   C, GradientText, PixelCard, PixelButton, PixelBadge, PixelInput, PixelTabs,
 } from "@/shared/components/PixelComponents";
-import { users, teams, tracks } from "@/shared/mocks/mockData";
+import { teams, tracks } from "@/shared/mocks/mockData";
 
 const MOCK_PASSWORD = "password";
 
@@ -42,7 +42,6 @@ function EyeToggle({ visible, onToggle }: { visible: boolean; onToggle: () => vo
 export function ProfilePage() {
   const { currentUser } = useAuth();
   const [tab, setTab] = useState("overview");
-  const userRecord = currentUser ? users.find(u => u.user_id === currentUser.user_id) : null;
 
   const [editName, setEditName] = useState(currentUser?.full_name ?? "");
   const [editEmail, setEditEmail] = useState(currentUser?.email ?? "");
@@ -60,7 +59,7 @@ export function ProfilePage() {
   const [showNewPwd, setShowNewPwd] = useState(false);
   const [showConfirmPwd, setShowConfirmPwd] = useState(false);
 
-  if (!currentUser || !userRecord) return null;
+  if (!currentUser) return null;
 
   const team = currentUser.team_id ? teams.find(t => t.team_id === currentUser.team_id) : null;
   const track = team ? tracks.find(tr => tr.track_id === team.track_id) : null;
@@ -142,12 +141,12 @@ export function ProfilePage() {
       {tab === "overview" && (
         <PixelCard glow gradient style={{ padding: 24 }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 18 }}>
-            <Field label="Full Name" value={userRecord.full_name} />
-            <Field label="Email" value={userRecord.email} />
-            <Field label="Role" badge={<PixelBadge color="blue">{userRecord.role.replace("_", " ")}</PixelBadge>} />
-            <Field label="Student Type" badge={userRecord.student_type ? <PixelBadge color={userRecord.student_type === 'FPT' ? 'green' : 'cyan'}>{userRecord.student_type}</PixelBadge> : <span style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>—</span>} />
-            <Field label="Student ID" value={userRecord.student_id ?? "—"} />
-            <Field label="University" value={userRecord.university_name ?? "—"} />
+            <Field label="Full Name" value={currentUser.full_name} />
+            <Field label="Email" value={currentUser.email} />
+            <Field label="Role" badge={<PixelBadge color="blue">{currentUser.role.replace("_", " ")}</PixelBadge>} />
+            <Field label="Student Type" badge={currentUser.student_type ? <PixelBadge color={currentUser.student_type === 'FPT' ? 'green' : 'cyan'}>{currentUser.student_type}</PixelBadge> : <span style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>—</span>} />
+            <Field label="Student ID" value={currentUser.student_id ?? "—"} />
+            <Field label="University" value={currentUser.university ?? "—"} />
             {team && (
               <>
                 <Field label="Team" value={team.team_name} />

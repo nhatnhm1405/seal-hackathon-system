@@ -666,7 +666,8 @@ function EventContextBlock({ role, userId, teamId, currentEvent, onSelectEvent, 
 export function DashboardLayout({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { currentUser, logout, currentEvent, setCurrentEvent } = useAuth();
+  const { currentUser, logout, currentEvent, setCurrentEvent, availableRoles, setActiveRole } = useAuth();
+  const { addAuthToast } = useNotifications();
   const [collapsed, setCollapsed] = useState(false);
   const [eventDropdownOpen, setEventDropdownOpen] = useState(false);
 
@@ -678,6 +679,8 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
   const pageTitle = getPageTitle(location.pathname);
 
   function handleLogout() {
+    const name = currentUser.full_name;
+    addAuthToast({ type: 'info', title: 'LOGGED OUT', message: `Goodbye, ${name}. See you next time!` });
     logout();
     navigate('/');
   }
@@ -805,6 +808,30 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
                   {currentUser.full_name}
                 </div>
               </div>
+            )}
+            {availableRoles.length > 1 && (
+              <button
+                onClick={() => { setActiveRole(null); navigate("/select-role"); }}
+                title={collapsed ? "Switch Role" : undefined}
+                style={{
+                  padding: collapsed ? "8px 4px" : "8px 10px",
+                  background: "transparent",
+                  border: `1px solid rgba(59,130,246,0.35)`,
+                  color: "#3b82f6",
+                  cursor: "pointer",
+                  fontFamily: "'JetBrains Mono', monospace",
+                  fontSize: 10,
+                  letterSpacing: "0.1em",
+                  textTransform: "uppercase",
+                  borderRadius: 0,
+                  width: "100%",
+                  textAlign: "center",
+                }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(59,130,246,0.12)"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+              >
+                {collapsed ? "⇄" : "SWITCH ROLE"}
+              </button>
             )}
             <button
               onClick={handleLogout}

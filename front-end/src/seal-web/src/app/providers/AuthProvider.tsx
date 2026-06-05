@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import {
-  users, accountApprovals, teamMembers, events, tracks, rounds,
-  judgeAssignments, mentorAssignments, teams, MOCK_CREDENTIALS,
+  users, teamMembers, events, tracks, rounds,
+  judgeAssignments, mentorAssignments, teams,
   HackathonEvent,
 } from "@/shared/mocks/mockData";
 import { apiFetch, getToken, setToken, clearToken, ApiError } from "@/shared/apiClient";
@@ -13,6 +13,8 @@ export interface AuthUser {
   email: string;
   role: 'PARTICIPANT' | 'MENTOR' | 'JUDGE' | 'COORDINATOR';
   student_type: 'FPT' | 'EXTERNAL' | null;
+  student_id: string | null;
+  university: string | null;
   is_leader: boolean;
   team_id: number | null;
 }
@@ -24,7 +26,10 @@ interface AuthContextType {
   isLoading: boolean;
   currentEvent: HackathonEvent | null;
   setCurrentEvent: (event: HackathonEvent | null) => void;
-  login: (email: string, password: string) => Promise<'ok' | 'invalid_credentials' | 'pending_approval'>;
+  availableRoles: string[];
+  activeRole: string | null;
+  setActiveRole: (role: string | null) => void;
+  login: (email: string, password: string, rememberMe?: boolean) => Promise<'ok' | 'ok:select-role' | 'invalid_credentials' | 'pending_approval'>;
   logout: () => void;
   switchUser: (userId: number) => void;
   updateLeaderStatus: (isLeader: boolean) => void;
@@ -32,6 +37,8 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
+
+const ACTIVE_ROLE_KEY = 'activeRole';
 
 // ── API response shape (defensive — backend may vary) ─────────────────
 interface ApiUserProfile {
@@ -55,6 +62,38 @@ interface ApiUserProfile {
   team_id?: number | null;
   isLeader?: boolean;
   is_leader?: boolean;
+}
+
+// ── Collects all raw role strings from backend profile ────────────────
+const STAFF_ROLE_KEYWORDS = ['JUDGE', 'MENTOR', 'COORDINATOR'];
+
+function resolveAllRoles(profile: ApiUserProfile): string[] {
+  const raw: string[] = [];
+  const collect = (v: unknown) => {
+    if (!v) return;
+    if (Array.isArray(v)) v.forEach(collect);
+    else if (typeof v === 'string') raw.push(v.toUpperCase().trim());
+    else if (typeof v === 'object' && v !== null) {
+      const obj = v as Record<string, unknown>;
+      if (obj.roleName) collect(obj.roleName);
+      if (obj.role_name) collect(obj.role_name);
+      if (obj.name) collect(obj.name);
+    }
+  };
+  collect(profile.roles);
+  collect(profile.role);
+  collect(profile.roleName);
+  collect(profile.role_name);
+  return [...new Set(raw.filter(r => STAFF_ROLE_KEYWORDS.some(k => r.includes(k))))];
+}
+
+// ── Maps a raw backend role string to frontend AuthUser role ──────────
+function mapBackendRole(backendRole: string): AuthUser['role'] {
+  const r = backendRole.toUpperCase();
+  if (r.includes('COORDINATOR')) return 'COORDINATOR';
+  if (r.includes('JUDGE'))       return 'JUDGE';
+  if (r === 'MENTOR')            return 'MENTOR';
+  return 'PARTICIPANT';
 }
 
 // ── CRITICAL: role resolver ───────────────────────────────────────────
@@ -81,8 +120,8 @@ function resolveRole(profile: ApiUserProfile): AuthUser['role'] {
   collect(profile.role_name);
 
   if (raw.some(r => r.includes('COORDINATOR'))) return 'COORDINATOR';
-  if (raw.some(r => r === 'JUDGE'))              return 'JUDGE';
-  if (raw.some(r => r === 'MENTOR'))             return 'MENTOR';
+  if (raw.some(r => r.includes('JUDGE')))       return 'JUDGE';
+  if (raw.some(r => r === 'MENTOR'))            return 'MENTOR';
   return 'PARTICIPANT';
 }
 
@@ -96,6 +135,8 @@ function mapApiUser(profile: ApiUserProfile): AuthUser {
     student_type: userType === 'FPT_STUDENT'      ? 'FPT'
                 : userType === 'EXTERNAL_STUDENT'  ? 'EXTERNAL'
                 : null,
+    student_id:   profile.studentId ?? profile.student_id ?? null,
+    university:   profile.university ?? null,
     is_leader:    profile.isLeader ?? profile.is_leader ?? false,
     team_id:      profile.teamId ?? profile.team_id ?? null,
   };
@@ -122,6 +163,8 @@ function buildAuthUser(userId: number): AuthUser | null {
     email:        user.email,
     role:         user.role,
     student_type: user.student_type,
+    student_id:   user.student_id,
+    university:   user.university_name,
     is_leader:    membership?.is_leader ?? false,
     team_id:      membership ? membership.team_id : null,
   };
@@ -155,22 +198,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [currentEvent, setCurrentEvent] = useState<HackathonEvent | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [availableRoles, setAvailableRoles] = useState<string[]>([]);
+  const [activeRole, setActiveRoleState] = useState<string | null>(
+    () => localStorage.getItem(ACTIVE_ROLE_KEY),
+  );
 
-  // Restore session from stored token on mount
+  // ── Active role setter (persists to localStorage) ───────────────────
+  function setActiveRole(role: string | null) {
+    setActiveRoleState(role);
+    if (role) {
+      localStorage.setItem(ACTIVE_ROLE_KEY, role);
+      setCurrentUser(prev => prev ? { ...prev, role: mapBackendRole(role) } : prev);
+    } else {
+      localStorage.removeItem(ACTIVE_ROLE_KEY);
+      setCurrentUser(prev => prev ? { ...prev, role: 'PARTICIPANT' } : prev);
+    }
+  }
+
+  // ── Restore session from stored token on mount ───────────────────────
   useEffect(() => {
     const token = getToken();
     if (!token) { setIsLoading(false); return; }
 
     apiFetch<{ data: ApiUserProfile }>('/api/auth/me')
       .then(res => {
+        const allRoles = resolveAllRoles(res.data);
+        setAvailableRoles(allRoles);
+
+        let resolvedActive: string | null = null;
+        if (allRoles.length === 1) {
+          resolvedActive = allRoles[0];
+          localStorage.setItem(ACTIVE_ROLE_KEY, resolvedActive);
+        } else if (allRoles.length > 1) {
+          const saved = localStorage.getItem(ACTIVE_ROLE_KEY);
+          resolvedActive = (saved && allRoles.includes(saved)) ? saved : null;
+          if (!resolvedActive) localStorage.removeItem(ACTIVE_ROLE_KEY);
+        }
+
+        setActiveRoleState(resolvedActive);
         const authUser = mapApiUser(res.data);
+        if (resolvedActive) authUser.role = mapBackendRole(resolvedActive);
         setCurrentUser(authUser);
-        // Real API users likely won't match mock event data → null is fine
         setCurrentEvent(deriveDefaultEvent(authUser.user_id, authUser.role, authUser.team_id));
       })
       .catch(() => {
-        // Token expired / invalid — clear it silently
         clearToken();
+        localStorage.removeItem(ACTIVE_ROLE_KEY);
       })
       .finally(() => setIsLoading(false));
   }, []);
@@ -179,23 +252,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function login(
     email: string,
     password: string,
-  ): Promise<'ok' | 'invalid_credentials' | 'pending_approval'> {
+    rememberMe = false,
+  ): Promise<'ok' | 'ok:select-role' | 'invalid_credentials' | 'pending_approval'> {
     try {
       // Step 1: authenticate and receive token
       const loginRes = await apiFetch<{ data: { token: string; userId?: number } }>(
         '/api/auth/login',
         { method: 'POST', body: JSON.stringify({ email, password }) },
       );
-      setToken(loginRes.data.token);
+      setToken(loginRes.data.token, rememberMe);
 
       // Step 2: fetch full profile (roles live here, not in the login response)
       const meRes = await apiFetch<{ data: ApiUserProfile }>('/api/auth/me');
+      const allRoles = resolveAllRoles(meRes.data);
+      setAvailableRoles(allRoles);
+
+      let resolvedActive: string | null = null;
+      if (allRoles.length === 1) {
+        resolvedActive = allRoles[0];
+        localStorage.setItem(ACTIVE_ROLE_KEY, resolvedActive);
+      } else if (allRoles.length > 1) {
+        // Check if there is a previously saved valid role
+        const saved = localStorage.getItem(ACTIVE_ROLE_KEY);
+        resolvedActive = (saved && allRoles.includes(saved)) ? saved : null;
+        if (!resolvedActive) localStorage.removeItem(ACTIVE_ROLE_KEY);
+      }
+
+      setActiveRoleState(resolvedActive);
       const authUser = mapApiUser(meRes.data);
+      if (resolvedActive) authUser.role = mapBackendRole(resolvedActive);
       setCurrentUser(authUser);
       setCurrentEvent(deriveDefaultEvent(authUser.user_id, authUser.role, authUser.team_id));
-      return 'ok';
+      // Signal to the caller that the user must pick a role before entering any dashboard
+      return allRoles.length > 1 && resolvedActive === null ? 'ok:select-role' : 'ok';
     } catch (err) {
       clearToken();
+      localStorage.removeItem(ACTIVE_ROLE_KEY);
       if (err instanceof ApiError) {
         if (err.status === 403) return 'pending_approval';
         if (err.status === 401) return 'invalid_credentials';
@@ -212,7 +304,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       apiFetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
     }
     clearToken();
+    localStorage.removeItem(ACTIVE_ROLE_KEY);
     setCurrentUser(null);
+    setAvailableRoles([]);
+    setActiveRoleState(null);
     setCurrentEvent(null);
   }
 
@@ -240,6 +335,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAuthenticated: !!currentUser,
       isLoading,
       currentEvent, setCurrentEvent,
+      availableRoles, activeRole, setActiveRole,
       login, logout, switchUser, updateLeaderStatus, clearTeam,
     }}>
       {children}
