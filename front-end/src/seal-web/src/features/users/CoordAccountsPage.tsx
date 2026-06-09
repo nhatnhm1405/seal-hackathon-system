@@ -3,6 +3,7 @@ import {
   C, GradientText, PixelCard, PixelButton, PixelBadge, PixelTabs,
 } from "@/shared/components/PixelComponents";
 import { apiFetch, ApiError } from "@/shared/apiClient";
+import { usePendingAccounts } from "@/app/providers/PendingAccountsProvider";
 
 function fmtDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -337,6 +338,13 @@ export function CoordAccountsPage() {
   const pendingCount  = accounts.filter(a => a.status === 'PENDING').length;
   const approvedCount = accounts.filter(a => a.status === 'APPROVED').length;
   const rejectedCount = accounts.filter(a => a.status === 'REJECTED').length;
+
+  // Keep the sidebar badge in sync with the page's authoritative data — fires on
+  // initial load and after every approve/reject/restore mutation.
+  const { setPendingCount } = usePendingAccounts();
+  useEffect(() => {
+    if (!loading && !fetchError) setPendingCount(pendingCount);
+  }, [pendingCount, loading, fetchError, setPendingCount]);
 
   const tabRows = activeTab === 'ALL' ? accounts : accounts.filter(a => a.status === activeTab);
   const query = searchQuery.trim().toLowerCase();
