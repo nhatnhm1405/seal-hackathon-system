@@ -1,0 +1,1031 @@
+{
+  "info": {
+    "name": "SEAL Hackathon – Full API Collection",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl",           "value": "http://localhost:8080" },
+    { "key": "coordinatorToken",  "value": "" },
+    { "key": "participantToken",  "value": "" },
+    { "key": "judgeToken",        "value": "" },
+    { "key": "mentorToken",       "value": "" },
+    { "key": "userId",            "value": "" },
+    { "key": "eventId",           "value": "1" },
+    { "key": "trackId",           "value": "1" },
+    { "key": "roundId",           "value": "1" },
+    { "key": "teamId",            "value": "1" },
+    { "key": "submissionId",      "value": "1" },
+    { "key": "criteriaId",        "value": "1" },
+    { "key": "inviteId",          "value": "1" },
+    { "key": "notificationId",    "value": "1" }
+  ],
+  "item": [
+
+    {
+      "name": "1. AUTH",
+      "item": [
+        {
+          "name": "Register – FPT Student",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/auth/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"student.test@fpt.edu.vn\",\n  \"password\": \"Test@1234\",\n  \"fullName\": \"Nguyen Van Test\",\n  \"userType\": \"FPT_STUDENT\",\n  \"studentId\": \"SE210001\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Register – External Student",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/auth/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"student.ext@hcmut.edu.vn\",\n  \"password\": \"Test@1234\",\n  \"fullName\": \"Tran Thi External\",\n  \"userType\": \"EXTERNAL_STUDENT\",\n  \"studentId\": \"BK2100999\",\n  \"university\": \"HCMUT\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Register – Staff (self)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/auth/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"staff.new@fpt.edu.vn\",\n  \"password\": \"Test@1234\",\n  \"fullName\": \"Le Van Staff\",\n  \"userType\": \"STAFF\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login – Coordinator (lưu token)",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "var res = pm.response.json();",
+                "if (res.data && res.data.token) {",
+                "  pm.collectionVariables.set('coordinatorToken', res.data.token);",
+                "  console.log('Coordinator token saved');",
+                "}"
+              ]
+            }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"coordinator@fpt.edu.vn\",\n  \"password\": \"Test@1234\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login – Participant (lưu token)",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "var res = pm.response.json();",
+                "if (res.data && res.data.token) {",
+                "  pm.collectionVariables.set('participantToken', res.data.token);",
+                "  pm.collectionVariables.set('userId', String(res.data.userId));",
+                "  console.log('Participant token saved');",
+                "}"
+              ]
+            }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"leader1@fpt.edu.vn\",\n  \"password\": \"Test@1234\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login – Judge (lưu token)",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "var res = pm.response.json();",
+                "if (res.data && res.data.token) {",
+                "  pm.collectionVariables.set('judgeToken', res.data.token);",
+                "  console.log('Judge token saved');",
+                "}"
+              ]
+            }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"judge@fpt.edu.vn\",\n  \"password\": \"Test@1234\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login – Mentor (lưu token)",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "var res = pm.response.json();",
+                "if (res.data && res.data.token) {",
+                "  pm.collectionVariables.set('mentorToken', res.data.token);",
+                "  console.log('Mentor token saved');",
+                "}"
+              ]
+            }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"mentor@fpt.edu.vn\",\n  \"password\": \"Test@1234\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Login – Trước khi được duyệt (expect 403)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"student.test@fpt.edu.vn\",\n  \"password\": \"Test@1234\"\n}"
+            }
+          }
+        },
+        {
+          "name": "GET /me – Xem profile hiện tại",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{participantToken}}" }],
+            "url": "{{baseUrl}}/api/auth/me"
+          }
+        },
+        {
+          "name": "POST /logout",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{participantToken}}" }],
+            "url": "{{baseUrl}}/api/auth/logout"
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "2. ACCOUNT APPROVAL",
+      "item": [
+        {
+          "name": "GET pending approvals",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{coordinatorToken}}" }],
+            "url": "{{baseUrl}}/api/account-approvals/pending"
+          }
+        },
+        {
+          "name": "PUT approve user",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{coordinatorToken}}" }],
+            "url": "{{baseUrl}}/api/account-approvals/{{userId}}/approve"
+          }
+        },
+        {
+          "name": "PUT reject user",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{coordinatorToken}}" }],
+            "url": "{{baseUrl}}/api/account-approvals/{{userId}}/reject"
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "3. USER MANAGEMENT",
+      "item": [
+        {
+          "name": "GET all users",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{coordinatorToken}}" }],
+            "url": "{{baseUrl}}/api/users"
+          }
+        },
+        {
+          "name": "GET user by ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{coordinatorToken}}" }],
+            "url": "{{baseUrl}}/api/users/{{userId}}"
+          }
+        },
+        {
+          "name": "GET all staff role assignments",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{coordinatorToken}}" }],
+            "url": "{{baseUrl}}/api/users/roles"
+          }
+        },
+        {
+          "name": "POST create staff (Guest Judge)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{coordinatorToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/users/staff",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"guestjudge@company.com\",\n  \"password\": \"Test@1234\",\n  \"fullName\": \"Nguyen Guest Judge\",\n  \"roleName\": \"JUDGE\",\n  \"judgeType\": \"GUEST\",\n  \"eventId\": 1,\n  \"roundId\": 1\n}"
+            }
+          }
+        },
+        {
+          "name": "POST create staff (Mentor)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{coordinatorToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/users/staff",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"mentor.new@fpt.edu.vn\",\n  \"password\": \"Test@1234\",\n  \"fullName\": \"Tran Van Mentor\",\n  \"roleName\": \"MENTOR\",\n  \"eventId\": 1,\n  \"trackId\": 1\n}"
+            }
+          }
+        },
+        {
+          "name": "POST assign role to user",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{coordinatorToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/users/{{userId}}/roles",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roleName\": \"MENTOR\",\n  \"eventId\": 1,\n  \"trackId\": 1\n}"
+            }
+          }
+        },
+        {
+          "name": "PUT activate user",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{coordinatorToken}}" }],
+            "url": "{{baseUrl}}/api/users/{{userId}}/activate"
+          }
+        },
+        {
+          "name": "PUT deactivate user",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{coordinatorToken}}" }],
+            "url": "{{baseUrl}}/api/users/{{userId}}/deactivate"
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "4. HACKATHON EVENTS",
+      "item": [
+        {
+          "name": "GET all events (Public)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/events"
+          }
+        },
+        {
+          "name": "GET event by ID (Public)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/events/{{eventId}}"
+          }
+        },
+        {
+          "name": "POST create event (lưu eventId)",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "var res = pm.response.json();",
+                "if (res.data && res.data.id) {",
+                "  pm.collectionVariables.set('eventId', String(res.data.id));",
+                "  console.log('eventId saved: ' + res.data.id);",
+                "}"
+              ]
+            }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{coordinatorToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/events",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"SEAL Hackathon 2026\",\n  \"season\": \"SUMMER\",\n  \"year\": 2026,\n  \"description\": \"Annual hackathon competition for students\",\n  \"registrationStart\": \"2026-06-01T00:00:00\",\n  \"registrationEnd\": \"2026-06-20T23:59:59\",\n  \"startDate\": \"2026-06-25T08:00:00\",\n  \"endDate\": \"2026-07-10T18:00:00\",\n  \"status\": \"DRAFT\"\n}"
+            }
+          }
+        },
+        {
+          "name": "PUT update event",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{coordinatorToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/events/{{eventId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"SEAL Hackathon 2026 (Updated)\",\n  \"description\": \"Annual hackathon competition – updated description\",\n  \"status\": \"OPEN\"\n}"
+            }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "5. TRACKS",
+      "item": [
+        {
+          "name": "GET all tracks for event (Public)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/events/{{eventId}}/tracks"
+          }
+        },
+        {
+          "name": "GET track by ID (Public)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/events/{{eventId}}/tracks/{{trackId}}"
+          }
+        },
+        {
+          "name": "POST create track (lưu trackId)",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "var res = pm.response.json();",
+                "if (res.data && res.data.id) {",
+                "  pm.collectionVariables.set('trackId', String(res.data.id));",
+                "  console.log('trackId saved: ' + res.data.id);",
+                "}"
+              ]
+            }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{coordinatorToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/events/{{eventId}}/tracks",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"AI & Machine Learning\",\n  \"description\": \"Build innovative AI/ML solutions to solve real-world problems\"\n}"
+            }
+          }
+        },
+        {
+          "name": "PUT update track",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{coordinatorToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/events/{{eventId}}/tracks/{{trackId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"AI & Machine Learning (Updated)\",\n  \"description\": \"Updated description for the AI/ML track\"\n}"
+            }
+          }
+        },
+        {
+          "name": "DELETE track",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{coordinatorToken}}" }],
+            "url": "{{baseUrl}}/api/events/{{eventId}}/tracks/{{trackId}}"
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "6. ROUNDS",
+      "item": [
+        {
+          "name": "GET all rounds for event (Public)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/events/{{eventId}}/rounds"
+          }
+        },
+        {
+          "name": "GET round details (Public)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/events/{{eventId}}/rounds/{{roundId}}"
+          }
+        },
+        {
+          "name": "POST create round (lưu roundId)",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "var res = pm.response.json();",
+                "if (res.data && res.data.id) {",
+                "  pm.collectionVariables.set('roundId', String(res.data.id));",
+                "  console.log('roundId saved: ' + res.data.id);",
+                "}"
+              ]
+            }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{coordinatorToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/events/{{eventId}}/rounds",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Vòng 1 – Sơ loại\",\n  \"orderNumber\": 1,\n  \"startTime\": \"2026-06-25T08:00:00\",\n  \"endTime\": \"2026-06-27T18:00:00\",\n  \"submissionDeadline\": \"2026-06-27T17:00:00\",\n  \"topNAdvance\": 10,\n  \"isCalibration\": false\n}"
+            }
+          }
+        },
+        {
+          "name": "POST create round (Calibration)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{coordinatorToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/events/{{eventId}}/rounds",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Vòng Calibration\",\n  \"orderNumber\": 0,\n  \"startTime\": \"2026-06-20T08:00:00\",\n  \"endTime\": \"2026-06-22T18:00:00\",\n  \"submissionDeadline\": \"2026-06-22T17:00:00\",\n  \"isCalibration\": true\n}"
+            }
+          }
+        },
+        {
+          "name": "PUT update round",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{coordinatorToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/events/{{eventId}}/rounds/{{roundId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Vòng 1 – Sơ loại (Updated)\",\n  \"topNAdvance\": 8,\n  \"status\": \"ACTIVE\"\n}"
+            }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "7. TEAMS",
+      "item": [
+        {
+          "name": "GET active events with tracks (Public)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/teams/active-events"
+          }
+        },
+        {
+          "name": "POST create team (lưu teamId)",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "var res = pm.response.json();",
+                "if (res.data && res.data.id) {",
+                "  pm.collectionVariables.set('teamId', String(res.data.id));",
+                "  console.log('teamId saved: ' + res.data.id);",
+                "}"
+              ]
+            }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{participantToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/teams",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"eventId\": {{eventId}},\n  \"trackId\": {{trackId}},\n  \"name\": \"Team Alpha\",\n  \"description\": \"A passionate team building AI solutions\"\n}"
+            }
+          }
+        },
+        {
+          "name": "GET my team (Participant)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{participantToken}}" }],
+            "url": "{{baseUrl}}/api/teams/my"
+          }
+        },
+        {
+          "name": "GET all teams for event (Coordinator)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{coordinatorToken}}" }],
+            "url": "{{baseUrl}}/api/teams/event/{{eventId}}"
+          }
+        },
+        {
+          "name": "GET team details by ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{coordinatorToken}}" }],
+            "url": "{{baseUrl}}/api/teams/{{teamId}}"
+          }
+        },
+        {
+          "name": "PUT approve team",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{coordinatorToken}}" }],
+            "url": "{{baseUrl}}/api/teams/{{teamId}}/approve"
+          }
+        },
+        {
+          "name": "PUT reject team",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{coordinatorToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/teams/{{teamId}}/reject",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Team does not meet the minimum requirements\"\n}"
+            }
+          }
+        },
+        {
+          "name": "PUT disqualify team",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{coordinatorToken}}" }],
+            "url": "{{baseUrl}}/api/teams/{{teamId}}/disqualify"
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "8. TEAM INVITES",
+      "item": [
+        {
+          "name": "POST send invite (lưu inviteId)",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "var res = pm.response.json();",
+                "if (res.data && res.data.id) {",
+                "  pm.collectionVariables.set('inviteId', String(res.data.id));",
+                "  console.log('inviteId saved: ' + res.data.id);",
+                "}"
+              ]
+            }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{participantToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/invites/teams/{{teamId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"invitedUserId\": 5,\n  \"message\": \"Mời bạn tham gia team Alpha của tụi mình nhé!\"\n}"
+            }
+          }
+        },
+        {
+          "name": "GET pending invites (Participant)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{participantToken}}" }],
+            "url": "{{baseUrl}}/api/invites/pending"
+          }
+        },
+        {
+          "name": "PUT accept invite",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{participantToken}}" }],
+            "url": "{{baseUrl}}/api/invites/{{inviteId}}/accept"
+          }
+        },
+        {
+          "name": "PUT decline invite",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{participantToken}}" }],
+            "url": "{{baseUrl}}/api/invites/{{inviteId}}/decline"
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "9. SUBMISSIONS",
+      "item": [
+        {
+          "name": "POST submit work (lưu submissionId)",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "var res = pm.response.json();",
+                "if (res.data && res.data.id) {",
+                "  pm.collectionVariables.set('submissionId', String(res.data.id));",
+                "  console.log('submissionId saved: ' + res.data.id);",
+                "}"
+              ]
+            }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{participantToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/submissions",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roundId\": {{roundId}},\n  \"repoUrl\": \"https://github.com/team-alpha/hackathon-project\",\n  \"demoUrl\": \"https://team-alpha-demo.vercel.app\",\n  \"slideUrl\": \"https://drive.google.com/file/d/abc123\",\n  \"description\": \"An AI-powered solution to automate student scheduling using machine learning\"\n}"
+            }
+          }
+        },
+        {
+          "name": "GET my submission for round (Participant)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{participantToken}}" }],
+            "url": "{{baseUrl}}/api/submissions/my/round/{{roundId}}"
+          }
+        },
+        {
+          "name": "GET all submissions for round (Judge/Coordinator)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{judgeToken}}" }],
+            "url": "{{baseUrl}}/api/submissions/round/{{roundId}}"
+          }
+        },
+        {
+          "name": "GET submission by ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{participantToken}}" }],
+            "url": "{{baseUrl}}/api/submissions/{{submissionId}}"
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "10. SCORING",
+      "item": [
+        {
+          "name": "GET scoring criteria for round (Authenticated)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{judgeToken}}" }],
+            "url": "{{baseUrl}}/api/events/{{eventId}}/rounds/{{roundId}}/criteria"
+          }
+        },
+        {
+          "name": "POST create criteria (lưu criteriaId)",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "var res = pm.response.json();",
+                "if (res.data && res.data.id) {",
+                "  pm.collectionVariables.set('criteriaId', String(res.data.id));",
+                "  console.log('criteriaId saved: ' + res.data.id);",
+                "}"
+              ]
+            }
+          }],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{coordinatorToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/events/{{eventId}}/rounds/{{roundId}}/criteria",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Innovation\",\n  \"description\": \"How novel and creative is the solution?\",\n  \"weight\": 0.30,\n  \"maxScore\": 10,\n  \"orderNumber\": 1\n}"
+            }
+          }
+        },
+        {
+          "name": "POST create criteria – Feasibility",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{coordinatorToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/events/{{eventId}}/rounds/{{roundId}}/criteria",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Feasibility\",\n  \"description\": \"How practical and implementable is the solution?\",\n  \"weight\": 0.25,\n  \"maxScore\": 10,\n  \"orderNumber\": 2\n}"
+            }
+          }
+        },
+        {
+          "name": "POST create criteria – Presentation",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{coordinatorToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/events/{{eventId}}/rounds/{{roundId}}/criteria",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Presentation\",\n  \"description\": \"Quality of the presentation and communication\",\n  \"weight\": 0.20,\n  \"maxScore\": 10,\n  \"orderNumber\": 3\n}"
+            }
+          }
+        },
+        {
+          "name": "POST submit scores (Judge – Final)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{judgeToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/scores",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"submissionId\": {{submissionId}},\n  \"draft\": false,\n  \"scores\": [\n    {\n      \"criteriaId\": {{criteriaId}},\n      \"value\": 8.5,\n      \"comment\": \"Very innovative approach\"\n    }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "POST submit scores (Judge – Save as Draft)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{judgeToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/scores",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"submissionId\": {{submissionId}},\n  \"draft\": true,\n  \"scores\": [\n    {\n      \"criteriaId\": {{criteriaId}},\n      \"value\": 7.0,\n      \"comment\": \"Draft score – to be reviewed later\"\n    }\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "GET scores for submission (Judge/Coordinator)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{judgeToken}}" }],
+            "url": "{{baseUrl}}/api/scores/submission/{{submissionId}}"
+          }
+        },
+        {
+          "name": "GET my scores for round (Judge)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{judgeToken}}" }],
+            "url": "{{baseUrl}}/api/scores/my/round/{{roundId}}"
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "11. ROUND RESULTS",
+      "item": [
+        {
+          "name": "GET published results (Public)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/events/{{eventId}}/rounds/{{roundId}}/results"
+          }
+        },
+        {
+          "name": "GET all results including unpublished (Coordinator)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{coordinatorToken}}" }],
+            "url": "{{baseUrl}}/api/events/{{eventId}}/rounds/{{roundId}}/results/all"
+          }
+        },
+        {
+          "name": "POST finalize round results (Coordinator)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{coordinatorToken}}" }],
+            "url": "{{baseUrl}}/api/events/{{eventId}}/rounds/{{roundId}}/results/finalize"
+          }
+        },
+        {
+          "name": "POST publish round results (Coordinator)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{coordinatorToken}}" }],
+            "url": "{{baseUrl}}/api/events/{{eventId}}/rounds/{{roundId}}/results/publish"
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "12. NOTIFICATIONS",
+      "item": [
+        {
+          "name": "GET my notifications",
+          "event": [{
+            "listen": "test",
+            "script": {
+              "exec": [
+                "var res = pm.response.json();",
+                "if (res.data && res.data.length > 0) {",
+                "  pm.collectionVariables.set('notificationId', String(res.data[0].id));",
+                "  console.log('notificationId saved: ' + res.data[0].id);",
+                "}"
+              ]
+            }
+          }],
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{participantToken}}" }],
+            "url": "{{baseUrl}}/api/notifications"
+          }
+        },
+        {
+          "name": "GET unread notification count",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{participantToken}}" }],
+            "url": "{{baseUrl}}/api/notifications/unread-count"
+          }
+        },
+        {
+          "name": "PUT mark notification as read",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{participantToken}}" }],
+            "url": "{{baseUrl}}/api/notifications/{{notificationId}}/read"
+          }
+        },
+        {
+          "name": "PUT mark all notifications as read",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Authorization", "value": "Bearer {{participantToken}}" }],
+            "url": "{{baseUrl}}/api/notifications/read-all"
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "13. TEAM ASSIGNMENTS",
+      "item": [
+        {
+          "name": "GET mentor's assigned teams (Mentor)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{mentorToken}}" }],
+            "url": "{{baseUrl}}/api/mentor/assignments"
+          }
+        },
+        {
+          "name": "GET judge's assigned teams (Judge)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{judgeToken}}" }],
+            "url": "{{baseUrl}}/api/judge/assignments"
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "14. SECURITY TESTS",
+      "item": [
+        {
+          "name": "Không có token → expect 401",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/auth/me"
+          }
+        },
+        {
+          "name": "Token sai → expect 401",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer token_gia_mao_abc123" }],
+            "url": "{{baseUrl}}/api/auth/me"
+          }
+        },
+        {
+          "name": "Participant gọi API coordinator → expect 403",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{participantToken}}" }],
+            "url": "{{baseUrl}}/api/account-approvals/pending"
+          }
+        },
+        {
+          "name": "Participant tạo event → expect 403",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{participantToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/events",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Hack Event\",\n  \"season\": \"FALL\",\n  \"year\": 2026,\n  \"startDate\": \"2026-09-01T08:00:00\",\n  \"endDate\": \"2026-09-10T18:00:00\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Judge gọi submit (Participant only) → expect 403",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{judgeToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/submissions",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roundId\": {{roundId}},\n  \"repoUrl\": \"https://github.com/test\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Participant score (Judge only) → expect 403",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{participantToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/scores",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"submissionId\": 1,\n  \"draft\": false,\n  \"scores\": [{ \"criteriaId\": 1, \"value\": 9.0 }]\n}"
+            }
+          }
+        }
+      ]
+    }
+
+  ]
+}
