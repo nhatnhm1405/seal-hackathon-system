@@ -157,8 +157,18 @@ function ImagePlaceholder({ label, dataPlaceholder, width, height, src = "" }: {
 
 function NavBar({ navigate }: { navigate: (p: Page) => void }) {
   const [open, setOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
   const { isAuthenticated } = useAuth();
   const routerNavigate = useNavigate();
+
+  useEffect(() => {
+    function onScroll() {
+      setScrolled(window.scrollY > 40);
+    }
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   function scrollTo(href: string) {
     if (href === "#hero") { window.scrollTo({ top: 0, behavior: "smooth" }); setOpen(false); return; }
@@ -189,9 +199,26 @@ function NavBar({ navigate }: { navigate: (p: Page) => void }) {
               style={{ height: 160, width: "auto", objectFit: "contain", filter: "drop-shadow(0 0 8px rgba(34,197,94,0.35)) drop-shadow(0 0 16px rgba(59,130,246,0.2))" }}
             />
           </div>
-          <span style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 14, letterSpacing: "0.06em" }}>
+          <span style={{ display: "inline-flex", alignItems: "baseline", overflow: "hidden", color: C.text, fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 14, letterSpacing: "0.06em", whiteSpace: "nowrap" }}>
             <span style={{ background: C.gradientPrimary, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
-              SEAL Hackathon
+              SEAL
+            </span>
+            <span
+              style={{
+                display: "inline-block",
+                overflow: "hidden",
+                maxWidth: scrolled ? 0 : 220,
+                opacity: scrolled ? 0 : 1,
+                marginLeft: scrolled ? 0 : "0.4em",
+                transform: scrolled ? "translateX(-16px)" : "translateX(0)",
+                background: C.gradientPrimary,
+                WebkitBackgroundClip: "text",
+                WebkitTextFillColor: "transparent",
+                backgroundClip: "text",
+                transition: "max-width 0.55s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease, margin-left 0.55s cubic-bezier(0.4, 0, 0.2, 1), transform 0.55s cubic-bezier(0.4, 0, 0.2, 1)",
+              }}
+            >
+              Hackathon
             </span>
           </span>
         </div>
