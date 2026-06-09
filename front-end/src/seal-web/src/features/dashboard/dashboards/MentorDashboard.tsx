@@ -57,7 +57,7 @@ export function MentorDashboard() {
               }}>
                 <div>
                   <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 600 }}>
-                    {track.track_name}
+                    {track.name}
                   </div>
                   <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginTop: 2 }}>
                     {track.description}

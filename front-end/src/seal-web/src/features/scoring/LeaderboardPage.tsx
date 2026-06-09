@@ -13,7 +13,7 @@ export function LeaderboardPage() {
 
   const roundRankings = rankings
     .filter(r => r.round_id === selectedRoundId)
-    .sort((a, b) => a.position - b.position);
+    .sort((a, b) => a.rank_position - b.rank_position);
 
   const filtered = roundRankings.filter(r => {
     if (!selectedTrackId) return true;
@@ -37,14 +37,14 @@ export function LeaderboardPage() {
           <div>
             <label style={{ color: C.greenMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase" }}>Round</label>
             <select value={selectedRoundId} onChange={(e) => setSelectedRoundId(Number(e.target.value))} style={selectStyle}>
-              {rounds.map(r => <option key={r.round_id} value={r.round_id}>{r.round_name}</option>)}
+              {rounds.map(r => <option key={r.round_id} value={r.round_id}>{r.name}</option>)}
             </select>
           </div>
           <div>
             <label style={{ color: C.greenMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase" }}>Track</label>
             <select value={selectedTrackId} onChange={(e) => setSelectedTrackId(Number(e.target.value))} style={selectStyle}>
               <option value={0}>All Tracks</option>
-              {tracks.map(t => <option key={t.track_id} value={t.track_id}>{t.track_name}</option>)}
+              {tracks.map(t => <option key={t.track_id} value={t.track_id}>{t.name}</option>)}
             </select>
           </div>
         </div>
@@ -72,22 +72,22 @@ export function LeaderboardPage() {
                   const team = teams.find(t => t.team_id === r.team_id);
                   const track = team ? tracks.find(tr => tr.track_id === team.track_id) : null;
                   const isMyTeam = currentUser?.team_id === r.team_id;
-                  const status = team?.status === 'ELIMINATED' ? 'Eliminated' : r.is_advanced ? 'Advanced' : 'In Progress';
+                  const status = team?.status === 'DISQUALIFIED' ? 'Disqualified' : r.advanced ? 'Advanced' : 'In Progress';
                   return (
-                    <tr key={r.ranking_id} style={{
+                    <tr key={r.result_id} style={{
                       borderBottom: `1px solid rgba(34,197,94,0.06)`,
                       background: isMyTeam ? "rgba(34,197,94,0.12)" : i % 2 === 0 ? C.surface : C.surface2,
                       boxShadow: isMyTeam ? `inset 3px 0 0 ${C.green}` : "none",
                     }}>
-                      <td style={{ color: C.cyan, fontSize: 16, fontWeight: 700, padding: "14px 16px" }}>#{r.position}</td>
+                      <td style={{ color: C.cyan, fontSize: 16, fontWeight: 700, padding: "14px 16px" }}>#{r.rank_position}</td>
                       <td style={{ color: C.text, fontSize: 13, padding: "14px 16px", fontWeight: 600 }}>
-                        {team?.team_name}
+                        {team?.name}
                         {isMyTeam && <span style={{ marginLeft: 8 }}><PixelBadge color="green">YOU</PixelBadge></span>}
                       </td>
-                      <td style={{ color: C.textMuted, fontSize: 12, padding: "14px 16px" }}>{track?.track_name}</td>
+                      <td style={{ color: C.textMuted, fontSize: 12, padding: "14px 16px" }}>{track?.name}</td>
                       <td style={{ color: C.green, fontSize: 14, fontWeight: 700, padding: "14px 16px" }}>{r.total_score.toFixed(1)}</td>
                       <td style={{ padding: "14px 16px" }}>
-                        <PixelBadge color={status === 'Advanced' ? 'green' : status === 'Eliminated' ? 'red' : 'yellow'}>
+                        <PixelBadge color={status === 'Advanced' ? 'green' : status === 'Disqualified' ? 'red' : 'yellow'}>
                           {status}
                         </PixelBadge>
                       </td>

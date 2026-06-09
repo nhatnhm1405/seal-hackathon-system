@@ -1,4 +1,4 @@
-﻿import { useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 import {
   C, GradientText, PixelCard, PixelInput,
 } from "@/shared/components/PixelComponents";
@@ -19,7 +19,7 @@ export function CoordAuditPage() {
       .filter(log => {
         if (fromDate && new Date(log.created_at) < new Date(fromDate)) return false;
         if (toDate && new Date(log.created_at) > new Date(toDate + "T23:59:59")) return false;
-        if (actionFilter && !log.action_type.toLowerCase().includes(actionFilter.toLowerCase())) return false;
+        if (actionFilter && !log.action.toLowerCase().includes(actionFilter.toLowerCase())) return false;
         return true;
       });
   }, [fromDate, toDate, actionFilter]);
@@ -55,14 +55,14 @@ export function CoordAuditPage() {
                 <tr><td colSpan={6} style={{ padding: 20, color: C.textMuted, fontSize: 12, textAlign: "center" }}>No logs match the filters</td></tr>
               )}
               {filtered.map((log, i) => {
-                const actor = users.find(u => u.user_id === log.performed_by);
+                const actor = users.find(u => u.user_id === log.actor_user_id);
                 return (
                   <tr key={log.log_id} style={{ borderBottom: `1px solid rgba(34,197,94,0.06)`, background: i % 2 === 0 ? C.surface : C.surface2 }}>
                     <td style={{ color: C.textMuted, fontSize: 11, padding: "12px 14px" }}>{fmtDateTime(log.created_at)}</td>
                     <td style={{ color: C.text, fontSize: 12, padding: "12px 14px" }}>{actor?.full_name ?? "System"}</td>
-                    <td style={{ color: C.cyan, fontSize: 11, padding: "12px 14px" }}>{log.action_type}</td>
-                    <td style={{ color: C.textMuted, fontSize: 11, padding: "12px 14px" }}>{log.entity_type}</td>
-                    <td style={{ color: C.textMuted, fontSize: 11, padding: "12px 14px" }}>{log.entity_id ?? "—"}</td>
+                    <td style={{ color: C.cyan, fontSize: 11, padding: "12px 14px" }}>{log.action}</td>
+                    <td style={{ color: C.textMuted, fontSize: 11, padding: "12px 14px" }}>{log.target_type}</td>
+                    <td style={{ color: C.textMuted, fontSize: 11, padding: "12px 14px" }}>{log.target_id ?? "—"}</td>
                     <td style={{ color: C.text, fontSize: 12, padding: "12px 14px" }}>{log.details}</td>
                   </tr>
                 );

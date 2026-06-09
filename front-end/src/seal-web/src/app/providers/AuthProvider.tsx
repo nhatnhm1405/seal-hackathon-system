@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import {
   users, teamMembers, events, tracks, rounds,
-  judgeAssignments, mentorAssignments, teams,
+  userEventRoles, teams,
   HackathonEvent,
 } from "@/shared/mocks/mockData";
 import { apiFetch, getToken, setToken, clearToken, ApiError } from "@/shared/apiClient";
@@ -157,15 +157,25 @@ function buildAuthUser(userId: number): AuthUser | null {
         return eventIdOf(b) - eventIdOf(a);
       })[0]
     : userMemberships[0];
+  let role: AuthUser['role'] = 'PARTICIPANT';
+  if (user.user_type === 'STAFF') {
+    const eventRole = userEventRoles.find(r => r.user_id === userId);
+    if (eventRole?.role_name === 'EVENT_COORDINATOR') role = 'COORDINATOR';
+    else if (eventRole?.role_name === 'JUDGE')        role = 'JUDGE';
+    else if (eventRole?.role_name === 'MENTOR')       role = 'MENTOR';
+  }
+
   return {
     user_id:      user.user_id,
     full_name:    user.full_name,
     email:        user.email,
-    role:         user.role,
-    student_type: user.student_type,
+    role,
+    student_type: user.user_type === 'FPT_STUDENT'     ? 'FPT'
+                : user.user_type === 'EXTERNAL_STUDENT' ? 'EXTERNAL'
+                : null,
     student_id:   user.student_id,
     university:   user.university_name,
-    is_leader:    membership?.is_leader ?? false,
+    is_leader:    membership?.member_role === 'LEADER',
     team_id:      membership ? membership.team_id : null,
   };
 }
@@ -178,17 +188,17 @@ function deriveDefaultEvent(userId: number, role: string, teamId: number | null)
     return track ? (events.find(e => e.event_id === track.event_id) ?? null) : null;
   }
   if (role === 'MENTOR') {
-    const assigned = mentorAssignments.filter(m => m.mentor_id === userId);
-    const eventIds = new Set(tracks.filter(t => assigned.some(a => a.track_id === t.track_id)).map(t => t.event_id));
+    const assigned = userEventRoles.filter(r => r.user_id === userId && r.role_name === 'MENTOR');
+    const eventIds = new Set(assigned.map(r => r.event_id).filter((id): id is number => id !== null));
     return events.find(e => eventIds.has(e.event_id)) ?? null;
   }
   if (role === 'JUDGE') {
-    const assigned = judgeAssignments.filter(j => j.judge_id === userId);
-    const eventIds = new Set(rounds.filter(r => assigned.some(a => a.round_id === r.round_id)).map(r => r.event_id));
+    const assigned = userEventRoles.filter(r => r.user_id === userId && r.role_name === 'JUDGE');
+    const eventIds = new Set(assigned.map(r => r.event_id).filter((id): id is number => id !== null));
     return events.find(e => eventIds.has(e.event_id)) ?? null;
   }
   if (role === 'COORDINATOR') {
-    return events.find(e => e.status === 'OPEN') ?? events[events.length - 1] ?? null;
+    return events.find(e => e.status === 'IN_PROGRESS' || e.status === 'OPEN') ?? events[events.length - 1] ?? null;
   }
   return null;
 }
@@ -315,10 +325,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   function switchUser(userId: number) {
     const authUser = buildAuthUser(userId);
     if (!authUser) return;
-    const user = users.find(u => u.user_id === userId);
-    if (!user) return;
     setCurrentUser(authUser);
-    setCurrentEvent(deriveDefaultEvent(userId, user.role, authUser.team_id));
+    setCurrentEvent(deriveDefaultEvent(userId, authUser.role, authUser.team_id));
   }
 
   function updateLeaderStatus(isLeader: boolean) {
