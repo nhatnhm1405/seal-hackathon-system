@@ -34,6 +34,7 @@ interface ApiTeam {
   name?: string; teamName?: string; team_name?: string;
   description?: string | null;
   status?: string;
+  disqualifiedReason?: string | null; disqualified_reason?: string | null;
   members?: ApiTeamMember[];
 }
 
@@ -62,6 +63,7 @@ interface TeamRow {
   name: string;
   description: string | null;
   status: string;
+  disqualifiedReason: string | null;
   members: MemberRow[];
 }
 
@@ -99,6 +101,7 @@ function normalizeTeam(item: ApiTeam): TeamRow {
     name: item.name ?? item.teamName ?? item.team_name ?? '',
     description: item.description ?? null,
     status: (item.status ?? 'PENDING').toUpperCase(),
+    disqualifiedReason: item.disqualifiedReason ?? item.disqualified_reason ?? null,
     members: (item.members ?? []).map(normalizeMember),
   };
 }
@@ -109,6 +112,140 @@ function statusBadge(status: string) {
   if (status === 'REJECTED') return <PixelBadge color="red">REJECTED</PixelBadge>;
   if (status === 'DISQUALIFIED') return <PixelBadge color="red">DISQUALIFIED</PixelBadge>;
   return <PixelBadge color="gray">{status}</PixelBadge>;
+}
+
+// ── Approve / Reject / Disqualify confirmation modal ──────────────────
+type TeamActionType = 'approve' | 'reject' | 'disqualify';
+
+interface TeamActionConfig {
+  accent: string;
+  buttonVariant: "primary" | "secondary" | "ghost" | "danger" | "cyber";
+  title: string;
+  message: React.ReactNode;
+  confirmLabel: string;
+  // reject/disqualify capture a reason; disqualify persists it to the
+  // Team.disqualified_reason column.
+  reasonLabel?: string;
+  reasonRequired?: boolean;
+}
+
+function getTeamActionConfig(type: TeamActionType, team: TeamRow): TeamActionConfig {
+  const name = <span style={{ color: C.text, fontWeight: 700 }}>"{team.name}"</span>;
+  switch (type) {
+    case 'approve':
+      return {
+        accent: "#22c55e",
+        buttonVariant: "cyber",
+        title: "Approve this team?",
+        message: <>You are about to approve {name}. The team will be able to participate and make submissions.</>,
+        confirmLabel: "APPROVE TEAM",
+      };
+    case 'reject':
+      return {
+        accent: "#ef4444",
+        buttonVariant: "danger",
+        title: "Reject this team?",
+        message: <>You are about to reject {name}. The team will not be able to participate in the event.</>,
+        confirmLabel: "REJECT TEAM",
+        reasonLabel: "Reason",
+        reasonRequired: true,
+      };
+    case 'disqualify':
+      return {
+        accent: "#ef4444",
+        buttonVariant: "danger",
+        title: "Disqualify this team?",
+        message: <>You are about to disqualify {name}. They will be removed from the competition. This reason is logged against the team.</>,
+        confirmLabel: "DISQUALIFY TEAM",
+        reasonLabel: "Disqualification reason",
+        reasonRequired: true,
+      };
+  }
+}
+
+function TeamActionModal({
+  team,
+  type,
+  reason,
+  onReasonChange,
+  onConfirm,
+  onCancel,
+  busy,
+  error,
+}: {
+  team: TeamRow;
+  type: TeamActionType;
+  reason: string;
+  onReasonChange: (value: string) => void;
+  onConfirm: () => void;
+  onCancel: () => void;
+  busy: boolean;
+  error: string | null;
+}) {
+  const { accent, buttonVariant, title, message, confirmLabel, reasonLabel, reasonRequired } = getTeamActionConfig(type, team);
+  const disabled = busy || (reasonRequired ? reason.trim().length === 0 : false);
+
+  return (
+    <>
+      <div
+        onClick={onCancel}
+        style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", zIndex: 400, backdropFilter: "blur(2px)" }}
+      />
+      <div style={{
+        position: "fixed",
+        top: "50%", left: "50%",
+        transform: "translate(-50%, -50%)",
+        zIndex: 401,
+        width: "min(460px, calc(100vw - 32px))",
+        background: C.surface,
+        border: `1px solid ${accent}66`,
+        boxShadow: `0 0 40px ${accent}22, 0 16px 48px rgba(0,0,0,0.4)`,
+        padding: 32,
+      }}>
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${accent}, transparent)` }} />
+
+        <div style={{ color: accent, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", marginBottom: 12 }}>
+          // confirm_{type}
+        </div>
+        <h2 style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 20, fontWeight: 800, color: C.text, marginBottom: 12, lineHeight: 1.2 }}>
+          {title}
+        </h2>
+        <p style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, lineHeight: 1.8, marginBottom: reasonLabel ? 16 : 24 }}>
+          {message}
+        </p>
+
+        {reasonLabel && (
+          <div style={{ marginBottom: 20 }}>
+            <label style={{ display: "block", color: C.greenMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>
+              {reasonLabel}{reasonRequired ? " *" : " (optional)"}
+            </label>
+            <textarea
+              value={reason}
+              onChange={(e) => onReasonChange(e.target.value)}
+              placeholder="Explain the reason…"
+              rows={3}
+              style={{ width: "100%", boxSizing: "border-box", padding: "10px 12px", background: C.surface2, border: `1px solid ${C.border}`, color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, outline: "none", borderRadius: 0, resize: "vertical" }}
+            />
+          </div>
+        )}
+
+        {error && (
+          <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.35)", color: C.red, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, padding: "8px 12px", marginBottom: 16 }}>
+            ERROR: {error}
+          </div>
+        )}
+
+        <div style={{ display: "flex", gap: 10 }}>
+          <PixelButton variant={buttonVariant} disabled={disabled} onClick={onConfirm}>
+            {busy ? "WORKING…" : confirmLabel}
+          </PixelButton>
+          <PixelButton variant="secondary" disabled={busy} onClick={onCancel}>
+            CANCEL
+          </PixelButton>
+        </div>
+      </div>
+    </>
+  );
 }
 
 export function CoordTeamsPage() {
@@ -127,7 +264,9 @@ export function CoordTeamsPage() {
   const [expandedTeamId, setExpandedTeamId] = useState<number | null>(null);
 
   const [actionError, setActionError] = useState<string | null>(null);
-  const [pendingAction, setPendingAction] = useState<number | null>(null);
+  const [confirmTarget, setConfirmTarget] = useState<{ type: TeamActionType; team: TeamRow } | null>(null);
+  const [reasonInput, setReasonInput] = useState("");
+  const [actionBusy, setActionBusy] = useState(false);
 
   // Load every event (any status) so the coordinator can browse teams
   // across all of them, not just the currently-active one.
@@ -190,40 +329,43 @@ export function CoordTeamsPage() {
     return true;
   });
 
-  async function runAction(
-    teamId: number,
-    request: () => Promise<unknown>,
-    nextStatus: string,
-  ) {
+  function requestAction(type: TeamActionType, team: TeamRow) {
     setActionError(null);
-    setPendingAction(teamId);
+    setReasonInput("");
+    setConfirmTarget({ type, team });
+  }
+
+  function closeConfirm() {
+    setConfirmTarget(null);
+    setReasonInput("");
+    setActionError(null);
+  }
+
+  async function handleConfirmAction() {
+    if (!confirmTarget) return;
+    const { type, team } = confirmTarget;
+    const id = team.teamId;
+    const reason = reasonInput.trim();
+    setActionError(null);
+    setActionBusy(true);
     try {
-      await request();
-      setTeams(prev => prev.map(t => t.teamId === teamId ? { ...t, status: nextStatus } : t));
+      if (type === 'approve') {
+        await apiFetch(`/api/teams/${id}/approve`, { method: 'PUT' });
+        setTeams(prev => prev.map(t => t.teamId === id ? { ...t, status: 'APPROVED' } : t));
+      } else if (type === 'reject') {
+        await apiFetch(`/api/teams/${id}/reject`, { method: 'PUT', body: JSON.stringify({ reason }) });
+        setTeams(prev => prev.map(t => t.teamId === id ? { ...t, status: 'REJECTED' } : t));
+      } else {
+        // Persisted to Team.disqualified_reason on the backend.
+        await apiFetch(`/api/teams/${id}/disqualify`, { method: 'PUT', body: JSON.stringify({ reason }) });
+        setTeams(prev => prev.map(t => t.teamId === id ? { ...t, status: 'DISQUALIFIED', disqualifiedReason: reason } : t));
+      }
+      closeConfirm();
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Action failed.");
     } finally {
-      setPendingAction(null);
+      setActionBusy(false);
     }
-  }
-
-  function approve(id: number) {
-    runAction(id, () => apiFetch(`/api/teams/${id}/approve`, { method: 'PUT' }), 'APPROVED');
-  }
-
-  function reject(id: number) {
-    const reason = window.prompt("Reason for rejection?")?.trim() ?? "";
-    if (!reason) return;
-    runAction(
-      id,
-      () => apiFetch(`/api/teams/${id}/reject`, { method: 'PUT', body: JSON.stringify({ reason }) }),
-      'REJECTED',
-    );
-  }
-
-  function disqualify(id: number) {
-    if (!window.confirm("Disqualify this team? This removes them from the competition.")) return;
-    runAction(id, () => apiFetch(`/api/teams/${id}/disqualify`, { method: 'PUT' }), 'DISQUALIFIED');
   }
 
   return (
@@ -234,9 +376,9 @@ export function CoordTeamsPage() {
         </h1>
       </div>
 
-      {(eventsError || actionError) && (
+      {eventsError && (
         <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.35)", color: C.red, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, padding: "10px 14px" }}>
-          ERROR: {eventsError ?? actionError}
+          ERROR: {eventsError}
         </div>
       )}
 
@@ -290,7 +432,6 @@ export function CoordTeamsPage() {
               {!teamsLoading && filtered.map((t, i) => {
                 const leader = t.members.find(m => m.role === 'LEADER');
                 const expanded = expandedTeamId === t.teamId;
-                const busy = pendingAction === t.teamId;
                 return (
                   <React.Fragment key={t.teamId}>
                     <tr onClick={() => setExpandedTeamId(expanded ? null : t.teamId)}
@@ -303,12 +444,12 @@ export function CoordTeamsPage() {
                       <td style={{ padding: "12px 14px" }} onClick={(e) => e.stopPropagation()}>
                         {t.status === 'PENDING' && (
                           <div style={{ display: "flex", gap: 6 }}>
-                            <PixelButton size="sm" variant="cyber" disabled={busy} onClick={() => approve(t.teamId)}>APPROVE</PixelButton>
-                            <PixelButton size="sm" variant="danger" disabled={busy} onClick={() => reject(t.teamId)}>REJECT</PixelButton>
+                            <PixelButton size="sm" variant="cyber" onClick={() => requestAction('approve', t)}>APPROVE</PixelButton>
+                            <PixelButton size="sm" variant="danger" onClick={() => requestAction('reject', t)}>REJECT</PixelButton>
                           </div>
                         )}
                         {t.status === 'APPROVED' && (
-                          <PixelButton size="sm" variant="danger" disabled={busy} onClick={() => disqualify(t.teamId)}>DISQUALIFY</PixelButton>
+                          <PixelButton size="sm" variant="danger" onClick={() => requestAction('disqualify', t)}>DISQUALIFY</PixelButton>
                         )}
                       </td>
                     </tr>
@@ -342,6 +483,11 @@ export function CoordTeamsPage() {
                                   {t.description}
                                 </div>
                               )}
+                              {t.status === 'DISQUALIFIED' && t.disqualifiedReason && (
+                                <div style={{ color: C.red, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, padding: "4px 0", lineHeight: 1.6 }}>
+                                  Disqualified: {t.disqualifiedReason}
+                                </div>
+                              )}
                             </div>
                           </div>
                         </td>
@@ -354,6 +500,19 @@ export function CoordTeamsPage() {
           </table>
         </div>
       </PixelCard>
+
+      {confirmTarget && (
+        <TeamActionModal
+          team={confirmTarget.team}
+          type={confirmTarget.type}
+          reason={reasonInput}
+          onReasonChange={setReasonInput}
+          onConfirm={handleConfirmAction}
+          onCancel={closeConfirm}
+          busy={actionBusy}
+          error={actionError}
+        />
+      )}
     </div>
   );
 }
