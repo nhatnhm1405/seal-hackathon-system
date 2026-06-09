@@ -149,8 +149,8 @@ export function ProfilePage() {
             <Field label="University" value={currentUser.university ?? "—"} />
             {team && (
               <>
-                <Field label="Team" value={team.team_name} />
-                <Field label="Track" value={track?.track_name ?? "—"} />
+                <Field label="Team" value={team.name} />
+                <Field label="Track" value={track?.name ?? "—"} />
               </>
             )}
           </div>

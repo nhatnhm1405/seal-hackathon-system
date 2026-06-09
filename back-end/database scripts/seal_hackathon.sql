@@ -245,7 +245,6 @@ CREATE TABLE Score (
   comment       TEXT,
   is_draft      BOOLEAN       NOT NULL DEFAULT TRUE,
   scored_at     DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  scored_at     DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at    DATETIME               ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (score_id),
   UNIQUE KEY uq_score (submission_id, judge_user_id, criteria_id),
@@ -291,6 +290,42 @@ CREATE TABLE Prize (
   CONSTRAINT fk_prize_event FOREIGN KEY (event_id) REFERENCES HackathonEvent (event_id),
   CONSTRAINT fk_prize_track FOREIGN KEY (track_id) REFERENCES Track (track_id),
   CONSTRAINT fk_prize_team  FOREIGN KEY (team_id)  REFERENCES Team (team_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- =====================================================
+-- ACCOUNT APPROVAL & TEAM INVITES
+-- =====================================================
+
+CREATE TABLE AccountApproval (
+  approval_id  INT          NOT NULL AUTO_INCREMENT,
+  user_id      INT          NOT NULL,
+  reviewed_by  INT                   COMMENT 'Coordinator who approved/rejected',
+  status       VARCHAR(20)  NOT NULL DEFAULT 'PENDING' COMMENT 'PENDING, APPROVED, REJECTED',
+  note         TEXT,
+  created_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  reviewed_at  DATETIME,
+  PRIMARY KEY (approval_id),
+  KEY idx_approval_user   (user_id),
+  KEY idx_approval_status (status),
+  CONSTRAINT fk_approval_user     FOREIGN KEY (user_id)     REFERENCES `User` (user_id),
+  CONSTRAINT fk_approval_reviewer FOREIGN KEY (reviewed_by) REFERENCES `User` (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE TeamInvite (
+  invite_id        INT          NOT NULL AUTO_INCREMENT,
+  team_id          INT          NOT NULL,
+  invited_user_id  INT          NOT NULL,
+  invited_by       INT          NOT NULL,
+  message          TEXT,
+  status           VARCHAR(20)  NOT NULL DEFAULT 'PENDING' COMMENT 'PENDING, ACCEPTED, DECLINED',
+  created_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  responded_at     DATETIME,
+  PRIMARY KEY (invite_id),
+  UNIQUE KEY uq_invite_team_user (team_id, invited_user_id),
+  KEY idx_invite_user (invited_user_id),
+  CONSTRAINT fk_invite_team    FOREIGN KEY (team_id)         REFERENCES Team (team_id),
+  CONSTRAINT fk_invite_invitee FOREIGN KEY (invited_user_id) REFERENCES `User` (user_id),
+  CONSTRAINT fk_invite_inviter FOREIGN KEY (invited_by)      REFERENCES `User` (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- =====================================================
