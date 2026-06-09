@@ -20,6 +20,7 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [showInactiveModal, setShowInactiveModal] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -32,6 +33,8 @@ export function LoginPage() {
         navigate(result === 'ok:select-role' ? '/select-role' : '/dashboard');
       } else if (result === 'pending_approval') {
         navigate('/pending-approval');
+      } else if (result === 'inactive') {
+        setShowInactiveModal(true);
       } else {
         setError("Invalid credentials. Please verify your email and password.");
       }
@@ -42,6 +45,101 @@ export function LoginPage() {
 
   return (
     <div style={{ background: C.bg, display: "flex", flexDirection: "column", minHeight: "100vh" }}>
+
+    {/* Inactive account modal */}
+    {showInactiveModal && (
+      <div
+        style={{
+          position: "fixed", inset: 0, zIndex: 9999,
+          background: "rgba(0,0,0,0.75)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          padding: 24,
+        }}
+        onClick={() => setShowInactiveModal(false)}
+      >
+        <div
+          style={{
+            background: "var(--c-surface)",
+            border: `1px solid rgba(239,68,68,0.5)`,
+            maxWidth: 420, width: "100%",
+            padding: 32,
+            position: "relative",
+            boxShadow: "0 0 32px rgba(239,68,68,0.15)",
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Close button */}
+          <button
+            onClick={() => setShowInactiveModal(false)}
+            style={{
+              position: "absolute", top: 12, right: 12,
+              background: "none", border: "none", cursor: "pointer",
+              color: C.textMuted, fontSize: 18, lineHeight: 1,
+              fontFamily: "'JetBrains Mono', monospace",
+            }}
+          >
+            ✕
+          </button>
+
+          {/* Icon */}
+          <div style={{ marginBottom: 16, textAlign: "center" }}>
+            <div style={{
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
+              width: 52, height: 52,
+              border: `1px solid rgba(239,68,68,0.4)`,
+              background: "rgba(239,68,68,0.08)",
+              marginBottom: 16,
+            }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="10" stroke="#ef4444" strokeWidth="1.5"/>
+                <line x1="8" y1="8" x2="16" y2="16" stroke="#ef4444" strokeWidth="1.5" strokeLinecap="square"/>
+                <line x1="16" y1="8" x2="8" y2="16" stroke="#ef4444" strokeWidth="1.5" strokeLinecap="square"/>
+              </svg>
+            </div>
+          </div>
+
+          <h2 style={{
+            fontFamily: "'JetBrains Mono', monospace", fontWeight: 900,
+            fontSize: 20, color: C.red, textAlign: "center",
+            marginBottom: 12, letterSpacing: "0.06em",
+          }}>
+            ACCOUNT INACTIVE
+          </h2>
+
+          <div style={{
+            background: "rgba(239,68,68,0.06)",
+            border: "1px solid rgba(239,68,68,0.25)",
+            padding: "12px 16px",
+            marginBottom: 20,
+          }}>
+            <p style={{
+              color: C.red, fontFamily: "'JetBrains Mono', monospace",
+              fontSize: 11, letterSpacing: "0.06em", textAlign: "center",
+              textTransform: "uppercase",
+            }}>
+              Access Denied — Account Deactivated
+            </p>
+          </div>
+
+          <p style={{
+            color: C.text, fontFamily: "'JetBrains Mono', monospace",
+            fontSize: 13, lineHeight: 1.8, marginBottom: 8, textAlign: "center",
+          }}>
+            Your account has been deactivated by a coordinator.
+          </p>
+          <p style={{
+            color: C.textMuted, fontFamily: "'JetBrains Mono', monospace",
+            fontSize: 12, lineHeight: 1.7, marginBottom: 24, textAlign: "center",
+          }}>
+            Please contact the hackathon organizers for assistance.
+          </p>
+
+          <PixelButton variant="cyber" size="md" fullWidth onClick={() => setShowInactiveModal(false)}>
+            CLOSE
+          </PixelButton>
+        </div>
+      </div>
+    )}
     <div style={{ flex: 1, position: "relative", overflow: "hidden" }} className="cyber-grid-bg">
       <FloatingParticles count={30} />
       {/* Ambient blobs */}

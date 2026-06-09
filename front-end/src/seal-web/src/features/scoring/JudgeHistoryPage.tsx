@@ -1,4 +1,4 @@
-﻿import { useAuth } from "@/app/providers/AuthProvider";
+import { useAuth } from "@/app/providers/AuthProvider";
 import {
   C, GradientText, PixelCard, PixelBadge,
 } from "@/shared/components/PixelComponents";
@@ -16,7 +16,7 @@ export function JudgeHistoryPage() {
 
   // Group scores by submission for this judge
   const mySubScores = new Map<number, typeof scores>();
-  scores.filter(s => s.judge_id === currentUser.user_id).forEach(s => {
+  scores.filter(s => s.judge_user_id === currentUser.user_id).forEach(s => {
     const arr = mySubScores.get(s.submission_id) ?? [];
     arr.push(s);
     mySubScores.set(s.submission_id, arr);
@@ -33,7 +33,7 @@ export function JudgeHistoryPage() {
     sScores.forEach(sc => {
       const crit = criteria.find(c => c.criteria_id === sc.criteria_id);
       if (crit) {
-        weightedSum += sc.score_value * crit.weight;
+        weightedSum += sc.value * crit.weight;
         totalWeight += crit.weight;
       }
     });
@@ -74,9 +74,9 @@ export function JudgeHistoryPage() {
               )}
               {rows.map((r, i) => (
                 <tr key={r.subId} style={{ borderBottom: `1px solid rgba(34,197,94,0.06)`, background: i % 2 === 0 ? C.surface : C.surface2 }}>
-                  <td style={{ color: C.text, fontSize: 13, padding: "12px 16px" }}>{r.team?.team_name}</td>
-                  <td style={{ color: C.textMuted, fontSize: 12, padding: "12px 16px" }}>{r.round?.round_name}</td>
-                  <td style={{ color: C.textMuted, fontSize: 12, padding: "12px 16px" }}>{r.event?.event_name}</td>
+                  <td style={{ color: C.text, fontSize: 13, padding: "12px 16px" }}>{r.team?.name}</td>
+                  <td style={{ color: C.textMuted, fontSize: 12, padding: "12px 16px" }}>{r.round?.name}</td>
+                  <td style={{ color: C.textMuted, fontSize: 12, padding: "12px 16px" }}>{r.event?.name}</td>
                   <td style={{ color: C.cyan, fontSize: 14, fontWeight: 700, padding: "12px 16px" }}>{r.totalScore.toFixed(1)}</td>
                   <td style={{ color: C.textMuted, fontSize: 11, padding: "12px 16px" }}>{r.scoredAt ? fmtDateTime(r.scoredAt) : "—"}</td>
                   <td style={{ padding: "12px 16px" }}>

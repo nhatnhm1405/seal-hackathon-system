@@ -3,15 +3,15 @@ import { useAuth } from "@/app/providers/AuthProvider";
 import {
   C, GradientText, PixelCard, PixelButton, PixelBadge, CyberStatCard,
 } from "@/shared/components/PixelComponents";
-import { mentorAssignments, tracks, teams } from "@/shared/mocks/mockData";
+import { userEventRoles, tracks, teams } from "@/shared/mocks/mockData";
 
 export function MentorDashboard() {
   const navigate = useNavigate();
   const { currentUser, currentEvent } = useAuth();
   if (!currentUser) return null;
 
-  const myAssignments = mentorAssignments.filter(m => m.mentor_id === currentUser.user_id);
-  const myTrackIds = myAssignments.map(m => m.track_id);
+  const myAssignments = userEventRoles.filter(r => r.user_id === currentUser.user_id && r.role_name === 'MENTOR');
+  const myTrackIds = myAssignments.map(a => a.track_id).filter((id): id is number => id !== null);
   const allMyTracks = tracks.filter(t => myTrackIds.includes(t.track_id));
   const myTracks = currentEvent
     ? allMyTracks.filter(t => t.event_id === currentEvent.event_id)
@@ -57,7 +57,7 @@ export function MentorDashboard() {
               }}>
                 <div>
                   <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 600 }}>
-                    {track.track_name}
+                    {track.name}
                   </div>
                   <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginTop: 2 }}>
                     {track.description}

@@ -1,20 +1,20 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import {
   C, GradientText, PixelCard, PixelButton, PixelBadge,
 } from "@/shared/components/PixelComponents";
 import {
-  rounds, submissions, teams, judgeAssignments, scores, rankings as initialRankings, criteria, Ranking,
+  rounds, submissions, teams, userEventRoles, scores, rankings as initialRankings, criteria, RoundResult,
 } from "@/shared/mocks/mockData";
 
 export function CoordScoringPage() {
   const [selectedRoundId, setSelectedRoundId] = useState<number>(rounds[0]?.round_id ?? 0);
-  const [rankings, setRankings] = useState<Ranking[]>(initialRankings);
+  const [rankings, setRankings] = useState<RoundResult[]>(initialRankings);
   const [showRankings, setShowRankings] = useState(false);
   const [published, setPublished] = useState(false);
 
   const selectedRound = rounds.find(r => r.round_id === selectedRoundId);
   const roundSubs = submissions.filter(s => s.round_id === selectedRoundId);
-  const roundJudges = judgeAssignments.filter(j => j.round_id === selectedRoundId);
+  const roundJudges = userEventRoles.filter(r => r.role_name === 'JUDGE' && r.round_id === selectedRoundId);
   const roundRankings = rankings.filter(r => r.round_id === selectedRoundId);
 
   function calculateRankings() {
@@ -23,7 +23,7 @@ export function CoordScoringPage() {
 
   function advanceTopN() {
     const n = selectedRound?.top_n_advance ?? 0;
-    setRankings(prev => prev.map(r => r.round_id === selectedRoundId ? { ...r, is_advanced: r.position <= n } : r));
+    setRankings(prev => prev.map(r => r.round_id === selectedRoundId ? { ...r, advanced: r.rank_position <= n } : r));
   }
 
   function publishResults() {
@@ -31,8 +31,8 @@ export function CoordScoringPage() {
   }
 
   function exportCsv() {
-    const header = "position,team_id,total_score,is_advanced";
-    const rows = roundRankings.map(r => `${r.position},${r.team_id},${r.total_score},${r.is_advanced}`);
+    const header = "rank_position,team_id,total_score,advanced";
+    const rows = roundRankings.map(r => `${r.rank_position},${r.team_id},${r.total_score},${r.advanced}`);
     const csv = [header, ...rows].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
@@ -65,8 +65,8 @@ export function CoordScoringPage() {
                 fontSize: 12, letterSpacing: "0.06em", textTransform: "uppercase",
                 cursor: "pointer", borderRadius: 0, display: "flex", alignItems: "center", gap: 8,
               }}>
-              {r.round_name}
-              <PixelBadge color={r.status === 'ACTIVE' ? 'green' : r.status === 'UPCOMING' ? 'yellow' : 'red'}>{r.status}</PixelBadge>
+              {r.name}
+              <PixelBadge color={r.status === 'ACTIVE' ? 'green' : r.status === 'PENDING' ? 'yellow' : 'red'}>{r.status}</PixelBadge>
             </button>
           );
         })}
@@ -94,7 +94,7 @@ export function CoordScoringPage() {
                 const allScored = subScores.length >= expectedScores && expectedScores > 0;
                 return (
                   <tr key={s.submission_id} style={{ borderBottom: `1px solid rgba(34,197,94,0.06)`, background: i % 2 === 0 ? C.surface : C.surface2 }}>
-                    <td style={{ color: C.text, fontSize: 13, padding: "12px 14px" }}>{team?.team_name}</td>
+                    <td style={{ color: C.text, fontSize: 13, padding: "12px 14px" }}>{team?.name}</td>
                     <td style={{ color: C.textMuted, fontSize: 12, padding: "12px 14px" }}>{roundJudges.length}</td>
                     <td style={{ color: C.textMuted, fontSize: 12, padding: "12px 14px" }}>{subScores.length}/{expectedScores}</td>
                     <td style={{ padding: "12px 14px" }}>
@@ -144,15 +144,15 @@ export function CoordScoringPage() {
                 </tr>
               </thead>
               <tbody>
-                {roundRankings.sort((a, b) => a.position - b.position).map((r, i) => {
+                {roundRankings.sort((a, b) => a.rank_position - b.rank_position).map((r, i) => {
                   const team = teams.find(t => t.team_id === r.team_id);
                   return (
-                    <tr key={r.ranking_id} style={{ borderBottom: `1px solid rgba(34,197,94,0.06)`, background: i % 2 === 0 ? C.surface : C.surface2 }}>
-                      <td style={{ color: C.cyan, fontSize: 14, fontWeight: 700, padding: "12px 14px" }}>#{r.position}</td>
-                      <td style={{ color: C.text, fontSize: 13, padding: "12px 14px" }}>{team?.team_name}</td>
+                    <tr key={r.result_id} style={{ borderBottom: `1px solid rgba(34,197,94,0.06)`, background: i % 2 === 0 ? C.surface : C.surface2 }}>
+                      <td style={{ color: C.cyan, fontSize: 14, fontWeight: 700, padding: "12px 14px" }}>#{r.rank_position}</td>
+                      <td style={{ color: C.text, fontSize: 13, padding: "12px 14px" }}>{team?.name}</td>
                       <td style={{ color: C.green, fontSize: 14, fontWeight: 700, padding: "12px 14px" }}>{r.total_score.toFixed(1)}</td>
                       <td style={{ padding: "12px 14px" }}>
-                        <PixelBadge color={r.is_advanced ? "green" : "gray"}>{r.is_advanced ? "ADVANCED" : "—"}</PixelBadge>
+                        <PixelBadge color={r.advanced ? "green" : "gray"}>{r.advanced ? "ADVANCED" : "—"}</PixelBadge>
                       </td>
                     </tr>
                   );

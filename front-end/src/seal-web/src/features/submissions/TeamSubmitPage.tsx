@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { useAuth } from "@/app/providers/AuthProvider";
 import {
   C, GradientText, PixelCard, PixelButton, PixelInput, PixelBadge, PixelTabs,
@@ -57,7 +57,7 @@ export function TeamSubmitPage() {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
                 <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 18, fontWeight: 700 }}>
-                  {activeRound.round_name}
+                  {activeRound.name}
                 </div>
                 <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, marginTop: 4 }}>
                   Deadline: {fmtDate(activeRound.submission_deadline)}
@@ -130,7 +130,7 @@ export function TeamSubmitPage() {
                   const round = rounds.find(r => r.round_id === s.round_id);
                   return (
                     <tr key={s.submission_id} style={{ borderBottom: `1px solid rgba(34,197,94,0.06)`, background: i % 2 === 0 ? C.surface : C.surface2 }}>
-                      <td style={{ color: C.text, fontSize: 13, padding: "12px 16px" }}>{round?.round_name}</td>
+                      <td style={{ color: C.text, fontSize: 13, padding: "12px 16px" }}>{round?.name}</td>
                       <td style={{ color: C.textMuted, fontSize: 12, padding: "12px 16px" }}>{fmtDate(s.submitted_at)}</td>
                       <td style={{ color: C.blueBright, fontSize: 11, padding: "12px 16px" }}>{s.repo_url}</td>
                       <td style={{ color: C.blueBright, fontSize: 11, padding: "12px 16px" }}>{s.demo_url}</td>

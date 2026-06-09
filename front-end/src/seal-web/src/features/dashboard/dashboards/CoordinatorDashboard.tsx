@@ -24,8 +24,8 @@ export function CoordinatorDashboard() {
   return (
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
       <PixelCard glow gradient style={{ padding: 24 }}>
-        <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", marginBottom: 6 }}>
-          // coordinator_console
+        <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.15em", marginBottom: 6 }}>
+          COORDINATOR CONSOLE
         </div>
         <h1 style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 26, fontWeight: 800, lineHeight: 1.2 }}>
           <GradientText>Good day, {currentUser.full_name}</GradientText>
@@ -45,8 +45,8 @@ export function CoordinatorDashboard() {
       {/* Pending items */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
         <PixelCard glow glowColor="purple" style={{ padding: 20 }}>
-          <div style={{ color: C.purple, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", marginBottom: 10 }}>
-            // pending_account_approvals
+          <div style={{ color: C.purple, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.15em", marginBottom: 10 }}>
+            PENDING ACCOUNT APPROVALS
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
             <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 22, fontWeight: 800 }}>
@@ -60,8 +60,8 @@ export function CoordinatorDashboard() {
         </PixelCard>
 
         <PixelCard glow glowColor="cyan" style={{ padding: 20 }}>
-          <div style={{ color: C.cyan, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", marginBottom: 10 }}>
-            // pending_team_approvals
+          <div style={{ color: C.cyan, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.15em", marginBottom: 10 }}>
+            PENDING TEAM APPROVALS
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
             <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 22, fontWeight: 800 }}>
@@ -70,7 +70,7 @@ export function CoordinatorDashboard() {
             <PixelBadge color="yellow">PENDING</PixelBadge>
           </div>
           <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginBottom: 12 }}>
-            {pendingTeams.map(t => t.team_name).join(", ") || "—"}
+            {pendingTeams.map(t => t.name).join(", ") || "—"}
           </div>
           <PixelButton variant="secondary" onClick={() => navigate('/coordinator/teams')}>
             REVIEW TEAMS
@@ -81,12 +81,12 @@ export function CoordinatorDashboard() {
       {/* Event overview */}
       {event && (
         <PixelCard style={{ padding: 20 }}>
-          <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", marginBottom: 12 }}>
-            // event_overview
+          <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.15em", marginBottom: 12 }}>
+            EVENT OVERVIEW
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
             <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 16, fontWeight: 700 }}>
-              {event.event_name}
+              {event.name}
             </div>
             <PixelBadge color={event.status === 'OPEN' ? 'green' : event.status === 'DRAFT' ? 'gray' : 'red'}>
               {event.status}

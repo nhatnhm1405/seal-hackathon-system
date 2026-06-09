@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { C } from "@/shared/components/PixelComponents";
+import { API_BASE_URL } from "@/shared/apiClient";
 
 function GoogleLogo() {
   return (
@@ -60,6 +61,14 @@ function SocialButton({ onClick, children, logo }: SocialButtonProps) {
 }
 
 export function SocialAuthButtons() {
+  function handleGoogle() {
+    window.location.href = `${API_BASE_URL}/oauth2/authorization/google`;
+  }
+
+  function handleGitHub() {
+    window.location.href = `${API_BASE_URL}/oauth2/authorization/github`;
+  }
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
       {/* Divider */}
@@ -73,10 +82,10 @@ export function SocialAuthButtons() {
 
       {/* Buttons */}
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <SocialButton logo={<GoogleLogo />}>
+        <SocialButton logo={<GoogleLogo />} onClick={handleGoogle}>
           Continue with Google
         </SocialButton>
-        <SocialButton logo={<GitHubLogo />}>
+        <SocialButton logo={<GitHubLogo />} onClick={handleGitHub}>
           Continue with GitHub
         </SocialButton>
       </div>

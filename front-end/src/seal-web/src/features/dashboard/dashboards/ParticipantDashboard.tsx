@@ -124,7 +124,7 @@ function EventDetailDrawer({
               fontFamily: "'JetBrains Mono', monospace", fontWeight: 900,
               fontSize: 28, lineHeight: 1.1, marginBottom: 8,
             }}>
-              <GradientText>{event.event_name}</GradientText>
+              <GradientText>{event.name}</GradientText>
             </h2>
             <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>
               {fmtShort(event.start_date)} — {fmtShort(event.end_date)}
@@ -158,7 +158,7 @@ function EventDetailDrawer({
                   >
                     <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${C.green}, transparent)`, opacity: 0.5 }} />
                     <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 700 }}>
-                      {tr.track_name}
+                      {tr.name}
                     </div>
                     <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, lineHeight: 1.5 }}>
                       {tr.description}
@@ -241,7 +241,7 @@ function EventDetailDrawer({
                       <div>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                           <span style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 700 }}>
-                            Round {r.round_order} — {r.round_name}
+                            Round {r.order_number} — {r.name}
                           </span>
                         </div>
                         <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 10 }}>
@@ -398,7 +398,7 @@ function CreateTeamScreen({
           >
             <option value="" style={{ background: C.surface2 }}>— Select an event —</option>
             {openEvents.map(ev => (
-              <option key={ev.event_id} value={ev.event_id} style={{ background: C.surface2 }}>{ev.event_name}</option>
+              <option key={ev.event_id} value={ev.event_id} style={{ background: C.surface2 }}>{ev.name}</option>
             ))}
           </select>
         </div>
@@ -421,7 +421,7 @@ function CreateTeamScreen({
           >
             <option value="" style={{ background: C.surface2 }}>— Select a track —</option>
             {eventTracks.map(tr => (
-              <option key={tr.track_id} value={tr.track_id} style={{ background: C.surface2 }}>{tr.track_name}</option>
+              <option key={tr.track_id} value={tr.track_id} style={{ background: C.surface2 }}>{tr.name}</option>
             ))}
           </select>
 
@@ -460,8 +460,8 @@ function CreateTeamScreen({
               TEAM SUMMARY
             </div>
             {[
-              { label: "Event",  value: selectedEvent.event_name },
-              { label: "Track",  value: selectedTrack.track_name },
+              { label: "Event",  value: selectedEvent.name },
+              { label: "Track",  value: selectedTrack.name },
               { label: "Role",   value: "Team Leader" },
             ].map(({ label, value }) => (
               <div key={label} style={{ display: "flex", gap: 12 }}>
@@ -771,10 +771,10 @@ function InvitationsDrawer({
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
                     <div>
                       <div style={{ color: C.text, fontFamily: mono, fontSize: 15, fontWeight: 700, marginBottom: 4 }}>
-                        {team?.team_name ?? "Unknown Team"}
+                        {team?.name ?? "Unknown Team"}
                       </div>
                       <div style={{ color: C.textMuted, fontFamily: mono, fontSize: 11 }}>
-                        {event?.event_name ?? "—"} · {track?.track_name ?? "—"}
+                        {event?.name ?? "—"} · {track?.name ?? "—"}
                       </div>
                     </div>
                     <div style={{
@@ -807,7 +807,7 @@ function InvitationsDrawer({
                       color: "#06b6d4",
                       fontFamily: mono, fontSize: 9, letterSpacing: "0.1em", padding: "2px 10px",
                     }}>
-                      {track?.track_name ?? "—"}
+                      {track?.name ?? "—"}
                     </span>
                   </div>
 
@@ -1052,7 +1052,7 @@ function NoTeamDashboard({
                 {/* Row 1: name + badge */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
                   <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 16, fontWeight: 700 }}>
-                    {ev.event_name}
+                    {ev.name}
                   </div>
                   <PixelBadge color="green">OPEN</PixelBadge>
                 </div>
@@ -1087,7 +1087,7 @@ function NoTeamDashboard({
                         padding: "3px 10px",
                       }}
                     >
-                      {t.track_name}
+                      {t.name}
                     </span>
                   ))}
                 </div>
@@ -1147,7 +1147,7 @@ export function ParticipantDashboard() {
     addToast({
       type: "success",
       title: "Invite Accepted!",
-      message: `You've joined team "${team?.team_name ?? "Unknown"}". The team leader has been notified.`,
+      message: `You've joined team "${team?.name ?? "Unknown"}". The team leader has been notified.`,
     });
   }
 
@@ -1157,7 +1157,7 @@ export function ParticipantDashboard() {
     addToast({
       type: "info",
       title: "Invite Declined",
-      message: `You declined the invitation from "${team?.team_name ?? "Unknown"}".`,
+      message: `You declined the invitation from "${team?.name ?? "Unknown"}".`,
     });
   }
 
@@ -1268,7 +1268,7 @@ function ExistingTeamDashboard({ is_leader, team_id }: { is_leader: boolean; tea
         </h1>
         <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 10 }}>
           <span style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>
-            {is_leader ? `Leading` : `Member of`} {team?.team_name ?? "—"}
+            {is_leader ? `Leading` : `Member of`} {team?.name ?? "—"}
           </span>
           {team && <PixelBadge color={team.status === 'APPROVED' ? 'green' : team.status === 'PENDING' ? 'yellow' : 'red'}>{team.status}</PixelBadge>}
           <PixelBadge color={is_leader ? 'cyan' : 'blue'}>{is_leader ? 'LEADER' : 'MEMBER'}</PixelBadge>
@@ -1295,10 +1295,10 @@ function ExistingTeamDashboard({ is_leader, team_id }: { is_leader: boolean; tea
             </div>
           )}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 16 }}>
-            <InfoRow label="Team"          value={team.team_name} />
-            <InfoRow label="Track"         value={track?.track_name ?? "—"} />
-            <InfoRow label="Event"         value={event?.event_name ?? "—"} />
-            <InfoRow label="Current Round" value={activeRound?.round_name ?? "—"} badge={activeRound?.status} />
+            <InfoRow label="Team"          value={team.name} />
+            <InfoRow label="Track"         value={track?.name ?? "—"} />
+            <InfoRow label="Event"         value={event?.name ?? "—"} />
+            <InfoRow label="Current Round" value={activeRound?.name ?? "—"} badge={activeRound?.status} />
           </div>
         </PixelCard>
       )}
@@ -1311,7 +1311,7 @@ function ExistingTeamDashboard({ is_leader, team_id }: { is_leader: boolean; tea
           sublabel={latestSub ? `at ${fmtDate(latestSub.submitted_at)}` : "Not submitted yet"}
         />
         <CyberStatCard
-          value={round1Rank ? `#${round1Rank.position}` : "—"}
+          value={round1Rank ? `#${round1Rank.rank_position}` : "—"}
           label="Last Round Rank"
           accent="blue"
           sublabel={round1Rank ? `Score: ${round1Rank.total_score.toFixed(1)}` : "No data"}
@@ -1320,7 +1320,7 @@ function ExistingTeamDashboard({ is_leader, team_id }: { is_leader: boolean; tea
           value={activeRound ? fmtDate(activeRound.submission_deadline) : "—"}
           label="Next Deadline"
           accent="cyan"
-          sublabel={activeRound?.round_name}
+          sublabel={activeRound?.name}
         />
       </div>
 
@@ -1330,7 +1330,7 @@ function ExistingTeamDashboard({ is_leader, team_id }: { is_leader: boolean; tea
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {recentLogs.map(log => {
-            const actor = users.find(u => u.user_id === log.performed_by);
+            const actor = users.find(u => u.user_id === log.actor_user_id);
             return (
               <div key={log.log_id} style={{
                 display: "flex", gap: 12, padding: "10px 12px",

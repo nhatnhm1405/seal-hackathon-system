@@ -8,7 +8,7 @@ import { AppNotification } from "@/shared/mocks/mockData";
 import { SealFooter } from "@/shared/components/SealFooter";
 import {
   accountApprovals, events, tracks, rounds,
-  judgeAssignments, mentorAssignments, teams, HackathonEvent,
+  userEventRoles, teams, HackathonEvent,
 } from "@/shared/mocks/mockData";
 import sealLogo from "@/imports/image.png";
 
@@ -102,13 +102,13 @@ function getPageTitle(pathname: string): string {
 function getAvailableEvents(role: string, userId: number): HackathonEvent[] {
   if (role === 'COORDINATOR') return events;
   if (role === 'MENTOR') {
-    const assigned = mentorAssignments.filter(m => m.mentor_id === userId);
-    const eventIds = new Set(tracks.filter(t => assigned.some(a => a.track_id === t.track_id)).map(t => t.event_id));
+    const assigned = userEventRoles.filter(r => r.user_id === userId && r.role_name === 'MENTOR');
+    const eventIds = new Set(assigned.map(r => r.event_id).filter((id): id is number => id !== null));
     return events.filter(e => eventIds.has(e.event_id));
   }
   if (role === 'JUDGE') {
-    const assigned = judgeAssignments.filter(j => j.judge_id === userId);
-    const eventIds = new Set(rounds.filter(r => assigned.some(a => a.round_id === r.round_id)).map(r => r.event_id));
+    const assigned = userEventRoles.filter(r => r.user_id === userId && r.role_name === 'JUDGE');
+    const eventIds = new Set(assigned.map(r => r.event_id).filter((id): id is number => id !== null));
     return events.filter(e => eventIds.has(e.event_id));
   }
   return [];
@@ -391,7 +391,7 @@ function TopNavbar({ pageTitle, collapsed, onToggleCollapse, currentUser, curren
           currentEvent && (
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <span style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, fontWeight: 700 }}>
-                {currentEvent.event_name}
+                {currentEvent.name}
               </span>
             </div>
           )
@@ -410,7 +410,7 @@ function TopNavbar({ pageTitle, collapsed, onToggleCollapse, currentUser, curren
                 }}
               >
                 <span style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, fontWeight: 700 }}>
-                  {currentEvent?.event_name ?? "Select Event"}
+                  {currentEvent?.name ?? "Select Event"}
                 </span>
               </button>
               {eventDropOpen && (
@@ -435,7 +435,7 @@ function TopNavbar({ pageTitle, collapsed, onToggleCollapse, currentUser, curren
                         onMouseEnter={(e) => { if (!isActive) (e.currentTarget as HTMLElement).style.background = "rgba(34,197,94,0.06)"; }}
                         onMouseLeave={(e) => { if (!isActive) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
                       >
-                        <span style={{ color: isActive ? C.green : C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600 }}>{ev.event_name}</span>
+                        <span style={{ color: isActive ? C.green : C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600 }}>{ev.name}</span>
                         <span style={{ color: statusColor(ev.status), fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.1em" }}>{ev.status}</span>
                       </button>
                     );
@@ -587,18 +587,18 @@ function EventContextBlock({ role, userId, teamId, currentEvent, onSelectEvent, 
     return (
       <div style={{ borderBottom: `1px solid ${C.border}`, padding: "10px 14px", background: "rgba(34,197,94,0.04)" }}>
         <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-          {currentEvent.event_name}
+          {currentEvent.name}
         </div>
         {track && (
           <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-            {track.track_name}
+            {track.name}
           </div>
         )}
         {activeRound && (
           <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4 }}>
             <div style={{ width: 5, height: 5, background: C.green, borderRadius: "50%", boxShadow: `0 0 4px ${C.green}` }} />
             <span style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.08em" }}>
-              {activeRound.round_name} · ACTIVE
+              {activeRound.name} · ACTIVE
             </span>
           </div>
         )}
@@ -624,7 +624,7 @@ function EventContextBlock({ role, userId, teamId, currentEvent, onSelectEvent, 
       >
         <div style={{ flex: 1, textAlign: "left", minWidth: 0 }}>
           <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-            {currentEvent?.event_name ?? "Select Event"}
+            {currentEvent?.name ?? "Select Event"}
           </div>
           {currentEvent && (
             <div style={{ color: statusColor(currentEvent.status), fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.1em", marginTop: 1 }}>
@@ -651,7 +651,7 @@ function EventContextBlock({ role, userId, teamId, currentEvent, onSelectEvent, 
                 onMouseEnter={(e) => { if (!isActive) (e.currentTarget as HTMLElement).style.background = "rgba(34,197,94,0.06)"; }}
                 onMouseLeave={(e) => { if (!isActive) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
               >
-                <span style={{ color: isActive ? C.green : C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600 }}>{ev.event_name}</span>
+                <span style={{ color: isActive ? C.green : C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600 }}>{ev.name}</span>
                 <span style={{ color: statusColor(ev.status), fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.1em" }}>{ev.status}</span>
               </button>
             );

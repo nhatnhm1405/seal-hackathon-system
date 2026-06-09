@@ -4,7 +4,7 @@ import {
   C, GradientText, PixelCard, PixelButton, PixelBadge, PixelInput,
 } from "@/shared/components/PixelComponents";
 import {
-  judgeAssignments, rounds, submissions, teams, scores as initialScores, criteria,
+  userEventRoles, rounds, submissions, teams, scores as initialScores, criteria,
 } from "@/shared/mocks/mockData";
 
 type FilterType = "all" | "not_scored" | "draft" | "scored";
@@ -20,8 +20,8 @@ interface ScoreInput {
 
 export function JudgeScoringPage() {
   const { currentUser, currentEvent } = useAuth();
-  const myAssignments = currentUser ? judgeAssignments.filter(j => j.judge_id === currentUser.user_id) : [];
-  const myRoundIds = myAssignments.map(a => a.round_id);
+  const myAssignments = currentUser ? userEventRoles.filter(r => r.user_id === currentUser.user_id && r.role_name === 'JUDGE') : [];
+  const myRoundIds = myAssignments.map(a => a.round_id).filter((id): id is number => id !== null);
   const allMyRounds = rounds.filter(r => myRoundIds.includes(r.round_id));
   const myRounds = currentEvent
     ? allMyRounds.filter(r => r.event_id === currentEvent.event_id)
@@ -60,7 +60,7 @@ export function JudgeScoringPage() {
     : [];
 
   function statusOf(subId: number): FilterType {
-    const subScores = scoreState.filter(s => s.submission_id === subId && s.judge_id === currentUser!.user_id);
+    const subScores = scoreState.filter(s => s.submission_id === subId && s.judge_user_id === currentUser!.user_id);
     if (subScores.length === 0) return "not_scored";
     if (subScores.some(s => s.is_draft)) return "draft";
     if (subScores.length >= criteria.length) return "scored";
@@ -77,8 +77,8 @@ export function JudgeScoringPage() {
   const existingScores = useMemo(() => {
     if (!selectedSub) return {};
     const map: Record<number, number> = {};
-    scoreState.filter(s => s.submission_id === selectedSub.submission_id && s.judge_id === currentUser.user_id)
-      .forEach(s => { map[s.criteria_id] = s.score_value; });
+    scoreState.filter(s => s.submission_id === selectedSub.submission_id && s.judge_user_id === currentUser.user_id)
+      .forEach(s => { map[s.criteria_id] = s.value; });
     return map;
   }, [selectedSub, scoreState, currentUser.user_id]);
 
@@ -110,7 +110,7 @@ export function JudgeScoringPage() {
     const now = new Date().toISOString();
     setScoreState(prev => {
       const without = prev.filter(
-        s => !(s.submission_id === selectedSub.submission_id && s.judge_id === currentUser.user_id)
+        s => !(s.submission_id === selectedSub.submission_id && s.judge_user_id === currentUser.user_id)
       );
       const maxId = prev.length > 0 ? Math.max(...prev.map(s => s.score_id)) : 0;
       return [
@@ -118,9 +118,9 @@ export function JudgeScoringPage() {
         ...criteria.map((c, i) => ({
           score_id: maxId + i + 1,
           submission_id: selectedSub.submission_id,
-          judge_id: currentUser.user_id,
+          judge_user_id: currentUser.user_id,
           criteria_id: c.criteria_id,
-          score_value: scoreInputs[c.criteria_id]?.value ?? existingScores[c.criteria_id] ?? 0,
+          value: scoreInputs[c.criteria_id]?.value ?? existingScores[c.criteria_id] ?? 0,
           is_draft: isDraft,
           scored_at: now,
         })),
@@ -164,7 +164,7 @@ export function JudgeScoringPage() {
                       alignItems: "center",
                     }}
                   >
-                    <span>{r.round_name}</span>
+                    <span>{r.name}</span>
                     <PixelBadge color={r.status === 'ACTIVE' ? 'green' : r.status === 'UPCOMING' ? 'yellow' : 'red'}>{r.status}</PixelBadge>
                   </button>
                 );
@@ -223,7 +223,7 @@ export function JudgeScoringPage() {
                         alignItems: "center",
                       }}
                     >
-                      <span>{team?.team_name}</span>
+                      <span>{team?.name}</span>
                       <PixelBadge color={st === "scored" ? "green" : st === "draft" ? "yellow" : "gray"}>
                         {st.replace("_", " ")}
                       </PixelBadge>
@@ -249,10 +249,10 @@ export function JudgeScoringPage() {
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                   <div>
                     <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 20, fontWeight: 700 }}>
-                      {selectedTeam?.team_name}
+                      {selectedTeam?.name}
                     </div>
                     <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginTop: 4 }}>
-                      {selectedRound?.round_name} · Submitted {fmtDateTime(selectedSub.submitted_at)}
+                      {selectedRound?.name} · Submitted {fmtDateTime(selectedSub.submitted_at)}
                     </div>
                   </div>
                   {isReadOnly && <PixelBadge color="green">SCORES SUBMITTED</PixelBadge>}
@@ -285,7 +285,7 @@ export function JudgeScoringPage() {
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
                           <div>
                             <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 600 }}>
-                              {c.criteria_name}
+                              {c.name}
                             </div>
                             <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginTop: 2 }}>
                               {c.description} · weight {c.weight}

@@ -76,7 +76,7 @@ export function TeamCreatePage() {
               >
                 <option value={0}>Select event...</option>
                 {openEvents.map(ev => (
-                  <option key={ev.event_id} value={ev.event_id}>{ev.event_name}</option>
+                  <option key={ev.event_id} value={ev.event_id}>{ev.name}</option>
                 ))}
               </select>
             </div>
@@ -96,7 +96,7 @@ export function TeamCreatePage() {
               >
                 <option value={0}>Select track...</option>
                 {trackOptions.map(t => (
-                  <option key={t.track_id} value={t.track_id}>{t.track_name}</option>
+                  <option key={t.track_id} value={t.track_id}>{t.name}</option>
                 ))}
               </select>
               {trackId > 0 && (
