@@ -138,7 +138,7 @@ CREATE TABLE Team (
   status              VARCHAR(20)  NOT NULL DEFAULT 'PENDING' COMMENT 'PENDING, APPROVED, REJECTED, DISQUALIFIED',
   disqualified_reason TEXT,
   disqualified_at     DATETIME,
-  created_at          DATETIME   teammember  NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  created_at          DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (team_id),
   UNIQUE KEY uq_team_event_name (event_id, name),
   KEY idx_team_track (track_id),

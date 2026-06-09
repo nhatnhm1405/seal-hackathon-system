@@ -3,13 +3,13 @@ import {
   C, GradientText, PixelCard, PixelButton, PixelBadge, PixelInput,
 } from "@/shared/components/PixelComponents";
 import {
-  judgeAssignments as initialAssignments, users as initialUsers, rounds, events,
-  JudgeAssignment, User,
+  userEventRoles, users as initialUsers, rounds, events,
+  UserEventRole, User,
 } from "@/shared/mocks/mockData";
 import { apiFetch, ApiError } from "@/shared/apiClient";
 
 export function CoordJudgesPage() {
-  const [assignments, setAssignments] = useState<JudgeAssignment[]>(initialAssignments);
+  const [assignments, setAssignments] = useState<UserEventRole[]>(userEventRoles.filter(r => r.role_name === 'JUDGE'));
   const [users, setUsers] = useState<User[]>(initialUsers);
   const [showAssign, setShowAssign] = useState(false);
   const [showGuest, setShowGuest] = useState(false);
@@ -26,22 +26,28 @@ export function CoordJudgesPage() {
   const [guestError, setGuestError] = useState<string | null>(null);
   const [guestSubmitting, setGuestSubmitting] = useState(false);
 
-  const judgesPool = users.filter(u => u.role === 'JUDGE' && (searchUser === "" || u.full_name.toLowerCase().includes(searchUser.toLowerCase())));
+  const judgeUserIds = new Set(userEventRoles.filter(r => r.role_name === 'JUDGE').map(r => r.user_id));
+  const judgesPool = users.filter(u => judgeUserIds.has(u.user_id) && (searchUser === "" || u.full_name.toLowerCase().includes(searchUser.toLowerCase())));
 
   function assign() {
     if (!selectedJudgeId || !selectedRoundId) return;
     setAssignments(prev => [...prev, {
-      assignment_id: Math.max(0, ...prev.map(a => a.assignment_id)) + 1,
-      judge_id: selectedJudgeId,
+      id: Math.max(0, ...prev.map(a => a.id)) + 1,
+      user_id: selectedJudgeId,
+      role_name: 'JUDGE',
       round_id: selectedRoundId,
+      event_id: null,
+      track_id: null,
       judge_type: judgeType,
+      assigned_at: new Date().toISOString(),
+      assigned_by: null,
     }]);
     setSelectedJudgeId(0); setSelectedRoundId(0);
     setShowAssign(false);
   }
 
   function removeAssignment(id: number) {
-    setAssignments(prev => prev.filter(a => a.assignment_id !== id));
+    setAssignments(prev => prev.filter(a => a.id !== id));
   }
 
   async function createGuest() {
@@ -69,19 +75,24 @@ export function CoordJudgesPage() {
       const created = res.data;
       setUsers(prev => [...prev, {
         user_id: created.userId,
-        role: 'JUDGE',
+        user_type: 'STAFF',
         email: created.email,
         full_name: created.fullName,
-        student_type: 'EXTERNAL',
         student_id: null,
         university_name: 'Guest',
-        status: 'ACTIVE',
+        is_approved: true,
+        is_active: true,
       }]);
       setAssignments(prev => [...prev, {
-        assignment_id: Math.max(0, ...prev.map(a => a.assignment_id)) + 1,
-        judge_id: created.userId,
+        id: Math.max(0, ...prev.map(a => a.id)) + 1,
+        user_id: created.userId,
+        role_name: 'JUDGE',
         round_id: guestRoundId,
+        event_id: null,
+        track_id: null,
         judge_type: 'GUEST',
+        assigned_at: new Date().toISOString(),
+        assigned_by: null,
       }]);
       setGuestName(""); setGuestEmail(""); setGuestPwd(""); setGuestRoundId(0);
       setShowGuest(false);
@@ -184,14 +195,14 @@ export function CoordJudgesPage() {
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                     {roundJudges.length === 0 && <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}>No judges assigned</div>}
                     {roundJudges.map(a => {
-                      const j = users.find(u => u.user_id === a.judge_user_id);
+                      const j = users.find(u => u.user_id === a.user_id);
                       return (
-                        <div key={a.assignment_id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 10px", background: C.surface, border: `1px solid ${C.border}` }}>
+                        <div key={a.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 10px", background: C.surface, border: `1px solid ${C.border}` }}>
                           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                             <span style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>{j?.full_name}</span>
                             <PixelBadge color={a.judge_type === 'INTERNAL' ? 'blue' : 'cyan'}>{a.judge_type}</PixelBadge>
                           </div>
-                          <PixelButton size="sm" variant="danger" onClick={() => removeAssignment(a.assignment_id)}>REMOVE</PixelButton>
+                          <PixelButton size="sm" variant="danger" onClick={() => removeAssignment(a.id)}>REMOVE</PixelButton>
                         </div>
                       );
                     })}

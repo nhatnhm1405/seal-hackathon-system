@@ -34,6 +34,7 @@ import { CoordScoringPage } from "@/features/scoring/CoordScoringPage";
 import { CoordPrizesPage } from "@/features/events/CoordPrizesPage";
 import { CoordAuditPage } from "@/features/users/CoordAuditPage";
 import { ForgotPasswordPage } from "@/features/auth/ForgotPasswordPage";
+import { OAuth2RedirectPage } from "@/features/auth/OAuth2RedirectPage";
 import { AboutPage } from "@/features/landing/AboutPage";
 import { TeamPage } from "@/features/landing/TeamPage";
 import { ContactPage } from "@/features/landing/ContactPage";
@@ -123,6 +124,10 @@ export const router = createBrowserRouter([
       {
         path: "/forgot-password",
         Component: ForgotPasswordPage,
+      },
+      {
+        path: "/oauth2/redirect",
+        Component: OAuth2RedirectPage,
       },
       {
         element: <RequireAuth />,

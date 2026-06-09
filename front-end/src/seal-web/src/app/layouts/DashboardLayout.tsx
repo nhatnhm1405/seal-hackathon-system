@@ -8,7 +8,7 @@ import { AppNotification } from "@/shared/mocks/mockData";
 import { SealFooter } from "@/shared/components/SealFooter";
 import {
   accountApprovals, events, tracks, rounds,
-  judgeAssignments, mentorAssignments, teams, HackathonEvent,
+  userEventRoles, teams, HackathonEvent,
 } from "@/shared/mocks/mockData";
 import sealLogo from "@/imports/image.png";
 
@@ -102,13 +102,13 @@ function getPageTitle(pathname: string): string {
 function getAvailableEvents(role: string, userId: number): HackathonEvent[] {
   if (role === 'COORDINATOR') return events;
   if (role === 'MENTOR') {
-    const assigned = mentorAssignments.filter(m => m.mentor_id === userId);
-    const eventIds = new Set(tracks.filter(t => assigned.some(a => a.track_id === t.track_id)).map(t => t.event_id));
+    const assigned = userEventRoles.filter(r => r.user_id === userId && r.role_name === 'MENTOR');
+    const eventIds = new Set(assigned.map(r => r.event_id).filter((id): id is number => id !== null));
     return events.filter(e => eventIds.has(e.event_id));
   }
   if (role === 'JUDGE') {
-    const assigned = judgeAssignments.filter(j => j.judge_user_id === userId);
-    const eventIds = new Set(rounds.filter(r => assigned.some(a => a.round_id === r.round_id)).map(r => r.event_id));
+    const assigned = userEventRoles.filter(r => r.user_id === userId && r.role_name === 'JUDGE');
+    const eventIds = new Set(assigned.map(r => r.event_id).filter((id): id is number => id !== null));
     return events.filter(e => eventIds.has(e.event_id));
   }
   return [];

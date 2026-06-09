@@ -4,7 +4,7 @@ import {
   C, GradientText, PixelCard, PixelBadge, PixelTabs,
 } from "@/shared/components/PixelComponents";
 import {
-  mentorAssignments, tracks, teams, teamMembers, users, submissions, rounds,
+  userEventRoles, tracks, teams, teamMembers, users, submissions, rounds,
 } from "@/shared/mocks/mockData";
 
 export function MentorTracksPage() {
@@ -13,8 +13,9 @@ export function MentorTracksPage() {
 
   if (!currentUser) return null;
 
-  const myAssignments = mentorAssignments.filter(m => m.mentor_id === currentUser.user_id);
-  const allMyTracks = tracks.filter(t => myAssignments.some(a => a.track_id === t.track_id));
+  const myAssignments = userEventRoles.filter(r => r.user_id === currentUser.user_id && r.role_name === 'MENTOR');
+  const myTrackIds = myAssignments.map(a => a.track_id).filter((id): id is number => id !== null);
+  const allMyTracks = tracks.filter(t => myTrackIds.includes(t.track_id));
   const myTracks = currentEvent
     ? allMyTracks.filter(t => t.event_id === currentEvent.event_id)
     : allMyTracks;
@@ -121,10 +122,10 @@ export function MentorTracksPage() {
                     return (
                       <div key={m.user_id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 10px", background: C.surface2, border: `1px solid ${C.border}` }}>
                         <span style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>
-                          {u.full_name}{m.is_leader ? " (Leader)" : ""}
+                          {u.full_name}{m.member_role === 'LEADER' ? " (Leader)" : ""}
                         </span>
-                        <PixelBadge color={u.student_type === 'FPT' ? 'green' : 'blue'}>
-                          {u.student_type ?? "—"}
+                        <PixelBadge color={u.user_type === 'FPT_STUDENT' ? 'green' : 'blue'}>
+                          {u.user_type === 'FPT_STUDENT' ? 'FPT' : u.user_type === 'EXTERNAL_STUDENT' ? 'EXT' : '—'}
                         </PixelBadge>
                       </div>
                     );

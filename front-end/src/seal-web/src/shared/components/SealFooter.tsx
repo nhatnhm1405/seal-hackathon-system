@@ -71,7 +71,7 @@ export function SealFooter() {
   return (
     <footer
       style={{
-        background: "#050a0d",
+        background: C.footerBg,
         borderTop: `1px solid ${C.border}`,
         padding: "64px 24px 28px",
         width: "100%",

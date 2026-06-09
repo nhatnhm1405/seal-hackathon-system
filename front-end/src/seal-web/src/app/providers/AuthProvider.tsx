@@ -29,7 +29,7 @@ interface AuthContextType {
   availableRoles: string[];
   activeRole: string | null;
   setActiveRole: (role: string | null) => void;
-  login: (email: string, password: string, rememberMe?: boolean) => Promise<'ok' | 'ok:select-role' | 'invalid_credentials' | 'pending_approval'>;
+  login: (email: string, password: string, rememberMe?: boolean) => Promise<'ok' | 'ok:select-role' | 'invalid_credentials' | 'pending_approval' | 'inactive'>;
   logout: () => void;
   switchUser: (userId: number) => void;
   updateLeaderStatus: (isLeader: boolean) => void;
@@ -263,7 +263,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     email: string,
     password: string,
     rememberMe = false,
-  ): Promise<'ok' | 'ok:select-role' | 'invalid_credentials' | 'pending_approval'> {
+  ): Promise<'ok' | 'ok:select-role' | 'invalid_credentials' | 'pending_approval' | 'inactive'> {
     try {
       // Step 1: authenticate and receive token
       const loginRes = await apiFetch<{ data: { token: string; userId?: number } }>(
@@ -299,7 +299,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       clearToken();
       localStorage.removeItem(ACTIVE_ROLE_KEY);
       if (err instanceof ApiError) {
-        if (err.status === 403) return 'pending_approval';
+        if (err.status === 403) {
+          const msg = err.message.toLowerCase();
+          if (msg.includes('inactive') || msg.includes('deactivated') || msg.includes('disabled')) {
+            return 'inactive';
+          }
+          return 'pending_approval';
+        }
         if (err.status === 401) return 'invalid_credentials';
       }
       return 'invalid_credentials';

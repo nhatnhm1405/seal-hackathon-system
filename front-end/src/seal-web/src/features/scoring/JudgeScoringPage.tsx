@@ -4,7 +4,7 @@ import {
   C, GradientText, PixelCard, PixelButton, PixelBadge, PixelInput,
 } from "@/shared/components/PixelComponents";
 import {
-  judgeAssignments, rounds, submissions, teams, scores as initialScores, criteria,
+  userEventRoles, rounds, submissions, teams, scores as initialScores, criteria,
 } from "@/shared/mocks/mockData";
 
 type FilterType = "all" | "not_scored" | "draft" | "scored";
@@ -20,8 +20,8 @@ interface ScoreInput {
 
 export function JudgeScoringPage() {
   const { currentUser, currentEvent } = useAuth();
-  const myAssignments = currentUser ? judgeAssignments.filter(j => j.judge_user_id === currentUser.user_id) : [];
-  const myRoundIds = myAssignments.map(a => a.round_id);
+  const myAssignments = currentUser ? userEventRoles.filter(r => r.user_id === currentUser.user_id && r.role_name === 'JUDGE') : [];
+  const myRoundIds = myAssignments.map(a => a.round_id).filter((id): id is number => id !== null);
   const allMyRounds = rounds.filter(r => myRoundIds.includes(r.round_id));
   const myRounds = currentEvent
     ? allMyRounds.filter(r => r.event_id === currentEvent.event_id)
@@ -118,9 +118,9 @@ export function JudgeScoringPage() {
         ...criteria.map((c, i) => ({
           score_id: maxId + i + 1,
           submission_id: selectedSub.submission_id,
-          judge_id: currentUser.user_id,
+          judge_user_id: currentUser.user_id,
           criteria_id: c.criteria_id,
-          score_value: scoreInputs[c.criteria_id]?.value ?? existingScores[c.criteria_id] ?? 0,
+          value: scoreInputs[c.criteria_id]?.value ?? existingScores[c.criteria_id] ?? 0,
           is_draft: isDraft,
           scored_at: now,
         })),
