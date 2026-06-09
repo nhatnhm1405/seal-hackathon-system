@@ -283,3 +283,33 @@ INSERT INTO Notification (recipient_user_id, title, content, type, related_event
        'Team Gamma xếp hạng 3 với tổng điểm 44.75 — đủ điều kiện vào vòng Semi-final.', 'RESULT', 1),
   (3,  'Phân công chấm điểm vòng Semi-final',
        'Bạn được phân công làm giám khảo vòng Semi-final — track Web Application.',       'ASSIGNMENT', 1);
+
+-- =====================================================
+-- 17. ACCOUNT APPROVAL
+-- =====================================================
+INSERT INTO AccountApproval (user_id, reviewed_by, status, note, reviewed_at) VALUES
+  -- Approved students (reviewed by coordinator user_id=1)
+  (2,  1, 'APPROVED', NULL,                              '2026-01-05 09:10:00'),
+  (3,  1, 'APPROVED', NULL,                              '2026-01-05 09:12:00'),
+  (6,  1, 'APPROVED', NULL,                              '2026-01-05 09:15:00'),
+  (7,  1, 'APPROVED', NULL,                              '2026-01-05 09:18:00'),
+  (8,  1, 'APPROVED', NULL,                              '2026-02-10 10:00:00'),
+  (9,  1, 'APPROVED', NULL,                              '2026-02-10 10:05:00'),
+  (10, 1, 'APPROVED', NULL,                              '2026-02-10 10:08:00'),
+  (11, 1, 'APPROVED', NULL,                              '2026-02-10 10:10:00'),
+  (12, 1, 'APPROVED', NULL,                              '2026-02-10 10:12:00'),
+  (13, 1, 'APPROVED', NULL,                              '2026-05-20 09:00:00'),
+  (14, 1, 'APPROVED', NULL,                              '2026-05-20 09:05:00'),
+  (15, 1, 'APPROVED', NULL,                              '2026-05-20 09:08:00'),
+  (16, 1, 'APPROVED', NULL,                              '2026-05-20 09:10:00'),
+  -- External student pending approval (self-registered)
+  (17, NULL, 'PENDING', NULL, NULL);
+
+-- =====================================================
+-- 18. TEAM INVITE
+-- =====================================================
+INSERT INTO TeamInvite (team_id, invited_user_id, invited_by, message, status) VALUES
+  -- StackOverflow (team_id=1) invites user 17 (external, pending approval)
+  (1, 17, 2, 'Chào bạn! Chúng mình muốn mời bạn tham gia team nhé.', 'PENDING'),
+  -- DataDriven (team_id=3) invited user 12 — they accepted
+  (3, 12, 7, NULL, 'ACCEPTED');
