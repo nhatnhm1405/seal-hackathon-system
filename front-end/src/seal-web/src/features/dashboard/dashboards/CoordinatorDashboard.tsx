@@ -70,7 +70,7 @@ export function CoordinatorDashboard() {
             <PixelBadge color="yellow">PENDING</PixelBadge>
           </div>
           <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginBottom: 12 }}>
-            {pendingTeams.map(t => t.team_name).join(", ") || "—"}
+            {pendingTeams.map(t => t.name).join(", ") || "—"}
           </div>
           <PixelButton variant="secondary" onClick={() => navigate('/coordinator/teams')}>
             REVIEW TEAMS
@@ -86,7 +86,7 @@ export function CoordinatorDashboard() {
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
             <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 16, fontWeight: 700 }}>
-              {event.event_name}
+              {event.name}
             </div>
             <PixelBadge color={event.status === 'OPEN' ? 'green' : event.status === 'DRAFT' ? 'gray' : 'red'}>
               {event.status}

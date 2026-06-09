@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { useAuth } from "@/app/providers/AuthProvider";
 import {
   C, GradientText, PixelCard, PixelButton, PixelBadge, PixelInput,
@@ -40,7 +40,7 @@ export function TeamViewPage() {
   const track = tracks.find(tr => tr.track_id === team.track_id);
   const event = track ? events.find(e => e.event_id === track.event_id) : null;
   const teamMemberRows = members.filter(m => m.team_id === team.team_id);
-  const displayName = teamName ?? team.team_name;
+  const displayName = teamName ?? team.name;
   const isLeader = currentUser.is_leader;
 
   const statusColor = team.status === 'APPROVED' ? 'green' : team.status === 'PENDING' ? 'yellow' : 'red';
@@ -68,7 +68,7 @@ export function TeamViewPage() {
       team_id: team.team_id,
       user_id: found.user_id,
       joined_at: new Date().toISOString(),
-      is_leader: false,
+      member_role: 'MEMBER' as const,
     }]);
     setInviteResult(`${found.full_name} has been invited and added to the team.`);
     setInviteQuery("");
@@ -84,8 +84,8 @@ export function TeamViewPage() {
     if (!transferTarget) return;
     setMembers(prev => prev.map(m => {
       if (m.team_id !== team.team_id) return m;
-      if (m.user_id === currentUser!.user_id) return { ...m, is_leader: false };
-      if (m.user_id === transferTarget.user_id) return { ...m, is_leader: true };
+      if (m.user_id === currentUser!.user_id) return { ...m, member_role: 'MEMBER' as const };
+      if (m.user_id === transferTarget.user_id) return { ...m, member_role: 'LEADER' as const };
       return m;
     }));
     updateLeaderStatus(false);
@@ -172,8 +172,8 @@ export function TeamViewPage() {
       {/* Team info */}
       <PixelCard style={{ padding: 20 }}>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 16 }}>
-          <InfoCell label="Track" value={track?.track_name ?? "—"} />
-          <InfoCell label="Event" value={event?.event_name ?? "—"} />
+          <InfoCell label="Track" value={track?.name ?? "—"} />
+          <InfoCell label="Event" value={event?.name ?? "—"} />
           <InfoCell label="Members" value={`${teamMemberRows.length}/5`} accent />
         </div>
       </PixelCard>
@@ -229,7 +229,7 @@ export function TeamViewPage() {
                 return (
                   <tr key={m.user_id} style={{ borderBottom: `1px solid rgba(34,197,94,0.06)`, background: i % 2 === 0 ? C.surface : C.surface2 }}>
                     <td style={{ padding: "11px 14px" }}>
-                      <span style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: m.is_leader ? 700 : 400 }}>{u.full_name}</span>
+                      <span style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: m.member_role === 'LEADER' ? 700 : 400 }}>{u.full_name}</span>
                       {isSelf && <span style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, marginLeft: 6 }}>(you)</span>}
                     </td>
                     <td style={{ padding: "11px 14px" }}>
@@ -237,12 +237,12 @@ export function TeamViewPage() {
                     </td>
                     <td style={{ color: C.textMuted, fontSize: 11, padding: "11px 14px" }}>{u.student_id ?? "—"}</td>
                     <td style={{ padding: "11px 14px" }}>
-                      <PixelBadge color={m.is_leader ? 'cyan' : 'blue'}>{m.is_leader ? "Leader" : "Member"}</PixelBadge>
+                      <PixelBadge color={m.member_role === 'LEADER' ? 'cyan' : 'blue'}>{m.member_role === 'LEADER' ? "Leader" : "Member"}</PixelBadge>
                     </td>
                     <td style={{ color: C.textMuted, fontSize: 11, padding: "11px 14px" }}>{fmtDate(m.joined_at)}</td>
                     {isLeader && (
                       <td style={{ padding: "11px 14px" }}>
-                        {!m.is_leader && (
+                        {m.member_role === 'MEMBER' && (
                           <div style={{ display: "flex", gap: 6 }}>
                             <PixelButton
                               size="sm"

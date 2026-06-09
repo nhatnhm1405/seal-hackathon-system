@@ -58,7 +58,7 @@ export function TeamLeaderDashboard() {
         </h1>
         <div style={{ display: "flex", gap: 12, alignItems: "center", marginTop: 10 }}>
           <span style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>
-            Leading {team?.team_name}
+            Leading {team?.name}
           </span>
           {team && <PixelBadge color={team.status === 'APPROVED' ? 'green' : team.status === 'PENDING' ? 'yellow' : 'red'}>{team.status}</PixelBadge>}
         </div>
@@ -76,10 +76,10 @@ export function TeamLeaderDashboard() {
             // team_info
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 16 }}>
-            <Info label="Team" value={team.team_name} />
-            <Info label="Track" value={track?.track_name ?? "—"} />
-            <Info label="Event" value={event?.event_name ?? "—"} />
-            <Info label="Current Round" value={activeRound?.round_name ?? "—"} badge={activeRound?.status} />
+            <Info label="Team" value={team.name} />
+            <Info label="Track" value={track?.name ?? "—"} />
+            <Info label="Event" value={event?.name ?? "—"} />
+            <Info label="Current Round" value={activeRound?.name ?? "—"} badge={activeRound?.status} />
           </div>
         </PixelCard>
       )}
@@ -92,7 +92,7 @@ export function TeamLeaderDashboard() {
           sublabel={round2Submission ? `at ${fmtDate(round2Submission.submitted_at)}` : "Not submitted"}
         />
         <CyberStatCard
-          value={round1Rank ? `#${round1Rank.position}` : "—"}
+          value={round1Rank ? `#${round1Rank.rank_position}` : "—"}
           label="Last Round Rank"
           accent="blue"
           sublabel={round1Rank ? `Score: ${round1Rank.total_score.toFixed(1)}` : "No data"}
@@ -101,7 +101,7 @@ export function TeamLeaderDashboard() {
           value={activeRound ? fmtDate(activeRound.submission_deadline) : "—"}
           label="Next Deadline"
           accent="cyan"
-          sublabel={activeRound?.round_name}
+          sublabel={activeRound?.name}
         />
       </div>
 
@@ -111,7 +111,7 @@ export function TeamLeaderDashboard() {
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {recentLogs.map(log => {
-            const actor = users.find(u => u.user_id === log.performed_by);
+            const actor = users.find(u => u.user_id === log.actor_user_id);
             return (
               <div key={log.log_id} style={{
                 display: "flex", gap: 12, padding: "10px 12px",

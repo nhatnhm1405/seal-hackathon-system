@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import {
   C, GradientText, PixelCard, PixelButton, PixelBadge, PixelInput,
 } from "@/shared/components/PixelComponents";
@@ -71,7 +71,7 @@ export function CoordPrizesPage() {
           {prizes.map(p => (
             <div key={p.prize_id} style={{ padding: 12, background: C.surface2, border: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div>
-                <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 14, fontWeight: 700 }}>{p.prize_name}</div>
+                <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 14, fontWeight: 700 }}>{p.name}</div>
                 <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, marginTop: 2 }}>{p.description}</div>
               </div>
               {p.rank_position && <PixelBadge color="cyan">RANK #{p.rank_position}</PixelBadge>}
@@ -86,14 +86,14 @@ export function CoordPrizesPage() {
             <label style={{ color: C.greenMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase" }}>Prize</label>
             <select value={selPrize} onChange={(e) => setSelPrize(Number(e.target.value))} style={selectStyle}>
               <option value={0}>Select prize...</option>
-              {prizes.map(p => <option key={p.prize_id} value={p.prize_id}>{p.prize_name}</option>)}
+              {prizes.map(p => <option key={p.prize_id} value={p.prize_id}>{p.name}</option>)}
             </select>
           </div>
           <div>
             <label style={{ color: C.greenMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase" }}>Team</label>
             <select value={selTeam} onChange={(e) => setSelTeam(Number(e.target.value))} style={selectStyle}>
               <option value={0}>Select team...</option>
-              {teams.filter(t => t.status === 'APPROVED').map(t => <option key={t.team_id} value={t.team_id}>{t.team_name}</option>)}
+              {teams.filter(t => t.status === 'APPROVED').map(t => <option key={t.team_id} value={t.team_id}>{t.name}</option>)}
             </select>
           </div>
           <PixelButton variant="cyber" onClick={awardPrize}>CONFIRM AWARD</PixelButton>
@@ -121,8 +121,8 @@ export function CoordPrizesPage() {
                 const t = teams.find(tt => tt.team_id === a.team_id);
                 return (
                   <tr key={a.award_id} style={{ borderBottom: `1px solid rgba(34,197,94,0.06)`, background: i % 2 === 0 ? C.surface : C.surface2 }}>
-                    <td style={{ color: C.text, fontSize: 13, padding: "12px 14px" }}>{p?.prize_name}</td>
-                    <td style={{ color: C.cyan, fontSize: 13, padding: "12px 14px" }}>{t?.team_name}</td>
+                    <td style={{ color: C.text, fontSize: 13, padding: "12px 14px" }}>{p?.name}</td>
+                    <td style={{ color: C.cyan, fontSize: 13, padding: "12px 14px" }}>{t?.name}</td>
                     <td style={{ color: C.textMuted, fontSize: 12, padding: "12px 14px" }}>{p?.description}</td>
                   </tr>
                 );

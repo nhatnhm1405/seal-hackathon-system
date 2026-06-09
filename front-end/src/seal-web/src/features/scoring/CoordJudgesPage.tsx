@@ -127,7 +127,7 @@ export function CoordJudgesPage() {
               <label style={{ color: C.greenMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase" }}>Round</label>
               <select value={selectedRoundId} onChange={(e) => setSelectedRoundId(Number(e.target.value))} style={selectStyle}>
                 <option value={0}>Select...</option>
-                {rounds.map(r => <option key={r.round_id} value={r.round_id}>{r.round_name}</option>)}
+                {rounds.map(r => <option key={r.round_id} value={r.round_id}>{r.name}</option>)}
               </select>
             </div>
             <div>
@@ -152,7 +152,7 @@ export function CoordJudgesPage() {
               <label style={{ color: C.greenMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase" }}>Assign to Round</label>
               <select value={guestRoundId} onChange={(e) => setGuestRoundId(Number(e.target.value))} style={selectStyle}>
                 <option value={0}>Select round...</option>
-                {rounds.map(r => <option key={r.round_id} value={r.round_id}>{r.round_name}</option>)}
+                {rounds.map(r => <option key={r.round_id} value={r.round_id}>{r.name}</option>)}
               </select>
             </div>
             <PixelButton variant="cyber" onClick={createGuest} disabled={guestSubmitting}>
@@ -170,7 +170,7 @@ export function CoordJudgesPage() {
       {eventGroups.map(({ event, rounds: evRounds }) => (
         <PixelCard key={event.event_id} glow gradient style={{ padding: 18 }}>
           <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 16, fontWeight: 700, marginBottom: 14 }}>
-            {event.event_name}
+            {event.name}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
             {evRounds.map(r => {
@@ -178,13 +178,13 @@ export function CoordJudgesPage() {
               return (
                 <div key={r.round_id} style={{ padding: 14, background: C.surface2, border: `1px solid ${C.border}` }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                    <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 600 }}>{r.round_name}</div>
+                    <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 600 }}>{r.name}</div>
                     <PixelBadge color={r.status === 'ACTIVE' ? 'green' : r.status === 'UPCOMING' ? 'yellow' : 'red'}>{r.status}</PixelBadge>
                   </div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                     {roundJudges.length === 0 && <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}>No judges assigned</div>}
                     {roundJudges.map(a => {
-                      const j = users.find(u => u.user_id === a.judge_id);
+                      const j = users.find(u => u.user_id === a.judge_user_id);
                       return (
                         <div key={a.assignment_id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 10px", background: C.surface, border: `1px solid ${C.border}` }}>
                           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>

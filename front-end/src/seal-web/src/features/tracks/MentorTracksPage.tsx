@@ -54,7 +54,7 @@ export function MentorTracksPage() {
       </div>
 
       <PixelTabs
-        tabs={myTracks.map(t => ({ id: String(t.track_id), label: t.track_name }))}
+        tabs={myTracks.map(t => ({ id: String(t.track_id), label: t.name }))}
         active={String(activeTrackId)}
         onChange={(id) => { setActiveTrackId(Number(id)); setSelectedTeamId(null); }}
       />
@@ -85,7 +85,7 @@ export function MentorTracksPage() {
                   }}
                 >
                   <div>
-                    <div style={{ fontSize: 13, fontWeight: 600 }}>{team.team_name}</div>
+                    <div style={{ fontSize: 13, fontWeight: 600 }}>{team.name}</div>
                     <div style={{ color: C.textMuted, fontSize: 11, marginTop: 4 }}>{memberCount} members</div>
                   </div>
                   <PixelBadge color={team.status === 'APPROVED' ? 'green' : team.status === 'PENDING' ? 'yellow' : 'red'}>
@@ -107,7 +107,7 @@ export function MentorTracksPage() {
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <div>
                 <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 16, fontWeight: 700 }}>
-                  {selectedTeam.team_name}
+                  {selectedTeam.name}
                 </div>
               </div>
               <div>
@@ -146,7 +146,7 @@ export function MentorTracksPage() {
                       return (
                         <div key={s.submission_id} style={{ padding: 10, background: C.surface2, border: `1px solid ${C.border}` }}>
                           <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, fontWeight: 600, marginBottom: 6 }}>
-                            {round?.round_name}
+                            {round?.name}
                           </div>
                           <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: C.textMuted, lineHeight: 1.8 }}>
                             <div>repo: {s.repo_url}</div>

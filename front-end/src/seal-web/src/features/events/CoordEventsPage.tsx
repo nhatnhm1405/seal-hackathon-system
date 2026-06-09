@@ -97,7 +97,7 @@ export function CoordEventsPage() {
   }
 
   const eventTracks = selectedEvent ? tracks.filter(t => t.event_id === selectedEvent.event_id) : [];
-  const eventRounds = selectedEvent ? rounds.filter(r => r.event_id === selectedEvent.event_id).sort((a, b) => a.round_order - b.round_order) : [];
+  const eventRounds = selectedEvent ? rounds.filter(r => r.event_id === selectedEvent.event_id).sort((a, b) => a.order_number - b.order_number) : [];
 
   return (
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
@@ -147,7 +147,7 @@ export function CoordEventsPage() {
                   cursor: "pointer", borderRadius: 0, textAlign: "left",
                 }}>
                 <div>
-                  <div style={{ fontSize: 14, fontWeight: 700 }}>{ev.event_name}</div>
+                  <div style={{ fontSize: 14, fontWeight: 700 }}>{ev.name}</div>
                   <div style={{ color: C.textMuted, fontSize: 11, marginTop: 4 }}>{ev.season} · {ev.start_date} → {ev.end_date}</div>
                 </div>
                 <PixelBadge color={ev.status === 'OPEN' ? 'green' : ev.status === 'CLOSED' ? 'red' : 'gray'}>{ev.status}</PixelBadge>
@@ -163,7 +163,7 @@ export function CoordEventsPage() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
             <div>
               <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 20, fontWeight: 700, marginTop: 4 }}>
-                {selectedEvent.event_name}
+                {selectedEvent.name}
               </div>
               <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, marginTop: 4 }}>
                 {selectedEvent.season} · {selectedEvent.start_date} → {selectedEvent.end_date}
@@ -190,7 +190,7 @@ export function CoordEventsPage() {
                 {eventTracks.map(t => (
                   <div key={t.track_id} style={{ padding: 12, background: C.surface2, border: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <div>
-                      <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 600 }}>{t.track_name}</div>
+                      <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 600 }}>{t.name}</div>
                       <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginTop: 2 }}>{t.description}</div>
                     </div>
                     <PixelBadge color="cyan">MAX {t.max_teams}</PixelBadge>
@@ -212,7 +212,7 @@ export function CoordEventsPage() {
                 {eventRounds.map(r => (
                   <div key={r.round_id} style={{ padding: 12, background: C.surface2, border: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
                     <div>
-                      <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 600 }}>{r.round_order}. {r.round_name}</div>
+                      <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 600 }}>{r.order_number}. {r.name}</div>
                       <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginTop: 2 }}>Deadline: {r.submission_deadline}</div>
                     </div>
                     <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -239,13 +239,13 @@ export function CoordEventsPage() {
                 {criteria.map(c => {
                   const usedInRounds = roundCriteria.filter(rc => rc.criteria_id === c.criteria_id).map(rc => {
                     const r = rounds.find(rr => rr.round_id === rc.round_id);
-                    return r?.round_name;
+                    return r?.name;
                   }).filter(Boolean);
                   return (
                     <div key={c.criteria_id} style={{ padding: 12, background: C.surface2, border: `1px solid ${C.border}` }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                         <div>
-                          <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 600 }}>{c.criteria_name}</div>
+                          <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 600 }}>{c.name}</div>
                           <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginTop: 2 }}>{c.description}</div>
                         </div>
                         <div style={{ display: "flex", gap: 6 }}>

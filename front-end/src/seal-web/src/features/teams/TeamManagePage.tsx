@@ -107,7 +107,7 @@ function EditTeamForm({
   const currentEvent = currentTrack ? events.find(e => e.event_id === currentTrack.event_id) : null;
   const availableTracks = currentEvent ? tracks.filter(t => t.event_id === currentEvent.event_id) : tracks;
 
-  const [teamName, setTeamName] = useState(team.team_name);
+  const [teamName, setTeamName] = useState(team.name);
   const [trackId, setTrackId] = useState(team.track_id);
   const [error, setError] = useState<string | null>(null);
 
@@ -151,7 +151,7 @@ function EditTeamForm({
           >
             {availableTracks.map(t => (
               <option key={t.track_id} value={t.track_id} style={{ background: C.surface2 }}>
-                {t.track_name}
+                {t.name}
               </option>
             ))}
           </select>
@@ -260,7 +260,7 @@ export function TeamManagePage() {
       {/* Delete confirmation modal */}
       {showDeleteConfirm && team && (
         <DeleteConfirmModal
-          teamName={team.team_name}
+          teamName={team.name}
           onConfirm={handleDeleteConfirm}
           onCancel={() => setShowDeleteConfirm(false)}
         />
@@ -300,10 +300,10 @@ export function TeamManagePage() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
             <div>
               <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 22, fontWeight: 800 }}>
-                {team.team_name}
+                {team.name}
               </div>
               <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, marginTop: 6 }}>
-                {track?.track_name} · {event?.event_name}
+                {track?.name} · {event?.name}
               </div>
             </div>
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
@@ -388,12 +388,12 @@ export function TeamManagePage() {
                       </PixelBadge>
                     </td>
                     <td style={{ padding: "12px 16px" }}>
-                      <PixelBadge color={m.is_leader ? 'cyan' : 'gray'}>
-                        {m.is_leader ? "LEADER" : "MEMBER"}
+                      <PixelBadge color={m.member_role === 'LEADER' ? 'cyan' : 'gray'}>
+                        {m.member_role}
                       </PixelBadge>
                     </td>
                     <td style={{ padding: "12px 16px" }}>
-                      {!m.is_leader && (
+                      {m.member_role === 'MEMBER' && (
                         <PixelButton variant="danger" size="sm" onClick={() => removeMember(m.user_id)}>
                           REMOVE
                         </PixelButton>

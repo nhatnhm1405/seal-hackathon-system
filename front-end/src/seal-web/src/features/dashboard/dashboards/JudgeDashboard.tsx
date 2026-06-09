@@ -16,7 +16,7 @@ export function JudgeDashboard() {
   const { currentUser, currentEvent } = useAuth();
   if (!currentUser) return null;
 
-  const myAssignments = judgeAssignments.filter(j => j.judge_id === currentUser.user_id);
+  const myAssignments = judgeAssignments.filter(j => j.judge_user_id === currentUser.user_id);
   const myRoundIds = myAssignments.map(a => a.round_id);
   const allMyRounds = rounds.filter(r => myRoundIds.includes(r.round_id));
   const myRounds = currentEvent
@@ -30,7 +30,7 @@ export function JudgeDashboard() {
       // submission is "scored" if there's at least one final (is_draft=false) score by this judge
       // for ALL criteria assigned to round
       const criteriaCount = criteria.length;
-      const finalScores = scores.filter(sc => sc.submission_id === sub.submission_id && sc.judge_id === currentUser.user_id && !sc.is_draft);
+      const finalScores = scores.filter(sc => sc.submission_id === sub.submission_id && sc.judge_user_id === currentUser.user_id && !sc.is_draft);
       return finalScores.length >= criteriaCount;
     }).length;
     return { round, total: roundSubs.length, scored: scoredCount };
@@ -75,7 +75,7 @@ export function JudgeDashboard() {
           <PixelCard key={round.round_id} glow glowColor="blue" style={{ padding: 20 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
               <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 14, fontWeight: 700 }}>
-                {round.round_name}
+                {round.name}
               </div>
               <PixelBadge color={round.status === 'ACTIVE' ? 'green' : round.status === 'UPCOMING' ? 'yellow' : 'red'}>
                 {round.status}
