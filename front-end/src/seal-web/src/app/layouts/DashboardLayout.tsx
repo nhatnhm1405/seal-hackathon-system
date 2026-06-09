@@ -310,7 +310,8 @@ function TopNavbar({ pageTitle, collapsed, onToggleCollapse, currentUser, curren
   }, []);
 
   const isParticipant = currentUser.role === "PARTICIPANT";
-  const hasEventSwitcher = !isParticipant;
+  // Coordinator manages events from the Events page, not via the navbar switcher
+  const hasEventSwitcher = !isParticipant && currentUser.role !== "COORDINATOR";
   const available = hasEventSwitcher ? getAvailableEvents(currentUser.role, currentUser.user_id) : [];
   const badge = roleBadgeStyle(currentUser.role);
   const initials = getInitials(currentUser.full_name);
@@ -578,6 +579,8 @@ interface EventContextBlockProps {
 
 function EventContextBlock({ role, userId, teamId, currentEvent, onSelectEvent, dropdownOpen, onToggleDropdown, collapsed }: EventContextBlockProps) {
   if (collapsed) return null;
+  // Coordinator manages events from the Events page, not via the sidebar switcher
+  if (role === 'COORDINATOR') return null;
 
   if (role === 'PARTICIPANT') {
     if (!currentEvent || teamId === null) return null;
