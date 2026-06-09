@@ -4,10 +4,11 @@ import { useNavigate, useLocation, Link } from "react-router";
 import { C, PixelBadge } from "@/shared/components/PixelComponents";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { useNotifications } from "@/app/providers/NotificationProvider";
+import { usePendingAccounts } from "@/app/providers/PendingAccountsProvider";
 import { AppNotification } from "@/shared/mocks/mockData";
 import { SealFooter } from "@/shared/components/SealFooter";
 import {
-  accountApprovals, events, tracks, rounds,
+  events, tracks, rounds,
   userEventRoles, teams, HackathonEvent,
 } from "@/shared/mocks/mockData";
 import sealLogo from "@/imports/image.png";
@@ -310,7 +311,8 @@ function TopNavbar({ pageTitle, collapsed, onToggleCollapse, currentUser, curren
   }, []);
 
   const isParticipant = currentUser.role === "PARTICIPANT";
-  const hasEventSwitcher = !isParticipant;
+  // Coordinator manages events from the Events page, not via the navbar switcher
+  const hasEventSwitcher = !isParticipant && currentUser.role !== "COORDINATOR";
   const available = hasEventSwitcher ? getAvailableEvents(currentUser.role, currentUser.user_id) : [];
   const badge = roleBadgeStyle(currentUser.role);
   const initials = getInitials(currentUser.full_name);
@@ -578,6 +580,8 @@ interface EventContextBlockProps {
 
 function EventContextBlock({ role, userId, teamId, currentEvent, onSelectEvent, dropdownOpen, onToggleDropdown, collapsed }: EventContextBlockProps) {
   if (collapsed) return null;
+  // Coordinator manages events from the Events page, not via the sidebar switcher
+  if (role === 'COORDINATOR') return null;
 
   if (role === 'PARTICIPANT') {
     if (!currentEvent || teamId === null) return null;
@@ -670,10 +674,12 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
   const { addAuthToast } = useNotifications();
   const [collapsed, setCollapsed] = useState(false);
   const [eventDropdownOpen, setEventDropdownOpen] = useState(false);
+  // Coordinator badge reads the shared pending count so it stays in sync with
+  // approve/reject actions on the Accounts page (single source of truth).
+  const { pendingCount } = usePendingAccounts();
 
   if (!currentUser) return null;
 
-  const pendingCount = accountApprovals.filter(a => a.status === 'PENDING').length;
   const nav = buildNav(currentUser.role, currentUser.is_leader, currentUser.team_id, pendingCount);
   const sidebarWidth = collapsed ? 0 : 248;
   const pageTitle = getPageTitle(location.pathname);

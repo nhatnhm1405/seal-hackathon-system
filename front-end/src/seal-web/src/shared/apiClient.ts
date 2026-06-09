@@ -226,7 +226,7 @@ export interface HackathonEvent {
   registrationEnd: string;
   startDate: string;
   endDate: string;
-  status: 'DRAFT' | 'OPEN' | 'ONGOING' | 'CLOSED';
+  status: 'DRAFT' | 'OPEN' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
 }
 
 export interface CreateEventPayload {
