@@ -7,4 +7,5 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface TeamRepository extends JpaRepository<Team, Integer> {
     boolean existsByEvent_EventIdAndName(Integer eventId, String name);
+    boolean existsByTrack_TrackId(Integer trackId);
 }

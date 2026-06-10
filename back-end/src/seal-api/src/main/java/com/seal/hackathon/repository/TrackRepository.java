@@ -9,4 +9,7 @@ import java.util.List;
 @Repository
 public interface TrackRepository extends JpaRepository<Track, Integer> {
     List<Track> findAllByEvent_EventId(Integer eventId);
+
+    List<Track> findAllByEvent_EventIdOrderByCreatedAtDesc(Integer eventId);
+
 }
