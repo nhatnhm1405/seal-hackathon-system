@@ -1,18 +1,4 @@
-# Git Commit Convention (Conventional Commits)
 
-## Cú pháp chuẩn
-
-```
-<type>(<scope>): <subject>
-
-[body]
-
-[footer]
-```
-
----
-
-## Các type phổ biến
 
 | Type | Dùng khi |
 |------|----------|
@@ -28,9 +14,8 @@
 | `revert` | Revert commit trước |
 | `build` | Thay đổi build system hoặc external dependency |
 
----
 
-## Ví dụ thực tế (SEAL project)
+## Ví dụ 
 
 ```bash
 feat(auth): add JWT refresh token endpoint
@@ -50,27 +35,20 @@ ci(github-actions): add SonarQube scan step
 
 ---
 
-## Quy tắc viết subject
+## Quy tắc
 
 - **Không** viết hoa chữ đầu
 - **Không** có dấu chấm ở cuối
 - Dùng **imperative mood** — `add feature` thay vì `added feature`
 - Tối đa **72 ký tự**
 
----
 
-## Breaking change
+## Hotfix
 
 Thêm `!` sau type hoặc ghi vào footer:
 
 ```bash
 feat(api)!: change response format for /events endpoint
 
-BREAKING CHANGE: field `eventDate` renamed to `startDate`
+HOTFIX: field `eventDate` renamed to `startDate`
 ```
-
----
-
-## Scope gợi ý cho SEAL
-
-`auth` · `event` · `team` · `judge` · `mentor` · `submission` · `seed` · `frontend` · `db`
