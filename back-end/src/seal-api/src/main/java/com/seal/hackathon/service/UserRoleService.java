@@ -2,13 +2,20 @@ package com.seal.hackathon.service;
 
 import com.seal.hackathon.dto.request.AssignRoleRequest;
 import com.seal.hackathon.dto.request.CreateStaffRequest;
+import com.seal.hackathon.dto.response.UserEventRoleResponse;
 import com.seal.hackathon.dto.response.UserResponse;
+import com.seal.hackathon.entity.HackathonEvent;
 import com.seal.hackathon.entity.Role;
+import com.seal.hackathon.entity.Round;
+import com.seal.hackathon.entity.Track;
 import com.seal.hackathon.entity.User;
 import com.seal.hackathon.entity.UserEventRole;
 import com.seal.hackathon.exception.BadRequestException;
 import com.seal.hackathon.exception.ResourceNotFoundException;
+import com.seal.hackathon.repository.HackathonEventRepository;
 import com.seal.hackathon.repository.RoleRepository;
+import com.seal.hackathon.repository.RoundRepository;
+import com.seal.hackathon.repository.TrackRepository;
 import com.seal.hackathon.repository.UserEventRoleRepository;
 import com.seal.hackathon.repository.UserRepository;
 import com.seal.hackathon.security.UserPrincipal;
@@ -18,6 +25,12 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 @Service
 @RequiredArgsConstructor
 public class UserRoleService {
@@ -25,6 +38,9 @@ public class UserRoleService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final UserEventRoleRepository userEventRoleRepository;
+    private final HackathonEventRepository hackathonEventRepository;
+    private final TrackRepository trackRepository;
+    private final RoundRepository roundRepository;
     private final AuthService authService;
     private final PasswordEncoder passwordEncoder;
 
@@ -127,5 +143,49 @@ public class UserRoleService {
         User refreshed = userRepository.findByIdWithRoles(targetUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + targetUserId));
         return authService.mapToUserResponse(refreshed);
+    }
+
+    /**
+     * Lists every staff role assignment (UserEventRole row) with role/event/track/round/assigner
+     * names resolved up front, so the coordinator UI can display human-readable labels instead
+     * of raw foreign-key IDs.
+     */
+    @Transactional(readOnly = true)
+    public List<UserEventRoleResponse> getAllStaffRoleAssignments() {
+        List<UserEventRole> assignments = userEventRoleRepository.findAll();
+
+        Set<Integer> eventIds = assignments.stream().map(UserEventRole::getEventId).filter(Objects::nonNull).collect(Collectors.toSet());
+        Set<Integer> trackIds = assignments.stream().map(UserEventRole::getTrackId).filter(Objects::nonNull).collect(Collectors.toSet());
+        Set<Integer> roundIds = assignments.stream().map(UserEventRole::getRoundId).filter(Objects::nonNull).collect(Collectors.toSet());
+        Set<Integer> assignerIds = assignments.stream().map(UserEventRole::getAssignedBy).filter(Objects::nonNull).collect(Collectors.toSet());
+
+        Map<Integer, String> eventNames = hackathonEventRepository.findAllById(eventIds).stream()
+                .collect(Collectors.toMap(HackathonEvent::getEventId, HackathonEvent::getName));
+        Map<Integer, String> trackNames = trackRepository.findAllById(trackIds).stream()
+                .collect(Collectors.toMap(Track::getTrackId, Track::getName));
+        Map<Integer, String> roundNames = roundRepository.findAllById(roundIds).stream()
+                .collect(Collectors.toMap(Round::getRoundId, Round::getName));
+        Map<Integer, String> assignerNames = userRepository.findAllById(assignerIds).stream()
+                .collect(Collectors.toMap(User::getUserId, User::getFullName));
+
+        return assignments.stream()
+                .map(uer -> UserEventRoleResponse.builder()
+                        .id(uer.getId())
+                        .userId(uer.getUser().getUserId())
+                        .userFullName(uer.getUser().getFullName())
+                        .userEmail(uer.getUser().getEmail())
+                        .roleName(uer.getRole().getRoleName())
+                        .eventId(uer.getEventId())
+                        .eventName(eventNames.get(uer.getEventId()))
+                        .trackId(uer.getTrackId())
+                        .trackName(trackNames.get(uer.getTrackId()))
+                        .roundId(uer.getRoundId())
+                        .roundName(roundNames.get(uer.getRoundId()))
+                        .judgeType(uer.getJudgeType())
+                        .assignedAt(uer.getAssignedAt())
+                        .assignedById(uer.getAssignedBy())
+                        .assignedByName(assignerNames.get(uer.getAssignedBy()))
+                        .build())
+                .collect(Collectors.toList());
     }
 }

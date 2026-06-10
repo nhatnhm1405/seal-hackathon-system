@@ -169,6 +169,7 @@ public class AuthService {
                 .university(user.getUniversity())
                 .isApproved(user.getIsApproved())
                 .isActive(user.getIsActive())
+                .expiredAt(user.getExpiredAt())
                 .provider(user.getProvider())
                 .avatarUrl(user.getAvatarUrl())
                 .roles(roles)
