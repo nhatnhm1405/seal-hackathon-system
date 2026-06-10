@@ -145,6 +145,22 @@ function normalizeStaffRole(item: ApiUserEventRoleItem): StaffRoleRow {
   };
 }
 
+// ── Team membership lookup — GET /api/events + /api/teams/event/{id} ─
+// There is no user→team endpoint, so the Participants tab collects members
+// from every event's teams to resolve which team each participant belongs to.
+interface ApiEventItem {
+  id?: number; eventId?: number; event_id?: number;
+}
+
+interface ApiTeamMemberItem {
+  userId?: number; user_id?: number;
+}
+
+interface ApiTeamItem {
+  name?: string; teamName?: string; team_name?: string;
+  members?: ApiTeamMemberItem[];
+}
+
 // Per the schema's scope rules: EVENT_COORDINATOR may be event-scoped or global,
 // MENTOR is event+track scoped, JUDGE is event+round scoped (with judge_type).
 function roleBadge(roleName: string) {
@@ -294,7 +310,7 @@ export function CoordAccountsPage() {
   const [accounts, setAccounts] = useState<AccountRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'STAFF_ROLES'>('PENDING');
+  const [activeTab, setActiveTab] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'PARTICIPANTS' | 'STAFF_ROLES'>('PENDING');
   const [confirmTarget, setConfirmTarget] = useState<{ type: AccountActionType; account: AccountRow } | null>(null);
   const [rejectNote, setRejectNote] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
@@ -304,6 +320,11 @@ export function CoordAccountsPage() {
   const [staffRolesLoaded, setStaffRolesLoaded] = useState(false);
   const [staffRolesLoading, setStaffRolesLoading] = useState(false);
   const [staffRolesError, setStaffRolesError] = useState<string | null>(null);
+
+  const [teamsByUser, setTeamsByUser] = useState<Record<number, string[]>>({});
+  const [teamsLoaded, setTeamsLoaded] = useState(false);
+  const [teamsLoading, setTeamsLoading] = useState(false);
+  const [teamsError, setTeamsError] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -334,6 +355,43 @@ export function CoordAccountsPage() {
       .finally(() => setStaffRolesLoading(false));
   }, [activeTab, staffRolesLoaded]);
 
+  // Lazy-load team membership only when the Participants tab is first opened.
+  useEffect(() => {
+    if (activeTab !== 'PARTICIPANTS' || teamsLoaded) return;
+    setTeamsLoading(true);
+    setTeamsError(null);
+    apiFetch<{ data: ApiEventItem[] }>('/api/events')
+      .then(res => {
+        const eventIds = (res.data ?? [])
+          .map(e => e.id ?? e.eventId ?? e.event_id ?? 0)
+          .filter(id => id > 0);
+        return Promise.all(
+          eventIds.map(id =>
+            apiFetch<{ data: ApiTeamItem[] }>(`/api/teams/event/${id}`)
+              .then(r => r.data ?? [])
+              .catch(() => [] as ApiTeamItem[]),
+          ),
+        );
+      })
+      .then(teamLists => {
+        const map: Record<number, string[]> = {};
+        for (const team of teamLists.flat()) {
+          const teamName = team.name ?? team.teamName ?? team.team_name ?? '';
+          if (!teamName) continue;
+          for (const member of team.members ?? []) {
+            const uid = member.userId ?? member.user_id ?? 0;
+            if (uid > 0) (map[uid] ??= []).push(teamName);
+          }
+        }
+        setTeamsByUser(map);
+        setTeamsLoaded(true);
+      })
+      .catch(err => {
+        setTeamsError(err instanceof ApiError ? err.message : "Failed to load team membership.");
+      })
+      .finally(() => setTeamsLoading(false));
+  }, [activeTab, teamsLoaded]);
+
   const allCount      = accounts.length;
   const pendingCount  = accounts.filter(a => a.status === 'PENDING').length;
   const approvedCount = accounts.filter(a => a.status === 'APPROVED').length;
@@ -352,6 +410,11 @@ export function CoordAccountsPage() {
   const staffRoleRows = query
     ? staffRoles.filter(r => r.userFullName.toLowerCase().includes(query))
     : staffRoles;
+  const participantAccounts = accounts.filter(a => a.userType !== 'STAFF');
+  const participantCount = participantAccounts.length;
+  const participantRows = query
+    ? participantAccounts.filter(a => a.fullName.toLowerCase().includes(query))
+    : participantAccounts;
 
   function requestApprove(account: AccountRow) {
     setActionError(null);
@@ -449,11 +512,12 @@ export function CoordAccountsPage() {
             { id: "ALL",         label: `All (${allCount})` },
             { id: "PENDING",     label: `Pending (${pendingCount})` },
             { id: "APPROVED",    label: `Approved (${approvedCount})` },
-            { id: "REJECTED",    label: `Rejected (${rejectedCount})` },
-            { id: "STAFF_ROLES", label: "Staff Roles" },
+            { id: "REJECTED",     label: `Rejected (${rejectedCount})` },
+            { id: "PARTICIPANTS", label: `Participants (${participantCount})` },
+            { id: "STAFF_ROLES",  label: "Staff Roles" },
           ]}
           active={activeTab}
-          onChange={(id) => setActiveTab(id as 'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'STAFF_ROLES')}
+          onChange={(id) => setActiveTab(id as 'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'PARTICIPANTS' | 'STAFF_ROLES')}
         />
         <input
           value={searchQuery}
@@ -499,6 +563,56 @@ export function CoordAccountsPage() {
                     <td style={{ color: C.textMuted, fontSize: 11, padding: "12px 14px" }}>{r.assignedByName ?? "—"}</td>
                   </tr>
                 ))}
+              </tbody>
+            </table>
+          </div>
+        </PixelCard>
+      ) : activeTab === 'PARTICIPANTS' ? (
+        <PixelCard style={{ padding: 0, overflow: "hidden" }}>
+          {teamsError && (
+            <div style={{ background: "rgba(239,68,68,0.08)", borderBottom: "1px solid rgba(239,68,68,0.35)", color: C.red, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, padding: "10px 14px" }}>
+              ERROR: {teamsError} — team column unavailable.
+            </div>
+          )}
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'JetBrains Mono', monospace" }}>
+              <thead>
+                <tr style={{ background: C.surface2, borderBottom: `1px solid ${C.border}` }}>
+                  {["Full Name", "Email", "Student Type", "Student ID", "University", "Team", "Status", "Active", "Applied"].map(h => (
+                    <th key={h} style={{ color: C.green, fontSize: 10, letterSpacing: "0.12em", textAlign: "left", padding: "12px 14px", fontWeight: 600, textTransform: "uppercase" }}>
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {loading && (
+                  <tr><td colSpan={9} style={{ padding: 20, color: C.textMuted, fontSize: 12, textAlign: "center" }}>Loading...</td></tr>
+                )}
+                {!loading && fetchError && (
+                  <tr><td colSpan={9} style={{ padding: 20, color: C.red, fontSize: 12, textAlign: "center" }}>{fetchError}</td></tr>
+                )}
+                {!loading && !fetchError && participantRows.length === 0 && (
+                  <tr><td colSpan={9} style={{ padding: 20, color: C.textMuted, fontSize: 12, textAlign: "center" }}>No participants</td></tr>
+                )}
+                {!loading && participantRows.map((a, i) => {
+                  const teamNames = teamsByUser[a.userId];
+                  return (
+                    <tr key={a.userId} style={{ borderBottom: `1px solid rgba(34,197,94,0.06)`, background: i % 2 === 0 ? C.surface : C.surface2 }}>
+                      <td style={{ color: C.text, fontSize: 12, padding: "12px 14px" }}>{a.fullName}</td>
+                      <td style={{ color: C.textMuted, fontSize: 11, padding: "12px 14px" }}>{a.email}</td>
+                      <td style={{ padding: "12px 14px" }}>{studentTypeBadge(a.userType)}</td>
+                      <td style={{ color: C.textMuted, fontSize: 11, padding: "12px 14px" }}>{a.studentId ?? "—"}</td>
+                      <td style={{ color: C.textMuted, fontSize: 11, padding: "12px 14px" }}>{a.universityName ?? "—"}</td>
+                      <td style={{ fontSize: 11, padding: "12px 14px", color: teamNames ? C.text : C.textMuted }}>
+                        {teamsLoading ? "Loading..." : teamNames ? teamNames.join(", ") : "—"}
+                      </td>
+                      <td style={{ padding: "12px 14px" }}>{statusBadge(a.status)}</td>
+                      <td style={{ padding: "12px 14px" }}>{activeBadge(a.isActive)}</td>
+                      <td style={{ color: C.textMuted, fontSize: 11, padding: "12px 14px" }}>{a.createdAt ? fmtDate(a.createdAt) : "—"}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
