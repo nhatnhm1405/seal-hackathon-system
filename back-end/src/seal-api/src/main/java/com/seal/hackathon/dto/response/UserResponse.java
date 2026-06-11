@@ -27,10 +27,6 @@ public class UserResponse {
     private String university;
     private Boolean isApproved;
     private Boolean isActive;
-
-    // Set for time-limited accounts (e.g. guest judges); null for regular accounts
-    private LocalDateTime expiredAt;
-
     private String provider;
     private String avatarUrl;
 

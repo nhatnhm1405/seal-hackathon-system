@@ -77,7 +77,8 @@ public class User {
     private String avatarUrl;
 
     // Roles assigned to this user (across all events)
-    @OneToMany(mappedBy = "user", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    @OneToMany(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", referencedColumnName = "user_id", insertable = false, updatable = false)
     @Builder.Default
     private List<UserEventRole> userEventRoles = new ArrayList<>();
 

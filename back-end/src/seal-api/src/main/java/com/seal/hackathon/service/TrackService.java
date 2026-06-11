@@ -1,33 +1,36 @@
 package com.seal.hackathon.service;
 
-import com.seal.hackathon.dto.request.UpdateTrackRequest;
-import com.seal.hackathon.exception.BadRequestException;
-import com.seal.hackathon.repository.TeamRepository;
-import com.seal.hackathon.dto.request.CreateTrackRequest;
-import com.seal.hackathon.dto.response.TrackResponse;
-import com.seal.hackathon.entity.HackathonEvent;
-import com.seal.hackathon.entity.Track;
-import com.seal.hackathon.exception.ResourceNotFoundException;
-import com.seal.hackathon.repository.HackathonEventRepository;
-import com.seal.hackathon.repository.TrackRepository;
-import lombok.RequiredArgsConstructor;
+import java.util.List;
+import java.util.stream.Collectors;
+
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-import java.util.stream.Collectors;
+import com.seal.hackathon.dto.request.CreateTrackRequest;
+import com.seal.hackathon.dto.request.UpdateTrackRequest;
+import com.seal.hackathon.dto.response.TrackResponse;
+import com.seal.hackathon.entity.HackathonEvent;
+import com.seal.hackathon.entity.Track;
+import com.seal.hackathon.exception.BadRequestException;
+import com.seal.hackathon.exception.ResourceNotFoundException;
+import com.seal.hackathon.repository.HackathonEventRepository;
+import com.seal.hackathon.repository.TeamRepository;
+import com.seal.hackathon.repository.TrackRepository;
+
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
 public class TrackService {
+
     private final TrackRepository trackRepo;
     private final HackathonEventRepository eventRepo;
     private final TeamRepository teamRepo;
 
     @Transactional(readOnly = true)
     public List<TrackResponse> getTracksByEventId(Integer eventId) {
-        HackathonEvent event = eventRepo.findById(eventId)
-                .orElseThrow(() -> new ResourceNotFoundException("Hackathon Event not found with id: " + eventId));
+        HackathonEvent event = eventRepo.findById(eventId).
+                orElseThrow(() -> new ResourceNotFoundException("Hackathon Event not found with id: " + eventId));
 
         List<Track> tracks = trackRepo.findAllByEvent_EventIdOrderByCreatedAtDesc(eventId);
 
@@ -86,8 +89,7 @@ public class TrackService {
         }
 
         if (request.getDescription() != null) {
-            String trimmedDes = request.getDescription().trim();
-            track.setDescription(trimmedDes);
+            track.setDescription(request.getDescription().trim());
         }
         Track savedTrack = trackRepo.save(track);
         return mapToResponse(savedTrack, track.getEvent());

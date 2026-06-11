@@ -12,7 +12,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * Implements cả UserDetails (dùng cho JWT filter) lẫn OAuth2User (dùng cho OAuth2 login).
@@ -41,19 +40,27 @@ public class UserPrincipal implements UserDetails, OAuth2User {
     // Constructor cho local login (email + password)
     // ---------------------------------------------------------------
     public UserPrincipal(User user) {
-        this(user, Map.of());
+        this(user, Map.of(), List.of());
+    }
+
+    public UserPrincipal(User user, List<String> roleNames) {
+        this(user, Map.of(), roleNames);
     }
 
     // ---------------------------------------------------------------
     // Constructor cho OAuth2 login (Google / GitHub)
     // ---------------------------------------------------------------
     public UserPrincipal(User user, Map<String, Object> attributes) {
+        this(user, attributes, List.of());
+    }
+
+    public UserPrincipal(User user, Map<String, Object> attributes, List<String> roleNames) {
         this.userId      = user.getUserId();
         this.email       = user.getEmail();
         this.password    = user.getPasswordHash() != null ? user.getPasswordHash() : "";
         this.approved    = Boolean.TRUE.equals(user.getIsApproved());
         this.active      = Boolean.TRUE.equals(user.getIsActive());
-        this.authorities = buildAuthorities(user);
+        this.authorities = buildAuthorities(user, roleNames);
         this.attributes  = attributes;
     }
 
@@ -120,15 +127,15 @@ public class UserPrincipal implements UserDetails, OAuth2User {
 
     private static final Set<String> PARTICIPANT_TYPES = Set.of("FPT_STUDENT", "EXTERNAL_STUDENT");
 
-    private List<GrantedAuthority> buildAuthorities(User user) {
+    private List<GrantedAuthority> buildAuthorities(User user, List<String> roleNames) {
         List<GrantedAuthority> list = new ArrayList<>();
 
         if (PARTICIPANT_TYPES.contains(user.getUserType())) {
             list.add(new SimpleGrantedAuthority("ROLE_PARTICIPANT"));
         }
 
-        user.getUserEventRoles().stream()
-                .map(uer -> new SimpleGrantedAuthority("ROLE_" + uer.getRole().getRoleName()))
+        roleNames.stream()
+                .map(roleName -> new SimpleGrantedAuthority("ROLE_" + roleName))
                 .distinct()
                 .forEach(list::add);
 

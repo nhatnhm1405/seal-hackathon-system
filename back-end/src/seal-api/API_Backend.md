@@ -62,7 +62,7 @@
 | `GET` | `/api/teams` | CoordTeamsPage | `?eventId=&trackId=&status=` |
 | `GET` | `/api/teams/my` | ParticipantDashboard, TeamManagePage | — (lấy team của current user) |
 | `GET` | `/api/teams/{teamId}` | TeamViewPage, CoordTeamsPage (expanded) | — |
-| `POST` | `/api/teams` | CreateTeamScreen | `{ team_name, event_id, track_id }` |
+| `POST` | `/api/teams` | CreateTeamScreen | `{ name, eventId, trackId }` |
 | `PUT` | `/api/teams/{teamId}/approve` | CoordTeamsPage | — |
 | `PUT` | `/api/teams/{teamId}/reject` | CoordTeamsPage | — |
 | `PUT` | `/api/teams/{teamId}/disqualify` | CoordTeamsPage | `{ reason }` |

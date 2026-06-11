@@ -138,27 +138,28 @@ public class HackathonEventService {
             throw new BadRequestException(pastDateErrorMsg);
 
         // 4. Validate and normalize season
+        String normalizedSeason = event.getSeason().toUpperCase();
         if (event.getSeason() != null) {
-            String normalizedSeason = event.getSeason().toUpperCase();
             if (!normalizedSeason.equals("SPRING") && !normalizedSeason.equals("FALL")
                     && !normalizedSeason.equals("SUMMER")) {
                 throw new BadRequestException("Invalid season. Allowed values are SPRING, SUMMER and FALL.");
             }
             event.setSeason(normalizedSeason);
+        }
 
-            // Kiem tra thang cua start date co nam trong season khong
-            int startMonth = event.getStartDate().getMonthValue();
-            boolean isMatch = false;
-            if ("SPRING".equals(normalizedSeason) && startMonth >= 1 && startMonth <= 4)
-                isMatch = true;
-            else if ("SUMMER".equals(normalizedSeason) && startMonth >= 5 && startMonth <= 8)
-                isMatch = true;
-            else if ("FALL".equals(normalizedSeason) && startMonth >= 9 && startMonth <= 12)
-                isMatch = true;
+        // Kiem tra thang cua start date co nam trong season khong
 
-            if (!isMatch) {
-                throw new BadRequestException("Start date does not match the selected season");
-            }
+        int startMonth = event.getStartDate().getMonthValue();
+        boolean isMatch = false;
+        if (normalizedSeason.equals("SPRING") && startMonth >= 1 && startMonth <= 4)
+            isMatch = true;
+        else if (normalizedSeason.equals("SUMMER") && startMonth >= 5 && startMonth <= 8)
+            isMatch = true;
+        else if (normalizedSeason.equals("FALL") && startMonth >= 9 && startMonth <= 12)
+            isMatch = true;
+
+        if (!isMatch) {
+            throw new BadRequestException("Start date does not match the selected season");
         }
 
         // 5. Validate & Normalize Status
@@ -186,7 +187,7 @@ public class HackathonEventService {
         }
         // Validate đổi Year: Không cho đổi nếu đang ở trạng thái khác DRAFT
         if (request.getYear() != null && !request.getYear().equals(event.getYear())) {
-            if (!"DRAFT".equalsIgnoreCase(event.getStatus())) {
+            if (!"DRAFT".equals(event.getStatus().toUpperCase())) {
                 throw new BadRequestException("Year cannot be changed after event is published");
             }
         }

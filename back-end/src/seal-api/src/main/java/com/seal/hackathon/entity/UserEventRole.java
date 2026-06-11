@@ -10,12 +10,13 @@ import java.time.LocalDateTime;
  * Stores staff role assignments only: EVENT_COORDINATOR, MENTOR, JUDGE.
  *
  * Participants (FPT_STUDENT / EXTERNAL_STUDENT) are NOT stored here —
- * their identity comes from User.user_type and their team role from TeamMember.member_role.
+ * their identity comes from User.user_type and their team role from
+ * TeamMember.member_role.
  *
  * Scope rules:
  * - EVENT_COORDINATOR: event_id may be null (all events) or scoped to one event
- * - MENTOR:            event_id + track_id set
- * - JUDGE:             event_id + round_id set; judge_type = INTERNAL or GUEST
+ * - MENTOR: event_id + track_id set
+ * - JUDGE: event_id + round_id set; judge_type = INTERNAL or GUEST
  *
  * event_id, track_id, round_id are plain Integer IDs because those entities
  * are not part of this module yet.
@@ -46,7 +47,8 @@ public class UserEventRole {
     @Column(name = "event_id")
     private Integer eventId;
 
-    // Nullable: only set for track-scoped roles (MENTOR, or JUDGE for a specific track)
+    // Nullable: only set for track-scoped roles (MENTOR, or JUDGE for a specific
+    // track)
     @Column(name = "track_id")
     private Integer trackId;
 
