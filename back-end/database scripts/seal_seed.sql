@@ -17,6 +17,12 @@ USE seal_hackathon;
 --     khớp trạng thái đang chạy (registration đã đóng, Preliminary ACTIVE).
 --
 -- ALL seed users share the same test password: Test@1234 (BCrypt cost 10).
+--
+-- CẬP NHẬT theo schema mới (assignment redesign):
+--   • UserEventRole đã gọn lại còn (user_id, role_id, event_id) — chỉ định danh role.
+--   • Thêm mục 6b JudgeAssignment + 6c MentorAssignment cho phân công cụ thể.
+--   • Đã bổ sung đủ JudgeAssignment cho các round mà Score có ghi nhận (Semi/Final
+--     của Thầy An + Guest), vốn bị thiếu trong bộ seed cũ.
 -- =====================================================
 
 
@@ -286,38 +292,75 @@ VALUES
 
 
 -- =====================================================
--- 6. USER EVENT ROLE
+-- 6. USER EVENT ROLE  (định danh role — N-N user ↔ role per event)
 -- role_id: 1=EVENT_COORDINATOR, 2=MENTOR, 3=JUDGE
--- Event 1 tracks: 1=Web, 2=Mobile, 3=AI    | rounds: 1=Prelim, 2=Semi, 3=Final
--- Event 2 tracks: 4=Web, 5=AI, 6=Social, 7=Green | rounds: 4=Prelim, 5=Semi, 6=Final
--- Event 3 tracks: 8=Web, 9=AI, 10=EdTech   | rounds: 7=Prelim, 8=Semi, 9=Final
--- Event 4: chưa có track/round
+-- Bảng này CHỈ ghi "ai được phép làm role gì trong event nào".
+-- Việc phân công cụ thể (chấm round/track nào, mentor track nào) nằm ở
+-- JudgeAssignment (mục 6b) và MentorAssignment (mục 6c).
+-- Lưu ý: 1 user có thể có nhiều role trong cùng event (vd user 2 vừa
+-- MENTOR vừa JUDGE ở event 1) → mỗi role là 1 dòng riêng.
 -- =====================================================
-INSERT INTO UserEventRole (user_id, role_id, event_id, track_id, round_id, judge_type, assigned_by) VALUES
+INSERT INTO UserEventRole (user_id, role_id, event_id, assigned_by) VALUES
   -- ── EVENT 1 (COMPLETED) ──
-  (1,  1, 1, NULL, NULL, NULL,       1),   -- Coordinator
-  (2,  2, 1, 1,    NULL, NULL,       1),   -- Thầy An: MENTOR Web App
-  (3,  3, 1, 1,    1,    'INTERNAL', 1),   -- Thầy Binh: JUDGE Web App, Preliminary
-  (3,  3, 1, 1,    2,    'INTERNAL', 1),   -- Thầy Binh: JUDGE Web App, Semi-final
-  (3,  3, 1, 1,    3,    'INTERNAL', 1),   -- Thầy Binh: JUDGE Web App, Final
-  (19, 3, 1, 2,    1,    'INTERNAL', 1),   -- Cô Cam: JUDGE Mobile App, Preliminary
-  (19, 3, 1, 2,    2,    'INTERNAL', 1),   -- Cô Cam: JUDGE Mobile App, Semi-final
-  (19, 3, 1, 2,    3,    'INTERNAL', 1),   -- Cô Cam: JUDGE Mobile App, Final
-  (2,  3, 1, 3,    1,    'INTERNAL', 1),   -- Thầy An: JUDGE AI Solution, Preliminary
-  (4,  3, 1, 3,    1,    'GUEST',    1),   -- Guest judge: JUDGE AI Solution, Preliminary
+  (1,  1, 1, 1),   -- Coordinator
+  (2,  2, 1, 1),   -- Thầy An: MENTOR (Web App)
+  (2,  3, 1, 1),   -- Thầy An: cũng là JUDGE (AI Solution) — case vừa Mentor vừa Judge
+  (3,  3, 1, 1),   -- Thầy Binh: JUDGE
+  (19, 3, 1, 1),   -- Cô Cam: JUDGE
+  (4,  3, 1, 1),   -- Guest judge: JUDGE
 
   -- ── EVENT 2 (IN_PROGRESS - FUHCM Summer) ──
-  (1,  1, 2, NULL, NULL, NULL,       1),   -- Coordinator
-  (26, 2, 2, 4,    NULL, NULL,       1),   -- Thầy Hung: MENTOR Web App
-  (2,  2, 2, 5,    NULL, NULL,       1),   -- Thầy An: MENTOR AI Solution
+  (1,  1, 2, 1),   -- Coordinator
+  (26, 2, 2, 1),   -- Thầy Hung: MENTOR
+  (2,  2, 2, 1),   -- Thầy An: MENTOR
 
   -- ── EVENT 3 (OPEN - FUHN Summer) ──
-  (1,  1, 3, NULL, NULL, NULL,       1),   -- Coordinator
-  (26, 2, 3, 8,    NULL, NULL,       1),   -- Thầy Hung: MENTOR Web App
-  (19, 2, 3, 10,   NULL, NULL,       1),   -- Cô Cam: MENTOR EdTech
+  (1,  1, 3, 1),   -- Coordinator
+  (26, 2, 3, 1),   -- Thầy Hung: MENTOR
+  (19, 2, 3, 1),   -- Cô Cam: MENTOR
 
   -- ── EVENT 4 (DRAFT) ──
-  (1,  1, 4, NULL, NULL, NULL,       1);   -- Coordinator
+  (1,  1, 4, 1);   -- Coordinator
+
+
+-- =====================================================
+-- 6b. JUDGE ASSIGNMENT  (phân công Judge chấm round/track cụ thể)
+-- Event 1 tracks: 1=Web, 2=Mobile, 3=AI  | rounds: 1=Prelim, 2=Semi, 3=Final
+-- Vòng loại (Prelim/Semi): track_id có giá trị → chấm theo track.
+-- Vòng Final: theo dữ liệu cũ judge vẫn chấm theo track (mỗi track 1 champion),
+--   nên giữ track_id cho khớp seed Score. Nếu sau này Final chấm chung thì để NULL.
+-- =====================================================
+INSERT INTO JudgeAssignment (judge_user_id, round_id, track_id, judge_type, assigned_by) VALUES
+  -- Thầy Binh (3): JUDGE Web App (track 1) — cả 3 round
+  (3,  1, 1, 'INTERNAL', 1),
+  (3,  2, 1, 'INTERNAL', 1),
+  (3,  3, 1, 'INTERNAL', 1),
+  -- Cô Cam (19): JUDGE Mobile App (track 2) — cả 3 round
+  (19, 1, 2, 'INTERNAL', 1),
+  (19, 2, 2, 'INTERNAL', 1),
+  (19, 3, 2, 'INTERNAL', 1),
+  -- Thầy An (2): JUDGE AI Solution (track 3) — Preliminary + Semi + Final (theo seed Score)
+  (2,  1, 3, 'INTERNAL', 1),
+  (2,  2, 3, 'INTERNAL', 1),
+  (2,  3, 3, 'INTERNAL', 1),
+  -- Guest judge (4): JUDGE AI Solution (track 3) — Preliminary + Final (theo seed Score)
+  (4,  1, 3, 'GUEST',    1),
+  (4,  3, 3, 'GUEST',    1);
+
+
+-- =====================================================
+-- 6c. MENTOR ASSIGNMENT  (phân công Mentor hỗ trợ track — cả event)
+-- Event 1 tracks: 1=Web, 3=AI | Event 2: 4=Web, 5=AI | Event 3: 8=Web, 10=EdTech
+-- =====================================================
+INSERT INTO MentorAssignment (mentor_user_id, track_id, assigned_by) VALUES
+  -- Event 1
+  (2,  1, 1),    -- Thầy An: MENTOR Web App
+  -- Event 2
+  (26, 4, 1),    -- Thầy Hung: MENTOR Web App
+  (2,  5, 1),    -- Thầy An: MENTOR AI Solution
+  -- Event 3
+  (26, 8,  1),   -- Thầy Hung: MENTOR Web App
+  (19, 10, 1);   -- Cô Cam: MENTOR EdTech
 
 
 -- =====================================================
@@ -753,6 +796,10 @@ SELECT 'Track' AS table_name; SELECT * FROM Track;
 SELECT 'Round' AS table_name; SELECT * FROM Round;
 
 SELECT 'UserEventRole' AS table_name; SELECT * FROM UserEventRole;
+
+SELECT 'JudgeAssignment' AS table_name; SELECT * FROM JudgeAssignment;
+
+SELECT 'MentorAssignment' AS table_name; SELECT * FROM MentorAssignment;
 
 SELECT 'Team' AS table_name; SELECT * FROM Team;
 

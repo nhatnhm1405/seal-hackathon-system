@@ -1,7 +1,15 @@
 -- =====================================================
 -- SEAL Hackathon Management System
 -- MySQL DDL Script  (idempotent — safe to re-run)
--- 16 tables, 31 foreign keys
+-- 17 tables
+--
+-- CHANGELOG (assignment redesign):
+--   - Removed TeamAssignment (duplicate + wrong business unit).
+--   - Slimmed UserEventRole to pure N-N "who is allowed to be what role".
+--   - Added JudgeAssignment (judge scores per round + track).
+--   - Added MentorAssignment (mentor supports per track).
+--   - Added Round.is_final flag to distinguish final round (judge-all)
+--     from preliminary rounds (judge-per-track).
 -- =====================================================
 
 -- Drop and recreate so this script is always safe to re-run.
@@ -93,6 +101,7 @@ CREATE TABLE Round (
   end_time            DATETIME     NOT NULL,
   submission_deadline DATETIME     NOT NULL,
   top_n_advance       INT                   COMMENT 'Top N teams per track that advance to next round',
+  is_final            BOOLEAN      NOT NULL DEFAULT FALSE COMMENT 'TRUE = final round (judges score all, no per-track split)',
   is_calibration      BOOLEAN      NOT NULL DEFAULT FALSE COMMENT 'TRUE for RBL judge calibration rounds',
   status              VARCHAR(20)  NOT NULL DEFAULT 'PENDING' COMMENT 'PENDING, ACTIVE, CLOSED, FINALIZED',
   PRIMARY KEY (round_id),
@@ -101,28 +110,72 @@ CREATE TABLE Round (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- =====================================================
--- USER EVENT ROLE  (must come after Event, Track, Round)
+-- USER EVENT ROLE  (must come after Event)
+-- Pure N-N: lets one user hold multiple roles (e.g. JUDGE + MENTOR)
+-- in the same event. This table answers "WHO IS ALLOWED to be what".
+-- The actual work assignment lives in JudgeAssignment / MentorAssignment.
 -- =====================================================
 
 CREATE TABLE UserEventRole (
-  id          INT         NOT NULL AUTO_INCREMENT,
-  user_id     INT         NOT NULL,
-  role_id     INT         NOT NULL,
-  event_id    INT                  COMMENT 'NULL for system-wide roles (ADMIN)',
-  track_id    INT                  COMMENT 'Set for track-scoped roles (MENTOR, JUDGE per track)',
-  round_id    INT                  COMMENT 'Set for round-scoped roles (JUDGE per round)',
-  judge_type  VARCHAR(20)          COMMENT 'INTERNAL or GUEST — only for JUDGE role',
-  assigned_at DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  assigned_by INT                  COMMENT 'user_id of the coordinator who made this assignment',
+  id          INT       NOT NULL AUTO_INCREMENT,
+  user_id     INT       NOT NULL,
+  role_id     INT       NOT NULL,
+  event_id    INT                COMMENT 'NULL for system-wide roles (ADMIN)',
+  assigned_at DATETIME  NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  assigned_by INT                COMMENT 'Coordinator who granted this role',
   PRIMARY KEY (id),
+  UNIQUE KEY uq_user_role_event (user_id, role_id, event_id),
   KEY idx_uer_user_event (user_id, event_id),
   KEY idx_uer_event_role (event_id, role_id),
-  CONSTRAINT fk_uer_user     FOREIGN KEY (user_id)    REFERENCES `User` (user_id),
-  CONSTRAINT fk_uer_role     FOREIGN KEY (role_id)    REFERENCES Role (role_id),
-  CONSTRAINT fk_uer_event    FOREIGN KEY (event_id)   REFERENCES HackathonEvent (event_id),
-  CONSTRAINT fk_uer_track    FOREIGN KEY (track_id)   REFERENCES Track (track_id),
-  CONSTRAINT fk_uer_round    FOREIGN KEY (round_id)   REFERENCES Round (round_id),
+  CONSTRAINT fk_uer_user     FOREIGN KEY (user_id)     REFERENCES `User` (user_id),
+  CONSTRAINT fk_uer_role     FOREIGN KEY (role_id)     REFERENCES Role (role_id),
+  CONSTRAINT fk_uer_event    FOREIGN KEY (event_id)    REFERENCES HackathonEvent (event_id),
   CONSTRAINT fk_uer_assigned FOREIGN KEY (assigned_by) REFERENCES `User` (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- =====================================================
+-- WORK ASSIGNMENTS  (must come after Track & Round)
+-- =====================================================
+
+-- JudgeAssignment — which submissions a judge may score.
+--   Preliminary round: track_id is set  -> judge scores that track only.
+--   Final round:       track_id is NULL -> judge scores all teams.
+-- Service layer must enforce:
+--   round.is_final = FALSE  -> track_id REQUIRED
+--   round.is_final = TRUE   -> track_id must be NULL
+CREATE TABLE JudgeAssignment (
+  id            INT          NOT NULL AUTO_INCREMENT,
+  judge_user_id INT          NOT NULL,
+  round_id      INT          NOT NULL,
+  track_id      INT                   COMMENT 'NULL = score all (final round)',
+  judge_type    VARCHAR(20)  NOT NULL COMMENT 'INTERNAL or GUEST',
+  assigned_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  assigned_by   INT,
+  is_active     BOOLEAN      NOT NULL DEFAULT TRUE,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_judge_round_track (judge_user_id, round_id, track_id),
+  KEY idx_ja_round_track (round_id, track_id),
+  KEY idx_ja_judge (judge_user_id),
+  CONSTRAINT fk_ja_judge    FOREIGN KEY (judge_user_id) REFERENCES `User` (user_id),
+  CONSTRAINT fk_ja_round    FOREIGN KEY (round_id)      REFERENCES Round (round_id),
+  CONSTRAINT fk_ja_track    FOREIGN KEY (track_id)      REFERENCES Track (track_id),
+  CONSTRAINT fk_ja_assigned FOREIGN KEY (assigned_by)   REFERENCES `User` (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- MentorAssignment — which track a mentor supports (whole event, not per round).
+CREATE TABLE MentorAssignment (
+  id             INT       NOT NULL AUTO_INCREMENT,
+  mentor_user_id INT       NOT NULL,
+  track_id       INT       NOT NULL,
+  assigned_at    DATETIME  NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  assigned_by    INT,
+  is_active      BOOLEAN   NOT NULL DEFAULT TRUE,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_mentor_track (mentor_user_id, track_id),
+  KEY idx_ma_track (track_id),
+  CONSTRAINT fk_ma_mentor   FOREIGN KEY (mentor_user_id) REFERENCES `User` (user_id),
+  CONSTRAINT fk_ma_track    FOREIGN KEY (track_id)       REFERENCES Track (track_id),
+  CONSTRAINT fk_ma_assigned FOREIGN KEY (assigned_by)    REFERENCES `User` (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- =====================================================
@@ -159,28 +212,6 @@ CREATE TABLE TeamMember (
   CONSTRAINT fk_tm_team FOREIGN KEY (team_id) REFERENCES Team (team_id),
   CONSTRAINT fk_tm_user FOREIGN KEY (user_id) REFERENCES `User` (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
--- 1. Tạo bảng TeamAssignment
-CREATE TABLE IF NOT EXISTS `TeamAssignment` (
-    `id` INT AUTO_INCREMENT PRIMARY KEY,
-    `team_id` INT NOT NULL,
-    `user_id` INT NOT NULL,
-    `assignment_type` VARCHAR(20) NOT NULL, -- 'MENTOR' hoặc 'JUDGE'
-    `event_id` INT NULL,
-    `round_id` INT NULL,
-    `assigned_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    `assigned_by` INT NULL,
-    `is_active` TINYINT(1) NOT NULL DEFAULT 1, -- 1: Active, 0: Inactive
-    
-    -- Khóa ngoại liên kết bảng Team và User
-    CONSTRAINT `fk_assignment_team` FOREIGN KEY (`team_id`) REFERENCES `Team` (`team_id`) ON DELETE CASCADE,
-    CONSTRAINT `fk_assignment_user` FOREIGN KEY (`user_id`) REFERENCES `User` (`user_id`) ON DELETE CASCADE,
-    CONSTRAINT `fk_assignment_assigned_by` FOREIGN KEY (`assigned_by`) REFERENCES `User` (`user_id`) ON DELETE SET NULL,
-    
-    -- Chỉ mục để tối ưu hóa tốc độ truy vấn
-    INDEX `idx_assignment_user_type` (`user_id`, `assignment_type`),
-    INDEX `idx_assignment_team_status` (`team_id`, `is_active`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =====================================================
 -- SUBMISSION
