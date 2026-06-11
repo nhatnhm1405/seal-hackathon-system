@@ -3,7 +3,6 @@ package com.seal.hackathon.controller;
 import com.seal.hackathon.dto.request.AssignRoleRequest;
 import com.seal.hackathon.dto.request.CreateStaffRequest;
 import com.seal.hackathon.dto.response.ApiResponse;
-import com.seal.hackathon.dto.response.UserEventRoleResponse;
 import com.seal.hackathon.dto.response.UserResponse;
 import com.seal.hackathon.exception.ResourceNotFoundException;
 import com.seal.hackathon.repository.UserRepository;
@@ -55,7 +54,7 @@ public class UserController {
     @GetMapping
     @PreAuthorize("hasRole('EVENT_COORDINATOR')")
     public ResponseEntity<ApiResponse<List<UserResponse>>> getAllUsers() {
-        List<UserResponse> users = userRepository.findAll().stream()
+        List<UserResponse> users = userRepository.findAllWithRoles().stream()
                 .map(authService::mapToUserResponse)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(ApiResponse.success("Users retrieved.", users));
@@ -71,18 +70,6 @@ public class UserController {
                 .map(authService::mapToUserResponse)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + id));
         return ResponseEntity.ok(ApiResponse.success("User retrieved.", user));
-    }
-
-    /**
-     * GET /api/users/roles
-     * Lists every staff role assignment (UserEventRole), with role/event/track/round/assigner
-     * names already resolved — the UI must display names, never raw IDs.
-     */
-    @GetMapping("/roles")
-    @PreAuthorize("hasRole('EVENT_COORDINATOR')")
-    public ResponseEntity<ApiResponse<List<UserEventRoleResponse>>> getAllStaffRoleAssignments() {
-        List<UserEventRoleResponse> assignments = userRoleService.getAllStaffRoleAssignments();
-        return ResponseEntity.ok(ApiResponse.success("Staff role assignments retrieved.", assignments));
     }
 
     /**

@@ -1,6 +1,9 @@
 package com.seal.hackathon.security.oauth2;
 
+import com.seal.hackathon.entity.Role;
 import com.seal.hackathon.entity.User;
+import com.seal.hackathon.entity.UserEventRole;
+import com.seal.hackathon.repository.RoleRepository;
 import com.seal.hackathon.repository.UserRepository;
 import com.seal.hackathon.security.UserPrincipal;
 import lombok.RequiredArgsConstructor;
@@ -13,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Map;
+import java.util.List;
 
 /**
  * Replaces Spring's default OAuth2 user loading.
@@ -29,6 +33,7 @@ import java.util.Map;
 public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
     private final UserRepository userRepository;
+    private final RoleRepository roleRepository;
 
     @Override
     @Transactional
@@ -56,7 +61,7 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         userRepository.save(user);
 
         // Truyền attributes từ provider để UserPrincipal thoả mãn interface OAuth2User
-        return new UserPrincipal(user, oAuth2User.getAttributes());
+        return new UserPrincipal(user, oAuth2User.getAttributes(), getRoleNames(user));
     }
 
     // ---------------------------------------------------------------
@@ -98,5 +103,13 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
             user.setProviderId(userInfo.getProviderId());
         }
         return user;
+    }
+
+    private List<String> getRoleNames(User user) {
+        return user.getUserEventRoles().stream()
+                .map(uer -> uer.getRole().getRoleName())
+                .distinct()
+                .sorted()
+                .toList();
     }
 }

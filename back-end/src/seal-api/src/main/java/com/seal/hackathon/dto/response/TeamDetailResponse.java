@@ -1,51 +1,42 @@
 package com.seal.hackathon.dto.response;
 
+import java.time.LocalDateTime;
+import java.util.List;
+
+import com.fasterxml.jackson.annotation.JsonInclude;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
-import java.util.List;
-
-/**
- * Response DTO for GET /api/teams/my.
- * Returns the teams the current user belongs to (in active events only).
- */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class MyTeamResponse {
-
+@JsonInclude(JsonInclude.Include.NON_NULL)
+public class TeamDetailResponse {
     private Integer teamId;
-
+    private Integer eventId;
+    private String eventName;
+    private Integer trackId;
     private String trackName;
-
     private String name;
-
+    private String description;
     private String status;
     private String rejectedReason;
     private LocalDateTime rejectedAt;
     private String disqualifiedReason;
     private LocalDateTime disqualifiedAt;
+    private LocalDateTime createdAt;
+    private List<MemberInfo> members;
 
-    /** All members of this team, including the current user */
-    private List<TeamMemberInfo> members;
-
-    /**
-     * Nested DTO representing a single team member.
-     */
     @Data
     @Builder
     @NoArgsConstructor
     @AllArgsConstructor
-    public static class TeamMemberInfo {
-
-        /** Full name of the member (from User.fullName) */
-        private String memberName;
-
-        /** Role within the team: LEADER or MEMBER */
+    public static class MemberInfo {
+        private String fullName;
         private String role;
     }
 }

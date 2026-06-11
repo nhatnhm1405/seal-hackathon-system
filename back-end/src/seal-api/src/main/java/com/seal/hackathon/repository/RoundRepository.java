@@ -12,4 +12,7 @@ public interface RoundRepository extends JpaRepository<Round, Integer> {
 
     @Query("SELECT r FROM Round r JOIN FETCH r.event WHERE r.roundId = :roundId AND r.event.eventId = :eventId")
     Optional<Round> findByIdAndEventId(Integer roundId, Integer eventId);
+
+    @Query("SELECT r FROM Round r JOIN FETCH r.event WHERE r.roundId = :roundId")
+    Optional<Round> findByIdWithEvent(@org.springframework.data.repository.query.Param("roundId") Integer roundId);
 }

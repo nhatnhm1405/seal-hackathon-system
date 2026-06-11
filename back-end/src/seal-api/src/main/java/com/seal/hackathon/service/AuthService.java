@@ -4,11 +4,14 @@ import com.seal.hackathon.dto.request.LoginRequest;
 import com.seal.hackathon.dto.request.RegisterRequest;
 import com.seal.hackathon.dto.response.AuthResponse;
 import com.seal.hackathon.dto.response.UserResponse;
+import com.seal.hackathon.entity.Role;
 import com.seal.hackathon.entity.User;
+import com.seal.hackathon.entity.UserEventRole;
 import com.seal.hackathon.exception.BadRequestException;
 import com.seal.hackathon.exception.ForbiddenException;
 import com.seal.hackathon.exception.ResourceNotFoundException;
 import com.seal.hackathon.exception.UnauthorizedException;
+import com.seal.hackathon.repository.RoleRepository;
 import com.seal.hackathon.repository.UserRepository;
 import com.seal.hackathon.security.JwtService;
 import com.seal.hackathon.security.UserPrincipal;
@@ -25,6 +28,7 @@ import java.util.stream.Collectors;
 public class AuthService {
 
     private final UserRepository userRepository;
+    private final RoleRepository roleRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
 
@@ -95,10 +99,8 @@ public class AuthService {
         }
 
         // 5. Generate JWT
-        UserPrincipal principal = new UserPrincipal(user);
-        List<String> roles = principal.getAuthorities().stream()
-                .map(a -> a.getAuthority().replace("ROLE_", ""))
-                .collect(Collectors.toList());
+        List<String> roles = getRoleNames(user);
+        UserPrincipal principal = new UserPrincipal(user, roles);
 
         String token = jwtService.generateToken(principal, user.getUserId(), roles);
 
@@ -154,11 +156,7 @@ public class AuthService {
     }
 
     public UserResponse mapToUserResponse(User user) {
-        List<String> roles = user.getUserEventRoles().stream()
-                .map(uer -> uer.getRole().getRoleName())
-                .distinct()
-                .sorted()
-                .collect(Collectors.toList());
+        List<String> roles = getRoleNames(user);
 
         return UserResponse.builder()
                 .userId(user.getUserId())
@@ -169,11 +167,18 @@ public class AuthService {
                 .university(user.getUniversity())
                 .isApproved(user.getIsApproved())
                 .isActive(user.getIsActive())
-                .expiredAt(user.getExpiredAt())
                 .provider(user.getProvider())
                 .avatarUrl(user.getAvatarUrl())
                 .roles(roles)
                 .createdAt(user.getCreatedAt())
                 .build();
+    }
+
+    private List<String> getRoleNames(User user) {
+        return user.getUserEventRoles().stream()
+                .map(uer -> uer.getRole().getRoleName())
+                .distinct()
+                .sorted()
+                .collect(Collectors.toList());
     }
 }
