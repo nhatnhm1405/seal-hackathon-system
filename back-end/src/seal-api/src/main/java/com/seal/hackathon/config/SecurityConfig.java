@@ -61,7 +61,6 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 // Public: auth endpoints
                 .requestMatchers("/api/auth/**").permitAll()
-                .requestMatchers("/api/tracks/**").permitAll()
                 // Public: OAuth2 flow
                 .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
                 // Public: error page
@@ -80,6 +79,12 @@ public class SecurityConfig {
                 .requestMatchers("/api/scores/**", "/api/judge/**").hasAnyRole("JUDGE", "EVENT_COORDINATOR")
                 // Mentors access mentor endpoints
                 .requestMatchers("/api/mentor/**").hasAnyRole("MENTOR", "EVENT_COORDINATOR")
+                // Notifications — any authenticated user
+                .requestMatchers("/api/notifications/**").authenticated()
+                // Invitations — participants
+                .requestMatchers("/api/invites/**").hasAnyRole("PARTICIPANT", "EVENT_COORDINATOR")
+                // Round results — public for published, coordinator for all
+                .requestMatchers("/api/events/*/rounds/*/results/**").authenticated()
                 // Everything else must be authenticated
                 .anyRequest().authenticated()
             )

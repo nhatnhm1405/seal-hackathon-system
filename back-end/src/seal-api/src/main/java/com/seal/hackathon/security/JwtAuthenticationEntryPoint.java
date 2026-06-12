@@ -9,7 +9,8 @@ import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
-import com.seal.hackathon.dto.response.ApiResponse;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Called when an unauthenticated user hits a protected endpoint.
@@ -30,7 +31,11 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
 
-        ApiResponse<?> body = ApiResponse.error("You must be logged in to access this resource.");
+        Map<String, Object> body = new HashMap<>();
+        body.put("status", 401);
+        body.put("error", "Unauthorized");
+        body.put("message", "You must be logged in to access this resource.");
+        body.put("path", request.getServletPath());
 
         objectMapper.writeValue(response.getOutputStream(), body);
     }
