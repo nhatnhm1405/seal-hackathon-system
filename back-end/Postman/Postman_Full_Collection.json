@@ -129,7 +129,7 @@
             "url": "{{baseUrl}}/api/auth/login",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"judge@fpt.edu.vn\",\n  \"password\": \"Test@1234\"\n}"
+              "raw": "{\n  \"email\": \"judge.binh@fpt.edu.vn\",\n  \"password\": \"Test@1234\"\n}"
             }
           }
         },
@@ -153,7 +153,7 @@
             "url": "{{baseUrl}}/api/auth/login",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"mentor@fpt.edu.vn\",\n  \"password\": \"Test@1234\"\n}"
+              "raw": "{\n  \"email\": \"mentor.an@fpt.edu.vn\",\n  \"password\": \"Test@1234\"\n}"
             }
           }
         },
@@ -256,7 +256,7 @@
             "url": "{{baseUrl}}/api/users/staff",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"guestjudge@company.com\",\n  \"password\": \"Test@1234\",\n  \"fullName\": \"Nguyen Guest Judge\",\n  \"roleName\": \"JUDGE\",\n  \"judgeType\": \"GUEST\",\n  \"eventId\": 1,\n  \"roundId\": 1\n}"
+              "raw": "{\n  \"email\": \"guestjudge@company.com\",\n  \"password\": \"Test@1234\",\n  \"fullName\": \"Nguyen Guest Judge\",\n  \"roleName\": \"JUDGE\",\n  \"judgeType\": \"GUEST\",\n  \"eventId\": 1,\n  \"roundId\": 1,\n  \"trackId\": 1\n}"
             }
           }
         },
@@ -276,7 +276,7 @@
           }
         },
         {
-          "name": "POST assign role to user",
+          "name": "POST assign role (Mentor – gán theo track)",
           "request": {
             "method": "POST",
             "header": [
@@ -287,6 +287,36 @@
             "body": {
               "mode": "raw",
               "raw": "{\n  \"roleName\": \"MENTOR\",\n  \"eventId\": 1,\n  \"trackId\": 1\n}"
+            }
+          }
+        },
+        {
+          "name": "POST assign role (Judge – round thường, bắt buộc trackId)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{coordinatorToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/users/{{userId}}/roles",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roleName\": \"JUDGE\",\n  \"eventId\": 1,\n  \"roundId\": 1,\n  \"trackId\": 2,\n  \"judgeType\": \"INTERNAL\"\n}"
+            }
+          }
+        },
+        {
+          "name": "POST assign role (Judge – vòng Final, trackId phải null → expect 400 nếu round không phải Final)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{coordinatorToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/users/{{userId}}/roles",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roleName\": \"JUDGE\",\n  \"eventId\": 1,\n  \"roundId\": 1,\n  \"judgeType\": \"INTERNAL\"\n}"
             }
           }
         },
@@ -333,9 +363,9 @@
             "script": {
               "exec": [
                 "var res = pm.response.json();",
-                "if (res.data && res.data.id) {",
-                "  pm.collectionVariables.set('eventId', String(res.data.id));",
-                "  console.log('eventId saved: ' + res.data.id);",
+                "if (res.data && res.data.eventId) {",
+                "  pm.collectionVariables.set('eventId', String(res.data.eventId));",
+                "  console.log('eventId saved: ' + res.data.eventId);",
                 "}"
               ]
             }
@@ -395,9 +425,9 @@
             "script": {
               "exec": [
                 "var res = pm.response.json();",
-                "if (res.data && res.data.id) {",
-                "  pm.collectionVariables.set('trackId', String(res.data.id));",
-                "  console.log('trackId saved: ' + res.data.id);",
+                "if (res.data && res.data.trackId) {",
+                "  pm.collectionVariables.set('trackId', String(res.data.trackId));",
+                "  console.log('trackId saved: ' + res.data.trackId);",
                 "}"
               ]
             }
@@ -465,9 +495,9 @@
             "script": {
               "exec": [
                 "var res = pm.response.json();",
-                "if (res.data && res.data.id) {",
-                "  pm.collectionVariables.set('roundId', String(res.data.id));",
-                "  console.log('roundId saved: ' + res.data.id);",
+                "if (res.data && res.data.roundId) {",
+                "  pm.collectionVariables.set('roundId', String(res.data.roundId));",
+                "  console.log('roundId saved: ' + res.data.roundId);",
                 "}"
               ]
             }
@@ -481,7 +511,7 @@
             "url": "{{baseUrl}}/api/events/{{eventId}}/rounds",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Vòng 1 – Sơ loại\",\n  \"orderNumber\": 1,\n  \"startTime\": \"2026-06-25T08:00:00\",\n  \"endTime\": \"2026-06-27T18:00:00\",\n  \"submissionDeadline\": \"2026-06-27T17:00:00\",\n  \"topNAdvance\": 10,\n  \"isCalibration\": false\n}"
+              "raw": "{\n  \"name\": \"Vòng 1 – Sơ loại\",\n  \"orderNumber\": 1,\n  \"startTime\": \"2026-06-25T08:00:00\",\n  \"endTime\": \"2026-06-27T18:00:00\",\n  \"submissionDeadline\": \"2026-06-27T17:00:00\",\n  \"topNAdvance\": 10,\n  \"isFinal\": false,\n  \"isCalibration\": false\n}"
             }
           }
         },
@@ -501,6 +531,21 @@
           }
         },
         {
+          "name": "POST create round (Final – isFinal=true)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{coordinatorToken}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/events/{{eventId}}/rounds",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Vòng Final\",\n  \"orderNumber\": 3,\n  \"startTime\": \"2026-07-05T08:00:00\",\n  \"endTime\": \"2026-07-08T18:00:00\",\n  \"submissionDeadline\": \"2026-07-08T17:00:00\",\n  \"isFinal\": true,\n  \"isCalibration\": false\n}"
+            }
+          }
+        },
+        {
           "name": "PUT update round",
           "request": {
             "method": "PUT",
@@ -511,7 +556,7 @@
             "url": "{{baseUrl}}/api/events/{{eventId}}/rounds/{{roundId}}",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Vòng 1 – Sơ loại (Updated)\",\n  \"topNAdvance\": 8,\n  \"status\": \"ACTIVE\"\n}"
+              "raw": "{\n  \"name\": \"Vòng 1 – Sơ loại (Updated)\",\n  \"topNAdvance\": 8,\n  \"isFinal\": false,\n  \"status\": \"ACTIVE\"\n}"
             }
           }
         }
@@ -535,9 +580,9 @@
             "script": {
               "exec": [
                 "var res = pm.response.json();",
-                "if (res.data && res.data.id) {",
-                "  pm.collectionVariables.set('teamId', String(res.data.id));",
-                "  console.log('teamId saved: ' + res.data.id);",
+                "if (res.data && res.data.teamId) {",
+                "  pm.collectionVariables.set('teamId', String(res.data.teamId));",
+                "  console.log('teamId saved: ' + res.data.teamId);",
                 "}"
               ]
             }
@@ -623,9 +668,9 @@
             "script": {
               "exec": [
                 "var res = pm.response.json();",
-                "if (res.data && res.data.id) {",
-                "  pm.collectionVariables.set('inviteId', String(res.data.id));",
-                "  console.log('inviteId saved: ' + res.data.id);",
+                "if (res.data && res.data.inviteId) {",
+                "  pm.collectionVariables.set('inviteId', String(res.data.inviteId));",
+                "  console.log('inviteId saved: ' + res.data.inviteId);",
                 "}"
               ]
             }
@@ -639,7 +684,7 @@
             "url": "{{baseUrl}}/api/invites/teams/{{teamId}}",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"invitedUserId\": 5,\n  \"message\": \"Mời bạn tham gia team Alpha của tụi mình nhé!\"\n}"
+              "raw": "{\n  \"invitedUserId\": 6,\n  \"message\": \"Mời bạn tham gia team Alpha của tụi mình nhé!\"\n}"
             }
           }
         },
@@ -680,9 +725,9 @@
             "script": {
               "exec": [
                 "var res = pm.response.json();",
-                "if (res.data && res.data.id) {",
-                "  pm.collectionVariables.set('submissionId', String(res.data.id));",
-                "  console.log('submissionId saved: ' + res.data.id);",
+                "if (res.data && res.data.submissionId) {",
+                "  pm.collectionVariables.set('submissionId', String(res.data.submissionId));",
+                "  console.log('submissionId saved: ' + res.data.submissionId);",
                 "}"
               ]
             }
@@ -745,9 +790,9 @@
             "script": {
               "exec": [
                 "var res = pm.response.json();",
-                "if (res.data && res.data.id) {",
-                "  pm.collectionVariables.set('criteriaId', String(res.data.id));",
-                "  console.log('criteriaId saved: ' + res.data.id);",
+                "if (res.data && res.data.criteriaId) {",
+                "  pm.collectionVariables.set('criteriaId', String(res.data.criteriaId));",
+                "  console.log('criteriaId saved: ' + res.data.criteriaId);",
                 "}"
               ]
             }
@@ -892,8 +937,8 @@
               "exec": [
                 "var res = pm.response.json();",
                 "if (res.data && res.data.length > 0) {",
-                "  pm.collectionVariables.set('notificationId', String(res.data[0].id));",
-                "  console.log('notificationId saved: ' + res.data[0].id);",
+                "  pm.collectionVariables.set('notificationId', String(res.data[0].notificationId));",
+                "  console.log('notificationId saved: ' + res.data[0].notificationId);",
                 "}"
               ]
             }
@@ -932,7 +977,7 @@
     },
 
     {
-      "name": "13. TEAM ASSIGNMENTS",
+      "name": "13. ASSIGNMENTS (MENTOR / JUDGE)",
       "item": [
         {
           "name": "GET mentor's assigned teams (Mentor)",
