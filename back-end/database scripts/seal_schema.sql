@@ -1,7 +1,7 @@
 -- =====================================================
 -- SEAL Hackathon Management System
 -- MySQL DDL Script  (idempotent — safe to re-run)
--- 18 tables
+-- 17 tables
 --
 -- CHANGELOG (assignment redesign):
 --   - Removed TeamAssignment (duplicate + wrong business unit).
@@ -10,21 +10,6 @@
 --   - Added MentorAssignment (mentor supports per track).
 --   - Added Round.is_final flag to distinguish final round (judge-all)
 --     from preliminary rounds (judge-per-track).
---
--- CHANGELOG (admin / coordinator split):
---   - Added SYSTEM_ADMIN role (role_id = 1; existing roles shifted down).
---     System Admin runs the PLATFORM (users, role grants, global templates,
---     system logs). Event Coordinator runs the COMPETITION (events, rounds,
---     scoring, ranking) scoped to an event.
---   - UserEventRole.event_id is NULL for system-wide roles (SYSTEM_ADMIN).
---     NOTE: MySQL treats NULL as distinct in UNIQUE keys, so the
---     (user_id, role_id, event_id) unique key does NOT block duplicate
---     admin grants. The service layer must guard against that (MVP choice).
---   - Added index idx_uer_role_systemwide for fast system-wide role lookup.
---   - Added SystemLog table (minimal: action + detail) for admin/platform
---     events — kept separate from AuditLog, which stays for competition
---     business actions (scoring, disqualify, publish).
---   - Seeded one bootstrap SYSTEM_ADMIN and one EVENT_COORDINATOR account.
 -- =====================================================
 
 -- Drop and recreate so this script is always safe to re-run.
@@ -44,7 +29,7 @@ USE seal_hackathon;
 
 CREATE TABLE Role (
   role_id     INT          NOT NULL AUTO_INCREMENT,
-  role_name   VARCHAR(50)  NOT NULL COMMENT 'SYSTEM_ADMIN, EVENT_COORDINATOR, MENTOR, JUDGE',
+  role_name   VARCHAR(50)  NOT NULL COMMENT 'EVENT_COORDINATOR, MENTOR, JUDGE',
   description VARCHAR(255),
   PRIMARY KEY (role_id),
   UNIQUE KEY uq_role_name (role_name)
@@ -63,11 +48,10 @@ CREATE TABLE `User` (
   avatar_url    VARCHAR(500)          COMMENT 'Profile picture URL from OAuth2 provider',
   student_id    VARCHAR(50)           COMMENT 'FPT student ID or external student ID',
   university    VARCHAR(255)          COMMENT 'For external students only',
-  judge_type    VARCHAR(20)           COMMENT 'INTERNAL or GUEST — only set for users who act as judges; NULL otherwise',
   is_approved   BOOLEAN      NOT NULL DEFAULT FALSE,
   is_active     BOOLEAN      NOT NULL DEFAULT TRUE,
   created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  expired_at    DATETIME              COMMENT 'Account expiry (set manually), e.g. guest judge valid until event end. NULL = never expires',
+  expired_at    DATETIME              ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (user_id),
   UNIQUE KEY uq_email (email),
   KEY idx_user_type (user_type),
@@ -89,10 +73,12 @@ CREATE TABLE HackathonEvent (
   start_date         DATETIME     NOT NULL,
   end_date           DATETIME     NOT NULL,
   status             VARCHAR(20)  NOT NULL DEFAULT 'DRAFT' COMMENT 'DRAFT, OPEN, IN_PROGRESS, COMPLETED, CANCELLED',
+  created_by         INT          NOT NULL,
   created_at         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (event_id),
   KEY idx_event_season_year (season, year),
-  KEY idx_event_status (status)
+  KEY idx_event_status (status),
+  CONSTRAINT fk_event_created_by FOREIGN KEY (created_by) REFERENCES `User` (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE Track (
@@ -116,6 +102,7 @@ CREATE TABLE Round (
   submission_deadline DATETIME     NOT NULL,
   top_n_advance       INT                   COMMENT 'Top N teams per track that advance to next round',
   is_final            BOOLEAN      NOT NULL DEFAULT FALSE COMMENT 'TRUE = final round (judges score all, no per-track split)',
+  is_calibration      BOOLEAN      NOT NULL DEFAULT FALSE COMMENT 'TRUE for RBL judge calibration rounds',
   status              VARCHAR(20)  NOT NULL DEFAULT 'PENDING' COMMENT 'PENDING, ACTIVE, CLOSED, FINALIZED',
   PRIMARY KEY (round_id),
   UNIQUE KEY uq_round_event_order (event_id, order_number),
@@ -133,15 +120,17 @@ CREATE TABLE UserEventRole (
   id          INT       NOT NULL AUTO_INCREMENT,
   user_id     INT       NOT NULL,
   role_id     INT       NOT NULL,
-  event_id    INT                COMMENT 'NULL for system-wide roles (SYSTEM_ADMIN)',
+  event_id    INT                COMMENT 'NULL for system-wide roles (ADMIN)',
+  assigned_at DATETIME  NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  assigned_by INT                COMMENT 'Coordinator who granted this role',
   PRIMARY KEY (id),
   UNIQUE KEY uq_user_role_event (user_id, role_id, event_id),
   KEY idx_uer_user_event (user_id, event_id),
   KEY idx_uer_event_role (event_id, role_id),
-  KEY idx_uer_role_systemwide (role_id, event_id) COMMENT 'Fast lookup for system-wide roles (event_id IS NULL, e.g. SYSTEM_ADMIN)',
-  CONSTRAINT fk_uer_user  FOREIGN KEY (user_id)  REFERENCES `User` (user_id),
-  CONSTRAINT fk_uer_role  FOREIGN KEY (role_id)  REFERENCES Role (role_id),
-  CONSTRAINT fk_uer_event FOREIGN KEY (event_id) REFERENCES HackathonEvent (event_id)
+  CONSTRAINT fk_uer_user     FOREIGN KEY (user_id)     REFERENCES `User` (user_id),
+  CONSTRAINT fk_uer_role     FOREIGN KEY (role_id)     REFERENCES Role (role_id),
+  CONSTRAINT fk_uer_event    FOREIGN KEY (event_id)    REFERENCES HackathonEvent (event_id),
+  CONSTRAINT fk_uer_assigned FOREIGN KEY (assigned_by) REFERENCES `User` (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- =====================================================
@@ -159,16 +148,18 @@ CREATE TABLE JudgeAssignment (
   judge_user_id INT          NOT NULL,
   round_id      INT          NOT NULL,
   track_id      INT                   COMMENT 'NULL = score all (final round)',
+  judge_type    VARCHAR(20)  NOT NULL COMMENT 'INTERNAL or GUEST',
+  assigned_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  assigned_by   INT,
   is_active     BOOLEAN      NOT NULL DEFAULT TRUE,
-  -- Who assigned this and when is captured in AuditLog (action = ASSIGN_JUDGE),
-  -- since assigning a judge is an event business action, not a system action.
   PRIMARY KEY (id),
   UNIQUE KEY uq_judge_round_track (judge_user_id, round_id, track_id),
   KEY idx_ja_round_track (round_id, track_id),
   KEY idx_ja_judge (judge_user_id),
-  CONSTRAINT fk_ja_judge FOREIGN KEY (judge_user_id) REFERENCES `User` (user_id),
-  CONSTRAINT fk_ja_round FOREIGN KEY (round_id)      REFERENCES Round (round_id),
-  CONSTRAINT fk_ja_track FOREIGN KEY (track_id)      REFERENCES Track (track_id)
+  CONSTRAINT fk_ja_judge    FOREIGN KEY (judge_user_id) REFERENCES `User` (user_id),
+  CONSTRAINT fk_ja_round    FOREIGN KEY (round_id)      REFERENCES Round (round_id),
+  CONSTRAINT fk_ja_track    FOREIGN KEY (track_id)      REFERENCES Track (track_id),
+  CONSTRAINT fk_ja_assigned FOREIGN KEY (assigned_by)   REFERENCES `User` (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- MentorAssignment — which track a mentor supports (whole event, not per round).
@@ -176,13 +167,15 @@ CREATE TABLE MentorAssignment (
   id             INT       NOT NULL AUTO_INCREMENT,
   mentor_user_id INT       NOT NULL,
   track_id       INT       NOT NULL,
+  assigned_at    DATETIME  NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  assigned_by    INT,
   is_active      BOOLEAN   NOT NULL DEFAULT TRUE,
-  -- Who assigned this and when is captured in AuditLog (action = ASSIGN_MENTOR).
   PRIMARY KEY (id),
   UNIQUE KEY uq_mentor_track (mentor_user_id, track_id),
   KEY idx_ma_track (track_id),
-  CONSTRAINT fk_ma_mentor FOREIGN KEY (mentor_user_id) REFERENCES `User` (user_id),
-  CONSTRAINT fk_ma_track  FOREIGN KEY (track_id)       REFERENCES Track (track_id)
+  CONSTRAINT fk_ma_mentor   FOREIGN KEY (mentor_user_id) REFERENCES `User` (user_id),
+  CONSTRAINT fk_ma_track    FOREIGN KEY (track_id)       REFERENCES Track (track_id),
+  CONSTRAINT fk_ma_assigned FOREIGN KEY (assigned_by)    REFERENCES `User` (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- =====================================================
@@ -303,9 +296,7 @@ CREATE TABLE RoundResult (
   round_id      INT           NOT NULL,
   total_score   DECIMAL(7,2)  NOT NULL,
   rank_position INT           NOT NULL,
-  -- "Advanced" is NOT stored: it is derived as
-  --   rank_position <= Round.top_n_advance  (per track for preliminary rounds).
-  -- Compute it in the service/query layer when listing who moves on.
+  advanced      BOOLEAN       NOT NULL DEFAULT FALSE,
   is_published  BOOLEAN       NOT NULL DEFAULT FALSE,
   finalized_at  DATETIME,
   finalized_by  INT,
@@ -378,11 +369,13 @@ CREATE TABLE Notification (
   title             VARCHAR(255) NOT NULL,
   content           TEXT,
   type              VARCHAR(50)           COMMENT 'ANNOUNCEMENT, RESULT, REMINDER, ASSIGNMENT, APPROVAL',
+  related_event_id  INT,
   is_read           BOOLEAN      NOT NULL DEFAULT FALSE,
   created_at        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (notification_id),
   KEY idx_notif_recipient_read (recipient_user_id, is_read),
-  CONSTRAINT fk_notif_recipient FOREIGN KEY (recipient_user_id) REFERENCES `User` (user_id)
+  CONSTRAINT fk_notif_recipient FOREIGN KEY (recipient_user_id) REFERENCES `User` (user_id),
+  CONSTRAINT fk_notif_event     FOREIGN KEY (related_event_id)  REFERENCES HackathonEvent (event_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE AuditLog (
@@ -402,50 +395,16 @@ CREATE TABLE AuditLog (
   CONSTRAINT fk_audit_actor FOREIGN KEY (actor_user_id) REFERENCES `User` (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- SystemLog — platform/admin events, kept SEPARATE from AuditLog.
---   AuditLog  = competition business actions (scored, disqualified, published);
---               needs target_type/target_id, reason, before/after snapshot.
---   SystemLog = admin actions on the platform itself (user mgmt, role grants,
---               template changes, auth events). Minimal by design: the human-
---               readable context goes into `detail`, no entity FK fan-out.
--- Visibility: SystemLog is SYSTEM_ADMIN-only; AuditLog is also readable by the
--- owning event's coordinator.
-CREATE TABLE SystemLog (
-  log_id        INT         NOT NULL AUTO_INCREMENT,
-  actor_user_id INT         NOT NULL,
-  action        VARCHAR(50) NOT NULL COMMENT 'CREATE_USER, LOCK_USER, RESET_PASSWORD, GRANT_ROLE, REVOKE_ROLE, UPDATE_TEMPLATE, LOGIN_FAILED...',
-  detail        TEXT                 COMMENT 'Human-readable context, e.g. "granted EVENT_COORDINATOR to user#5"',
-  ip_address    VARCHAR(45),
-  created_at    DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (log_id),
-  KEY idx_syslog_actor   (actor_user_id),
-  KEY idx_syslog_action  (action),
-  KEY idx_syslog_created (created_at),
-  CONSTRAINT fk_syslog_actor FOREIGN KEY (actor_user_id) REFERENCES `User` (user_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+-- =====================================================
+-- SEED DATA
+-- =====================================================
 
--- Roles are for staff / platform operators only.
+-- Roles are for event staff only.
 -- Participants (FPT_STUDENT, EXTERNAL_STUDENT) are identified by User.user_type,
 -- not by this table. Team LEADER/MEMBER distinction lives in TeamMember.member_role.
---
--- Order matters: SYSTEM_ADMIN is inserted first so it lands on role_id = 1,
--- with the competition-staff roles shifted down to 2/3/4. This makes the
--- platform owner the lowest, most stable id — handy for the bootstrap seed
--- and for code that references the admin role.
 INSERT INTO Role (role_name, description) VALUES
-  ('SYSTEM_ADMIN',      'Platform operator — manages all accounts, grants COORDINATOR role, owns global criteria templates, reads system logs. Not tied to any event.'),
-  ('EVENT_COORDINATOR', 'SE Dept / PDP staff — runs a hackathon event: rounds, tracks, criteria, account approval, judge/mentor assignment, ranking, results.'),
+  ('EVENT_COORDINATOR', 'SE Dept / PDP staff — manages events, approves accounts, assigns roles'),
   ('MENTOR',            'Faculty mentor assigned to a track'),
   ('JUDGE',             'Judge who scores submissions — INTERNAL or GUEST');
 
--- =====================================================
--- BOOTSTRAP ACCOUNTS
--- =====================================================
--- All seed accounts (including the SYSTEM_ADMIN and the demo coordinator)
--- live in seal_seed.sql, so there is a SINGLE place that owns user rows and
--- user_id values stay stable for every foreign key. The platform still needs
--- an admin to function (only SYSTEM_ADMIN can grant EVENT_COORDINATOR), so
--- seal_seed.sql seeds user_id 1 = admin and grants the role there.
---
--- If you run the schema WITHOUT the seed (e.g. fresh prod), create your first
--- admin manually, then grant SYSTEM_ADMIN via UserEventRole (event_id = NULL).
+-- Seed users and coordinator bootstrap account are in seal_seed.sql

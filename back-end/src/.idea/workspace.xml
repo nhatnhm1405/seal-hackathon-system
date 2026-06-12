@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="e542b597-40fa-4440-8fa0-7ae8512a76c4" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/.gitignore" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/index.html" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/index.html" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/package-lock.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/App.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/app/App.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/app/App.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/app/layouts/DashboardLayout.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/app/layouts/DashboardLayout.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/app/providers/AuthContext.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/app/routes/routes.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/auth/LoginPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/auth/LoginPage.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/auth/PendingApprovalPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/auth/PendingApprovalPage.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/auth/RegisterPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/auth/RegisterPage.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/auth/SocialAuthButtons.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/auth/SocialAuthButtons.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/dashboard/DashboardHome.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/dashboard/RoleDashboardPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/dashboard/RoleDashboardPage.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/dashboard/dashboards/CoordinatorDashboard.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/dashboard/dashboards/CoordinatorDashboard.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/dashboard/dashboards/JudgeDashboard.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/dashboard/dashboards/JudgeDashboard.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/dashboard/dashboards/MentorDashboard.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/dashboard/dashboards/MentorDashboard.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/dashboard/dashboards/ParticipantDashboard.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/dashboard/dashboards/ParticipantDashboard.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/dashboard/dashboards/TeamLeaderDashboard.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/dashboard/dashboards/TeamLeaderDashboard.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/dashboard/dashboards/TeamMemberDashboard.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/dashboard/dashboards/TeamMemberDashboard.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/dashboard/dashboards/participant/components/EventDetailDrawer.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/dashboard/dashboards/participant/screens/CreateTeamScreen.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/dashboard/dashboards/participant/screens/ExistingTeamDashboard.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/dashboard/dashboards/participant/screens/NoTeamDashboard.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/dashboard/dashboards/participant/screens/SuccessScreen.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/dashboard/dashboards/participant/utils/formatters.ts" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/events/CoordEventsPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/events/CoordEventsPage.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/events/CoordPrizesPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/events/CoordPrizesPage.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/events/EventsPage.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/landing/AboutSection.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/landing/AboutSection.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/landing/ContactSection.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/landing/ContactSection.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/landing/Footer.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/landing/Footer.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/landing/HeroSection.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/landing/HeroSection.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/landing/LandingPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/landing/LandingPage.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/landing/Navigation.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/landing/Navigation.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/landing/PortfolioSection.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/landing/PortfolioSection.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/landing/ServicesSection.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/landing/ServicesSection.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/scoring/CoordJudgesPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/scoring/CoordJudgesPage.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/scoring/CoordScoringPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/scoring/CoordScoringPage.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/scoring/JudgeHistoryPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/scoring/JudgeHistoryPage.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/scoring/JudgePage.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/scoring/JudgeScoringPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/scoring/JudgeScoringPage.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/scoring/LeaderboardPage.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/submissions/SubmissionsPage.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/submissions/TeamSubmitPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/submissions/TeamSubmitPage.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/teams/CoordTeamsPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/teams/CoordTeamsPage.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/teams/TeamCreatePage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/teams/TeamCreatePage.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/teams/TeamMangePage.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/teams/TeamViewPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/teams/TeamViewPage.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/teams/TeamsPage.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/tracks/MentorTracksPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/tracks/MentorTracksPage.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/users/AdminPage.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/users/CoordAccountsPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/users/CoordAccountsPage.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/users/CoordAuditPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/users/CoordAuditPage.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/users/ProfilePage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/features/users/ProfilePage.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/main.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/main.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/pages/LeaderboardPage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/pages/LeaderboardPage.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/pages/ProfilePage.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/pages/ProfilePage.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/DevToolbar.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/DevToolbar.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ImageWithFallback.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ImageWithFallback.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/PixelComponents.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/PixelComponents.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/SealFooter.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/SealFooter.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/accordion.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/accordion.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/alert-dialog.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/alert-dialog.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/alert.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/alert.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/aspect-ratio.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/aspect-ratio.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/avatar.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/avatar.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/breadcrumb.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/breadcrumb.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/button.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/button.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/calendar.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/calendar.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/card.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/card.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/carousel.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/carousel.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/chart.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/chart.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/collapsible.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/collapsible.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/command.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/command.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/context-menu.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/context-menu.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/dialog.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/dialog.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/drawer.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/drawer.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/dropdown-menu.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/dropdown-menu.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/hover-card.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/hover-card.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/input-group.tsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/input-otp.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/input-otp.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/input.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/input.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/menubar.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/menubar.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/navigation-menu.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/navigation-menu.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/pagination.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/pagination.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/popover.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/popover.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/progress.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/progress.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/radio-group.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/radio-group.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/resizable.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/resizable.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/scroll-area.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/scroll-area.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/select.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/select.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/separator.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/separator.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/sheet.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/sheet.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/sidebar.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/sidebar.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/skeleton.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/skeleton.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/slider.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/slider.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/sonner.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/sonner.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/table.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/table.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/tabs.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/tabs.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/textarea.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/textarea.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/toggle-group.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/toggle-group.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/toggle.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/toggle.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/tooltip.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/tooltip.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/use-mobile.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/use-mobile.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/utils.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/components/ui/utils.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/mocks/mockData.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/shared/mocks/mockData.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/styles/default_theme.css" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/styles/default_theme.css" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/styles/fonts.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/styles/globals.css" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/styles/globals.css" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/styles/index.css" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/src/styles/index.css" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/styles/tailwind.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/src/styles/theme.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/tsconfig.json" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/tsconfig.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../../front-end/src/seal-web/vite.config.ts" beforeDir="false" afterPath="$PROJECT_DIR$/../../front-end/src/seal-web/vite.config.ts" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/../.." />
+  </component>
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;nhatnhm1405&quot;
+  }
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/nhatnhm1405/seal-hackathon-system&quot;,
+    &quot;accountId&quot;: &quot;59eba03d-4967-4a31-a8c8-fae9ac1e1b0e&quot;
+  }
+}</component>
+  <component name="MavenImportPreferences">
+    <option name="generalSettings">
+      <MavenGeneralSettings>
+        <option name="mavenHomeTypeForPersistence" value="WRAPPER" />
+      </MavenGeneralSettings>
+    </option>
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 4,
+  &quot;fromUser&quot;: false
+}</component>
+  <component name="ProjectId" id="3EcRHWRcdOpF0AAhRBCRgTugnRb" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;ModuleVcsDetector.initialDetectionPerformed&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.typescript.service.memoryLimit.init&quot;: &quot;true&quot;,
+    &quot;codeWithMe.voiceChat.enabledByDefault&quot;: &quot;false&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/nghmi/Downloads/seal-hackathon-system/back-end/src&quot;,
+    &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
+    &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
+    &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
+    &quot;node.js.selected.package.tslint&quot;: &quot;(autodetect)&quot;,
+    &quot;nodejs_package_manager_path&quot;: &quot;npm&quot;,
+    &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
+  }
+}</component>
+  <component name="RunManager">
+    <configuration name="HackathonApplication" type="SpringBootApplicationConfigurationType" factoryName="Spring Boot" nameIsGenerated="true">
+      <option name="FRAME_DEACTIVATION_UPDATE_POLICY" value="UpdateClassesAndResources" />
+      <module name="hackathon" />
+      <option name="SPRING_BOOT_MAIN_CLASS" value="com.seal.hackathon.HackathonApplication" />
+      <method v="2">
+        <option name="Make" enabled="true" />
+      </method>
+    </configuration>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="e542b597-40fa-4440-8fa0-7ae8512a76c4" name="Changes" comment="" />
+      <created>1780475784002</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1780475784002</updated>
+      <workItem from="1780475785257" duration="1721000" />
+      <workItem from="1780497733196" duration="63000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+</project>
