@@ -4,7 +4,7 @@ import com.seal.hackathon.dto.response.ApiResponse;
 import com.seal.hackathon.dto.response.JudgeAssignmentResponse;
 import com.seal.hackathon.dto.response.MentorAssignmentResponse;
 import com.seal.hackathon.security.UserPrincipal;
-import com.seal.hackathon.service.TeamAssignmentService;
+import com.seal.hackathon.service.AssignmentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -19,19 +19,19 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api")
 @RequiredArgsConstructor
-public class TeamAssignmentController {
+public class AssignmentController {
 
-    private final TeamAssignmentService teamAssignmentService;
+    private final AssignmentService assignmentService;
 
     /**
      * GET /api/mentor/assignments
-     * Hiển thị danh sách các team mà Mentor đang đăng nhập quản lý.
+     * Hiển thị danh sách các team thuộc track mà Mentor đang đăng nhập hỗ trợ.
      */
     @GetMapping("/mentor/assignments")
     @PreAuthorize("hasRole('MENTOR')")
     public ResponseEntity<ApiResponse<MentorAssignmentResponse>> getMentorAssignments(Authentication authentication) {
         UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
-        MentorAssignmentResponse response = teamAssignmentService.getMentorAssignments(principal.getUserId());
+        MentorAssignmentResponse response = assignmentService.getMentorAssignments(principal.getUserId());
         return ResponseEntity.ok(ApiResponse.success("Mentor assignments retrieved successfully.", response));
     }
 
@@ -43,7 +43,7 @@ public class TeamAssignmentController {
     @PreAuthorize("hasRole('JUDGE')")
     public ResponseEntity<ApiResponse<JudgeAssignmentResponse>> getJudgeAssignments(Authentication authentication) {
         UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
-        JudgeAssignmentResponse response = teamAssignmentService.getJudgeAssignments(principal.getUserId());
+        JudgeAssignmentResponse response = assignmentService.getJudgeAssignments(principal.getUserId());
         return ResponseEntity.ok(ApiResponse.success("Judge assignments retrieved successfully.", response));
     }
 }

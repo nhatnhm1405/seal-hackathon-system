@@ -3,6 +3,7 @@ package com.seal.hackathon.controller;
 import com.seal.hackathon.dto.request.AssignRoleRequest;
 import com.seal.hackathon.dto.request.CreateStaffRequest;
 import com.seal.hackathon.dto.response.ApiResponse;
+import com.seal.hackathon.dto.response.UserEventRoleResponse;
 import com.seal.hackathon.dto.response.UserResponse;
 import com.seal.hackathon.exception.ResourceNotFoundException;
 import com.seal.hackathon.repository.UserRepository;
@@ -54,7 +55,7 @@ public class UserController {
     @GetMapping
     @PreAuthorize("hasRole('EVENT_COORDINATOR')")
     public ResponseEntity<ApiResponse<List<UserResponse>>> getAllUsers() {
-        List<UserResponse> users = userRepository.findAllWithRoles().stream()
+        List<UserResponse> users = userRepository.findAll().stream()
                 .map(authService::mapToUserResponse)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(ApiResponse.success("Users retrieved.", users));
@@ -70,6 +71,18 @@ public class UserController {
                 .map(authService::mapToUserResponse)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + id));
         return ResponseEntity.ok(ApiResponse.success("User retrieved.", user));
+    }
+
+    /**
+     * GET /api/users/roles
+     * Lists every staff role grant (UserEventRole), with role/event/assigner
+     * names already resolved — the UI must display names, never raw IDs.
+     */
+    @GetMapping("/roles")
+    @PreAuthorize("hasRole('EVENT_COORDINATOR')")
+    public ResponseEntity<ApiResponse<List<UserEventRoleResponse>>> getAllStaffRoleAssignments() {
+        List<UserEventRoleResponse> assignments = userRoleService.getAllStaffRoleAssignments();
+        return ResponseEntity.ok(ApiResponse.success("Staff role assignments retrieved.", assignments));
     }
 
     /**
@@ -95,13 +108,16 @@ public class UserController {
 
     /**
      * POST /api/users/{id}/roles
-     * Assigns a role to a user. Can be scoped to event/track/round.
+     * Grants a role to a user (UserEventRole). When roundId/trackId is provided,
+     * the concrete work assignment (JudgeAssignment / MentorAssignment) is created
+     * in the same step.
      *
-     * Example request body:
+     * Example request body (judge scoring track 1 in a non-final round):
      * {
      *   "roleName": "JUDGE",
      *   "eventId": 1,
      *   "roundId": 2,
+     *   "trackId": 1,
      *   "judgeType": "INTERNAL"
      * }
      */
