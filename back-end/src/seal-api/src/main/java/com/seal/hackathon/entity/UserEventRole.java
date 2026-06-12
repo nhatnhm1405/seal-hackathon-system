@@ -7,22 +7,21 @@ import java.time.LocalDateTime;
 
 /**
  * Maps to the `UserEventRole` table.
- * Stores staff role assignments only: EVENT_COORDINATOR, MENTOR, JUDGE.
+ * Pure N-N "who is ALLOWED to be what role" per event:
+ * EVENT_COORDINATOR, MENTOR, JUDGE.
  *
  * Participants (FPT_STUDENT / EXTERNAL_STUDENT) are NOT stored here —
- * their identity comes from User.user_type and their team role from
- * TeamMember.member_role.
+ * their identity comes from User.user_type and their team role from TeamMember.member_role.
  *
- * Scope rules:
- * - EVENT_COORDINATOR: event_id may be null (all events) or scoped to one event
- * - MENTOR: event_id + track_id set
- * - JUDGE: event_id + round_id set; judge_type = INTERNAL or GUEST
+ * The actual work assignment (which round/track a judge scores, which track
+ * a mentor supports) lives in JudgeAssignment / MentorAssignment.
  *
- * event_id, track_id, round_id are plain Integer IDs because those entities
- * are not part of this module yet.
+ * event_id is null for system-wide roles (e.g. a coordinator managing all events).
  */
 @Entity
-@Table(name = "UserEventRole")
+@Table(name = "UserEventRole", uniqueConstraints = {
+    @UniqueConstraint(name = "uq_user_role_event", columnNames = {"user_id", "role_id", "event_id"})
+})
 @Getter
 @Setter
 @NoArgsConstructor
@@ -46,19 +45,6 @@ public class UserEventRole {
     // Nullable: EVENT_COORDINATOR may manage all events (no event scope)
     @Column(name = "event_id")
     private Integer eventId;
-
-    // Nullable: only set for track-scoped roles (MENTOR, or JUDGE for a specific
-    // track)
-    @Column(name = "track_id")
-    private Integer trackId;
-
-    // Nullable: only set for round-scoped roles (JUDGE)
-    @Column(name = "round_id")
-    private Integer roundId;
-
-    // INTERNAL or GUEST — only relevant when role = JUDGE
-    @Column(name = "judge_type", length = 20)
-    private String judgeType;
 
     @Column(name = "assigned_at", nullable = false)
     private LocalDateTime assignedAt;

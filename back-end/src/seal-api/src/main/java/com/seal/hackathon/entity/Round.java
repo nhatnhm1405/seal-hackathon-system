@@ -43,6 +43,11 @@ public class Round {
     @Column(name = "top_n_advance")
     private Integer topNAdvance;
 
+    // TRUE = final round (judges score all teams, no per-track split)
+    @Column(name = "is_final", nullable = false)
+    @Builder.Default
+    private Boolean isFinal = false;
+
     @Column(name = "is_calibration", nullable = false)
     @Builder.Default
     private Boolean isCalibration = false;

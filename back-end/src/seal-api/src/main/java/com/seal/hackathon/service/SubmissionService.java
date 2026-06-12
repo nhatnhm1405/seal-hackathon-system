@@ -1,31 +1,18 @@
 package com.seal.hackathon.service;
 
-import com.seal.hackathon.dto.response.SubmissionListResponse;
-import com.seal.hackathon.dto.response.SubmissionSummaryResponse;
-import com.seal.hackathon.dto.response.TeamSubmissionsResponse;
-import com.seal.hackathon.entity.Round;
-import com.seal.hackathon.entity.Submission;
-import com.seal.hackathon.entity.Team;
-import com.seal.hackathon.entity.User;
+import com.seal.hackathon.dto.request.SubmitRequest;
+import com.seal.hackathon.dto.response.SubmissionResponse;
+import com.seal.hackathon.entity.*;
 import com.seal.hackathon.exception.BadRequestException;
 import com.seal.hackathon.exception.ForbiddenException;
 import com.seal.hackathon.exception.ResourceNotFoundException;
-import com.seal.hackathon.repository.RoundRepository;
-import com.seal.hackathon.repository.SubmissionRepository;
-import com.seal.hackathon.repository.TeamMemberRepository;
-import com.seal.hackathon.repository.TeamRepository;
-import com.seal.hackathon.repository.UserRepository;
+import com.seal.hackathon.repository.*;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.GrantedAuthority;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.Collection;
+import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -33,176 +20,129 @@ import java.util.stream.Collectors;
 public class SubmissionService {
 
     private final SubmissionRepository submissionRepository;
-    private final RoundRepository roundRepository;
     private final TeamRepository teamRepository;
-    private final UserRepository userRepository;
     private final TeamMemberRepository teamMemberRepository;
+    private final RoundRepository roundRepository;
+    private final UserRepository userRepository;
 
-    @Transactional(readOnly = true)
-    public SubmissionListResponse getSubmissionsByRoundId(Integer roundId) {
-        if (roundId == null) {
-            throw new BadRequestException("Round ID is required.");
+    // ── Participant: submit or update submission ──────────────────────
+
+    @Transactional
+    public SubmissionResponse submit(Integer userId, SubmitRequest request) {
+        User submitter = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
+
+        Round round = roundRepository.findById(request.getRoundId())
+                .orElseThrow(() -> new ResourceNotFoundException("Round not found: " + request.getRoundId()));
+
+        if (!"ACTIVE".equalsIgnoreCase(round.getStatus())) {
+            throw new BadRequestException("Submissions are only accepted for ACTIVE rounds.");
         }
-        if (roundId <= 0) {
-            throw new BadRequestException("Round ID must be positive.");
+
+        // Find the user's team in this event
+        List<TeamMember> memberships = teamMemberRepository
+                .findByUser_UserIdAndTeam_Event_StatusIn(userId,
+                        List.of("OPEN", "IN_PROGRESS"));
+        TeamMember membership = memberships.stream()
+                .filter(m -> m.getTeam().getEvent().getEventId()
+                        .equals(round.getEvent().getEventId()))
+                .findFirst()
+                .orElseThrow(() -> new BadRequestException(
+                        "You are not a member of any approved team in this event."));
+
+        Team team = membership.getTeam();
+        if (!"APPROVED".equalsIgnoreCase(team.getStatus())) {
+            throw new BadRequestException("Your team must be approved before submitting.");
         }
 
-        Round round = roundRepository.findByIdWithEvent(roundId)
-                .orElseThrow(() -> new ResourceNotFoundException("Round not found with id: " + roundId));
+        LocalDateTime now = LocalDateTime.now();
+        String status = now.isAfter(round.getSubmissionDeadline()) ? "LATE" : "SUBMITTED";
 
-        List<Submission> submissions = submissionRepository.findByRoundIdOrderBySubmittedAtDesc(roundId);
+        Submission submission = submissionRepository
+                .findByTeam_TeamIdAndRound_RoundId(team.getTeamId(), round.getRoundId())
+                .orElse(null);
 
-        if (submissions.isEmpty()) {
-            return SubmissionListResponse.builder()
-                    .eventId(round.getEvent().getEventId())
-                    .eventName(round.getEvent().getName())
-                    .roundId(round.getRoundId())
-                    .roundName(round.getName())
-                    .total(0)
-                    .submissions(new ArrayList<>())
+        if (submission == null) {
+            submission = Submission.builder()
+                    .team(team)
+                    .round(round)
+                    .submittedBy(submitter)
                     .build();
         }
+        submission.setRepoUrl(request.getRepoUrl());
+        submission.setDemoUrl(request.getDemoUrl());
+        submission.setSlideUrl(request.getSlideUrl());
+        submission.setDescription(request.getDescription());
+        submission.setSubmittedAt(now);
+        submission.setStatus(status);
+        submission.setSubmittedBy(submitter);
 
-        Set<Integer> teamIds = submissions.stream()
-                .map(Submission::getTeamId)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
-
-        Map<Integer, Team> teamMap = teamRepository.findAllById(teamIds).stream()
-                .collect(Collectors.toMap(Team::getTeamId, team -> team));
-
-        Set<Integer> userIds = submissions.stream()
-                .map(Submission::getSubmittedBy)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
-
-        Map<Integer, User> userMap = userRepository.findAllById(userIds).stream()
-                .collect(Collectors.toMap(User::getUserId, user -> user));
-
-        List<SubmissionSummaryResponse> submissionResponses = submissions.stream().map(submission -> {
-            Team team = teamMap.get(submission.getTeamId());
-            if (team == null) {
-                throw new ResourceNotFoundException("Team not found with id: " + submission.getTeamId());
-            }
-
-            User user = null;
-            if (submission.getSubmittedBy() != null) {
-                user = userMap.get(submission.getSubmittedBy());
-            }
-
-            return SubmissionSummaryResponse.builder()
-                    .submissionId(submission.getSubmissionId())
-                    .teamId(submission.getTeamId())
-                    .teamName(team.getName())
-                    .trackId(team.getTrack() != null ? team.getTrack().getTrackId() : null)
-                    .trackName(team.getTrack() != null ? team.getTrack().getName() : null)
-                    .roundId(round.getRoundId())
-                    .roundName(round.getName())
-                    .repoUrl(submission.getRepoUrl())
-                    .demoUrl(submission.getDemoUrl())
-                    .slideUrl(submission.getSlideUrl())
-                    .description(submission.getDescription())
-                    .submittedAt(submission.getSubmittedAt())
-                    .submittedBy(submission.getSubmittedBy())
-                    .submittedByName(user != null ? user.getFullName() : null)
-                    .status(submission.getStatus())
-                    .build();
-        }).collect(Collectors.toList());
-
-        return SubmissionListResponse.builder()
-                .eventId(round.getEvent().getEventId())
-                .eventName(round.getEvent().getName())
-                .roundId(round.getRoundId())
-                .roundName(round.getName())
-                .total(submissions.size())
-                .submissions(submissionResponses)
-                .build();
+        submission = submissionRepository.save(submission);
+        return mapToResponse(submission);
     }
 
+    // ── Participant: get my team's submission for a round ─────────────
+
     @Transactional(readOnly = true)
-    public TeamSubmissionsResponse getTeamSubmissions(Integer teamId, Integer userId, Collection<? extends GrantedAuthority> authorities) {
-        if (teamId == null) {
-            throw new BadRequestException("Team ID is required.");
-        }
-        if (teamId <= 0) {
-            throw new BadRequestException("Team ID must be positive.");
-        }
+    public SubmissionResponse getMySubmission(Integer userId, Integer roundId) {
+        Round round = roundRepository.findById(roundId)
+                .orElseThrow(() -> new ResourceNotFoundException("Round not found: " + roundId));
 
-        Team team = teamRepository.findById(teamId)
-                .orElseThrow(() -> new ResourceNotFoundException("Team not found with id: " + teamId));
+        List<TeamMember> memberships = teamMemberRepository
+                .findByUser_UserIdAndTeam_Event_StatusIn(userId,
+                        List.of("OPEN", "IN_PROGRESS"));
+        TeamMember membership = memberships.stream()
+                .filter(m -> m.getTeam().getEvent().getEventId()
+                        .equals(round.getEvent().getEventId()))
+                .findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "You are not part of any team in this event."));
 
-        boolean isCoordinator = authorities.stream()
-                .anyMatch(a -> a.getAuthority().equals("ROLE_EVENT_COORDINATOR"));
+        Submission submission = submissionRepository
+                .findByTeam_TeamIdAndRound_RoundId(membership.getTeam().getTeamId(), roundId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "No submission found for your team in round " + roundId));
 
-        if (!isCoordinator) {
-            boolean isMember = teamMemberRepository.existsByTeam_TeamIdAndUser_UserId(teamId, userId);
-            if (!isMember) {
-                throw new ForbiddenException("You are not a member of this team.");
-            }
-        }
+        return mapToResponse(submission);
+    }
 
-        List<Submission> submissions = submissionRepository.findByTeamId(teamId);
+    // ── Judge/Coordinator: list all submissions for a round ───────────
 
-        if (submissions.isEmpty()) {
-            return TeamSubmissionsResponse.builder()
-                    .teamId(team.getTeamId())
-                    .teamName(team.getName())
-                    .total(0)
-                    .submissions(new ArrayList<>())
-                    .build();
-        }
+    @Transactional(readOnly = true)
+    public List<SubmissionResponse> getSubmissionsByRound(Integer roundId) {
+        roundRepository.findById(roundId)
+                .orElseThrow(() -> new ResourceNotFoundException("Round not found: " + roundId));
+        return submissionRepository.findAllByRound_RoundId(roundId).stream()
+                .map(this::mapToResponse)
+                .collect(Collectors.toList());
+    }
 
-        Set<Integer> roundIds = submissions.stream()
-                .map(Submission::getRoundId)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
+    // ── Get single submission by ID ───────────────────────────────────
 
-        Map<Integer, Round> roundMap = roundRepository.findAllById(roundIds).stream()
-                .collect(Collectors.toMap(Round::getRoundId, r -> r));
+    @Transactional(readOnly = true)
+    public SubmissionResponse getSubmissionById(Integer submissionId) {
+        Submission submission = submissionRepository.findById(submissionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Submission not found: " + submissionId));
+        return mapToResponse(submission);
+    }
 
-        Set<Integer> userIds = submissions.stream()
-                .map(Submission::getSubmittedBy)
-                .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
+    // ── Helpers ───────────────────────────────────────────────────────
 
-        Map<Integer, User> userMap = userRepository.findAllById(userIds).stream()
-                .collect(Collectors.toMap(User::getUserId, u -> u));
-
-        List<SubmissionSummaryResponse> submissionResponses = submissions.stream().map(submission -> {
-            Round round = roundMap.get(submission.getRoundId());
-            if (round == null) {
-                throw new ResourceNotFoundException("Round not found with id: " + submission.getRoundId());
-            }
-
-            User user = null;
-            if (submission.getSubmittedBy() != null) {
-                user = userMap.get(submission.getSubmittedBy());
-            }
-
-            return SubmissionSummaryResponse.builder()
-                    .submissionId(submission.getSubmissionId())
-                    .teamId(team.getTeamId())
-                    .teamName(team.getName())
-                    .trackId(team.getTrack() != null ? team.getTrack().getTrackId() : null)
-                    .trackName(team.getTrack() != null ? team.getTrack().getName() : null)
-                    .roundId(round.getRoundId())
-                    .roundName(round.getName())
-                    .repoUrl(submission.getRepoUrl())
-                    .demoUrl(submission.getDemoUrl())
-                    .slideUrl(submission.getSlideUrl())
-                    .description(submission.getDescription())
-                    .submittedAt(submission.getSubmittedAt())
-                    .submittedBy(submission.getSubmittedBy())
-                    .submittedByName(user != null ? user.getFullName() : null)
-                    .status(submission.getStatus())
-                    .build();
-        }).collect(Collectors.toList());
-
-        return TeamSubmissionsResponse.builder()
-                .teamId(team.getTeamId())
-                .teamName(team.getName())
-                .total(submissions.size())
-                .submissions(submissionResponses)
+    private SubmissionResponse mapToResponse(Submission s) {
+        return SubmissionResponse.builder()
+                .submissionId(s.getSubmissionId())
+                .teamId(s.getTeam().getTeamId())
+                .teamName(s.getTeam().getName())
+                .roundId(s.getRound().getRoundId())
+                .roundName(s.getRound().getName())
+                .repoUrl(s.getRepoUrl())
+                .demoUrl(s.getDemoUrl())
+                .slideUrl(s.getSlideUrl())
+                .description(s.getDescription())
+                .submittedAt(s.getSubmittedAt())
+                .submittedById(s.getSubmittedBy().getUserId())
+                .submittedByName(s.getSubmittedBy().getFullName())
+                .status(s.getStatus())
                 .build();
     }
 }

@@ -13,16 +13,16 @@ import java.util.List;
  * provider tracks which auth method was used (LOCAL, GOOGLE, GITHUB).
  */
 @Entity
-@Table(name = "`User`")
+@Table(name = "`User`") //các dấu backtick `` dùng với mục đích phân biệt keyword trong MySQL và tên bảng thật sự
 @Getter
-@Setter
+@Setter //lombok tự sinh getter/setter, constructure và builder pattern
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class User {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.IDENTITY) //DB tự tăng user_id (đã có auto_increment trong MySQL)
     @Column(name = "user_id")
     private Integer userId;
 
@@ -77,8 +77,7 @@ public class User {
     private String avatarUrl;
 
     // Roles assigned to this user (across all events)
-    @OneToMany(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", referencedColumnName = "user_id", insertable = false, updatable = false)
+    @OneToMany(mappedBy = "user", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     @Builder.Default
     private List<UserEventRole> userEventRoles = new ArrayList<>();
 

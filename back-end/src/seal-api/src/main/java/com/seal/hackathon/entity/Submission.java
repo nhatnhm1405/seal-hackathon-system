@@ -6,7 +6,9 @@ import lombok.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "Submission")
+@Table(name = "Submission", uniqueConstraints = {
+    @UniqueConstraint(name = "uq_submission_team_round", columnNames = {"team_id", "round_id"})
+})
 @Getter
 @Setter
 @NoArgsConstructor
@@ -19,19 +21,21 @@ public class Submission {
     @Column(name = "submission_id")
     private Integer submissionId;
 
-    @Column(name = "team_id", nullable = false)
-    private Integer teamId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "team_id", nullable = false)
+    private Team team;
 
-    @Column(name = "round_id", nullable = false)
-    private Integer roundId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "round_id", nullable = false)
+    private Round round;
 
-    @Column(name = "repo_url")
+    @Column(name = "repo_url", length = 500)
     private String repoUrl;
 
-    @Column(name = "demo_url")
+    @Column(name = "demo_url", length = 500)
     private String demoUrl;
 
-    @Column(name = "slide_url")
+    @Column(name = "slide_url", length = 500)
     private String slideUrl;
 
     @Column(name = "description", columnDefinition = "TEXT")
@@ -40,14 +44,17 @@ public class Submission {
     @Column(name = "submitted_at", nullable = false)
     private LocalDateTime submittedAt;
 
-    @Column(name = "submitted_by")
-    private Integer submittedBy;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "submitted_by", nullable = false)
+    private User submittedBy;
 
     @Column(name = "status", nullable = false, length = 20)
-    private String status;
+    @Builder.Default
+    private String status = "SUBMITTED"; // DRAFT | SUBMITTED | LATE | INVALID
 
     @PrePersist
-    protected void onCreate() {
+    @PreUpdate
+    protected void onSave() {
         if (submittedAt == null) {
             submittedAt = LocalDateTime.now();
         }
