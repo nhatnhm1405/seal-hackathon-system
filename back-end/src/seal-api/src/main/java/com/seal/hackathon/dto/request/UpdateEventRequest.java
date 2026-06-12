@@ -1,9 +1,9 @@
 package com.seal.hackathon.dto.request;
 
 import lombok.Data;
+
 import java.time.LocalDateTime;
 
-// PATCH /api/events/{eventId}/update
 @Data
 public class UpdateEventRequest {
     private String name;
@@ -14,11 +14,5 @@ public class UpdateEventRequest {
     private LocalDateTime registrationEnd;
     private LocalDateTime startDate;
     private LocalDateTime endDate;
-    private String status;
-
-    public boolean isEmpty() {
-        return name == null && season == null && year == null && description == null
-                && registrationStart == null && registrationEnd == null
-                && startDate == null && endDate == null && status == null;
-    }
+    private String status; // DRAFT | OPEN | IN_PROGRESS | COMPLETED | CANCELLED
 }

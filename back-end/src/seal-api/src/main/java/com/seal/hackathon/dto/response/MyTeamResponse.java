@@ -5,7 +5,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -23,12 +22,6 @@ public class MyTeamResponse {
     private String trackName;
 
     private String name;
-
-    private String status;
-    private String rejectedReason;
-    private LocalDateTime rejectedAt;
-    private String disqualifiedReason;
-    private LocalDateTime disqualifiedAt;
 
     /** All members of this team, including the current user */
     private List<TeamMemberInfo> members;

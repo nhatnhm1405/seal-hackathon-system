@@ -2,7 +2,6 @@ package com.seal.hackathon.dto.request;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
@@ -10,11 +9,9 @@ import lombok.Data;
 public class CreateTeamRequest {
 
     @NotNull(message = "Event ID is required")
-    @Positive(message = "Event ID must be positive")
     private Integer eventId;
 
     @NotNull(message = "Track ID is required")
-    @Positive(message = "Track ID must be positive")
     private Integer trackId;
 
     @NotBlank(message = "Team name is required")

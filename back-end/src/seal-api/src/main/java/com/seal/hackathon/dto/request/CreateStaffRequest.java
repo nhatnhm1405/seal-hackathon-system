@@ -32,15 +32,16 @@ public class CreateStaffRequest {
     @NotBlank(message = "Role name is required")
     private String roleName;
 
-    // INTERNAL | GUEST — required when roleName = JUDGE
+    // INTERNAL | GUEST — required when roundId is provided (creates a JudgeAssignment)
     private String judgeType;
 
-    // Scope: null means system-wide (for EVENT_COORDINATOR); required for MENTOR and JUDGE
+    // Scope of the role grant: null means system-wide (for EVENT_COORDINATOR)
     private Integer eventId;
 
-    // Required when roleName = MENTOR (scoped to a track)
+    // Optional work assignment — MENTOR: track to support (MentorAssignment);
+    // JUDGE: track to score (required for non-final rounds, must be null for the final round)
     private Integer trackId;
 
-    // Required when roleName = JUDGE (scoped to a round)
+    // Optional work assignment — JUDGE: round to score (creates a JudgeAssignment)
     private Integer roundId;
 }

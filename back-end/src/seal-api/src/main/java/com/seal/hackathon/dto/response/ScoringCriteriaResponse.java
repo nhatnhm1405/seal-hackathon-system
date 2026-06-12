@@ -1,20 +1,21 @@
 package com.seal.hackathon.dto.response;
 
-import java.time.LocalDateTime;
-
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
+
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class TeamSummaryResponse {
-    private Integer teamId;
+public class ScoringCriteriaResponse {
+    private Integer criteriaId;
     private String name;
     private String description;
-    private String status;
-    private LocalDateTime createdAt;
+    private BigDecimal weight;
+    private BigDecimal maxScore;
+    private Integer orderNumber;
 }

@@ -5,7 +5,11 @@ import lombok.Data;
 
 /**
  * Request body for POST /api/users/{id}/roles
- * Assigns a role to a user, optionally scoped to event/track/round.
+ * Grants a role to a user (UserEventRole) and optionally creates the
+ * concrete work assignment in the same step:
+ * - MENTOR + trackId            -> MentorAssignment
+ * - JUDGE  + roundId (+trackId) -> JudgeAssignment (trackId required for
+ *   non-final rounds, must be null for the final round)
  */
 @Data
 public class AssignRoleRequest {
@@ -14,15 +18,15 @@ public class AssignRoleRequest {
     @NotBlank(message = "Role name is required")
     private String roleName;
 
-    // Null for EVENT_COORDINATOR with global scope; set for event-scoped assignments
+    // Null for EVENT_COORDINATOR with global scope; set for event-scoped grants
     private Integer eventId;
 
-    // Set for track-scoped roles (MENTOR, or JUDGE per track)
+    // MENTOR: track to support. JUDGE: track to score (non-final rounds only)
     private Integer trackId;
 
-    // Set for round-scoped roles (JUDGE)
+    // JUDGE: round to score — triggers creation of a JudgeAssignment
     private Integer roundId;
 
-    // INTERNAL or GUEST — only for JUDGE role
+    // INTERNAL or GUEST — required when creating a JudgeAssignment
     private String judgeType;
 }

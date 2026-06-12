@@ -1,16 +1,12 @@
-package com.seal.hackathon.dto.response;
+package com.seal.hackathon.dto.request;
 
-import lombok.Builder;
 import lombok.Data;
 
 import java.time.LocalDateTime;
 
 @Data
-@Builder
-public class RoundDetailResponse {
-    private Integer roundId;
-    private String eventName;
-    private String roundName;
+public class UpdateRoundRequest {
+    private String name;
     private Integer orderNumber;
     private LocalDateTime startTime;
     private LocalDateTime endTime;
@@ -18,5 +14,5 @@ public class RoundDetailResponse {
     private Integer topNAdvance;
     private Boolean isFinal;
     private Boolean isCalibration;
-    private String status;
+    private String status; // PENDING | ACTIVE | CLOSED | FINALIZED
 }

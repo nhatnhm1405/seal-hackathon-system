@@ -1,20 +1,17 @@
 package com.seal.hackathon.dto.response;
 
-import java.time.LocalDateTime;
-import java.util.List;
-
-import com.fasterxml.jackson.annotation.JsonInclude;
-
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
+import java.util.List;
+
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@JsonInclude(JsonInclude.Include.NON_NULL)
 public class TeamDetailResponse {
     private Integer teamId;
     private Integer eventId;
@@ -24,8 +21,6 @@ public class TeamDetailResponse {
     private String name;
     private String description;
     private String status;
-    private String rejectedReason;
-    private LocalDateTime rejectedAt;
     private String disqualifiedReason;
     private LocalDateTime disqualifiedAt;
     private LocalDateTime createdAt;
@@ -36,7 +31,10 @@ public class TeamDetailResponse {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class MemberInfo {
+        private Integer userId;
         private String fullName;
-        private String role;
+        private String email;
+        private String memberRole;
+        private LocalDateTime joinedAt;
     }
 }
