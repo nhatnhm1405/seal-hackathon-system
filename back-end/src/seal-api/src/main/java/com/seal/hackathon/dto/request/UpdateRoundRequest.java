@@ -13,6 +13,5 @@ public class UpdateRoundRequest {
     private LocalDateTime submissionDeadline;
     private Integer topNAdvance;
     private Boolean isFinal;
-    private Boolean isCalibration;
     private String status; // PENDING | ACTIVE | CLOSED | FINALIZED
 }

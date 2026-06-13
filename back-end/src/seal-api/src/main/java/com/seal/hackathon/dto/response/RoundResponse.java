@@ -22,6 +22,5 @@ public class RoundResponse {
     private LocalDateTime submissionDeadline;
     private Integer topNAdvance;
     private Boolean isFinal;
-    private Boolean isCalibration;
     private String status;
 }

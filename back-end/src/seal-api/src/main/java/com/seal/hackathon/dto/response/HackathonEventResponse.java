@@ -42,12 +42,6 @@ public class HackathonEventResponse {
 
     private String status;
 
-    /** user_id of the user who created this event */
-    private Integer createdBy;
-
-    /** Full name of the creator for display purposes */
-    private String createdByName;
-
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime createdAt;
 }

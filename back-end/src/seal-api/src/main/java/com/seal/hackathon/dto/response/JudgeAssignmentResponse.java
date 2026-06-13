@@ -5,7 +5,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -37,7 +36,6 @@ public class JudgeAssignmentResponse {
         private String teamName;
         private String trackName;
         private Integer roundId;  // Vòng đấu cần chấm
-        private LocalDateTime assignedAt;
         private List<TeamMemberInfo> members;
     }
 

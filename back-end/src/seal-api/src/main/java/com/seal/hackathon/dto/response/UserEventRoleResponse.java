@@ -6,11 +6,9 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
-
 /**
  * Read-only view of a UserEventRole grant, with names resolved
- * (role, event, assigner) so the UI never has to show raw IDs.
+ * (role, event) so the UI never has to show raw IDs.
  * Concrete work assignments (round/track/judgeType) live in
  * JudgeAssignment / MentorAssignment, not here.
  */
@@ -32,9 +30,4 @@ public class UserEventRoleResponse {
 
     private Integer eventId;
     private String eventName;
-
-    private LocalDateTime assignedAt;
-
-    private Integer assignedById;
-    private String assignedByName;
 }
