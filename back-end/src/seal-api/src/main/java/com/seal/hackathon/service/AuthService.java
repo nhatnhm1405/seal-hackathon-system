@@ -167,6 +167,7 @@ public class AuthService {
                 .userType(user.getUserType())
                 .studentId(user.getStudentId())
                 .university(user.getUniversity())
+                .judgeType(user.getJudgeType())
                 .isApproved(user.getIsApproved())
                 .isActive(user.getIsActive())
                 .expiredAt(user.getExpiredAt())

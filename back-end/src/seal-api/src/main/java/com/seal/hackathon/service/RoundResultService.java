@@ -103,9 +103,6 @@ public class RoundResultService {
         List<Map.Entry<Integer, BigDecimal>> ranked = new ArrayList<>(teamScores.entrySet());
         ranked.sort((a, b) -> b.getValue().compareTo(a.getValue()));
 
-        // Determine which teams advance
-        Integer topN = round.getTopNAdvance();
-
         List<RoundResult> results = new ArrayList<>();
         Map<Integer, Submission> subByTeam = submissions.stream()
                 .collect(Collectors.toMap(s -> s.getTeam().getTeamId(), s -> s));
@@ -114,7 +111,6 @@ public class RoundResultService {
             Integer teamId = ranked.get(i).getKey();
             BigDecimal score = ranked.get(i).getValue();
             int rank = i + 1;
-            boolean advances = topN != null && rank <= topN;
 
             Submission sub = subByTeam.get(teamId);
             RoundResult result = RoundResult.builder()
@@ -122,7 +118,6 @@ public class RoundResultService {
                     .round(round)
                     .totalScore(score)
                     .rankPosition(rank)
-                    .advanced(advances)
                     .isPublished(false)
                     .finalizedAt(LocalDateTime.now())
                     .finalizedBy(coordinator)
@@ -167,11 +162,21 @@ public class RoundResultService {
                 .roundName(r.getRound().getName())
                 .totalScore(r.getTotalScore())
                 .rankPosition(r.getRankPosition())
-                .advanced(r.getAdvanced())
+                // "advanced" is derived, not stored: rank_position <= Round.top_n_advance
+                .advanced(isAdvanced(r))
                 .isPublished(r.getIsPublished())
                 .finalizedAt(r.getFinalizedAt())
                 .finalizedById(r.getFinalizedBy() != null ? r.getFinalizedBy().getUserId() : null)
                 .finalizedByName(r.getFinalizedBy() != null ? r.getFinalizedBy().getFullName() : null)
                 .build();
+    }
+
+    /**
+     * Derives whether a team advances: rank_position <= Round.top_n_advance.
+     * If top_n_advance is null (no cut-off configured), no team is marked advanced.
+     */
+    private boolean isAdvanced(RoundResult r) {
+        Integer topN = r.getRound().getTopNAdvance();
+        return topN != null && r.getRankPosition() <= topN;
     }
 }

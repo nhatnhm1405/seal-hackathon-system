@@ -1,12 +1,10 @@
 package com.seal.hackathon.service;
 
 import com.seal.hackathon.dto.response.NotificationResponse;
-import com.seal.hackathon.entity.HackathonEvent;
 import com.seal.hackathon.entity.Notification;
 import com.seal.hackathon.entity.User;
 import com.seal.hackathon.exception.ForbiddenException;
 import com.seal.hackathon.exception.ResourceNotFoundException;
-import com.seal.hackathon.repository.HackathonEventRepository;
 import com.seal.hackathon.repository.NotificationRepository;
 import com.seal.hackathon.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -22,7 +20,6 @@ public class NotificationService {
 
     private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
-    private final HackathonEventRepository eventRepository;
 
     // ── Get all notifications for current user ────────────────────────
 
@@ -69,21 +66,15 @@ public class NotificationService {
 
     @Transactional
     public void createNotification(Integer recipientUserId, String title, String content,
-                                   String type, Integer relatedEventId) {
+                                   String type) {
         User recipient = userRepository.findById(recipientUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + recipientUserId));
-
-        HackathonEvent relatedEvent = null;
-        if (relatedEventId != null) {
-            relatedEvent = eventRepository.findById(relatedEventId).orElse(null);
-        }
 
         Notification notification = Notification.builder()
                 .recipient(recipient)
                 .title(title)
                 .content(content)
                 .type(type)
-                .relatedEvent(relatedEvent)
                 .isRead(false)
                 .build();
         notificationRepository.save(notification);
@@ -97,8 +88,6 @@ public class NotificationService {
                 .title(n.getTitle())
                 .content(n.getContent())
                 .type(n.getType())
-                .relatedEventId(n.getRelatedEvent() != null ? n.getRelatedEvent().getEventId() : null)
-                .relatedEventName(n.getRelatedEvent() != null ? n.getRelatedEvent().getName() : null)
                 .isRead(n.getIsRead())
                 .createdAt(n.getCreatedAt())
                 .build();

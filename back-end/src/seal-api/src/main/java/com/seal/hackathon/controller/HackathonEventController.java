@@ -4,13 +4,11 @@ import com.seal.hackathon.dto.request.CreateEventRequest;
 import com.seal.hackathon.dto.request.UpdateEventRequest;
 import com.seal.hackathon.dto.response.ApiResponse;
 import com.seal.hackathon.dto.response.HackathonEventResponse;
-import com.seal.hackathon.security.UserPrincipal;
 import com.seal.hackathon.service.HackathonEventService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -37,11 +35,9 @@ public class HackathonEventController {
     @PostMapping
     @PreAuthorize("hasRole('EVENT_COORDINATOR')")
     public ResponseEntity<ApiResponse<HackathonEventResponse>> createEvent(
-            @Valid @RequestBody CreateEventRequest request,
-            Authentication authentication) {
-        UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
+            @Valid @RequestBody CreateEventRequest request) {
         return ResponseEntity.ok(ApiResponse.success("Event created successfully.",
-                hackathonEventService.createEvent(principal.getUserId(), request)));
+                hackathonEventService.createEvent(request)));
     }
 
     @PutMapping("/{eventId}")

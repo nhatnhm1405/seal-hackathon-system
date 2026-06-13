@@ -4,11 +4,9 @@ import com.seal.hackathon.dto.request.CreateEventRequest;
 import com.seal.hackathon.dto.request.UpdateEventRequest;
 import com.seal.hackathon.dto.response.HackathonEventResponse;
 import com.seal.hackathon.entity.HackathonEvent;
-import com.seal.hackathon.entity.User;
 import com.seal.hackathon.exception.BadRequestException;
 import com.seal.hackathon.exception.ResourceNotFoundException;
 import com.seal.hackathon.repository.HackathonEventRepository;
-import com.seal.hackathon.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -22,7 +20,6 @@ import java.util.stream.Collectors;
 public class HackathonEventService {
 
     private final HackathonEventRepository hackathonEventRepository;
-    private final UserRepository userRepository;
 
     @Transactional(readOnly = true)
     public List<HackathonEventResponse> getAllHackathonEvents() {
@@ -41,10 +38,7 @@ public class HackathonEventService {
     }
 
     @Transactional
-    public HackathonEventResponse createEvent(Integer coordinatorUserId, CreateEventRequest request) {
-        User coordinator = userRepository.findById(coordinatorUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + coordinatorUserId));
-
+    public HackathonEventResponse createEvent(CreateEventRequest request) {
         String[] validSeasons = {"SPRING", "SUMMER", "FALL"};
         boolean validSeason = false;
         for (String s : validSeasons) {
@@ -75,7 +69,6 @@ public class HackathonEventService {
                 .startDate(request.getStartDate())
                 .endDate(request.getEndDate())
                 .status(status)
-                .createdBy(coordinator)
                 .build();
 
         event = hackathonEventRepository.save(event);
@@ -131,8 +124,6 @@ public class HackathonEventService {
                 .startDate(event.getStartDate())
                 .endDate(event.getEndDate())
                 .status(event.getStatus())
-                .createdBy(event.getCreatedBy() != null ? event.getCreatedBy().getUserId() : null)
-                .createdByName(event.getCreatedBy() != null ? event.getCreatedBy().getFullName() : null)
                 .createdAt(event.getCreatedAt())
                 .build();
     }
