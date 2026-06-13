@@ -69,9 +69,11 @@ public class SecurityConfig {
                 .requestMatchers("/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                 // Public: list all hackathon events
                 .requestMatchers("/api/events/**").permitAll()
-                // Coordinator manages approvals, user activation, and role assignments
+                // Admin runs the PLATFORM: global users, role grants, system logs
+                .requestMatchers("/api/admin/**").hasRole("SYSTEM_ADMIN")
+                // Coordinator runs the COMPETITION: events, rounds, approvals, assignments
+                .requestMatchers("/api/coordinator/**").hasRole("EVENT_COORDINATOR")
                 .requestMatchers("/api/account-approvals/**").hasRole("EVENT_COORDINATOR")
-                .requestMatchers("/api/users/**").hasRole("EVENT_COORDINATOR")
                 // Participants access team and submission endpoints
                 .requestMatchers("/api/teams/**", "/api/submissions/**")
                     .hasAnyRole("PARTICIPANT", "EVENT_COORDINATOR")
