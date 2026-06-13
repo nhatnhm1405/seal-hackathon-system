@@ -21,7 +21,7 @@ public interface JudgeAssignmentRepository extends JpaRepository<JudgeAssignment
            "LEFT JOIN FETCH ja.track t " +
            "WHERE ja.judge.userId = :judgeUserId " +
            "AND ja.isActive = true " +
-           "ORDER BY ja.assignedAt DESC")
+           "ORDER BY ja.id DESC")
     List<JudgeAssignment> findActiveByJudge(@Param("judgeUserId") Integer judgeUserId);
 
     // Duplicate checks for the unique key (judge_user_id, round_id, track_id)

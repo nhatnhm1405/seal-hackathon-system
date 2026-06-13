@@ -48,10 +48,6 @@ public class Round {
     @Builder.Default
     private Boolean isFinal = false;
 
-    @Column(name = "is_calibration", nullable = false)
-    @Builder.Default
-    private Boolean isCalibration = false;
-
     @Column(name = "status", nullable = false, length = 20)
     @Builder.Default
     private String status = "PENDING";

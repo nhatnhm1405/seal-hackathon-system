@@ -46,6 +46,12 @@ public class User {
     @Column(name = "university", length = 255)
     private String university;
 
+    // INTERNAL or GUEST — only set for users who act as judges; NULL otherwise.
+    // Moved here from JudgeAssignment so a judge's type is a property of the person,
+    // not of each round/track assignment.
+    @Column(name = "judge_type", length = 20)
+    private String judgeType;
+
     // false = pending approval, true = approved and can log in
     @Column(name = "is_approved", nullable = false)
     @Builder.Default

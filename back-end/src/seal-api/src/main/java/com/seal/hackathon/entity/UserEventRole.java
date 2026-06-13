@@ -3,8 +3,6 @@ package com.seal.hackathon.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.time.LocalDateTime;
-
 /**
  * Maps to the `UserEventRole` table.
  * Pure N-N "who is ALLOWED to be what role" per event:
@@ -42,21 +40,8 @@ public class UserEventRole {
     @JoinColumn(name = "role_id", nullable = false)
     private Role role;
 
-    // Nullable: EVENT_COORDINATOR may manage all events (no event scope)
+    // Nullable: NULL for system-wide roles (SYSTEM_ADMIN); set for event-scoped roles.
+    // Who granted the role and when is captured in SystemLog (action = GRANT_ROLE).
     @Column(name = "event_id")
     private Integer eventId;
-
-    @Column(name = "assigned_at", nullable = false)
-    private LocalDateTime assignedAt;
-
-    // The user ID of the coordinator who made this assignment
-    @Column(name = "assigned_by")
-    private Integer assignedBy;
-
-    @PrePersist
-    protected void onCreate() {
-        if (assignedAt == null) {
-            assignedAt = LocalDateTime.now();
-        }
-    }
 }

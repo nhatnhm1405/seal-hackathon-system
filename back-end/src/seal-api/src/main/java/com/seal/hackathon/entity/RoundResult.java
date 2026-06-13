@@ -36,9 +36,8 @@ public class RoundResult {
     @Column(name = "rank_position", nullable = false)
     private Integer rankPosition;
 
-    @Column(name = "advanced", nullable = false)
-    @Builder.Default
-    private Boolean advanced = false;
+    // "advanced" is NOT stored — it is derived as rank_position <= Round.top_n_advance
+    // (computed in the service/response layer when listing who moves on).
 
     @Column(name = "is_published", nullable = false)
     @Builder.Default

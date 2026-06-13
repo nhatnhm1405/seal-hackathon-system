@@ -20,7 +20,7 @@ public interface MentorAssignmentRepository extends JpaRepository<MentorAssignme
            "JOIN FETCH t.event e " +
            "WHERE ma.mentor.userId = :mentorUserId " +
            "AND ma.isActive = true " +
-           "ORDER BY ma.assignedAt DESC")
+           "ORDER BY ma.id DESC")
     List<MentorAssignment> findActiveByMentor(@Param("mentorUserId") Integer mentorUserId);
 
     // Duplicate check for the unique key (mentor_user_id, track_id)

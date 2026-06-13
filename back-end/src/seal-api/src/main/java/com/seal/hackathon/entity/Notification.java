@@ -33,9 +33,8 @@ public class Notification {
     @Column(name = "type", length = 50)
     private String type;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "related_event_id")
-    private HackathonEvent relatedEvent;
+    // related_event_id removed from schema — notifications are addressed to a user
+    // and carry their context in the title/content.
 
     @Column(name = "is_read", nullable = false)
     @Builder.Default
