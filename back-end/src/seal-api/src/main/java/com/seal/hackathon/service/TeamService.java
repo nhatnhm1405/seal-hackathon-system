@@ -5,8 +5,10 @@ import com.seal.hackathon.dto.request.RejectTeamRequest;
 import com.seal.hackathon.dto.response.ActiveEventResponse;
 import com.seal.hackathon.dto.response.MyTeamResponse;
 import com.seal.hackathon.dto.response.TeamDetailResponse;
+import com.seal.hackathon.dto.request.UpdateTeamRequest;
 import com.seal.hackathon.dto.response.TeamResponse;
 import com.seal.hackathon.dto.response.TrackResponse;
+import com.seal.hackathon.dto.response.UserResponse;
 import com.seal.hackathon.entity.*;
 import com.seal.hackathon.exception.BadRequestException;
 import com.seal.hackathon.exception.ResourceNotFoundException;
@@ -103,6 +105,7 @@ public class TeamService {
 
         List<MyTeamResponse.TeamMemberInfo> memberInfos = allMembers.stream()
                 .map(m -> MyTeamResponse.TeamMemberInfo.builder()
+                        .userId(m.getUser().getUserId())
                         .memberName(m.getUser().getFullName())
                         .role(m.getMemberRole())
                         .build())
@@ -110,10 +113,131 @@ public class TeamService {
 
         return MyTeamResponse.builder()
                 .teamId(team.getTeamId())
+                .eventId(team.getEvent().getEventId())
+                .eventName(team.getEvent().getName())
                 .trackName(team.getTrack().getName())
                 .name(team.getName())
+                .status(team.getStatus())
+                .myRole(membership.getMemberRole())
                 .members(memberInfos)
                 .build();
+    }
+
+    // ── Participant: team management (leader unless noted) ────────────
+
+    /** Leader edits the team name / description. */
+    @Transactional
+    public MyTeamResponse updateTeam(Integer userId, Integer teamId, UpdateTeamRequest request) {
+        Team team = requireLeader(userId, teamId);
+        if ("REJECTED".equalsIgnoreCase(team.getStatus()) || "DISQUALIFIED".equalsIgnoreCase(team.getStatus())) {
+            throw new BadRequestException("This team can no longer be edited.");
+        }
+        if (request.getName() != null && !request.getName().isBlank()) {
+            String newName = request.getName().trim();
+            if (!newName.equals(team.getName())
+                    && teamRepository.existsByEvent_EventIdAndName(team.getEvent().getEventId(), newName)) {
+                throw new BadRequestException("A team named '" + newName + "' already exists in this event.");
+            }
+            team.setName(newName);
+        }
+        if (request.getDescription() != null) {
+            team.setDescription(request.getDescription().isBlank() ? null : request.getDescription().trim());
+        }
+        teamRepository.save(team);
+        return getMyTeam(userId);
+    }
+
+    /** Leader removes a MEMBER (not themselves, not another leader). */
+    @Transactional
+    public MyTeamResponse removeMember(Integer leaderUserId, Integer teamId, Integer targetUserId) {
+        requireLeader(leaderUserId, teamId);
+        if (leaderUserId.equals(targetUserId)) {
+            throw new BadRequestException("The leader cannot remove themselves. Transfer leadership or leave the team.");
+        }
+        TeamMember target = teamMemberRepository.findByTeam_TeamId(teamId).stream()
+                .filter(m -> m.getUser().getUserId().equals(targetUserId))
+                .findFirst()
+                .orElseThrow(() -> new BadRequestException("That user is not a member of this team."));
+        if ("LEADER".equalsIgnoreCase(target.getMemberRole())) {
+            throw new BadRequestException("Cannot remove the team leader.");
+        }
+        teamMemberRepository.delete(target);
+        return getMyTeam(leaderUserId);
+    }
+
+    /** Leader hands leadership to an existing member and becomes a member. */
+    @Transactional
+    public MyTeamResponse transferLeadership(Integer leaderUserId, Integer teamId, Integer newLeaderUserId) {
+        requireLeader(leaderUserId, teamId);
+        if (leaderUserId.equals(newLeaderUserId)) {
+            throw new BadRequestException("You are already the leader.");
+        }
+        List<TeamMember> members = teamMemberRepository.findByTeam_TeamId(teamId);
+        TeamMember me = members.stream().filter(m -> m.getUser().getUserId().equals(leaderUserId)).findFirst()
+                .orElseThrow(() -> new BadRequestException("You are not a member of this team."));
+        TeamMember target = members.stream().filter(m -> m.getUser().getUserId().equals(newLeaderUserId)).findFirst()
+                .orElseThrow(() -> new BadRequestException("The new leader must be a member of this team."));
+        me.setMemberRole("MEMBER");
+        target.setMemberRole("LEADER");
+        teamMemberRepository.save(me);
+        teamMemberRepository.save(target);
+        return getMyTeam(leaderUserId);
+    }
+
+    /**
+     * A member leaves the team. The leader must transfer leadership first unless
+     * they are the only member, in which case the (empty) team is disbanded.
+     */
+    @Transactional
+    public void leaveTeam(Integer userId, Integer teamId) {
+        Team team = teamRepository.findById(teamId)
+                .orElseThrow(() -> new ResourceNotFoundException("Team not found: " + teamId));
+        List<TeamMember> members = teamMemberRepository.findByTeam_TeamId(teamId);
+        TeamMember me = members.stream().filter(m -> m.getUser().getUserId().equals(userId)).findFirst()
+                .orElseThrow(() -> new BadRequestException("You are not a member of this team."));
+
+        if ("LEADER".equalsIgnoreCase(me.getMemberRole())) {
+            if (members.size() > 1) {
+                throw new BadRequestException("Transfer leadership before leaving the team.");
+            }
+            teamMemberRepository.delete(me);
+            teamRepository.delete(team);
+            return;
+        }
+        teamMemberRepository.delete(me);
+    }
+
+    /** Search active student accounts a participant may invite. */
+    @Transactional(readOnly = true)
+    public List<UserResponse> searchInvitableUsers(String query) {
+        if (query == null || query.trim().length() < 2) {
+            return List.of();
+        }
+        return userRepository.searchInvitableStudents(query.trim().toLowerCase()).stream()
+                .limit(10)
+                .map(u -> UserResponse.builder()
+                        .userId(u.getUserId())
+                        .fullName(u.getFullName())
+                        .email(u.getEmail())
+                        .studentId(u.getStudentId())
+                        .university(u.getUniversity())
+                        .userType(u.getUserType())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    /** Loads the team and asserts the given user is its LEADER. */
+    private Team requireLeader(Integer userId, Integer teamId) {
+        Team team = teamRepository.findById(teamId)
+                .orElseThrow(() -> new ResourceNotFoundException("Team not found: " + teamId));
+        TeamMember me = teamMemberRepository.findByTeam_TeamId(teamId).stream()
+                .filter(m -> m.getUser().getUserId().equals(userId))
+                .findFirst()
+                .orElseThrow(() -> new BadRequestException("You are not a member of this team."));
+        if (!"LEADER".equalsIgnoreCase(me.getMemberRole())) {
+            throw new BadRequestException("Only the team leader can perform this action.");
+        }
+        return team;
     }
 
     // ── Coordinator: Get all teams by event ──────────────────────────
