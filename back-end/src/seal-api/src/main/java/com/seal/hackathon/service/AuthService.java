@@ -124,6 +124,24 @@ public class AuthService {
         return mapToUserResponse(user);
     }
 
+    /** A user patches their own profile (fullName / studentId / university). */
+    @Transactional
+    public UserResponse updateOwnProfile(String email, com.seal.hackathon.dto.request.UpdateProfileRequest request) {
+        User user = userRepository.findByEmailWithRoles(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found."));
+        if (request.getFullName() != null && !request.getFullName().isBlank()) {
+            user.setFullName(request.getFullName().trim());
+        }
+        if (request.getStudentId() != null) {
+            user.setStudentId(request.getStudentId().isBlank() ? null : request.getStudentId().trim());
+        }
+        if (request.getUniversity() != null) {
+            user.setUniversity(request.getUniversity().isBlank() ? null : request.getUniversity().trim());
+        }
+        userRepository.save(user);
+        return mapToUserResponse(user);
+    }
+
     // ---------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------

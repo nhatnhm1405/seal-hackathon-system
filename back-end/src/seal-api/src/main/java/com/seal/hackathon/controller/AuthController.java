@@ -54,6 +54,19 @@ public class AuthController {
     }
 
     /**
+     * PUT /api/auth/me
+     * Requires valid JWT. The user patches their own profile fields.
+     */
+    @PutMapping("/me")
+    public ResponseEntity<ApiResponse<UserResponse>> updateProfile(
+            @Valid @RequestBody com.seal.hackathon.dto.request.UpdateProfileRequest request,
+            Authentication authentication) {
+        String email = ((UserDetails) authentication.getPrincipal()).getUsername();
+        return ResponseEntity.ok(ApiResponse.success("Profile updated.",
+                authService.updateOwnProfile(email, request)));
+    }
+
+    /**
      * POST /api/auth/logout
      * JWT is stateless — logout is handled client-side by discarding the token.
      * This endpoint exists so the frontend has a consistent pattern to call.
