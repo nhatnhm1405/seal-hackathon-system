@@ -54,6 +54,19 @@ public class AuthController {
     }
 
     /**
+     * PUT /api/auth/complete-profile
+     * First-time OAuth user picks account type + student details.
+     */
+    @PutMapping("/complete-profile")
+    public ResponseEntity<ApiResponse<UserResponse>> completeProfile(
+            @Valid @RequestBody com.seal.hackathon.dto.request.CompleteProfileRequest request,
+            Authentication authentication) {
+        String email = ((UserDetails) authentication.getPrincipal()).getUsername();
+        return ResponseEntity.ok(ApiResponse.success("Profile completed.",
+                authService.completeProfile(email, request)));
+    }
+
+    /**
      * PUT /api/auth/me
      * Requires valid JWT. The user patches their own profile fields.
      */
