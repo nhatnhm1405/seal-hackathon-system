@@ -113,9 +113,21 @@ export const authApi = {
   me: () =>
     apiFetch<ApiResponse<UserProfile>>('/api/auth/me'),
 
+  updateMe: (payload: UpdateProfilePayload) =>
+    apiFetch<ApiResponse<UserProfile>>('/api/auth/me', {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
+
   logout: () =>
     apiFetch<void>('/api/auth/logout', { method: 'POST' }),
 };
+
+export interface UpdateProfilePayload {
+  fullName?: string;
+  studentId?: string;
+  university?: string;
+}
 
 // ── Account Approvals ─────────────────────────────────────────────
 
@@ -423,10 +435,41 @@ export interface TeamMember {
   role: 'LEADER' | 'MEMBER';
 }
 
-export interface ActiveEventWithTracks {
-  id: number;
+// GET /api/teams/my — the current user's team in the active event.
+export interface MyTeamMember {
+  userId: number;
+  memberName: string;
+  role: 'LEADER' | 'MEMBER';
+}
+
+export interface MyTeam {
+  teamId: number;
+  eventId?: number;
+  eventName?: string;
+  trackName?: string;
   name: string;
-  tracks: { id: number; name: string }[];
+  status?: 'PENDING' | 'APPROVED' | 'REJECTED' | 'DISQUALIFIED';
+  myRole?: 'LEADER' | 'MEMBER';
+  members: MyTeamMember[];
+}
+
+export interface UpdateTeamPayload {
+  name?: string;
+  description?: string;
+}
+
+export interface ActiveEventWithTracks {
+  eventId: number;
+  name: string;
+  season?: string;
+  year?: number;
+  description?: string;
+  registrationStart?: string;
+  registrationEnd?: string;
+  startDate?: string;
+  endDate?: string;
+  status?: string;
+  tracks: { trackId: number; name: string; description?: string }[];
 }
 
 export interface CreateTeamPayload {
@@ -447,7 +490,7 @@ export const teamsApi = {
     }),
 
   getMy: () =>
-    apiFetch<ApiResponse<Team>>('/api/teams/my'),
+    apiFetch<ApiResponse<MyTeam>>('/api/teams/my'),
 
   getByEvent: (eventId: number) =>
     apiFetch<ApiResponse<Team[]>>(`/api/teams/event/${eventId}`),
@@ -466,19 +509,42 @@ export const teamsApi = {
 
   disqualify: (teamId: number) =>
     apiFetch<ApiResponse<void>>(`/api/teams/${teamId}/disqualify`, { method: 'PUT' }),
+
+  // Participant team management
+  searchUsers: (query: string) =>
+    apiFetch<ApiResponse<UserItem[]>>(`/api/teams/search-users?query=${encodeURIComponent(query)}`),
+
+  update: (teamId: number, payload: UpdateTeamPayload) =>
+    apiFetch<ApiResponse<MyTeam>>(`/api/teams/${teamId}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
+
+  removeMember: (teamId: number, userId: number) =>
+    apiFetch<ApiResponse<MyTeam>>(`/api/teams/${teamId}/members/${userId}`, { method: 'DELETE' }),
+
+  transferLeadership: (teamId: number, newLeaderUserId: number) =>
+    apiFetch<ApiResponse<MyTeam>>(`/api/teams/${teamId}/transfer/${newLeaderUserId}`, { method: 'PUT' }),
+
+  leave: (teamId: number) =>
+    apiFetch<ApiResponse<void>>(`/api/teams/${teamId}/leave`, { method: 'POST' }),
 };
 
 // ── Team Invites ──────────────────────────────────────────────────
 
 export interface TeamInvite {
-  id: number;
+  inviteId: number;
   teamId: number;
   teamName: string;
-  invitedByUserId: number;
+  eventName?: string;
+  invitedUserId: number;
+  invitedUserName?: string;
+  invitedById: number;
   invitedByName: string;
   message?: string;
   status: 'PENDING' | 'ACCEPTED' | 'DECLINED';
   createdAt: string;
+  respondedAt?: string;
 }
 
 export interface SendInvitePayload {
