@@ -13,6 +13,9 @@ public interface TeamMemberRepository extends JpaRepository<TeamMember, Integer>
     /** Find all teams that a user belongs to, filtered by event status (e.g. OPEN, IN_PROGRESS) */
     List<TeamMember> findByUser_UserIdAndTeam_Event_StatusIn(Integer userId, List<String> statuses);
 
+    /** Find all teams that a user belongs to, newest membership first */
+    List<TeamMember> findByUser_UserIdOrderByIdDesc(Integer userId);
+
     /** Find all members of a specific team */
     List<TeamMember> findByTeam_TeamId(Integer teamId);
 }

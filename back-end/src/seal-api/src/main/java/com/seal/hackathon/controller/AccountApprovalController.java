@@ -2,7 +2,7 @@ package com.seal.hackathon.controller;
 
 import com.seal.hackathon.dto.response.ApiResponse;
 import com.seal.hackathon.dto.response.UserResponse;
-import com.seal.hackathon.service.AccountApprovalService;
+import com.seal.hackathon.service.AccountService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -19,7 +19,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class AccountApprovalController {
 
-    private final AccountApprovalService approvalService;
+    private final AccountService approvalService;
 
     /**
      * GET /api/account-approvals/pending

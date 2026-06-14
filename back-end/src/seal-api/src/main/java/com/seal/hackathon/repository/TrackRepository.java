@@ -9,4 +9,8 @@ import java.util.List;
 @Repository
 public interface TrackRepository extends JpaRepository<Track, Integer> {
     List<Track> findAllByEvent_EventId(Integer eventId);
+
+    boolean existsByEvent_EventIdAndNameIgnoreCase(Integer eventId, String name);
+
+    boolean existsByEvent_EventIdAndNameIgnoreCaseAndTrackIdNot(Integer eventId, String name, Integer trackId);
 }

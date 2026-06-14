@@ -47,7 +47,7 @@ public class AdminService {
     private final HackathonEventRepository hackathonEventRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuthService authService;
-    private final AccountApprovalService accountApprovalService;
+    private final AccountService accountService;
     private final SystemLogService systemLogService;
 
     // ── Users ─────────────────────────────────────────────────────────
@@ -138,14 +138,14 @@ public class AdminService {
 
     @Transactional
     public UserResponse activateUser(Integer userId, Integer adminId) {
-        UserResponse result = accountApprovalService.activateUser(userId);
+        UserResponse result = accountService.activateUser(userId);
         systemLogService.record(adminId, "ACTIVATE_USER", "activated user#" + userId);
         return result;
     }
 
     @Transactional
     public UserResponse deactivateUser(Integer userId, Integer adminId) {
-        UserResponse result = accountApprovalService.deactivateUser(userId);
+        UserResponse result = accountService.deactivateUser(userId);
         systemLogService.record(adminId, "DEACTIVATE_USER", "deactivated user#" + userId);
         return result;
     }

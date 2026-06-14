@@ -103,15 +103,23 @@ public class TeamService {
 
         List<MyTeamResponse.TeamMemberInfo> memberInfos = allMembers.stream()
                 .map(m -> MyTeamResponse.TeamMemberInfo.builder()
+                        .userId(m.getUser().getUserId())
                         .memberName(m.getUser().getFullName())
+                        .email(m.getUser().getEmail())
+                        .studentType(m.getUser().getUserType())
+                        .studentId(m.getUser().getStudentId())
                         .role(m.getMemberRole())
+                        .joinedAt(m.getJoinedAt())
                         .build())
                 .collect(Collectors.toList());
 
         return MyTeamResponse.builder()
                 .teamId(team.getTeamId())
+                .eventId(team.getEvent().getEventId())
+                .eventName(team.getEvent().getName())
                 .trackName(team.getTrack().getName())
                 .name(team.getName())
+                .teamStatus(team.getStatus())
                 .members(memberInfos)
                 .build();
     }

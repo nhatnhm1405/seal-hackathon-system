@@ -13,11 +13,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class TrackService {
+
+    // OPEN is the current codebase status for a published event.
+    private static final Set<String> TRACK_CREATION_ALLOWED_EVENT_STATUSES = Set.of("DRAFT", "OPEN", "PUBLISHED");
 
     private final TrackRepository trackRepository;
     private final HackathonEventRepository eventRepository;
@@ -46,15 +50,18 @@ public class TrackService {
         HackathonEvent event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new ResourceNotFoundException("Event not found: " + eventId));
 
-        boolean duplicate = trackRepository.findAllByEvent_EventId(eventId).stream()
-                .anyMatch(t -> t.getName().equalsIgnoreCase(request.getName().trim()));
+        validateEventAllowsTrackCreation(event);
+
+        String trackName = requiredTrackName(request);
+
+        boolean duplicate = trackRepository.existsByEvent_EventIdAndNameIgnoreCase(eventId, trackName);
         if (duplicate) {
-            throw new BadRequestException("Track '" + request.getName() + "' already exists in this event.");
+            throw new BadRequestException("Track '" + trackName + "' already exists in this event.");
         }
 
         Track track = Track.builder()
                 .event(event)
-                .name(request.getName().trim())
+                .name(trackName)
                 .description(request.getDescription())
                 .build();
         track = trackRepository.save(track);
@@ -68,8 +75,20 @@ public class TrackService {
         if (!track.getEvent().getEventId().equals(eventId)) {
             throw new BadRequestException("Track does not belong to event " + eventId);
         }
+        if (request == null) {
+            throw new BadRequestException("Track update request is required.");
+        }
         if (request.getName() != null && !request.getName().isBlank()) {
-            track.setName(request.getName().trim());
+            String trackName = request.getName().trim();
+            boolean duplicate = trackRepository.existsByEvent_EventIdAndNameIgnoreCaseAndTrackIdNot(
+                    eventId,
+                    trackName,
+                    trackId
+            );
+            if (duplicate) {
+                throw new BadRequestException("Track '" + trackName + "' already exists in this event.");
+            }
+            track.setName(trackName);
         }
         if (request.getDescription() != null) {
             track.setDescription(request.getDescription());
@@ -95,5 +114,27 @@ public class TrackService {
                 .name(track.getName())
                 .description(track.getDescription())
                 .build();
+    }
+
+    private void validateEventAllowsTrackCreation(HackathonEvent event) {
+        String status = normalizeEventStatus(event.getStatus());
+        if (!TRACK_CREATION_ALLOWED_EVENT_STATUSES.contains(status)) {
+            throw new BadRequestException("Cannot create track when event status is " + status
+                    + ". Tracks can only be created when event status is DRAFT or PUBLISHED.");
+        }
+    }
+
+    private String normalizeEventStatus(String status) {
+        if (status == null || status.isBlank()) {
+            throw new BadRequestException("Event status is required.");
+        }
+        return status.trim().toUpperCase().replace("-", "_");
+    }
+
+    private String requiredTrackName(CreateTrackRequest request) {
+        if (request == null || request.getName() == null || request.getName().isBlank()) {
+            throw new BadRequestException("Track name is required.");
+        }
+        return request.getName().trim();
     }
 }

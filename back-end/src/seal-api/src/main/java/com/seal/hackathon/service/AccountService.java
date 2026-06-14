@@ -2,10 +2,12 @@ package com.seal.hackathon.service;
 
 import com.seal.hackathon.dto.response.UserResponse;
 import com.seal.hackathon.entity.User;
+import com.seal.hackathon.event.AccountApprovalEmailEvent;
 import com.seal.hackathon.exception.BadRequestException;
 import com.seal.hackathon.exception.ResourceNotFoundException;
 import com.seal.hackathon.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,10 +16,11 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-public class AccountApprovalService {
+public class AccountService {
 
     private final UserRepository userRepository;
     private final AuthService authService; // reuse the mapping helper
+    private final ApplicationEventPublisher eventPublisher;
 
     // ---------------------------------------------------------------
     // List pending approvals
@@ -44,6 +47,11 @@ public class AccountApprovalService {
 
         user.setIsApproved(true);
         userRepository.save(user);
+        eventPublisher.publishEvent(new AccountApprovalEmailEvent(
+                user.getEmail(),
+                user.getFullName(),
+                true
+        ));
         return authService.mapToUserResponse(user);
     }
 
@@ -64,6 +72,11 @@ public class AccountApprovalService {
         user.setIsApproved(false);
         user.setIsActive(false);
         userRepository.save(user);
+        eventPublisher.publishEvent(new AccountApprovalEmailEvent(
+                user.getEmail(),
+                user.getFullName(),
+                false
+        ));
         return authService.mapToUserResponse(user);
     }
 
