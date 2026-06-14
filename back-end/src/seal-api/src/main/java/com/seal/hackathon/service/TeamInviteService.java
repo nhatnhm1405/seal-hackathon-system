@@ -96,6 +96,11 @@ public class TeamInviteService {
             throw new BadRequestException("You are already a member of a team in this event.");
         }
 
+        // Hard cap: a team may have at most 5 members (per competition rules).
+        if (teamMemberRepository.findByTeam_TeamId(invite.getTeam().getTeamId()).size() >= 5) {
+            throw new BadRequestException("This team is already full (maximum 5 members).");
+        }
+
         invite.setStatus("ACCEPTED");
         invite.setRespondedAt(LocalDateTime.now());
         inviteRepository.save(invite);
