@@ -39,15 +39,21 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
 
         UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
 
-        if (!principal.isEnabled()) {
-            response.sendRedirect(frontendUrl + "/login?error=ACCOUNT_INACTIVE");
-            return;
-        }
+        // First-time OAuth users haven't picked their account type yet — let them in
+        // (token issued) so they can finish on the complete-profile screen. The
+        // approval gate applies only once their profile is complete.
+        boolean profileIncomplete = "PENDING_PROFILE".equals(principal.getUserType());
 
-        if (!principal.isApproved()) {
-            // Account created but not yet approved by a coordinator
-            response.sendRedirect(frontendUrl + "/login?error=ACCOUNT_NOT_APPROVED");
-            return;
+        if (!profileIncomplete) {
+            if (!principal.isEnabled()) {
+                response.sendRedirect(frontendUrl + "/login?error=ACCOUNT_INACTIVE");
+                return;
+            }
+            if (!principal.isApproved()) {
+                // Account created but not yet approved by a coordinator
+                response.sendRedirect(frontendUrl + "/login?error=ACCOUNT_NOT_APPROVED");
+                return;
+            }
         }
 
         List<String> roles = principal.getAuthorities().stream()

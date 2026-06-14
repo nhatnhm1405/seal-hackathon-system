@@ -78,7 +78,9 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         return User.builder()
                 .email(userInfo.getEmail())
                 .fullName(userInfo.getName() != null ? userInfo.getName() : userInfo.getEmail())
-                .userType("STAFF")         // OAuth2 users default to STAFF; coordinator assigns the actual role later
+                // OAuth gives us only name/email — the user must pick FPT_STUDENT /
+                // EXTERNAL_STUDENT / STAFF on the complete-profile screen first.
+                .userType("PENDING_PROFILE")
                 .provider(provider)
                 .providerId(userInfo.getProviderId())
                 .avatarUrl(userInfo.getAvatarUrl())
