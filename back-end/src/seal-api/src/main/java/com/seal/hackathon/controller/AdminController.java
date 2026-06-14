@@ -2,6 +2,7 @@ package com.seal.hackathon.controller;
 
 import com.seal.hackathon.dto.request.CreateUserRequest;
 import com.seal.hackathon.dto.request.GrantRoleRequest;
+import com.seal.hackathon.dto.request.UpdateUserRequest;
 import com.seal.hackathon.dto.response.ApiResponse;
 import com.seal.hackathon.dto.response.SystemLogResponse;
 import com.seal.hackathon.dto.response.UserEventRoleResponse;
@@ -54,6 +55,15 @@ public class AdminController {
         UserResponse user = adminService.createUser(request, currentUserId(authentication));
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("User created successfully.", user));
+    }
+
+    @PutMapping("/users/{id}")
+    public ResponseEntity<ApiResponse<UserResponse>> updateUser(
+            @PathVariable Integer id,
+            @Valid @RequestBody UpdateUserRequest request,
+            Authentication authentication) {
+        return ResponseEntity.ok(ApiResponse.success("User updated.",
+                adminService.updateUser(id, request, currentUserId(authentication))));
     }
 
     @PutMapping("/users/{id}/activate")

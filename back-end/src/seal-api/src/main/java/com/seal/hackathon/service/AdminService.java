@@ -2,6 +2,7 @@ package com.seal.hackathon.service;
 
 import com.seal.hackathon.dto.request.CreateUserRequest;
 import com.seal.hackathon.dto.request.GrantRoleRequest;
+import com.seal.hackathon.dto.request.UpdateUserRequest;
 import com.seal.hackathon.dto.response.UserEventRoleResponse;
 import com.seal.hackathon.dto.response.UserResponse;
 import com.seal.hackathon.entity.HackathonEvent;
@@ -101,6 +102,37 @@ public class AdminService {
 
         User refreshed = userRepository.findByIdWithRoles(user.getUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("User not found after creation."));
+        return authService.mapToUserResponse(refreshed);
+    }
+
+    /**
+     * Edits an existing account's profile fields (patch semantics — null fields are
+     * left unchanged). Login identity (email), account category (userType) and the
+     * approval/active flags are intentionally not editable here.
+     */
+    @Transactional
+    public UserResponse updateUser(Integer userId, UpdateUserRequest request, Integer adminId) {
+        User user = userRepository.findByIdWithRoles(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
+
+        if (request.getFullName() != null && !request.getFullName().isBlank()) {
+            user.setFullName(request.getFullName().trim());
+        }
+        if (request.getStudentId() != null) {
+            user.setStudentId(request.getStudentId().isBlank() ? null : request.getStudentId().trim());
+        }
+        if (request.getUniversity() != null) {
+            user.setUniversity(request.getUniversity().isBlank() ? null : request.getUniversity().trim());
+        }
+        if (request.getJudgeType() != null) {
+            user.setJudgeType(request.getJudgeType().isBlank() ? null : normalizeJudgeType(request.getJudgeType()));
+        }
+
+        userRepository.save(user);
+        systemLogService.record(adminId, "UPDATE_USER", "updated user#" + userId);
+
+        User refreshed = userRepository.findByIdWithRoles(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
         return authService.mapToUserResponse(refreshed);
     }
 
