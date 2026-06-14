@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { apiFetch, getToken, setToken, clearToken, ApiError } from "@/shared/apiClient";
+import { apiFetch, getToken, setToken, clearToken, ApiError, teamsApi } from "@/shared/apiClient";
 
 // ── Public AuthUser shape ────────────────────────────────────────────
 export interface AuthUser {
@@ -26,6 +26,8 @@ interface AuthContextType {
   logout: () => void;
   updateLeaderStatus: (isLeader: boolean) => void;
   clearTeam: () => void;
+  refreshTeamContext: () => Promise<void>;
+  patchCurrentUser: (fields: Partial<AuthUser>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -136,6 +138,24 @@ function mapApiUser(profile: ApiUserProfile): AuthUser {
   };
 }
 
+// ── Team context ──────────────────────────────────────────────────────
+// team_id / is_leader are NOT in /api/auth/me — they live in /api/teams/my,
+// which only PARTICIPANTs may call. Until the backend adds member userId / a
+// myRole field to MyTeamResponse, leadership is inferred by matching the full
+// name (temporary — see deferred backend note).
+async function fetchTeamContext(role: AuthUser['role'], fullName: string): Promise<{ teamId: number | null; isLeader: boolean }> {
+  if (role !== 'PARTICIPANT') return { teamId: null, isLeader: false };
+  try {
+    const res = await teamsApi.getMy();
+    const t = res.data;
+    if (!t || t.teamId == null) return { teamId: null, isLeader: false };
+    const myRole = t.myRole ?? t.members?.find(m => m.memberName === fullName)?.role;
+    return { teamId: t.teamId, isLeader: (myRole ?? '').toString().toUpperCase() === 'LEADER' };
+  } catch {
+    return { teamId: null, isLeader: false };
+  }
+}
+
 // ── Provider ──────────────────────────────────────────────────────────
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
@@ -163,7 +183,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!token) { setIsLoading(false); return; }
 
     apiFetch<{ data: ApiUserProfile }>('/api/auth/me')
-      .then(res => {
+      .then(async res => {
         const allRoles = resolveAllRoles(res.data);
         setAvailableRoles(allRoles);
 
@@ -180,6 +200,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setActiveRoleState(resolvedActive);
         const authUser = mapApiUser(res.data);
         if (resolvedActive) authUser.role = mapBackendRole(resolvedActive);
+        const tc = await fetchTeamContext(authUser.role, authUser.full_name);
+        authUser.team_id = tc.teamId;
+        authUser.is_leader = tc.isLeader;
         setCurrentUser(authUser);
       })
       .catch(() => {
@@ -222,6 +245,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setActiveRoleState(resolvedActive);
       const authUser = mapApiUser(meRes.data);
       if (resolvedActive) authUser.role = mapBackendRole(resolvedActive);
+      const tc = await fetchTeamContext(authUser.role, authUser.full_name);
+      authUser.team_id = tc.teamId;
+      authUser.is_leader = tc.isLeader;
       setCurrentUser(authUser);
       // Signal to the caller that the user must pick a role before entering any dashboard
       return allRoles.length > 1 && resolvedActive === null ? 'ok:select-role' : 'ok';
@@ -264,13 +290,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setCurrentUser(prev => prev ? { ...prev, team_id: null, is_leader: false } : prev);
   }
 
+  // Apply edited profile fields to the in-memory user (after PUT /api/auth/me).
+  function patchCurrentUser(fields: Partial<AuthUser>) {
+    setCurrentUser(prev => prev ? { ...prev, ...fields } : prev);
+  }
+
+  // Re-pull team membership (team_id / is_leader) after the user creates,
+  // joins, or leaves a team — keeps routing and the sidebar in sync.
+  async function refreshTeamContext() {
+    if (!currentUser) return;
+    const tc = await fetchTeamContext(currentUser.role, currentUser.full_name);
+    setCurrentUser(prev => prev ? { ...prev, team_id: tc.teamId, is_leader: tc.isLeader } : prev);
+  }
+
   return (
     <AuthContext.Provider value={{
       currentUser,
       isAuthenticated: !!currentUser,
       isLoading,
       availableRoles, activeRole, setActiveRole,
-      login, logout, updateLeaderStatus, clearTeam,
+      login, logout, updateLeaderStatus, clearTeam, refreshTeamContext, patchCurrentUser,
     }}>
       {children}
     </AuthContext.Provider>
