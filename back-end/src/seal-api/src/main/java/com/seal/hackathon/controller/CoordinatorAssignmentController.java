@@ -4,6 +4,7 @@ import com.seal.hackathon.dto.request.AssignJudgeRequest;
 import com.seal.hackathon.dto.request.AssignMentorRequest;
 import com.seal.hackathon.dto.response.ApiResponse;
 import com.seal.hackathon.dto.response.JudgeAssignmentResponse;
+import com.seal.hackathon.dto.response.JudgeRosterItemResponse;
 import com.seal.hackathon.dto.response.MentorAssignmentResponse;
 import com.seal.hackathon.service.AssignmentService;
 import jakarta.validation.Valid;
@@ -12,6 +13,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 /**
  * Competition work assignments — EVENT_COORDINATOR only.
@@ -42,5 +45,19 @@ public class CoordinatorAssignmentController {
         JudgeAssignmentResponse response = assignmentService.assignJudge(request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Judge assigned successfully.", response));
+    }
+
+    /** Coordinator roster: list every active judge assignment in an event. */
+    @GetMapping("/judges")
+    public ResponseEntity<ApiResponse<List<JudgeRosterItemResponse>>> listJudgeAssignments(
+            @RequestParam Integer eventId) {
+        return ResponseEntity.ok(ApiResponse.success("Judge assignments retrieved.",
+                assignmentService.listJudgeAssignmentsByEvent(eventId)));
+    }
+
+    @DeleteMapping("/judges/{id}")
+    public ResponseEntity<ApiResponse<Void>> removeJudgeAssignment(@PathVariable Integer id) {
+        assignmentService.removeJudgeAssignment(id);
+        return ResponseEntity.ok(ApiResponse.success("Judge assignment removed.", null));
     }
 }

@@ -2,8 +2,11 @@ package com.seal.hackathon.service;
 
 import com.seal.hackathon.dto.request.AssignJudgeRequest;
 import com.seal.hackathon.dto.request.AssignMentorRequest;
+import com.seal.hackathon.dto.request.CreateGuestJudgeRequest;
 import com.seal.hackathon.dto.response.JudgeAssignmentResponse;
+import com.seal.hackathon.dto.response.JudgeRosterItemResponse;
 import com.seal.hackathon.dto.response.MentorAssignmentResponse;
+import com.seal.hackathon.dto.response.UserResponse;
 import com.seal.hackathon.entity.JudgeAssignment;
 import com.seal.hackathon.entity.MentorAssignment;
 import com.seal.hackathon.entity.Role;
@@ -25,6 +28,7 @@ import com.seal.hackathon.repository.TrackRepository;
 import com.seal.hackathon.repository.UserEventRoleRepository;
 import com.seal.hackathon.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -56,6 +60,30 @@ public class AssignmentService {
     private final TrackRepository trackRepository;
     private final RoleRepository roleRepository;
     private final UserEventRoleRepository userEventRoleRepository;
+    private final PasswordEncoder passwordEncoder;
+
+    /**
+     * Danh sách STAFF đã được duyệt + đang hoạt động, để Coordinator chọn người
+     * phân công làm Judge/Mentor. Việc tạo tài khoản và cấp role là của Admin
+     * (/api/admin); đây chỉ là danh sách tra cứu read-only.
+     */
+    @Transactional(readOnly = true)
+    public List<UserResponse> listApprovedStaff() {
+        return userRepository.findAll().stream()
+                .filter(u -> "STAFF".equalsIgnoreCase(u.getUserType()))
+                .filter(u -> Boolean.TRUE.equals(u.getIsApproved()))
+                .filter(u -> Boolean.TRUE.equals(u.getIsActive()))
+                .map(u -> UserResponse.builder()
+                        .userId(u.getUserId())
+                        .email(u.getEmail())
+                        .fullName(u.getFullName())
+                        .userType(u.getUserType())
+                        .judgeType(u.getJudgeType())
+                        .isApproved(u.getIsApproved())
+                        .isActive(u.getIsActive())
+                        .build())
+                .collect(Collectors.toList());
+    }
 
     /**
      * Lấy danh sách các team thuộc track được phân công cho Mentor (is_active = true)
@@ -208,6 +236,66 @@ public class AssignmentService {
                 .build());
 
         return getJudgeAssignments(judge.getUserId());
+    }
+
+    /**
+     * Coordinator roster: all active judge assignments in an event, names resolved.
+     */
+    @Transactional(readOnly = true)
+    public List<JudgeRosterItemResponse> listJudgeAssignmentsByEvent(Integer eventId) {
+        return judgeAssignmentRepository.findActiveByEvent(eventId).stream()
+                .map(ja -> JudgeRosterItemResponse.builder()
+                        .id(ja.getId())
+                        .judgeUserId(ja.getJudge().getUserId())
+                        .judgeName(ja.getJudge().getFullName())
+                        .judgeType(ja.getJudge().getJudgeType())
+                        .roundId(ja.getRound().getRoundId())
+                        .roundName(ja.getRound().getName())
+                        .isFinal(ja.getRound().getIsFinal())
+                        .trackId(ja.getTrack() != null ? ja.getTrack().getTrackId() : null)
+                        .trackName(ja.getTrack() != null ? ja.getTrack().getName() : null)
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Removes a judge assignment (hard delete so the same judge can be re-assigned
+     * to the round/track later — the unique key does not consider is_active).
+     */
+    @Transactional
+    public void removeJudgeAssignment(Integer assignmentId) {
+        JudgeAssignment assignment = judgeAssignmentRepository.findById(assignmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Judge assignment not found: " + assignmentId));
+        judgeAssignmentRepository.delete(assignment);
+    }
+
+    /**
+     * Creates a pre-approved GUEST judge account and assigns it to a round in one
+     * step. The trackId rule is enforced by {@link #assignJudge}.
+     */
+    @Transactional
+    public JudgeAssignmentResponse createGuestJudge(CreateGuestJudgeRequest request) {
+        String email = request.getEmail().toLowerCase().trim();
+        if (userRepository.existsByEmail(email)) {
+            throw new BadRequestException("An account with this email already exists.");
+        }
+
+        User guest = userRepository.save(User.builder()
+                .email(email)
+                .passwordHash(passwordEncoder.encode(request.getPassword()))
+                .fullName(request.getFullName().trim())
+                .userType("STAFF")
+                .judgeType("GUEST")
+                .provider("LOCAL")
+                .isApproved(true)
+                .isActive(true)
+                .build());
+
+        AssignJudgeRequest assign = new AssignJudgeRequest();
+        assign.setJudgeUserId(guest.getUserId());
+        assign.setRoundId(request.getRoundId());
+        assign.setTrackId(request.getTrackId());
+        return assignJudge(assign);
     }
 
     /**
