@@ -12,6 +12,8 @@ export interface AuthUser {
   university: string | null;
   is_leader: boolean;
   team_id: number | null;
+  // true for a first-time OAuth account that hasn't picked its userType yet
+  profile_incomplete: boolean;
 }
 
 // ── Context type ─────────────────────────────────────────────────────
@@ -135,6 +137,7 @@ function mapApiUser(profile: ApiUserProfile): AuthUser {
     university:   profile.university ?? null,
     is_leader:    profile.isLeader ?? profile.is_leader ?? false,
     team_id:      profile.teamId ?? profile.team_id ?? null,
+    profile_incomplete: userType === 'PENDING_PROFILE',
   };
 }
 

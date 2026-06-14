@@ -119,6 +119,13 @@ export const authApi = {
       body: JSON.stringify(payload),
     }),
 
+  // First-time OAuth user picks their account type + student details.
+  completeProfile: (payload: CompleteProfilePayload) =>
+    apiFetch<ApiResponse<UserProfile>>('/api/auth/complete-profile', {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
+
   logout: () =>
     apiFetch<void>('/api/auth/logout', { method: 'POST' }),
 };
@@ -128,6 +135,16 @@ export interface UpdateProfilePayload {
   studentId?: string;
   university?: string;
 }
+
+// OAuth self-signup is for students only; staff are provisioned by an admin.
+export interface CompleteProfilePayload {
+  userType: 'FPT_STUDENT' | 'EXTERNAL_STUDENT';
+  studentId?: string;
+  university?: string;
+}
+
+// Sentinel userType for a first-time OAuth account that hasn't completed signup.
+export const PENDING_PROFILE = 'PENDING_PROFILE';
 
 // ── Account Approvals ─────────────────────────────────────────────
 
