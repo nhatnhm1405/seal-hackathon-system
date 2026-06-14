@@ -1,9 +1,4 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import {
-  events, tracks,
-  userEventRoles, teams,
-  HackathonEvent,
-} from "@/shared/mocks/mockData";
 import { apiFetch, getToken, setToken, clearToken, ApiError } from "@/shared/apiClient";
 
 // ── Public AuthUser shape ────────────────────────────────────────────
@@ -24,8 +19,6 @@ interface AuthContextType {
   currentUser: AuthUser | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  currentEvent: HackathonEvent | null;
-  setCurrentEvent: (event: HackathonEvent | null) => void;
   availableRoles: string[];
   activeRole: string | null;
   setActiveRole: (role: string | null) => void;
@@ -143,33 +136,9 @@ function mapApiUser(profile: ApiUserProfile): AuthUser {
   };
 }
 
-function deriveDefaultEvent(userId: number, role: string, teamId: number | null): HackathonEvent | null {
-  if (role === 'PARTICIPANT') {
-    if (teamId === null) return null;
-    const team = teams.find(t => t.team_id === teamId);
-    const track = team ? tracks.find(tr => tr.track_id === team.track_id) : null;
-    return track ? (events.find(e => e.event_id === track.event_id) ?? null) : null;
-  }
-  if (role === 'MENTOR') {
-    const assigned = userEventRoles.filter(r => r.user_id === userId && r.role_name === 'MENTOR');
-    const eventIds = new Set(assigned.map(r => r.event_id).filter((id): id is number => id !== null));
-    return events.find(e => eventIds.has(e.event_id)) ?? null;
-  }
-  if (role === 'JUDGE') {
-    const assigned = userEventRoles.filter(r => r.user_id === userId && r.role_name === 'JUDGE');
-    const eventIds = new Set(assigned.map(r => r.event_id).filter((id): id is number => id !== null));
-    return events.find(e => eventIds.has(e.event_id)) ?? null;
-  }
-  if (role === 'COORDINATOR') {
-    return events.find(e => e.status === 'IN_PROGRESS' || e.status === 'OPEN') ?? events[events.length - 1] ?? null;
-  }
-  return null;
-}
-
 // ── Provider ──────────────────────────────────────────────────────────
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
-  const [currentEvent, setCurrentEvent] = useState<HackathonEvent | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [availableRoles, setAvailableRoles] = useState<string[]>([]);
   const [activeRole, setActiveRoleState] = useState<string | null>(
@@ -212,7 +181,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const authUser = mapApiUser(res.data);
         if (resolvedActive) authUser.role = mapBackendRole(resolvedActive);
         setCurrentUser(authUser);
-        setCurrentEvent(deriveDefaultEvent(authUser.user_id, authUser.role, authUser.team_id));
       })
       .catch(() => {
         clearToken();
@@ -255,7 +223,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const authUser = mapApiUser(meRes.data);
       if (resolvedActive) authUser.role = mapBackendRole(resolvedActive);
       setCurrentUser(authUser);
-      setCurrentEvent(deriveDefaultEvent(authUser.user_id, authUser.role, authUser.team_id));
       // Signal to the caller that the user must pick a role before entering any dashboard
       return allRoles.length > 1 && resolvedActive === null ? 'ok:select-role' : 'ok';
     } catch (err) {
@@ -287,7 +254,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setCurrentUser(null);
     setAvailableRoles([]);
     setActiveRoleState(null);
-    setCurrentEvent(null);
   }
 
   function updateLeaderStatus(isLeader: boolean) {
@@ -303,7 +269,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       currentUser,
       isAuthenticated: !!currentUser,
       isLoading,
-      currentEvent, setCurrentEvent,
       availableRoles, activeRole, setActiveRole,
       login, logout, updateLeaderStatus, clearTeam,
     }}>
