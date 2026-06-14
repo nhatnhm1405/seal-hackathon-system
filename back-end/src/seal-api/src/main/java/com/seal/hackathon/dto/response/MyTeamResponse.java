@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -45,7 +46,15 @@ public class MyTeamResponse {
         /** Full name of the member (from User.fullName) */
         private String memberName;
 
+        private String email;
+
+        private String studentType;
+
+        private String studentId;
+
         /** Role within the team: LEADER or MEMBER */
         private String role;
+
+        private LocalDateTime joinedAt;
     }
 }
