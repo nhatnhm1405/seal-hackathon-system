@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import {
-  users, teamMembers, events, tracks, rounds,
+  events, tracks,
   userEventRoles, teams,
   HackathonEvent,
 } from "@/shared/mocks/mockData";
@@ -11,7 +11,7 @@ export interface AuthUser {
   user_id: number;
   full_name: string;
   email: string;
-  role: 'PARTICIPANT' | 'MENTOR' | 'JUDGE' | 'COORDINATOR';
+  role: 'PARTICIPANT' | 'MENTOR' | 'JUDGE' | 'COORDINATOR' | 'ADMIN';
   student_type: 'FPT' | 'EXTERNAL' | null;
   student_id: string | null;
   university: string | null;
@@ -31,7 +31,6 @@ interface AuthContextType {
   setActiveRole: (role: string | null) => void;
   login: (email: string, password: string, rememberMe?: boolean) => Promise<'ok' | 'ok:select-role' | 'invalid_credentials' | 'pending_approval' | 'inactive'>;
   logout: () => void;
-  switchUser: (userId: number) => void;
   updateLeaderStatus: (isLeader: boolean) => void;
   clearTeam: () => void;
 }
@@ -65,7 +64,7 @@ interface ApiUserProfile {
 }
 
 // ── Collects all raw role strings from backend profile ────────────────
-const STAFF_ROLE_KEYWORDS = ['JUDGE', 'MENTOR', 'COORDINATOR'];
+const STAFF_ROLE_KEYWORDS = ['ADMIN', 'JUDGE', 'MENTOR', 'COORDINATOR'];
 
 function resolveAllRoles(profile: ApiUserProfile): string[] {
   const raw: string[] = [];
@@ -90,6 +89,7 @@ function resolveAllRoles(profile: ApiUserProfile): string[] {
 // ── Maps a raw backend role string to frontend AuthUser role ──────────
 function mapBackendRole(backendRole: string): AuthUser['role'] {
   const r = backendRole.toUpperCase();
+  if (r.includes('ADMIN'))       return 'ADMIN';
   if (r.includes('COORDINATOR')) return 'COORDINATOR';
   if (r.includes('JUDGE'))       return 'JUDGE';
   if (r === 'MENTOR')            return 'MENTOR';
@@ -98,7 +98,7 @@ function mapBackendRole(backendRole: string): AuthUser['role'] {
 
 // ── CRITICAL: role resolver ───────────────────────────────────────────
 // Handles: string, string[], nested object, snake_case, camelCase
-// Priority: COORDINATOR > JUDGE > MENTOR > PARTICIPANT
+// Priority: ADMIN > COORDINATOR > JUDGE > MENTOR > PARTICIPANT
 function resolveRole(profile: ApiUserProfile): AuthUser['role'] {
   const raw: string[] = [];
 
@@ -119,6 +119,7 @@ function resolveRole(profile: ApiUserProfile): AuthUser['role'] {
   collect(profile.roleName);
   collect(profile.role_name);
 
+  if (raw.some(r => r.includes('ADMIN')))       return 'ADMIN';
   if (raw.some(r => r.includes('COORDINATOR'))) return 'COORDINATOR';
   if (raw.some(r => r.includes('JUDGE')))       return 'JUDGE';
   if (raw.some(r => r === 'MENTOR'))            return 'MENTOR';
@@ -139,44 +140,6 @@ function mapApiUser(profile: ApiUserProfile): AuthUser {
     university:   profile.university ?? null,
     is_leader:    profile.isLeader ?? profile.is_leader ?? false,
     team_id:      profile.teamId ?? profile.team_id ?? null,
-  };
-}
-
-// ── Mock helpers (used by DevToolbar switchUser only) ─────────────────
-function buildAuthUser(userId: number): AuthUser | null {
-  const user = users.find(u => u.user_id === userId);
-  if (!user) return null;
-  const userMemberships = teamMembers.filter(m => m.user_id === userId);
-  const membership = userMemberships.length > 1
-    ? userMemberships.slice().sort((a, b) => {
-        const eventIdOf = (m: typeof a) => {
-          const team = teams.find(t => t.team_id === m.team_id);
-          const track = team ? tracks.find(tr => tr.track_id === team.track_id) : null;
-          return track?.event_id ?? 0;
-        };
-        return eventIdOf(b) - eventIdOf(a);
-      })[0]
-    : userMemberships[0];
-  let role: AuthUser['role'] = 'PARTICIPANT';
-  if (user.user_type === 'STAFF') {
-    const eventRole = userEventRoles.find(r => r.user_id === userId);
-    if (eventRole?.role_name === 'EVENT_COORDINATOR') role = 'COORDINATOR';
-    else if (eventRole?.role_name === 'JUDGE')        role = 'JUDGE';
-    else if (eventRole?.role_name === 'MENTOR')       role = 'MENTOR';
-  }
-
-  return {
-    user_id:      user.user_id,
-    full_name:    user.full_name,
-    email:        user.email,
-    role,
-    student_type: user.user_type === 'FPT_STUDENT'     ? 'FPT'
-                : user.user_type === 'EXTERNAL_STUDENT' ? 'EXTERNAL'
-                : null,
-    student_id:   user.student_id,
-    university:   user.university_name,
-    is_leader:    membership?.member_role === 'LEADER',
-    team_id:      membership ? membership.team_id : null,
   };
 }
 
@@ -327,14 +290,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setCurrentEvent(null);
   }
 
-  // ── DevToolbar: switch to mock user without touching token ──────────
-  function switchUser(userId: number) {
-    const authUser = buildAuthUser(userId);
-    if (!authUser) return;
-    setCurrentUser(authUser);
-    setCurrentEvent(deriveDefaultEvent(userId, authUser.role, authUser.team_id));
-  }
-
   function updateLeaderStatus(isLeader: boolean) {
     setCurrentUser(prev => prev ? { ...prev, is_leader: isLeader } : prev);
   }
@@ -350,7 +305,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isLoading,
       currentEvent, setCurrentEvent,
       availableRoles, activeRole, setActiveRole,
-      login, logout, switchUser, updateLeaderStatus, clearTeam,
+      login, logout, updateLeaderStatus, clearTeam,
     }}>
       {children}
     </AuthContext.Provider>
