@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
-import { apiFetch } from "@/shared/apiClient";
+import { accountApprovalsApi } from "@/shared/apiClient";
 import { useAuth } from "@/app/providers/AuthProvider";
 
 // Shared source of truth for the coordinator sidebar's "pending accounts" badge.
@@ -13,30 +13,17 @@ interface PendingAccountsContextType {
 
 const PendingAccountsContext = createContext<PendingAccountsContextType | null>(null);
 
-interface RawUser {
-  isApproved?: boolean | null; is_approved?: boolean | null;
-  isActive?: boolean | null; is_active?: boolean | null;
-}
-
-// PENDING = registered but not yet approved, and still active (not rejected).
-// Mirrors deriveStatus() in CoordAccountsPage.
-function countPending(users: RawUser[]): number {
-  return users.filter(u => {
-    const isApproved = u.isApproved ?? u.is_approved ?? false;
-    const isActive = u.isActive ?? u.is_active ?? true;
-    return !isApproved && isActive;
-  }).length;
-}
-
 export function PendingAccountsProvider({ children }: { children: ReactNode }) {
   const { currentUser } = useAuth();
   const role = currentUser?.role;
   const [pendingCount, setPendingCount] = useState(0);
 
+  // The /api/account-approvals/pending endpoint already returns ONLY users
+  // awaiting approval, so the count is simply the list length.
   const refreshPendingCount = useCallback(async () => {
     try {
-      const res = await apiFetch<{ data: RawUser[] }>('/api/users');
-      setPendingCount(countPending(res.data ?? []));
+      const res = await accountApprovalsApi.getPending();
+      setPendingCount((res.data ?? []).length);
     } catch {
       /* keep last known count on failure */
     }
