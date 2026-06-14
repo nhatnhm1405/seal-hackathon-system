@@ -675,31 +675,50 @@ export const notificationsApi = {
 
 // ── Team Assignments ──────────────────────────────────────────────
 
-export interface MentorAssignment {
+// Both endpoints return a SINGLE object (the logged-in mentor/judge) whose
+// `teams` is the work list. Judge entries carry the roundId to score.
+export interface AssignmentMember {
+  userId: number;
+  fullName: string;
+  email: string;
+  memberRole: 'LEADER' | 'MEMBER';
+}
+
+export interface MentorAssignedTeam {
   teamId: number;
   teamName: string;
-  trackId: number;
   trackName: string;
-  eventId: number;
+  members: AssignmentMember[];
+}
+
+export interface JudgeAssignedTeam {
+  teamId: number;
+  teamName: string;
+  trackName: string;
+  roundId: number;
+  members: AssignmentMember[];
+}
+
+export interface MentorAssignment {
+  mentorId: number;
+  mentorName: string;
   eventName: string;
-  members: TeamMember[];
+  teams: MentorAssignedTeam[];
 }
 
 export interface JudgeAssignment {
-  submissionId: number;
-  teamId: number;
-  teamName: string;
-  roundId: number;
-  roundName: string;
-  scored: boolean;
+  judgeId: number;
+  judgeName: string;
+  eventName: string;
+  teams: JudgeAssignedTeam[];
 }
 
 export const assignmentsApi = {
   getMentorAssignments: () =>
-    apiFetch<ApiResponse<MentorAssignment[]>>('/api/mentor/assignments'),
+    apiFetch<ApiResponse<MentorAssignment>>('/api/mentor/assignments'),
 
   getJudgeAssignments: () =>
-    apiFetch<ApiResponse<JudgeAssignment[]>>('/api/judge/assignments'),
+    apiFetch<ApiResponse<JudgeAssignment>>('/api/judge/assignments'),
 };
 
 // ── Coordinator lookups & assignments ─────────────────────────────
