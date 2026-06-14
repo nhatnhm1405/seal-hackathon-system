@@ -33,6 +33,7 @@ import { AdminAccountsPage } from "@/features/users/AdminAccountsPage";
 import { AdminRolesPage } from "@/features/users/AdminRolesPage";
 import { AdminSystemLogsPage } from "@/features/users/AdminSystemLogsPage";
 import { ForgotPasswordPage } from "@/features/auth/ForgotPasswordPage";
+import { CompleteProfilePage } from "@/features/auth/CompleteProfilePage";
 import { OAuth2RedirectPage } from "@/features/auth/OAuth2RedirectPage";
 import { AboutPage } from "@/features/landing/AboutPage";
 import { TeamPage } from "@/features/landing/TeamPage";
@@ -57,6 +58,10 @@ function RequireAuth({
         replace
       />
     );
+  // First-time OAuth users must finish signup before reaching any app screen.
+  if (currentUser?.profile_incomplete && location.pathname !== "/complete-profile") {
+    return <Navigate to="/complete-profile" replace />;
+  }
   if (
     allowedRoles &&
     currentUser &&
@@ -126,6 +131,8 @@ export const router = createBrowserRouter([
       {
         element: <RequireAuth />,
         children: [
+          // Full-page (no dashboard chrome) — first-time OAuth profile completion
+          { path: "/complete-profile", Component: CompleteProfilePage },
           {
             element: <DashboardWrapper />,
             children: [
