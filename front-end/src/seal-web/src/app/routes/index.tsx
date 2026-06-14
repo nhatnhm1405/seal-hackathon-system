@@ -19,7 +19,6 @@ import { CoordinatorDashboard } from "@/features/dashboard/dashboards/Coordinato
 import { LeaderboardPage } from "@/features/scoring/LeaderboardPage";
 import { ProfilePage } from "@/features/users/ProfilePage";
 import { TeamCreatePage } from "@/features/teams/TeamCreatePage";
-import { TeamManagePage } from "@/features/teams/TeamManagePage";
 import { TeamSubmitPage } from "@/features/submissions/TeamSubmitPage";
 import { TeamViewPage } from "@/features/teams/TeamViewPage";
 import { MentorTracksPage } from "@/features/tracks/MentorTracksPage";
@@ -161,7 +160,7 @@ export const router = createBrowserRouter([
                   },
                   {
                     path: "/team/manage",
-                    Component: TeamManagePage,
+                    element: <Navigate to="/team/view" replace />,
                   },
                   {
                     path: "/team/submit",
