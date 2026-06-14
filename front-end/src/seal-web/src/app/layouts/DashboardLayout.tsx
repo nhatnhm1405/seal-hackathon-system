@@ -3,9 +3,8 @@ import { useTheme } from "@/app/providers/ThemeProvider";
 import { useNavigate, useLocation, Link } from "react-router";
 import { C, PixelBadge } from "@/shared/components/PixelComponents";
 import { useAuth } from "@/app/providers/AuthProvider";
-import { useNotifications } from "@/app/providers/NotificationProvider";
+import { useNotifications, UINotification } from "@/app/providers/NotificationProvider";
 import { usePendingAccounts } from "@/app/providers/PendingAccountsProvider";
-import { AppNotification } from "@/shared/mocks/mockData";
 import { SealFooter } from "@/shared/components/SealFooter";
 import {
   events, tracks, rounds,
@@ -60,6 +59,15 @@ function buildNav(role: string, isLeader: boolean, teamId: number | null, pendin
       { path: "/profile",      label: "Profile"          },
     ];
   }
+  if (role === "ADMIN") {
+    return [
+      { path: "/admin/dashboard", label: "Dashboard"   },
+      { path: "/admin/accounts",  label: "Accounts"    },
+      { path: "/admin/roles",     label: "Role Grants" },
+      { path: "/admin/logs",      label: "System Logs" },
+      { path: "/profile",         label: "Profile"     },
+    ];
+  }
   if (role === "COORDINATOR") {
     return [
       { path: "/coordinator/dashboard", label: "Dashboard"         },
@@ -68,8 +76,6 @@ function buildNav(role: string, isLeader: boolean, teamId: number | null, pendin
       { path: "/coordinator/teams",     label: "Teams"             },
       { path: "/coordinator/judges",    label: "Judges & Mentors"  },
       { path: "/coordinator/scoring",   label: "Scoring & Results" },
-      { path: "/coordinator/prizes",    label: "Prizes"            },
-      { path: "/coordinator/audit",     label: "Audit Log"         },
       { path: "/profile",               label: "Profile"           },
     ];
   }
@@ -79,6 +85,10 @@ function buildNav(role: string, isLeader: boolean, teamId: number | null, pendin
 function getPageTitle(pathname: string): string {
   const map: Record<string, string> = {
     "/dashboard": "Dashboard",
+    "/admin/dashboard": "Dashboard",
+    "/admin/accounts": "Accounts",
+    "/admin/roles": "Role Grants",
+    "/admin/logs": "System Logs",
     "/leaderboard": "Leaderboard",
     "/profile": "Profile",
     "/team/create": "Create Team",
@@ -94,8 +104,6 @@ function getPageTitle(pathname: string): string {
     "/coordinator/teams": "Teams",
     "/coordinator/judges": "Judges & Mentors",
     "/coordinator/scoring": "Scoring & Results",
-    "/coordinator/prizes": "Prizes",
-    "/coordinator/audit": "Audit Log",
   };
   return map[pathname] || "Console";
 }
@@ -117,6 +125,7 @@ function getAvailableEvents(role: string, userId: number): HackathonEvent[] {
 
 function roleBadgeStyle(role: string): { bg: string; color: string } {
   switch (role) {
+    case "ADMIN":       return { bg: "rgba(239,68,68,0.15)", color: "#ef4444" };
     case "COORDINATOR": return { bg: "rgba(234,179,8,0.15)", color: "#eab308" };
     case "MENTOR":      return { bg: "rgba(6,182,212,0.15)",  color: "#06b6d4" };
     case "JUDGE":       return { bg: "rgba(59,130,246,0.15)", color: "#3b82f6" };
@@ -131,7 +140,7 @@ function getInitials(fullName: string): string {
 }
 
 // ── Notification Bell ──────────────────────────────────────────────
-function typeColor(type: AppNotification["type"]) {
+function typeColor(type: UINotification["type"]) {
   if (type === "success") return C.green;
   if (type === "warning") return "#eab308";
   return "#06b6d4";
@@ -311,8 +320,9 @@ function TopNavbar({ pageTitle, collapsed, onToggleCollapse, currentUser, curren
   }, []);
 
   const isParticipant = currentUser.role === "PARTICIPANT";
-  // Coordinator manages events from the Events page, not via the navbar switcher
-  const hasEventSwitcher = !isParticipant && currentUser.role !== "COORDINATOR";
+  // Coordinator manages events from the Events page; Admin is not event-scoped —
+  // neither uses the navbar event switcher.
+  const hasEventSwitcher = !isParticipant && currentUser.role !== "COORDINATOR" && currentUser.role !== "ADMIN";
   const available = hasEventSwitcher ? getAvailableEvents(currentUser.role, currentUser.user_id) : [];
   const badge = roleBadgeStyle(currentUser.role);
   const initials = getInitials(currentUser.full_name);
@@ -580,8 +590,9 @@ interface EventContextBlockProps {
 
 function EventContextBlock({ role, userId, teamId, currentEvent, onSelectEvent, dropdownOpen, onToggleDropdown, collapsed }: EventContextBlockProps) {
   if (collapsed) return null;
-  // Coordinator manages events from the Events page, not via the sidebar switcher
-  if (role === 'COORDINATOR') return null;
+  // Coordinator manages events from the Events page, not via the sidebar switcher;
+  // Admin is platform-level and not tied to any event.
+  if (role === 'COORDINATOR' || role === 'ADMIN') return null;
 
   if (role === 'PARTICIPANT') {
     if (!currentEvent || teamId === null) return null;

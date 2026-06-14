@@ -6,7 +6,6 @@ import {
   useNavigate,
 } from "react-router";
 import { useAuth } from "@/app/providers/AuthProvider";
-import { DevToolbar } from "@/shared/components/DevToolbar";
 import { LandingPage } from "@/features/landing/LandingPage";
 import { LoginPage } from "@/features/auth/LoginPage";
 import { RegisterPage } from "@/features/auth/RegisterPage";
@@ -31,8 +30,9 @@ import { CoordAccountsPage } from "@/features/users/CoordAccountsPage";
 import { CoordTeamsPage } from "@/features/teams/CoordTeamsPage";
 import { CoordJudgesPage } from "@/features/scoring/CoordJudgesPage";
 import { CoordScoringPage } from "@/features/scoring/CoordScoringPage";
-import { CoordPrizesPage } from "@/features/events/CoordPrizesPage";
-import { CoordAuditPage } from "@/features/users/CoordAuditPage";
+import { AdminAccountsPage } from "@/features/users/AdminAccountsPage";
+import { AdminRolesPage } from "@/features/users/AdminRolesPage";
+import { AdminSystemLogsPage } from "@/features/users/AdminSystemLogsPage";
 import { ForgotPasswordPage } from "@/features/auth/ForgotPasswordPage";
 import { OAuth2RedirectPage } from "@/features/auth/OAuth2RedirectPage";
 import { AboutPage } from "@/features/landing/AboutPage";
@@ -86,12 +86,7 @@ function DashboardWrapper() {
 }
 
 function RootLayout() {
-  return (
-    <>
-      <Outlet />
-      <DevToolbar />
-    </>
-  );
+  return <Outlet />;
 }
 
 function LandingPageWrapper() {
@@ -174,6 +169,28 @@ export const router = createBrowserRouter([
                   },
                 ],
               },
+              // Admin routes — SYSTEM_ADMIN is single-role, no RoleGate needed
+              {
+                element: <RequireAuth allowedRoles={["ADMIN"]} />,
+                children: [
+                  {
+                    path: "/admin/dashboard",
+                    Component: RoleDashboardPage,
+                  },
+                  {
+                    path: "/admin/accounts",
+                    Component: AdminAccountsPage,
+                  },
+                  {
+                    path: "/admin/roles",
+                    Component: AdminRolesPage,
+                  },
+                  {
+                    path: "/admin/logs",
+                    Component: AdminSystemLogsPage,
+                  },
+                ],
+              },
               // Staff routes — guarded by RoleGate (requires activeRole to be set)
               {
                 element: <RoleGate />,
@@ -245,14 +262,6 @@ export const router = createBrowserRouter([
                       {
                         path: "/coordinator/scoring",
                         Component: CoordScoringPage,
-                      },
-                      {
-                        path: "/coordinator/prizes",
-                        Component: CoordPrizesPage,
-                      },
-                      {
-                        path: "/coordinator/audit",
-                        Component: CoordAuditPage,
                       },
                     ],
                   },
