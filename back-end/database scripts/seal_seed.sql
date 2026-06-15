@@ -205,27 +205,28 @@ INSERT INTO HackathonEvent
    registration_start, registration_end,
    start_date, end_date, status)
 VALUES
-  -- ── event 1 ── Spring — COMPLETED (Feb–Apr)
+  -- ── event 1 ── Spring — COMPLETED (15 Jan – 15 Apr 2026)
   (1, 'SEAL Spring 2026', 'SPRING', 2026,
    'Su kien SEAL Spring 2026 — da ket thuc. Mo cho sinh vien FPT va cac truong doi tac.',
-   '2025-12-15 00:00:00', '2026-01-31 23:59:59',
-   '2026-02-01 08:00:00', '2026-04-30 23:59:59',
+   '2026-01-15 00:00:00', '2026-02-28 23:59:59',
+   '2026-04-14 08:00:00', '2026-04-15 23:59:59',
    'COMPLETED'),
 
-  -- ── event 2 ── Summer — IN_PROGRESS (Jun–Aug, Preliminary ACTIVE)
+  -- ── event 2 ── Summer — OPEN for registration (15 May – 15 Aug 2026)
+  --     Registration window covers "now" so teams can register during testing.
   (2, 'SEAL Summer 2026', 'SUMMER', 2026,
-   'Su kien SEAL Summer 2026 — dang dien ra (vong Preliminary). '
+   'Su kien SEAL Summer 2026 — dang mo dang ky. '
    'Chu de: "Build for Tomorrow" — khuyen khich giai phap AI va ben vung.',
-   '2026-04-01 00:00:00', '2026-05-31 23:59:59',
-   '2026-06-01 08:00:00', '2026-08-31 23:59:59',
-   'IN_PROGRESS'),
+   '2026-05-15 00:00:00', '2026-06-30 23:59:59',
+   '2026-08-14 08:00:00', '2026-08-15 23:59:59',
+   'OPEN'),
 
-  -- ── event 3 ── Fall — DRAFT (Oct–Dec, planning)
+  -- ── event 3 ── Fall — DRAFT (15 Sep – 15 Dec 2026)
   (3, 'SEAL Fall 2026', 'FALL', 2026,
    'Su kien SEAL Fall 2026 — dang trong giai doan len ke hoach. '
    'Chu de va the le se duoc cong bo sau.',
-   '2026-09-01 00:00:00', '2026-10-15 23:59:59',
-   '2026-10-20 08:00:00', '2026-12-20 23:59:59',
+   '2026-09-15 00:00:00', '2026-10-31 23:59:59',
+   '2026-12-14 08:00:00', '2026-12-15 23:59:59',
    'DRAFT');
 
 
@@ -704,3 +705,5 @@ INSERT INTO SystemLog (actor_user_id, action, detail, ip_address) VALUES
   (1, 'GRANT_ROLE',   'Granted EVENT_COORDINATOR to user#2',                          '10.0.0.1'),
   (1, 'CREATE_USER',  'Created guest judge account user#5 (guest.judge@gmail.com)',   '10.0.0.1'),
   (2, 'LOGIN_FAILED', 'Failed login attempt for coordinator@fpt.edu.vn (bad password)', '192.168.1.1');
+
+
