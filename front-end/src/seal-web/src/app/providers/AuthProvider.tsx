@@ -14,6 +14,8 @@ export interface AuthUser {
   team_id: number | null;
   // true for a first-time OAuth account that hasn't picked its userType yet
   profile_incomplete: boolean;
+  // false until a coordinator approves the account
+  approved: boolean;
 }
 
 // ── Context type ─────────────────────────────────────────────────────
@@ -58,6 +60,8 @@ interface ApiUserProfile {
   team_id?: number | null;
   isLeader?: boolean;
   is_leader?: boolean;
+  isApproved?: boolean;
+  is_approved?: boolean;
 }
 
 // ── Collects all raw role strings from backend profile ────────────────
@@ -138,6 +142,7 @@ function mapApiUser(profile: ApiUserProfile): AuthUser {
     is_leader:    profile.isLeader ?? profile.is_leader ?? false,
     team_id:      profile.teamId ?? profile.team_id ?? null,
     profile_incomplete: userType === 'PENDING_PROFILE',
+    approved:     profile.isApproved ?? profile.is_approved ?? true,
   };
 }
 

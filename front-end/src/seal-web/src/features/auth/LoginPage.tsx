@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForceDark } from "@/app/providers/ThemeProvider";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import {
   C, GradientText, PixelButton, PixelInput, FloatingParticles, TerminalWindow,
 } from "@/shared/components/PixelComponents";
@@ -13,6 +13,7 @@ import sealLogo from "@/imports/image.png";
 export function LoginPage() {
   useForceDark();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { login } = useAuth();
   const { addAuthToast } = useNotifications();
   const [email, setEmail] = useState("");
@@ -21,6 +22,21 @@ export function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [showInactiveModal, setShowInactiveModal] = useState(false);
+
+  // Surface errors coming back from the OAuth2 flow (redirected to /login?error=...).
+  useEffect(() => {
+    const err = searchParams.get("error");
+    if (!err) return;
+    if (err === "ACCOUNT_NOT_APPROVED") {
+      navigate("/pending-approval", { replace: true });
+    } else if (err === "ACCOUNT_INACTIVE") {
+      setShowInactiveModal(true);
+      setSearchParams({}, { replace: true });
+    } else {
+      setError("Sign-in failed. Please try again.");
+      setSearchParams({}, { replace: true });
+    }
+  }, [searchParams, navigate, setSearchParams]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

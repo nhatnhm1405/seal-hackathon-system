@@ -15,7 +15,7 @@ const selectStyle: React.CSSProperties = {
 export function CompleteProfilePage() {
   useForceDark();
   const navigate = useNavigate();
-  const { currentUser, logout } = useAuth();
+  const { currentUser, logout, patchCurrentUser } = useAuth();
 
   const [userType, setUserType] = useState<CompleteProfilePayload['userType']>('FPT_STUDENT');
   const [studentId, setStudentId] = useState("");
@@ -38,7 +38,9 @@ export function CompleteProfilePage() {
         university: isExternal ? university.trim() : undefined,
       });
       // Profile is now complete but the account still awaits coordinator approval.
-      logout();
+      // Clearing the incomplete flag lets the RequireAuth approval-gate take over;
+      // we keep the session so the pending page (and gating) work without a race.
+      patchCurrentUser({ profile_incomplete: false });
       navigate("/pending-approval", { replace: true });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to save profile.");

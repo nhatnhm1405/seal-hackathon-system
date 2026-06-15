@@ -62,6 +62,10 @@ function RequireAuth({
   if (currentUser?.profile_incomplete && location.pathname !== "/complete-profile") {
     return <Navigate to="/complete-profile" replace />;
   }
+  // Authenticated but not yet approved by a coordinator → hold on the pending page.
+  if (currentUser && !currentUser.approved && !currentUser.profile_incomplete) {
+    return <Navigate to="/pending-approval" replace />;
+  }
   if (
     allowedRoles &&
     currentUser &&
