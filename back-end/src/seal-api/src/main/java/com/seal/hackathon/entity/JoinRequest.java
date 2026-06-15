@@ -1,0 +1,55 @@
+package com.seal.hackathon.entity;
+
+import jakarta.persistence.*;
+import lombok.*;
+
+import java.time.LocalDateTime;
+
+/**
+ * A participant's request to join an existing team. The reverse direction of a
+ * {@link TeamInvite}: here the participant asks, and the team leader responds.
+ */
+@Entity
+@Table(name = "JoinRequest", uniqueConstraints = {
+    @UniqueConstraint(name = "uq_join_team_user", columnNames = {"team_id", "requester_user_id"})
+})
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class JoinRequest {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "request_id")
+    private Integer requestId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "team_id", nullable = false)
+    private Team team;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "requester_user_id", nullable = false)
+    private User requester;
+
+    @Column(name = "message", columnDefinition = "TEXT")
+    private String message;
+
+    @Column(name = "status", nullable = false, length = 20)
+    @Builder.Default
+    private String status = "PENDING"; // PENDING | ACCEPTED | DECLINED
+
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @Column(name = "responded_at")
+    private LocalDateTime respondedAt;
+
+    @PrePersist
+    protected void onCreate() {
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
+    }
+}

@@ -554,6 +554,8 @@ export interface TeamInvite {
   teamId: number;
   teamName: string;
   eventName?: string;
+  trackName?: string;
+  teamStatus?: string;
   invitedUserId: number;
   invitedUserName?: string;
   invitedById: number;
@@ -584,6 +586,70 @@ export const invitesApi = {
 
   decline: (inviteId: number) =>
     apiFetch<ApiResponse<void>>(`/api/invites/${inviteId}/decline`, { method: 'PUT' }),
+};
+
+// ── Join Requests (participant asks to join a team) ────────────────
+
+export interface JoinableTeam {
+  teamId: number;
+  name: string;
+  eventId: number;
+  eventName: string;
+  trackId?: number;
+  trackName?: string;
+  status: string;
+  memberCount: number;
+  leaderName?: string;
+  alreadyRequested: boolean;
+}
+
+export interface JoinRequest {
+  requestId: number;
+  teamId: number;
+  teamName: string;
+  eventName?: string;
+  trackName?: string;
+  requesterId: number;
+  requesterName: string;
+  requesterEmail?: string;
+  message?: string;
+  status: 'PENDING' | 'ACCEPTED' | 'DECLINED';
+  createdAt: string;
+  respondedAt?: string;
+}
+
+export const joinRequestsApi = {
+  // Browse / search teams the participant can request to join.
+  getJoinableTeams: (params: { eventId?: number; query?: string } = {}) => {
+    const qs = new URLSearchParams();
+    if (params.eventId != null) qs.set('eventId', String(params.eventId));
+    if (params.query) qs.set('query', params.query);
+    const suffix = qs.toString() ? `?${qs.toString()}` : '';
+    return apiFetch<ApiResponse<JoinableTeam[]>>(`/api/join-requests/joinable-teams${suffix}`);
+  },
+
+  send: (teamId: number, message?: string) =>
+    apiFetch<ApiResponse<JoinRequest>>(`/api/join-requests/teams/${teamId}`, {
+      method: 'POST',
+      body: JSON.stringify({ message }),
+    }),
+
+  // Requests the current participant has sent.
+  getMine: () =>
+    apiFetch<ApiResponse<JoinRequest[]>>('/api/join-requests/my'),
+
+  cancel: (requestId: number) =>
+    apiFetch<ApiResponse<void>>(`/api/join-requests/${requestId}`, { method: 'DELETE' }),
+
+  // Leader inbox: pending requests for a team they lead.
+  getForTeam: (teamId: number) =>
+    apiFetch<ApiResponse<JoinRequest[]>>(`/api/join-requests/teams/${teamId}`),
+
+  accept: (requestId: number) =>
+    apiFetch<ApiResponse<JoinRequest>>(`/api/join-requests/${requestId}/accept`, { method: 'PUT' }),
+
+  decline: (requestId: number) =>
+    apiFetch<ApiResponse<JoinRequest>>(`/api/join-requests/${requestId}/decline`, { method: 'PUT' }),
 };
 
 // ── Submissions ───────────────────────────────────────────────────

@@ -85,6 +85,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/notifications/**").authenticated()
                 // Invitations — participants
                 .requestMatchers("/api/invites/**").hasAnyRole("PARTICIPANT", "EVENT_COORDINATOR")
+                // Join requests — participants
+                .requestMatchers("/api/join-requests/**").hasRole("PARTICIPANT")
                 // Round results — public for published, coordinator for all
                 .requestMatchers("/api/events/*/rounds/*/results/**").authenticated()
                 // Everything else must be authenticated
