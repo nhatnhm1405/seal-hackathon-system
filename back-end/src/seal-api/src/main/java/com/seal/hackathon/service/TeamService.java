@@ -307,8 +307,13 @@ public class TeamService {
 
     @Transactional(readOnly = true)
     public List<ActiveEventResponse> getActiveEventsWithTracks() {
+        LocalDateTime now = LocalDateTime.now();
         List<HackathonEvent> activeEvents = eventRepository.findAllByStatus("OPEN");
         return activeEvents.stream()
+                // Only OPEN events whose registration window currently includes "now"
+                // — so the create-team list matches what can actually be registered.
+                .filter(event -> event.getRegistrationStart() == null || !now.isBefore(event.getRegistrationStart()))
+                .filter(event -> event.getRegistrationEnd() == null || !now.isAfter(event.getRegistrationEnd()))
                 .map(event -> {
                     List<Track> tracks = trackRepository.findAllByEvent_EventId(event.getEventId());
                     List<TrackResponse> trackResponses = tracks.stream()

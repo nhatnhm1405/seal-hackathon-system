@@ -12,7 +12,10 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -20,6 +23,20 @@ import java.util.stream.Collectors;
 public class HackathonEventService {
 
     private final HackathonEventRepository hackathonEventRepository;
+
+    private static final Set<String> VALID_STATUSES =
+            Set.of("DRAFT", "OPEN", "IN_PROGRESS", "COMPLETED", "CANCELLED");
+
+    // Allowed status transitions — backend is the source of truth (the FE buttons
+    // only mirror this). DRAFT→OPEN→IN_PROGRESS→COMPLETED; CANCELLED from any
+    // non-terminal state; a cancelled event may be reopened to DRAFT.
+    private static final Map<String, Set<String>> TRANSITIONS = Map.of(
+            "DRAFT",       Set.of("OPEN", "CANCELLED"),
+            "OPEN",        Set.of("IN_PROGRESS", "CANCELLED"),
+            "IN_PROGRESS", Set.of("COMPLETED", "CANCELLED"),
+            "COMPLETED",   Set.of(),
+            "CANCELLED",   Set.of("DRAFT")
+    );
 
     @Transactional(readOnly = true)
     public List<HackathonEventResponse> getAllHackathonEvents() {
@@ -51,13 +68,13 @@ public class HackathonEventService {
             throw new BadRequestException("Invalid season. Must be SPRING, SUMMER, or FALL.");
         }
 
-        if (request.getEndDate().isBefore(request.getStartDate())) {
-            throw new BadRequestException("End date must be after start date.");
-        }
+        requireValidDates(request.getRegistrationStart(), request.getRegistrationEnd(),
+                request.getStartDate(), request.getEndDate());
 
         String status = (request.getStatus() != null && !request.getStatus().isBlank())
                 ? request.getStatus().toUpperCase()
                 : "DRAFT";
+        requireValidStatus(status);
 
         HackathonEvent event = HackathonEvent.builder()
                 .name(request.getName().trim())
@@ -105,11 +122,50 @@ public class HackathonEventService {
             event.setEndDate(request.getEndDate());
         }
         if (request.getStatus() != null && !request.getStatus().isBlank()) {
-            event.setStatus(request.getStatus().toUpperCase());
+            String newStatus = request.getStatus().toUpperCase();
+            requireValidStatus(newStatus);
+            requireValidTransition(event.getStatus(), newStatus);
+            event.setStatus(newStatus);
         }
+
+        // Validate the effective date ordering after applying any patches.
+        requireValidDates(event.getRegistrationStart(), event.getRegistrationEnd(),
+                event.getStartDate(), event.getEndDate());
 
         event = hackathonEventRepository.save(event);
         return mapToResponse(event);
+    }
+
+    // ── Lifecycle / validation helpers ───────────────────────────────
+
+    private void requireValidStatus(String status) {
+        if (!VALID_STATUSES.contains(status)) {
+            throw new BadRequestException("Invalid status '" + status
+                    + "'. Must be DRAFT, OPEN, IN_PROGRESS, COMPLETED or CANCELLED.");
+        }
+    }
+
+    private void requireValidTransition(String from, String to) {
+        if (from == null || from.equals(to)) {
+            return;
+        }
+        if (!TRANSITIONS.getOrDefault(from, Set.of()).contains(to)) {
+            throw new BadRequestException("Invalid status change: " + from + " -> " + to + ".");
+        }
+    }
+
+    /** Enforces registrationStart <= registrationEnd <= startDate <= endDate. */
+    private void requireValidDates(LocalDateTime regStart, LocalDateTime regEnd,
+                                   LocalDateTime start, LocalDateTime end) {
+        if (regStart != null && regEnd != null && regEnd.isBefore(regStart)) {
+            throw new BadRequestException("Registration end must be on or after registration start.");
+        }
+        if (start != null && end != null && end.isBefore(start)) {
+            throw new BadRequestException("End date must be on or after start date.");
+        }
+        if (regEnd != null && start != null && start.isBefore(regEnd)) {
+            throw new BadRequestException("The competition must start after registration closes.");
+        }
     }
 
     private HackathonEventResponse mapToResponse(HackathonEvent event) {
