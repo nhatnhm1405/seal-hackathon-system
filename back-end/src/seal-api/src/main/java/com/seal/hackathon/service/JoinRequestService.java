@@ -2,6 +2,7 @@ package com.seal.hackathon.service;
 
 import com.seal.hackathon.dto.request.CreateJoinRequestRequest;
 import com.seal.hackathon.dto.response.JoinRequestResponse;
+import com.seal.hackathon.dto.response.JoinableTeamListResponse;
 import com.seal.hackathon.dto.response.JoinableTeamResponse;
 import com.seal.hackathon.entity.JoinRequest;
 import com.seal.hackathon.entity.Team;
@@ -20,18 +21,18 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
-/**
- * Participant-initiated requests to join an existing team. Mirrors
- * {@link TeamInviteService} but with the direction reversed: a participant
- * applies, and the team leader accepts or declines.
- */
 @Service
 @RequiredArgsConstructor
 public class JoinRequestService {
 
-    private static final int MAX_TEAM_SIZE = 5;
+    private static final int MAX_TEAM_MEMBERS = 5;
+    private static final String STATUS_PENDING = "PENDING";
+    private static final String STATUS_ACCEPTED = "ACCEPTED";
+    private static final String STATUS_DECLINED = "DECLINED";
 
     private final JoinRequestRepository joinRequestRepository;
     private final TeamRepository teamRepository;
@@ -39,182 +40,118 @@ public class JoinRequestService {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
 
-    // ── Participant sends a join request ──────────────────────────────
-
     @Transactional
-    public JoinRequestResponse createRequest(Integer requesterId, Integer teamId, CreateJoinRequestRequest request) {
+    public JoinRequestResponse createJoinRequest(Integer requesterUserId, Integer teamId,
+                                                 CreateJoinRequestRequest request) {
+        User requester = userRepository.findById(requesterUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + requesterUserId));
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new ResourceNotFoundException("Team not found: " + teamId));
 
-        if (!"OPEN".equalsIgnoreCase(team.getEvent().getStatus())) {
-            throw new BadRequestException("This event is no longer open for registration.");
-        }
-        LocalDateTime now = LocalDateTime.now();
-        if (team.getEvent().getRegistrationEnd() != null && now.isAfter(team.getEvent().getRegistrationEnd())) {
-            throw new BadRequestException("Registration deadline has passed.");
-        }
-        if ("REJECTED".equalsIgnoreCase(team.getStatus()) || "DISQUALIFIED".equalsIgnoreCase(team.getStatus())) {
-            throw new BadRequestException("This team is not accepting members.");
-        }
+        validateRequesterCanAskToJoin(requester, team);
 
-        User requester = userRepository.findById(requesterId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + requesterId));
+        Optional<JoinRequest> existing = joinRequestRepository
+                .findByTeam_TeamIdAndRequester_UserId(teamId, requesterUserId);
 
-        List<TeamMember> members = teamMemberRepository.findByTeam_TeamId(teamId);
-        if (members.stream().anyMatch(m -> m.getUser().getUserId().equals(requesterId))) {
-            throw new BadRequestException("You are already a member of this team.");
-        }
-        if (members.size() >= MAX_TEAM_SIZE) {
-            throw new BadRequestException("This team is already full (maximum " + MAX_TEAM_SIZE + " members).");
-        }
-
-        if (teamMemberRepository.existsByUser_UserIdAndTeam_Event_EventId(requesterId, team.getEvent().getEventId())) {
-            throw new BadRequestException("You are already registered in a team for this event.");
-        }
-
-        // Reuse any existing row (UNIQUE (team_id, requester_user_id)). A still
-        // PENDING request is blocked; an old ACCEPTED/DECLINED one (e.g. the user
-        // joined then left) is reset to a fresh PENDING request.
-        JoinRequest joinRequest = joinRequestRepository
-                .findByTeam_TeamIdAndRequester_UserId(teamId, requesterId)
-                .orElse(null);
-        if (joinRequest != null) {
-            if ("PENDING".equalsIgnoreCase(joinRequest.getStatus())) {
+        JoinRequest joinRequest;
+        if (existing.isPresent()) {
+            joinRequest = existing.get();
+            if (STATUS_PENDING.equalsIgnoreCase(joinRequest.getStatus())) {
                 throw new BadRequestException("You already have a pending request for this team.");
             }
-            joinRequest.setMessage(request != null ? request.getMessage() : null);
-            joinRequest.setStatus("PENDING");
+            if (STATUS_ACCEPTED.equalsIgnoreCase(joinRequest.getStatus())) {
+                throw new BadRequestException("This join request has already been accepted.");
+            }
+            joinRequest.setStatus(STATUS_PENDING);
+            joinRequest.setMessage(normalizeMessage(request));
             joinRequest.setCreatedAt(LocalDateTime.now());
             joinRequest.setRespondedAt(null);
         } else {
             joinRequest = JoinRequest.builder()
                     .team(team)
                     .requester(requester)
-                    .message(request != null ? request.getMessage() : null)
-                    .status("PENDING")
+                    .message(normalizeMessage(request))
+                    .status(STATUS_PENDING)
                     .build();
         }
+
         joinRequest = joinRequestRepository.save(joinRequest);
-
-        // Notify the team leader that someone wants to join.
-        teamMemberRepository.findByTeam_TeamId(teamId).stream()
-                .filter(m -> "LEADER".equalsIgnoreCase(m.getMemberRole()))
-                .findFirst()
-                .ifPresent(leader -> notificationService.createNotification(
-                        leader.getUser().getUserId(),
-                        "New join request",
-                        requester.getFullName() + " requested to join your team \"" + team.getName() + "\".",
-                        "JOIN_REQUEST"));
-
+        notifyLeaderAboutJoinRequest(joinRequest);
         return mapToResponse(joinRequest);
     }
 
-    // ── Participant: browse / search teams to join ────────────────────
-
-    /**
-     * Teams the participant may request to join: in an OPEN event whose
-     * registration window is still open, not full, not rejected/disqualified,
-     * and in events where the participant hasn't already registered a team.
-     */
     @Transactional(readOnly = true)
-    public List<JoinableTeamResponse> getJoinableTeams(Integer userId, Integer eventId, String query) {
-        LocalDateTime now = LocalDateTime.now();
-        String q = query == null ? "" : query.trim().toLowerCase();
+    public JoinableTeamListResponse getJoinableTeams(Integer requesterUserId, Integer eventId, String query) {
+        userRepository.findById(requesterUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + requesterUserId));
 
-        List<Team> candidates = (eventId != null)
-                ? teamRepository.findAllByEvent_EventId(eventId)
-                : teamRepository.findAllByEvent_Status("OPEN");
+        List<Team> sourceTeams;
+        if (eventId != null) {
+            sourceTeams = teamRepository.findAllByEvent_EventIdAndStatus(eventId, "APPROVED").stream()
+                    .filter(team -> "OPEN".equalsIgnoreCase(team.getEvent().getStatus()))
+                    .collect(Collectors.toList());
+        } else {
+            sourceTeams = teamRepository.findAllByEvent_Status("OPEN").stream()
+                    .filter(team -> "APPROVED".equalsIgnoreCase(team.getStatus()))
+                    .collect(Collectors.toList());
+        }
 
-        return candidates.stream()
-                .filter(t -> "OPEN".equalsIgnoreCase(t.getEvent().getStatus()))
-                .filter(t -> t.getEvent().getRegistrationEnd() == null
-                        || !now.isAfter(t.getEvent().getRegistrationEnd()))
-                .filter(t -> "PENDING".equalsIgnoreCase(t.getStatus())
-                        || "APPROVED".equalsIgnoreCase(t.getStatus()))
-                .filter(t -> q.isEmpty() || t.getName().toLowerCase().contains(q))
-                // Hide teams in events where the participant already has a team.
-                .filter(t -> !teamMemberRepository.existsByUser_UserIdAndTeam_Event_EventId(
-                        userId, t.getEvent().getEventId()))
-                .map(t -> {
-                    List<TeamMember> members = teamMemberRepository.findByTeam_TeamId(t.getTeamId());
-                    String leaderName = members.stream()
-                            .filter(m -> "LEADER".equalsIgnoreCase(m.getMemberRole()))
-                            .map(m -> m.getUser().getFullName())
-                            .findFirst().orElse(null);
-                    return JoinableTeamResponse.builder()
-                            .teamId(t.getTeamId())
-                            .name(t.getName())
-                            .eventId(t.getEvent().getEventId())
-                            .eventName(t.getEvent().getName())
-                            .trackId(t.getTrack() != null ? t.getTrack().getTrackId() : null)
-                            .trackName(t.getTrack() != null ? t.getTrack().getName() : null)
-                            .status(t.getStatus())
-                            .memberCount(members.size())
-                            .leaderName(leaderName)
-                            .alreadyRequested(joinRequestRepository
-                                    .existsByTeam_TeamIdAndRequester_UserIdAndStatus(t.getTeamId(), userId, "PENDING"))
-                            .build();
-                })
-                // Only teams that still have an open seat.
-                .filter(t -> t.getMemberCount() < MAX_TEAM_SIZE)
+        String normalizedQuery = query == null ? "" : query.trim().toLowerCase(Locale.ROOT);
+
+        List<JoinableTeamResponse> teams = sourceTeams.stream()
+                .filter(team -> teamMemberRepository.countByTeam_TeamId(team.getTeamId()) < MAX_TEAM_MEMBERS)
+                .filter(team -> !teamMemberRepository.existsByUser_UserIdAndTeam_Event_EventId(
+                        requesterUserId, team.getEvent().getEventId()))
+                .filter(team -> matchesQuery(team, normalizedQuery))
+                .map(team -> mapToJoinableTeamResponse(team, requesterUserId))
                 .collect(Collectors.toList());
+
+        return JoinableTeamListResponse.builder()
+                .totalJoinableTeams(teams.size())
+                .teams(teams)
+                .build();
     }
 
-    // ── Participant: my sent requests ─────────────────────────────────
-
     @Transactional(readOnly = true)
-    public List<JoinRequestResponse> getMyRequests(Integer userId) {
-        return joinRequestRepository.findByRequester_UserIdOrderByCreatedAtDesc(userId).stream()
+    public List<JoinRequestResponse> getMyRequests(Integer requesterUserId) {
+        return joinRequestRepository.findByRequester_UserIdOrderByCreatedAtDesc(requesterUserId).stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
 
-    // ── Participant withdraws their own pending request ───────────────
-
     @Transactional
-    public void cancelRequest(Integer userId, Integer requestId) {
+    public void withdrawRequest(Integer requesterUserId, Integer requestId) {
         JoinRequest joinRequest = joinRequestRepository.findById(requestId)
                 .orElseThrow(() -> new ResourceNotFoundException("Join request not found: " + requestId));
-        if (!joinRequest.getRequester().getUserId().equals(userId)) {
-            throw new ForbiddenException("This request does not belong to you.");
+        if (!joinRequest.getRequester().getUserId().equals(requesterUserId)) {
+            throw new ForbiddenException("This join request does not belong to you.");
         }
-        if (!"PENDING".equalsIgnoreCase(joinRequest.getStatus())) {
-            throw new BadRequestException("This request has already been " + joinRequest.getStatus().toLowerCase() + ".");
+        if (!STATUS_PENDING.equalsIgnoreCase(joinRequest.getStatus())) {
+            throw new BadRequestException("Only pending join requests can be withdrawn.");
         }
         joinRequestRepository.delete(joinRequest);
     }
 
-    // ── Leader: pending requests for a team they lead ─────────────────
-
     @Transactional(readOnly = true)
-    public List<JoinRequestResponse> getTeamRequests(Integer leaderUserId, Integer teamId) {
+    public List<JoinRequestResponse> getPendingRequestsForTeam(Integer leaderUserId, Integer teamId) {
         requireLeader(leaderUserId, teamId);
-        return joinRequestRepository.findByTeam_TeamIdAndStatus(teamId, "PENDING").stream()
+        return joinRequestRepository.findByTeam_TeamIdAndStatusOrderByCreatedAtDesc(teamId, STATUS_PENDING).stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
 
-    // ── Leader accepts a join request ─────────────────────────────────
-
     @Transactional
     public JoinRequestResponse acceptRequest(Integer leaderUserId, Integer requestId) {
-        JoinRequest joinRequest = getPendingRequest(requestId);
-        Team team = joinRequest.getTeam();
-        requireLeader(leaderUserId, team.getTeamId());
+        JoinRequest joinRequest = requirePendingRequest(requestId);
+        Team team = requireLeader(leaderUserId, joinRequest.getTeam().getTeamId());
 
-        Integer requesterId = joinRequest.getRequester().getUserId();
-
-        if (teamMemberRepository.existsByUser_UserIdAndTeam_Event_EventId(requesterId, team.getEvent().getEventId())) {
-            throw new BadRequestException("This user already belongs to a team in this event.");
-        }
-        if (teamMemberRepository.findByTeam_TeamId(team.getTeamId()).size() >= MAX_TEAM_SIZE) {
-            throw new BadRequestException("This team is already full (maximum " + MAX_TEAM_SIZE + " members).");
+        validateTeamCanAcceptRequest(team);
+        if (teamMemberRepository.existsByUser_UserIdAndTeam_Event_EventId(
+                joinRequest.getRequester().getUserId(), team.getEvent().getEventId())) {
+            throw new BadRequestException("This user is already a member of a team in this event.");
         }
 
-        joinRequest.setStatus("ACCEPTED");
-        joinRequest.setRespondedAt(LocalDateTime.now());
-        joinRequestRepository.save(joinRequest);
-
+        LocalDateTime now = LocalDateTime.now();
         TeamMember member = TeamMember.builder()
                 .team(team)
                 .user(joinRequest.getRequester())
@@ -222,79 +159,178 @@ public class JoinRequestService {
                 .build();
         teamMemberRepository.save(member);
 
-        // Cancel the requester's other pending requests in the same event.
-        joinRequestRepository.findByRequester_UserIdAndStatus(requesterId, "PENDING").stream()
-                .filter(r -> !r.getRequestId().equals(requestId))
-                .filter(r -> r.getTeam().getEvent().getEventId().equals(team.getEvent().getEventId()))
-                .forEach(r -> {
-                    r.setStatus("DECLINED");
-                    r.setRespondedAt(LocalDateTime.now());
-                    joinRequestRepository.save(r);
-                });
+        joinRequest.setStatus(STATUS_ACCEPTED);
+        joinRequest.setRespondedAt(now);
+        joinRequest = joinRequestRepository.save(joinRequest);
 
-        notificationService.createNotification(
-                requesterId,
-                "Join request accepted",
-                "You have joined the team \"" + team.getName() + "\".",
-                "JOIN_REQUEST");
+        declineOtherPendingRequestsForRequester(joinRequest, now);
+        notifyRequesterAboutDecision(joinRequest, true);
 
         return mapToResponse(joinRequest);
     }
-
-    // ── Leader declines a join request ────────────────────────────────
 
     @Transactional
     public JoinRequestResponse declineRequest(Integer leaderUserId, Integer requestId) {
-        JoinRequest joinRequest = getPendingRequest(requestId);
+        JoinRequest joinRequest = requirePendingRequest(requestId);
         requireLeader(leaderUserId, joinRequest.getTeam().getTeamId());
-        joinRequest.setStatus("DECLINED");
-        joinRequest.setRespondedAt(LocalDateTime.now());
-        joinRequestRepository.save(joinRequest);
 
-        notificationService.createNotification(
-                joinRequest.getRequester().getUserId(),
-                "Join request declined",
-                "Your request to join \"" + joinRequest.getTeam().getName() + "\" was declined.",
-                "JOIN_REQUEST");
+        joinRequest.setStatus(STATUS_DECLINED);
+        joinRequest.setRespondedAt(LocalDateTime.now());
+        joinRequest = joinRequestRepository.save(joinRequest);
+        notifyRequesterAboutDecision(joinRequest, false);
 
         return mapToResponse(joinRequest);
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────
-
-    private JoinRequest getPendingRequest(Integer requestId) {
-        JoinRequest joinRequest = joinRequestRepository.findById(requestId)
-                .orElseThrow(() -> new ResourceNotFoundException("Join request not found: " + requestId));
-        if (!"PENDING".equalsIgnoreCase(joinRequest.getStatus())) {
-            throw new BadRequestException("This request has already been " + joinRequest.getStatus().toLowerCase() + ".");
+    private void validateRequesterCanAskToJoin(User requester, Team team) {
+        if (!Boolean.TRUE.equals(requester.getIsApproved()) || !Boolean.TRUE.equals(requester.getIsActive())) {
+            throw new BadRequestException("Your account is not approved or active.");
         }
-        return joinRequest;
+        validateTeamCanAcceptRequest(team);
+        if (teamMemberRepository.existsByUser_UserIdAndTeam_Event_EventId(
+                requester.getUserId(), team.getEvent().getEventId())) {
+            throw new BadRequestException("You are already a member of a team in this event.");
+        }
     }
 
-    private void requireLeader(Integer userId, Integer teamId) {
+    private void validateTeamCanAcceptRequest(Team team) {
+        if (!"OPEN".equalsIgnoreCase(team.getEvent().getStatus())) {
+            throw new BadRequestException("This event is not open for team registration.");
+        }
+        if (!"APPROVED".equalsIgnoreCase(team.getStatus())) {
+            throw new BadRequestException("Only approved teams can receive join requests.");
+        }
+        if (teamMemberRepository.countByTeam_TeamId(team.getTeamId()) >= MAX_TEAM_MEMBERS) {
+            throw new BadRequestException("This team is already full (maximum 5 members).");
+        }
+    }
+
+    private Team requireLeader(Integer userId, Integer teamId) {
+        Team team = teamRepository.findById(teamId)
+                .orElseThrow(() -> new ResourceNotFoundException("Team not found: " + teamId));
         boolean isLeader = teamMemberRepository.findByTeam_TeamId(teamId).stream()
                 .anyMatch(m -> m.getUser().getUserId().equals(userId)
                         && "LEADER".equalsIgnoreCase(m.getMemberRole()));
         if (!isLeader) {
-            throw new ForbiddenException("Only the team leader can manage join requests.");
+            throw new ForbiddenException("Only the team leader can perform this action.");
         }
+        return team;
     }
 
-    private JoinRequestResponse mapToResponse(JoinRequest jr) {
-        Team team = jr.getTeam();
-        return JoinRequestResponse.builder()
-                .requestId(jr.getRequestId())
+    private JoinRequest requirePendingRequest(Integer requestId) {
+        JoinRequest joinRequest = joinRequestRepository.findById(requestId)
+                .orElseThrow(() -> new ResourceNotFoundException("Join request not found: " + requestId));
+        if (!STATUS_PENDING.equalsIgnoreCase(joinRequest.getStatus())) {
+            throw new BadRequestException("This join request has already been " +
+                    joinRequest.getStatus().toLowerCase(Locale.ROOT) + ".");
+        }
+        return joinRequest;
+    }
+
+    private void declineOtherPendingRequestsForRequester(JoinRequest acceptedRequest, LocalDateTime respondedAt) {
+        Integer requesterId = acceptedRequest.getRequester().getUserId();
+        Integer eventId = acceptedRequest.getTeam().getEvent().getEventId();
+        List<JoinRequest> otherPending = joinRequestRepository
+                .findByRequester_UserIdAndStatusAndTeam_Event_EventId(requesterId, STATUS_PENDING, eventId).stream()
+                .filter(request -> !request.getRequestId().equals(acceptedRequest.getRequestId()))
+                .collect(Collectors.toList());
+
+        otherPending.forEach(request -> {
+            request.setStatus(STATUS_DECLINED);
+            request.setRespondedAt(respondedAt);
+        });
+        joinRequestRepository.saveAll(otherPending);
+    }
+
+    private void notifyLeaderAboutJoinRequest(JoinRequest joinRequest) {
+        TeamMember leader = findLeader(joinRequest.getTeam());
+        notificationService.createNotification(
+                leader.getUser().getUserId(),
+                "New join request",
+                joinRequest.getRequester().getFullName() + " requested to join team '" +
+                        joinRequest.getTeam().getName() + "'.",
+                "JOIN_REQUEST"
+        );
+    }
+
+    private void notifyRequesterAboutDecision(JoinRequest joinRequest, boolean accepted) {
+        String title = accepted ? "Join request accepted" : "Join request declined";
+        String content = accepted
+                ? "Your request to join team '" + joinRequest.getTeam().getName() + "' was accepted."
+                : "Your request to join team '" + joinRequest.getTeam().getName() + "' was declined.";
+        notificationService.createNotification(
+                joinRequest.getRequester().getUserId(),
+                title,
+                content,
+                accepted ? "JOIN_REQUEST_ACCEPTED" : "JOIN_REQUEST_DECLINED"
+        );
+    }
+
+    private TeamMember findLeader(Team team) {
+        return teamMemberRepository.findByTeam_TeamId(team.getTeamId()).stream()
+                .filter(member -> "LEADER".equalsIgnoreCase(member.getMemberRole()))
+                .findFirst()
+                .orElseThrow(() -> new BadRequestException("This team does not have a leader."));
+    }
+
+    private boolean matchesQuery(Team team, String query) {
+        if (query == null || query.isBlank()) {
+            return true;
+        }
+        String teamName = team.getName() == null ? "" : team.getName().toLowerCase(Locale.ROOT);
+        String trackName = team.getTrack().getName() == null ? "" : team.getTrack().getName().toLowerCase(Locale.ROOT);
+        return teamName.contains(query) || trackName.contains(query);
+    }
+
+    private String normalizeMessage(CreateJoinRequestRequest request) {
+        if (request == null || request.getMessage() == null || request.getMessage().isBlank()) {
+            return null;
+        }
+        return request.getMessage().trim();
+    }
+
+    private JoinableTeamResponse mapToJoinableTeamResponse(Team team, Integer requesterUserId) {
+        TeamMember leader = findLeader(team);
+        Optional<JoinRequest> myRequest = joinRequestRepository
+                .findByTeam_TeamIdAndRequester_UserId(team.getTeamId(), requesterUserId);
+
+        return JoinableTeamResponse.builder()
                 .teamId(team.getTeamId())
                 .teamName(team.getName())
+                .description(team.getDescription())
+                .eventId(team.getEvent().getEventId())
                 .eventName(team.getEvent().getName())
-                .trackName(team.getTrack() != null ? team.getTrack().getName() : null)
-                .requesterId(jr.getRequester().getUserId())
-                .requesterName(jr.getRequester().getFullName())
-                .requesterEmail(jr.getRequester().getEmail())
-                .message(jr.getMessage())
-                .status(jr.getStatus())
-                .createdAt(jr.getCreatedAt())
-                .respondedAt(jr.getRespondedAt())
+                .trackId(team.getTrack().getTrackId())
+                .trackName(team.getTrack().getName())
+                .teamStatus(team.getStatus())
+                .memberCount((int) teamMemberRepository.countByTeam_TeamId(team.getTeamId()))
+                .maxMembers(MAX_TEAM_MEMBERS)
+                .leaderUserId(leader.getUser().getUserId())
+                .leaderName(leader.getUser().getFullName())
+                .myRequestId(myRequest.map(JoinRequest::getRequestId).orElse(null))
+                .myRequestStatus(myRequest.map(JoinRequest::getStatus).orElse(null))
+                .build();
+    }
+
+    private JoinRequestResponse mapToResponse(JoinRequest request) {
+        Team team = request.getTeam();
+        User requester = request.getRequester();
+        return JoinRequestResponse.builder()
+                .requestId(request.getRequestId())
+                .teamId(team.getTeamId())
+                .teamName(team.getName())
+                .eventId(team.getEvent().getEventId())
+                .eventName(team.getEvent().getName())
+                .trackId(team.getTrack().getTrackId())
+                .trackName(team.getTrack().getName())
+                .teamStatus(team.getStatus())
+                .requesterUserId(requester.getUserId())
+                .requesterName(requester.getFullName())
+                .requesterEmail(requester.getEmail())
+                .message(request.getMessage())
+                .status(request.getStatus())
+                .createdAt(request.getCreatedAt())
+                .respondedAt(request.getRespondedAt())
                 .build();
     }
 }

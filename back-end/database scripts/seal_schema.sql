@@ -1,7 +1,7 @@
 -- =====================================================
 -- SEAL Hackathon Management System
 -- MySQL DDL Script  (idempotent — safe to re-run)
--- 18 tables
+-- 19 tables
 --
 -- CHANGELOG (assignment redesign):
 --   - Removed TeamAssignment (duplicate + wrong business unit).

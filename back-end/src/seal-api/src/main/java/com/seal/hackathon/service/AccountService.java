@@ -48,6 +48,12 @@ public class AccountService {
 
         user.setIsApproved(true);
         userRepository.save(user);
+        notificationService.createNotification(
+                user.getUserId(),
+                "Account approved",
+                "Your account has been approved. You can now access SEAL Hackathon.",
+                "ACCOUNT_APPROVED"
+        );
         eventPublisher.publishEvent(new AccountApprovalEmailEvent(
                 user.getEmail(),
                 user.getFullName(),

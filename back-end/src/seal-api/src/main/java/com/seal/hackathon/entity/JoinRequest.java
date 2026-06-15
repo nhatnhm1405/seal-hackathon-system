@@ -5,10 +5,6 @@ import lombok.*;
 
 import java.time.LocalDateTime;
 
-/**
- * A participant's request to join an existing team. The reverse direction of a
- * {@link TeamInvite}: here the participant asks, and the team leader responds.
- */
 @Entity
 @Table(name = "JoinRequest", uniqueConstraints = {
     @UniqueConstraint(name = "uq_join_team_user", columnNames = {"team_id", "requester_user_id"})
@@ -40,7 +36,7 @@ public class JoinRequest {
     @Builder.Default
     private String status = "PENDING"; // PENDING | ACCEPTED | DECLINED
 
-    @Column(name = "created_at", nullable = false, updatable = false)
+    @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
     @Column(name = "responded_at")
@@ -50,6 +46,9 @@ public class JoinRequest {
     protected void onCreate() {
         if (createdAt == null) {
             createdAt = LocalDateTime.now();
+        }
+        if (status == null) {
+            status = "PENDING";
         }
     }
 }

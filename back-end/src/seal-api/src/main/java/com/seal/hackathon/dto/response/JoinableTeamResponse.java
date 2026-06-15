@@ -5,23 +5,23 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-/**
- * A lightweight view of a team a participant may request to join, plus whether
- * the current participant already has a pending request for it.
- */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class JoinableTeamResponse {
     private Integer teamId;
-    private String name;
+    private String teamName;
+    private String description;
     private Integer eventId;
     private String eventName;
     private Integer trackId;
     private String trackName;
-    private String status;
+    private String teamStatus;
     private Integer memberCount;
+    private Integer maxMembers;
+    private Integer leaderUserId;
     private String leaderName;
-    private boolean alreadyRequested;
+    private Integer myRequestId;
+    private String myRequestStatus;
 }

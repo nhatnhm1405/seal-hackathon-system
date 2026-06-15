@@ -92,8 +92,9 @@ public class TeamInviteService {
         notificationService.createNotification(
                 invitedUser.getUserId(),
                 "Team invitation",
-                inviter.getFullName() + " invited you to join \"" + team.getName() + "\".",
-                "INVITE");
+                inviter.getFullName() + " invited you to join team '" + team.getName() + "'.",
+                "TEAM_INVITE"
+        );
 
         return mapToResponse(invite);
     }
@@ -135,12 +136,14 @@ public class TeamInviteService {
                 .build();
         teamMemberRepository.save(member);
 
-        // Notify the leader who sent the invite.
+        TeamMember leader = findCurrentLeader(invite.getTeam());
         notificationService.createNotification(
-                invite.getInvitedBy().getUserId(),
+                leader.getUser().getUserId(),
                 "Invitation accepted",
-                user.getFullName() + " accepted your invitation to \"" + invite.getTeam().getName() + "\".",
-                "INVITE");
+                user.getFullName() + " accepted the invitation to join team '" +
+                        invite.getTeam().getName() + "'.",
+                "TEAM_INVITE_ACCEPTED"
+        );
 
         // Cancel all other pending invites for this user in the same event
         inviteRepository.findByInvitedUser_UserIdAndStatus(userId, "PENDING").stream()
@@ -179,6 +182,13 @@ public class TeamInviteService {
             throw new BadRequestException("This invitation has already been " + invite.getStatus().toLowerCase() + ".");
         }
         return invite;
+    }
+
+    private TeamMember findCurrentLeader(Team team) {
+        return teamMemberRepository.findByTeam_TeamId(team.getTeamId()).stream()
+                .filter(member -> "LEADER".equalsIgnoreCase(member.getMemberRole()))
+                .findFirst()
+                .orElseThrow(() -> new BadRequestException("This team does not have a leader."));
     }
 
     private TeamInviteResponse mapToResponse(TeamInvite invite) {

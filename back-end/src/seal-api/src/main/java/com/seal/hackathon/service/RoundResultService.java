@@ -146,8 +146,12 @@ public class RoundResultService {
             throw new BadRequestException("No results to publish. Please finalize the round first.");
         }
 
+        List<RoundResult> newlyPublished = results.stream()
+                .filter(r -> !Boolean.TRUE.equals(r.getIsPublished()))
+                .collect(Collectors.toList());
         results.forEach(r -> r.setIsPublished(true));
         resultRepository.saveAll(results);
+        newlyPublished.forEach(this::notifyTeamResultPublished);
 
         // Notify each ranked team that results are out.
         String roundName = round.getName();
@@ -190,5 +194,21 @@ public class RoundResultService {
     private boolean isAdvanced(RoundResult r) {
         Integer topN = r.getRound().getTopNAdvance();
         return topN != null && r.getRankPosition() <= topN;
+    }
+
+    private void notifyTeamResultPublished(RoundResult result) {
+        String content = "Results for round '" + result.getRound().getName() + "' have been published. " +
+                "Team '" + result.getTeam().getName() + "' ranked #" + result.getRankPosition() + ".";
+        if (isAdvanced(result)) {
+            content += " Your team advanced to the next round.";
+        }
+        String notificationContent = content;
+        teamMemberRepository.findByTeam_TeamId(result.getTeam().getTeamId())
+                .forEach(member -> notificationService.createNotification(
+                        member.getUser().getUserId(),
+                        "Round results published",
+                        notificationContent,
+                        "RESULT_PUBLISHED"
+                ));
     }
 }

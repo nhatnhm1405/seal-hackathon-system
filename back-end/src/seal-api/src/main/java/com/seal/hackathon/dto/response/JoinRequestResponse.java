@@ -15,9 +15,12 @@ public class JoinRequestResponse {
     private Integer requestId;
     private Integer teamId;
     private String teamName;
+    private Integer eventId;
     private String eventName;
+    private Integer trackId;
     private String trackName;
-    private Integer requesterId;
+    private String teamStatus;
+    private Integer requesterUserId;
     private String requesterName;
     private String requesterEmail;
     private String message;
