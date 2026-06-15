@@ -70,7 +70,7 @@ function buildNav(role: string, isLeader: boolean, teamId: number | null, pendin
       { path: "/coordinator/events",    label: "Events"            },
       { path: "/coordinator/accounts",  label: "Accounts", badge: pendingCount },
       { path: "/coordinator/teams",     label: "Teams"             },
-      { path: "/coordinator/judges",    label: "Judges & Mentors"  },
+      { path: "/coordinator/judges",    label: "Assignments"       },
       { path: "/coordinator/scoring",   label: "Scoring & Results" },
       { path: "/profile",               label: "Profile"           },
     ];
@@ -98,7 +98,7 @@ function getPageTitle(pathname: string): string {
     "/coordinator/events": "Events",
     "/coordinator/accounts": "Accounts",
     "/coordinator/teams": "Teams",
-    "/coordinator/judges": "Judges & Mentors",
+    "/coordinator/judges": "Assignments",
     "/coordinator/scoring": "Scoring & Results",
   };
   return map[pathname] || "Console";

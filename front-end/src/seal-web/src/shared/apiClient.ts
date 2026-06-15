@@ -891,6 +891,20 @@ export interface AssignJudgePayload {
   trackId?: number | null;
 }
 
+// Mentor roster row: one mentor assigned to one track (whole event).
+export interface MentorRosterItem {
+  id: number;
+  mentorUserId: number;
+  mentorName: string;
+  trackId: number;
+  trackName: string;
+}
+
+export interface AssignMentorPayload {
+  mentorUserId: number;
+  trackId: number;
+}
+
 export interface CreateGuestJudgePayload {
   fullName: string;
   email: string;
@@ -916,6 +930,19 @@ export const coordinatorApi = {
 
   removeJudgeAssignment: (assignmentId: number) =>
     apiFetch<ApiResponse<void>>(`/api/coordinator/assignments/judges/${assignmentId}`, { method: 'DELETE' }),
+
+  // Mentor assignments (mentor -> track, whole event)
+  getMentorRoster: (eventId: number) =>
+    apiFetch<ApiResponse<MentorRosterItem[]>>(`/api/coordinator/assignments/mentors?eventId=${eventId}`),
+
+  assignMentor: (payload: AssignMentorPayload) =>
+    apiFetch<ApiResponse<unknown>>('/api/coordinator/assignments/mentors', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  removeMentorAssignment: (assignmentId: number) =>
+    apiFetch<ApiResponse<void>>(`/api/coordinator/assignments/mentors/${assignmentId}`, { method: 'DELETE' }),
 
   createGuestJudge: (payload: CreateGuestJudgePayload) =>
     apiFetch<ApiResponse<unknown>>('/api/coordinator/guest-judges', {
