@@ -26,6 +26,8 @@ public class RoundResultService {
     private final ScoringCriteriaRepository criteriaRepository;
     private final UserRepository userRepository;
     private final HackathonEventRepository eventRepository;
+    private final TeamMemberRepository teamMemberRepository;
+    private final NotificationService notificationService;
 
     // ── Get leaderboard (published results only) ──────────────────────
 
@@ -136,7 +138,7 @@ public class RoundResultService {
 
     @Transactional
     public List<RoundResultResponse> publishResults(Integer eventId, Integer roundId) {
-        roundRepository.findByIdAndEventId(roundId, eventId)
+        var round = roundRepository.findByIdAndEventId(roundId, eventId)
                 .orElseThrow(() -> new ResourceNotFoundException("Round not found: " + roundId));
 
         List<RoundResult> results = resultRepository.findAllByRound_RoundIdOrderByRankPosition(roundId);
@@ -146,6 +148,16 @@ public class RoundResultService {
 
         results.forEach(r -> r.setIsPublished(true));
         resultRepository.saveAll(results);
+
+        // Notify each ranked team that results are out.
+        String roundName = round.getName();
+        results.forEach(r -> teamMemberRepository.findByTeam_TeamId(r.getTeam().getTeamId())
+                .forEach(m -> notificationService.createNotification(
+                        m.getUser().getUserId(),
+                        "Results published",
+                        "Results for \"" + roundName + "\" are out — your team ranked #"
+                                + r.getRankPosition() + (isAdvanced(r) ? " and advanced!" : "."),
+                        "RESULT")));
 
         return results.stream().map(this::mapToResponse).collect(Collectors.toList());
     }

@@ -21,6 +21,7 @@ public class AccountService {
     private final UserRepository userRepository;
     private final AuthService authService; // reuse the mapping helper
     private final ApplicationEventPublisher eventPublisher;
+    private final NotificationService notificationService;
 
     // ---------------------------------------------------------------
     // List pending approvals
@@ -52,6 +53,13 @@ public class AccountService {
                 user.getFullName(),
                 true
         ));
+        // Rejected users have is_active=false and cannot log in, so an in-app
+        // notification only makes sense for approvals (they get an email either way).
+        notificationService.createNotification(
+                user.getUserId(),
+                "Account approved",
+                "Your account has been approved. Welcome to SEAL Hackathon!",
+                "ACCOUNT");
         return authService.mapToUserResponse(user);
     }
 

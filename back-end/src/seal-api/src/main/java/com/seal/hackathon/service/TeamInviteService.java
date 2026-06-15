@@ -29,6 +29,7 @@ public class TeamInviteService {
     private final TeamRepository teamRepository;
     private final TeamMemberRepository teamMemberRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     // ── Leader sends invite ───────────────────────────────────────────
 
@@ -58,21 +59,42 @@ public class TeamInviteService {
             throw new BadRequestException("This user is already a member of a team in this event.");
         }
 
-        if (inviteRepository.existsByTeam_TeamIdAndInvitedUser_UserId(teamId, invitedUser.getUserId())) {
-            throw new BadRequestException("An invitation for this user already exists.");
-        }
-
         User inviter = userRepository.findById(inviterId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + inviterId));
 
-        TeamInvite invite = TeamInvite.builder()
-                .team(team)
-                .invitedUser(invitedUser)
-                .invitedBy(inviter)
-                .message(request.getMessage())
-                .status("PENDING")
-                .build();
+        // A row may already exist from a previous invite (the UNIQUE (team_id,
+        // invited_user_id) constraint forbids a second one). If it is still
+        // PENDING, block; otherwise (ACCEPTED/DECLINED — e.g. the user joined
+        // then left) reuse it and reset it to a fresh PENDING invitation.
+        TeamInvite invite = inviteRepository
+                .findByTeam_TeamIdAndInvitedUser_UserId(teamId, invitedUser.getUserId())
+                .orElse(null);
+        if (invite != null) {
+            if ("PENDING".equalsIgnoreCase(invite.getStatus())) {
+                throw new BadRequestException("There is already a pending invitation for this user.");
+            }
+            invite.setInvitedBy(inviter);
+            invite.setMessage(request.getMessage());
+            invite.setStatus("PENDING");
+            invite.setCreatedAt(LocalDateTime.now());
+            invite.setRespondedAt(null);
+        } else {
+            invite = TeamInvite.builder()
+                    .team(team)
+                    .invitedUser(invitedUser)
+                    .invitedBy(inviter)
+                    .message(request.getMessage())
+                    .status("PENDING")
+                    .build();
+        }
         invite = inviteRepository.save(invite);
+
+        notificationService.createNotification(
+                invitedUser.getUserId(),
+                "Team invitation",
+                inviter.getFullName() + " invited you to join \"" + team.getName() + "\".",
+                "INVITE");
+
         return mapToResponse(invite);
     }
 
@@ -112,6 +134,13 @@ public class TeamInviteService {
                 .memberRole("MEMBER")
                 .build();
         teamMemberRepository.save(member);
+
+        // Notify the leader who sent the invite.
+        notificationService.createNotification(
+                invite.getInvitedBy().getUserId(),
+                "Invitation accepted",
+                user.getFullName() + " accepted your invitation to \"" + invite.getTeam().getName() + "\".",
+                "INVITE");
 
         // Cancel all other pending invites for this user in the same event
         inviteRepository.findByInvitedUser_UserIdAndStatus(userId, "PENDING").stream()
@@ -158,6 +187,8 @@ public class TeamInviteService {
                 .teamId(invite.getTeam().getTeamId())
                 .teamName(invite.getTeam().getName())
                 .eventName(invite.getTeam().getEvent().getName())
+                .trackName(invite.getTeam().getTrack() != null ? invite.getTeam().getTrack().getName() : null)
+                .teamStatus(invite.getTeam().getStatus())
                 .invitedUserId(invite.getInvitedUser().getUserId())
                 .invitedUserName(invite.getInvitedUser().getFullName())
                 .invitedById(invite.getInvitedBy().getUserId())
