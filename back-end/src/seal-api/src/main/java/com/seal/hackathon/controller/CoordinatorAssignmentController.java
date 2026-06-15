@@ -6,6 +6,7 @@ import com.seal.hackathon.dto.response.ApiResponse;
 import com.seal.hackathon.dto.response.JudgeAssignmentResponse;
 import com.seal.hackathon.dto.response.JudgeRosterItemResponse;
 import com.seal.hackathon.dto.response.MentorAssignmentResponse;
+import com.seal.hackathon.dto.response.MentorRosterItemResponse;
 import com.seal.hackathon.service.AssignmentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +38,20 @@ public class CoordinatorAssignmentController {
         MentorAssignmentResponse response = assignmentService.assignMentor(request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Mentor assigned successfully.", response));
+    }
+
+    /** Coordinator roster: list every active mentor assignment in an event. */
+    @GetMapping("/mentors")
+    public ResponseEntity<ApiResponse<List<MentorRosterItemResponse>>> listMentorAssignments(
+            @RequestParam Integer eventId) {
+        return ResponseEntity.ok(ApiResponse.success("Mentor assignments retrieved.",
+                assignmentService.listMentorAssignmentsByEvent(eventId)));
+    }
+
+    @DeleteMapping("/mentors/{id}")
+    public ResponseEntity<ApiResponse<Void>> removeMentorAssignment(@PathVariable Integer id) {
+        assignmentService.removeMentorAssignment(id);
+        return ResponseEntity.ok(ApiResponse.success("Mentor assignment removed.", null));
     }
 
     @PostMapping("/judges")
