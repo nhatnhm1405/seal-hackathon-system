@@ -4,7 +4,7 @@ import { useAuth } from "@/app/providers/AuthProvider";
 import {
   C, GradientText, PixelCard, PixelButton, PixelBadge, PixelInput,
 } from "@/shared/components/PixelComponents";
-import { teamsApi, invitesApi, ApiError, MyTeam, MyTeamMember, UserItem } from "@/shared/apiClient";
+import { teamsApi, invitesApi, joinRequestsApi, ApiError, MyTeam, MyTeamMember, UserItem, JoinRequest } from "@/shared/apiClient";
 
 function statusBadgeColor(status?: string): "green" | "yellow" | "red" | "gray" {
   const s = (status ?? "").toUpperCase();
@@ -35,17 +35,28 @@ export function TeamViewPage() {
 
   const [transferTarget, setTransferTarget] = useState<MyTeamMember | null>(null);
 
+  const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
+  const [busyReq, setBusyReq] = useState<number | null>(null);
+  const [confirmLeave, setConfirmLeave] = useState(false);
+
+  const loadJoinRequests = useCallback((teamId: number) => {
+    joinRequestsApi.getForTeam(teamId).then(r => setJoinRequests(r.data ?? [])).catch(() => setJoinRequests([]));
+  }, []);
+
   const load = useCallback(() => {
     setLoading(true);
     setLoadError(null);
     teamsApi.getMy()
-      .then(res => setTeam(res.data))
+      .then(res => {
+        setTeam(res.data);
+        if (res.data?.myRole === 'LEADER') loadJoinRequests(res.data.teamId);
+      })
       .catch(err => {
         if (err instanceof ApiError && err.status === 404) setTeam(null);
         else setLoadError(err instanceof ApiError ? err.message : "Failed to load your team.");
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [loadJoinRequests]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -103,6 +114,30 @@ export function TeamViewPage() {
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Failed to send invite.");
     }
+  }
+
+  async function acceptJoin(r: JoinRequest) {
+    if (!team) return;
+    setBusyReq(r.requestId); setActionError(null); setNotice(null);
+    try {
+      await joinRequestsApi.accept(r.requestId);
+      const res = await teamsApi.getMy();
+      setTeam(res.data);
+      loadJoinRequests(team.teamId);
+      setNotice(`${r.requesterName} has joined the team.`);
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : "Failed to accept request.");
+    } finally { setBusyReq(null); }
+  }
+
+  async function declineJoin(r: JoinRequest) {
+    setBusyReq(r.requestId); setActionError(null);
+    try {
+      await joinRequestsApi.decline(r.requestId);
+      setJoinRequests(prev => prev.filter(x => x.requestId !== r.requestId));
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : "Failed to decline request.");
+    } finally { setBusyReq(null); }
   }
 
   async function removeMember(m: MyTeamMember) {
@@ -212,7 +247,6 @@ export function TeamViewPage() {
                 <PixelInput label="Search by name, email or student ID" placeholder="min 2 characters"
                   value={inviteQuery}
                   onChange={e => setInviteQuery(e.target.value)}
-                  onKeyDown={(e: React.KeyboardEvent) => { if (e.key === 'Enter') doSearch(); }}
                 />
               </div>
               <PixelButton size="sm" variant="secondary" onClick={doSearch} disabled={searching}>{searching ? "…" : "SEARCH"}</PixelButton>
@@ -272,15 +306,83 @@ export function TeamViewPage() {
         </div>
       </PixelCard>
 
+      {/* Join requests (leader only) */}
+      {isLeader && (
+        <PixelCard glow={joinRequests.length > 0} glowColor="cyan" style={{ padding: 0, overflow: "hidden" }}>
+          <div style={{ padding: "14px 18px", borderBottom: `1px solid ${C.border}` }}>
+            <span style={{ color: C.cyan, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.12em" }}>// join_requests</span>
+          </div>
+          {joinRequests.length === 0 ? (
+            <div style={{ padding: "14px 18px" }}>
+              <p style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, margin: 0 }}>
+                No pending requests. Participants who ask to join will appear here.
+              </p>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              {joinRequests.map(r => (
+                <div key={r.requestId} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "12px 18px", borderTop: `1px solid rgba(34,197,94,0.06)`, flexWrap: "wrap" }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 600 }}>{r.requesterName}</div>
+                    <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginTop: 2 }}>
+                      {r.requesterEmail ?? ""}{r.message ? ` — "${r.message}"` : ""}
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <PixelButton size="sm" variant="cyber" onClick={() => acceptJoin(r)} disabled={busyReq === r.requestId || memberRows.length >= 5}>ACCEPT</PixelButton>
+                    <PixelButton size="sm" variant="danger" onClick={() => declineJoin(r)} disabled={busyReq === r.requestId}>DECLINE</PixelButton>
+                  </div>
+                </div>
+              ))}
+              {memberRows.length >= 5 && (
+                <div style={{ padding: "0 18px 12px", color: "#eab308", fontFamily: "'JetBrains Mono', monospace", fontSize: 10 }}>
+                  Team is full (5/5) — remove a member before accepting new requests.
+                </div>
+              )}
+            </div>
+          )}
+        </PixelCard>
+      )}
+
       {/* Leave */}
       <div>
-        <PixelButton variant="danger" onClick={leaveTeam} disabled={busy}>LEAVE TEAM</PixelButton>
+        <PixelButton variant="danger" onClick={() => setConfirmLeave(true)} disabled={busy}>LEAVE TEAM</PixelButton>
         {isLeader && memberRows.length > 1 && (
           <span style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginLeft: 12 }}>
             (transfer leadership first)
           </span>
         )}
       </div>
+
+      {/* Leave confirmation modal */}
+      {confirmLeave && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(7,12,15,0.85)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <PixelCard glow style={{ padding: 32, maxWidth: 440, width: "90%", display: "flex", flexDirection: "column", gap: 20 }}>
+            <div>
+              <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 700, lineHeight: 1.5 }}>
+                Leave <span style={{ color: C.red }}>{team.name}</span>?
+              </div>
+              <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, marginTop: 10, lineHeight: 1.7 }}>
+                {isLeader && memberRows.length > 1
+                  ? "As leader you must transfer leadership before leaving."
+                  : isLeader
+                    ? "You are the only member — leaving will disband this team."
+                    : "You will be removed from the team and can be re-invited later."}
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <PixelButton
+                variant="danger"
+                onClick={async () => { await leaveTeam(); setConfirmLeave(false); }}
+                disabled={busy || (isLeader && memberRows.length > 1)}
+              >
+                CONFIRM LEAVE
+              </PixelButton>
+              <PixelButton variant="ghost" onClick={() => setConfirmLeave(false)}>CANCEL</PixelButton>
+            </div>
+          </PixelCard>
+        </div>
+      )}
 
       {/* Transfer modal */}
       {transferTarget && (
