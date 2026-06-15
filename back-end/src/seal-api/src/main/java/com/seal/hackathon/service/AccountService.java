@@ -21,6 +21,7 @@ public class AccountService {
     private final UserRepository userRepository;
     private final AuthService authService; // reuse the mapping helper
     private final ApplicationEventPublisher eventPublisher;
+    private final NotificationService notificationService;
 
     // ---------------------------------------------------------------
     // List pending approvals
@@ -47,6 +48,12 @@ public class AccountService {
 
         user.setIsApproved(true);
         userRepository.save(user);
+        notificationService.createNotification(
+                user.getUserId(),
+                "Account approved",
+                "Your account has been approved. You can now access SEAL Hackathon.",
+                "ACCOUNT_APPROVED"
+        );
         eventPublisher.publishEvent(new AccountApprovalEmailEvent(
                 user.getEmail(),
                 user.getFullName(),

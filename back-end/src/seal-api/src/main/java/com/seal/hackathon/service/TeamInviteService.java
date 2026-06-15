@@ -29,6 +29,7 @@ public class TeamInviteService {
     private final TeamRepository teamRepository;
     private final TeamMemberRepository teamMemberRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     // ── Leader sends invite ───────────────────────────────────────────
 
@@ -73,6 +74,12 @@ public class TeamInviteService {
                 .status("PENDING")
                 .build();
         invite = inviteRepository.save(invite);
+        notificationService.createNotification(
+                invitedUser.getUserId(),
+                "Team invitation",
+                inviter.getFullName() + " invited you to join team '" + team.getName() + "'.",
+                "TEAM_INVITE"
+        );
         return mapToResponse(invite);
     }
 
@@ -124,6 +131,15 @@ public class TeamInviteService {
                     inviteRepository.save(i);
                 });
 
+        TeamMember leader = findCurrentLeader(invite.getTeam());
+        notificationService.createNotification(
+                leader.getUser().getUserId(),
+                "Invitation accepted",
+                user.getFullName() + " accepted the invitation to join team '" +
+                        invite.getTeam().getName() + "'.",
+                "TEAM_INVITE_ACCEPTED"
+        );
+
         return mapToResponse(invite);
     }
 
@@ -152,12 +168,21 @@ public class TeamInviteService {
         return invite;
     }
 
+    private TeamMember findCurrentLeader(Team team) {
+        return teamMemberRepository.findByTeam_TeamId(team.getTeamId()).stream()
+                .filter(member -> "LEADER".equalsIgnoreCase(member.getMemberRole()))
+                .findFirst()
+                .orElseThrow(() -> new BadRequestException("This team does not have a leader."));
+    }
+
     private TeamInviteResponse mapToResponse(TeamInvite invite) {
         return TeamInviteResponse.builder()
                 .inviteId(invite.getInviteId())
                 .teamId(invite.getTeam().getTeamId())
                 .teamName(invite.getTeam().getName())
                 .eventName(invite.getTeam().getEvent().getName())
+                .trackName(invite.getTeam().getTrack().getName())
+                .teamStatus(invite.getTeam().getStatus())
                 .invitedUserId(invite.getInvitedUser().getUserId())
                 .invitedUserName(invite.getInvitedUser().getFullName())
                 .invitedById(invite.getInvitedBy().getUserId())
