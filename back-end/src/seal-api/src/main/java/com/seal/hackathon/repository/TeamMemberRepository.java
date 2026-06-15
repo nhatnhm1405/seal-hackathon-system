@@ -18,4 +18,6 @@ public interface TeamMemberRepository extends JpaRepository<TeamMember, Integer>
 
     /** Find all members of a specific team */
     List<TeamMember> findByTeam_TeamId(Integer teamId);
+
+    long countByTeam_TeamId(Integer teamId);
 }
