@@ -94,7 +94,7 @@ WHERE u.is_approved = FALSE AND u.is_active = TRUE;
 -- B2.1 — Bảng phân công Judge: ai chấm round/track nào
 SELECT e.name AS event, ro.name AS round,
        COALESCE(t.name, '(ALL TRACKS - final)') AS track,
-       u.full_name AS judge, ja.judge_type
+       u.full_name AS judge, u.judge_type
 FROM JudgeAssignment ja
 JOIN `User` u          ON u.user_id  = ja.judge_user_id
 JOIN Round ro          ON ro.round_id = ja.round_id
@@ -188,7 +188,11 @@ ORDER BY ro.round_id, weighted_avg DESC;
 -- B4.2 — Bảng xếp hạng đã chốt (RoundResult) kèm trạng thái thăng vòng
 SELECT e.name AS event, ro.name AS round, rr.rank_position AS rnk,
        tm.name AS team, t.name AS track, rr.total_score,
-       CASE WHEN rr.advanced THEN '✓ Advanced' ELSE '✗ Eliminated' END AS result,
+       CASE
+         WHEN ro.top_n_advance IS NOT NULL AND rr.rank_position <= ro.top_n_advance
+           THEN '✓ Advanced'
+         ELSE '✗ Eliminated'
+       END AS result,
        CASE WHEN rr.is_published THEN 'Published' ELSE 'Draft' END AS visibility
 FROM RoundResult rr
 JOIN Team tm          ON tm.team_id = rr.team_id
@@ -305,11 +309,12 @@ ORDER BY a.created_at;
 --        Judge ID thay bằng mã ẩn danh, kèm judge_type.
 SELECT s.round_id, tm.track_id, s.team_id, sc.submission_id,
        CONCAT('J', LPAD(sc.judge_user_id, 3, '0')) AS anon_judge_id,
-       ja.judge_type,
+       u.judge_type,
        sc.criteria_id, sc.value AS score, sc.scored_at AS ts
 FROM Score sc
 JOIN Submission s ON s.submission_id = sc.submission_id
 JOIN Team tm      ON tm.team_id = s.team_id
+JOIN `User` u     ON u.user_id = sc.judge_user_id
 LEFT JOIN JudgeAssignment ja
        ON ja.judge_user_id = sc.judge_user_id
       AND ja.round_id      = s.round_id
@@ -334,17 +339,18 @@ HAVING num_judges >= 2
 ORDER BY score_range DESC;
 
 -- B8.3 — So sánh độ nhất quán theo loại Judge (Internal vs Guest)
-SELECT ja.judge_type,
+SELECT u.judge_type,
        COUNT(*) AS num_scores,
        ROUND(AVG(sc.value),2) AS avg_score,
        ROUND(STDDEV_SAMP(sc.value),3) AS std_dev
 FROM Score sc
 JOIN Submission s ON s.submission_id = sc.submission_id
+JOIN `User` u     ON u.user_id = sc.judge_user_id
 JOIN JudgeAssignment ja
       ON ja.judge_user_id = sc.judge_user_id
      AND ja.round_id      = s.round_id
 WHERE sc.is_draft = FALSE
-GROUP BY ja.judge_type;
+GROUP BY u.judge_type;
 
 
 -- -----------------------------------------------------
@@ -353,8 +359,7 @@ GROUP BY ja.judge_type;
 
 -- B9.1 — Thông báo chưa đọc của 1 user (thay @user)
 SET @user = 5;
-SELECT n.notification_id, n.title, n.type, e.name AS event, n.created_at
+SELECT n.notification_id, n.title, n.content, n.type, n.created_at
 FROM Notification n
-LEFT JOIN HackathonEvent e ON e.event_id = n.related_event_id
 WHERE n.recipient_user_id = @user AND n.is_read = FALSE
 ORDER BY n.created_at DESC;
