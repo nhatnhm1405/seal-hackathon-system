@@ -20,8 +20,10 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class TrackService {
 
-    // OPEN is the current codebase status for a published event.
-    private static final Set<String> TRACK_CREATION_ALLOWED_EVENT_STATUSES = Set.of("DRAFT", "OPEN", "PUBLISHED");
+    // Tracks can be defined while building the event (DRAFT), while registration
+    // is open (OPEN), or during the SETUP phase before competition starts —
+    // teams may still be drawn into newly added tracks during SETUP.
+    private static final Set<String> TRACK_CREATION_ALLOWED_EVENT_STATUSES = Set.of("DRAFT", "OPEN", "SETUP");
 
     private final TrackRepository trackRepository;
     private final HackathonEventRepository eventRepository;
@@ -113,6 +115,7 @@ public class TrackService {
                 .eventId(track.getEvent().getEventId())
                 .name(track.getName())
                 .description(track.getDescription())
+                .capacity(track.getCapacity())
                 .build();
     }
 
@@ -120,7 +123,7 @@ public class TrackService {
         String status = normalizeEventStatus(event.getStatus());
         if (!TRACK_CREATION_ALLOWED_EVENT_STATUSES.contains(status)) {
             throw new BadRequestException("Cannot create track when event status is " + status
-                    + ". Tracks can only be created when event status is DRAFT or PUBLISHED.");
+                    + ". Tracks can only be created when event status is DRAFT, OPEN or SETUP.");
         }
     }
 

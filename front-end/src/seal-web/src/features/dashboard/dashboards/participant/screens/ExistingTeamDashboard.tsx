@@ -5,8 +5,8 @@ import {
     C, GradientText, PixelCard, PixelButton, PixelBadge, CyberStatCard,
 } from "@/shared/components/PixelComponents";
 import {
-    teamsApi, roundsApi, submissionsApi, resultsApi, notificationsApi,
-    MyTeam, Round, RoundResult, Notification, ApiError,
+    teamsApi, tracksApi, roundsApi, submissionsApi, resultsApi, notificationsApi,
+    MyTeam, Track, Round, RoundResult, Notification, ApiError,
 } from "@/shared/apiClient";
 import { fmtDate, roundStatusColor, teamStatusColor } from "../utils/formatters";
 
@@ -15,6 +15,8 @@ export function ExistingTeamDashboard() {
     const { currentUser } = useAuth();
 
     const [team, setTeam] = useState<MyTeam | null>(null);
+    const [tracks, setTracks] = useState<Track[]>([]);
+    const [picking, setPicking] = useState(false);
     const [rounds, setRounds] = useState<Round[]>([]);
     const [submitted, setSubmitted] = useState<{ at?: string } | null>(null);
     const [subRoundName, setSubRoundName] = useState<string | null>(null);
@@ -29,6 +31,11 @@ export function ExistingTeamDashboard() {
             const t = (await teamsApi.getMy()).data;
             setTeam(t);
             if (t?.eventId == null) return;
+
+            // SELF_SELECT during SETUP: load tracks so the leader can pick one.
+            if (t.eventStatus === 'SETUP' && t.trackSelectionMode === 'SELF_SELECT') {
+                tracksApi.getAll(t.eventId).then(r => setTracks(r.data ?? [])).catch(() => setTracks([]));
+            }
 
             const rs = await roundsApi.getAll(t.eventId).then(r => r.data ?? []).catch(() => []);
             const sorted = [...rs].sort((a, b) => (a.orderNumber ?? a.roundId) - (b.orderNumber ?? b.roundId));
@@ -61,10 +68,29 @@ export function ExistingTeamDashboard() {
 
     useEffect(() => { reload(); }, [reload]);
 
+    async function pickTrack(trackId: number) {
+        if (!team || picking) return;
+        setError(null);
+        setPicking(true);
+        try {
+            await teamsApi.selectTrack(team.teamId, trackId);
+            await reload();
+        } catch (err) {
+            setError(err instanceof ApiError ? err.message : "Failed to select track.");
+        } finally {
+            setPicking(false);
+        }
+    }
+
     if (!currentUser || !team) return null;
 
     const isLeader = team.myRole === 'LEADER' || currentUser.is_leader;
     const activeRound = rounds.find(r => ["ACTIVE", "OPEN", "IN_PROGRESS"].includes((r.status ?? "").toUpperCase()));
+    const needsTrackPick = isLeader
+        && team.eventStatus === 'SETUP'
+        && team.trackSelectionMode === 'SELF_SELECT'
+        && team.status === 'APPROVED'
+        && !team.trackName;
 
     return (
         <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
@@ -96,6 +122,27 @@ export function ExistingTeamDashboard() {
                         <PixelButton variant="secondary" onClick={() => navigate('/team/submit')}>SUBMIT PROJECT</PixelButton>
                     )}
                 </div>
+            )}
+
+            {/* SELF_SELECT track picker — leader chooses the team's track during SETUP */}
+            {needsTrackPick && (
+                <PixelCard glow style={{ padding: 20 }}>
+                    <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", marginBottom: 8 }}>// select_your_track</div>
+                    <p style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, marginBottom: 14, lineHeight: 1.5 }}>
+                        Registration is closed. Pick your team's track below. If a track is full you'll be asked to choose another.
+                    </p>
+                    {tracks.length === 0 ? (
+                        <p style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}>Loading tracks…</p>
+                    ) : (
+                        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                            {tracks.map(t => (
+                                <PixelButton key={t.trackId} variant="secondary" disabled={picking} onClick={() => pickTrack(t.trackId)}>
+                                    {t.name}{t.capacity != null ? ` · ${t.capacity} slots` : ""}
+                                </PixelButton>
+                            ))}
+                        </div>
+                    )}
+                </PixelCard>
             )}
 
             {/* Team info */}

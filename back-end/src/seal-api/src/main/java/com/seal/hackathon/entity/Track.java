@@ -29,6 +29,12 @@ public class Track {
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
+    // Max teams allowed in this track. Auto-computed when the event enters SETUP
+    // (≈ approvedTeams / trackCount, balanced so tracks differ by at most 1).
+    // NULL = not yet computed / unlimited.
+    @Column(name = "capacity")
+    private Integer capacity;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

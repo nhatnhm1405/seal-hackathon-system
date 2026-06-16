@@ -16,6 +16,7 @@ interface ApiEvent {
   startDate?: string; start_date?: string;
   endDate?: string; end_date?: string;
   status?: string;
+  trackSelectionMode?: string; track_selection_mode?: string;
 }
 
 interface ApiTrack {
@@ -23,6 +24,7 @@ interface ApiTrack {
   eventId?: number; event_id?: number;
   name?: string;
   description?: string | null;
+  capacity?: number | null;
 }
 
 interface ApiRound {
@@ -47,8 +49,11 @@ interface ApiCriteria {
 
 // ── Normalized rows the UI renders ────────────────────────────────────
 // Event status enum per backend schema (HackathonEvent.status):
-// DRAFT, OPEN, IN_PROGRESS, COMPLETED, CANCELLED.
-type EventStatus = 'DRAFT' | 'OPEN' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+// DRAFT, OPEN, SETUP, IN_PROGRESS, COMPLETED, CANCELLED.
+// SETUP = registration closed; coordinator draws/locks teams into tracks
+// before competition starts.
+type EventStatus = 'DRAFT' | 'OPEN' | 'SETUP' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+type TrackMode = 'SELF_SELECT' | 'RANDOM';
 
 interface EventRow {
   eventId: number;
@@ -60,12 +65,14 @@ interface EventRow {
   startDate: string;
   endDate: string;
   status: EventStatus;
+  trackSelectionMode: TrackMode;
 }
 
 interface TrackRow {
   trackId: number;
   name: string;
   description: string;
+  capacity: number | null;
 }
 
 interface RoundRow {
@@ -98,7 +105,8 @@ function normalizeEvent(item: ApiEvent): EventRow {
     registrationEnd:   item.registrationEnd ?? item.registration_end ?? '',
     startDate:         item.startDate ?? item.start_date ?? '',
     endDate:           item.endDate ?? item.end_date ?? '',
-    status:            (['DRAFT', 'OPEN', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'].includes(status) ? status : 'DRAFT') as EventStatus,
+    status:            (['DRAFT', 'OPEN', 'SETUP', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'].includes(status) ? status : 'DRAFT') as EventStatus,
+    trackSelectionMode: ((item.trackSelectionMode ?? item.track_selection_mode ?? 'SELF_SELECT').toUpperCase() === 'RANDOM' ? 'RANDOM' : 'SELF_SELECT') as TrackMode,
   };
 }
 
@@ -107,6 +115,7 @@ function normalizeTrack(item: ApiTrack): TrackRow {
     trackId:     item.id ?? item.trackId ?? item.track_id ?? 0,
     name:        item.name ?? '',
     description: item.description ?? '',
+    capacity:    item.capacity ?? null,
   };
 }
 
@@ -135,19 +144,21 @@ function normalizeCriteria(item: ApiCriteria): CriteriaRow {
 
 function eventStatusBadge(status: EventStatus) {
   if (status === 'OPEN')        return <PixelBadge color="green">OPEN</PixelBadge>;
+  if (status === 'SETUP')       return <PixelBadge color="yellow">SETUP</PixelBadge>;
   if (status === 'IN_PROGRESS') return <PixelBadge color="cyan">IN_PROGRESS</PixelBadge>;
   if (status === 'COMPLETED')   return <PixelBadge color="blue">COMPLETED</PixelBadge>;
   if (status === 'CANCELLED')   return <PixelBadge color="red">CANCELLED</PixelBadge>;
   return <PixelBadge color="gray">DRAFT</PixelBadge>;
 }
 
-// Lifecycle per schema: DRAFT → OPEN (registration) → IN_PROGRESS (running) → COMPLETED.
-// An event may be CANCELLED from any non-terminal state, or a cancelled event
-// reopened back to DRAFT.
+// Lifecycle per schema: DRAFT → OPEN (registration) → SETUP (registration closed,
+// draw tracks) → IN_PROGRESS (running) → COMPLETED. An event may be CANCELLED from
+// any non-terminal state, or a cancelled event reopened back to DRAFT.
 function nextStatusActions(status: EventStatus): { label: string; next: EventStatus; variant: "cyber" | "secondary" | "danger" }[] {
   switch (status) {
     case 'DRAFT':       return [{ label: 'OPEN EVENT', next: 'OPEN', variant: 'cyber' }, { label: 'CANCEL', next: 'CANCELLED', variant: 'danger' }];
-    case 'OPEN':        return [{ label: 'START EVENT', next: 'IN_PROGRESS', variant: 'cyber' }, { label: 'CANCEL', next: 'CANCELLED', variant: 'danger' }];
+    case 'OPEN':        return [{ label: 'CLOSE REGISTRATION', next: 'SETUP', variant: 'cyber' }, { label: 'CANCEL', next: 'CANCELLED', variant: 'danger' }];
+    case 'SETUP':       return [{ label: 'START EVENT', next: 'IN_PROGRESS', variant: 'cyber' }, { label: 'REOPEN REGISTRATION', next: 'OPEN', variant: 'secondary' }, { label: 'CANCEL', next: 'CANCELLED', variant: 'danger' }];
     case 'IN_PROGRESS': return [{ label: 'COMPLETE EVENT', next: 'COMPLETED', variant: 'cyber' }, { label: 'CANCEL', next: 'CANCELLED', variant: 'danger' }];
     case 'COMPLETED':   return [];
     case 'CANCELLED':   return [{ label: 'REOPEN', next: 'DRAFT', variant: 'secondary' }];
@@ -159,6 +170,8 @@ export function CoordEventsPage() {
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [drawing, setDrawing] = useState(false);
 
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
   const [detailTab, setDetailTab] = useState<string>("tracks");
@@ -185,6 +198,7 @@ export function CoordEventsPage() {
   const [evRegEnd, setEvRegEnd] = useState("");
   const [evStart, setEvStart] = useState("");
   const [evEnd, setEvEnd] = useState("");
+  const [evMode, setEvMode] = useState<TrackMode>("SELF_SELECT");
   const [creating, setCreating] = useState(false);
 
   // Tracks + rounds staged inside the create-event form, POSTed after the
@@ -286,7 +300,7 @@ export function CoordEventsPage() {
   }
 
   function resetCreateForm() {
-    setEvName(""); setEvRegStart(""); setEvRegEnd(""); setEvStart(""); setEvEnd("");
+    setEvName(""); setEvRegStart(""); setEvRegEnd(""); setEvStart(""); setEvEnd(""); setEvMode("SELF_SELECT");
     setDraftTracks([]); setDraftRounds([]);
     setNtName(""); setNtDesc(""); setNrName(""); setNrDeadline(""); setNrTopN(3);
   }
@@ -309,6 +323,7 @@ export function CoordEventsPage() {
           startDate: evStart || undefined,
           endDate: evEnd || undefined,
           status: 'DRAFT',
+          trackSelectionMode: evMode,
         }),
       });
       const created = normalizeEvent(res.data);
@@ -357,6 +372,41 @@ export function CoordEventsPage() {
       setEvents(prev => prev.map(e => e.eventId === selectedEvent.eventId ? { ...e, status: next } : e));
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Failed to update event status.");
+    }
+  }
+
+  // Random track draw — only meaningful while the event is in SETUP. includeAssigned
+  // false → only teams without a track are drawn; true → re-shuffle every team.
+  async function drawTracks(includeAssigned: boolean) {
+    if (!selectedEvent || drawing) return;
+    setActionError(null);
+    setSuccessMsg(null);
+    setDrawing(true);
+    try {
+      const res = await apiFetch<{ data: unknown[] }>(
+        `/api/teams/event/${selectedEvent.eventId}/draw-tracks?includeAssigned=${includeAssigned}`,
+        { method: 'POST' },
+      );
+      const count = (res.data ?? []).length;
+      setSuccessMsg(`Track draw complete — ${count} team(s) assigned to tracks.`);
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : "Failed to draw tracks.");
+    } finally {
+      setDrawing(false);
+    }
+  }
+
+  async function updateEventMode(mode: TrackMode) {
+    if (!selectedEvent) return;
+    setActionError(null);
+    try {
+      await apiFetch(`/api/events/${selectedEvent.eventId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ trackSelectionMode: mode }),
+      });
+      setEvents(prev => prev.map(e => e.eventId === selectedEvent.eventId ? { ...e, trackSelectionMode: mode } : e));
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : "Failed to update track mode.");
     }
   }
 
@@ -454,6 +504,12 @@ export function CoordEventsPage() {
         </div>
       )}
 
+      {successMsg && (
+        <div style={{ background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.35)", color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, padding: "10px 14px" }}>
+          {successMsg}
+        </div>
+      )}
+
       {showCreate && (
         <PixelCard style={{ padding: 20 }}>
           <form onSubmit={addEvent} style={{ display: "flex", flexDirection: "column", gap: 18 }}>
@@ -470,7 +526,13 @@ export function CoordEventsPage() {
               <PixelInput label="Year" type="number" value={evYear} onChange={(e) => setEvYear(e.target.value)} />
               <PixelInput label="Registration Start" type="date" value={evRegStart} onChange={(e) => setEvRegStart(e.target.value)} />
               <PixelInput label="Registration End" type="date" value={evRegEnd} onChange={(e) => setEvRegEnd(e.target.value)} />
-              <div />
+              <div>
+                <label style={{ color: C.greenMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase" }}>Track Assignment</label>
+                <select value={evMode} onChange={(e) => setEvMode(e.target.value as TrackMode)} style={{ width: "100%", marginTop: 6, padding: "10px 12px", background: C.surface2, border: `1px solid ${C.border}`, color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, borderRadius: 0, outline: "none" }}>
+                  <option value="SELF_SELECT">Teams self-select</option>
+                  <option value="RANDOM">Random draw</option>
+                </select>
+              </div>
               <PixelInput label="Start Date" type="date" value={evStart} onChange={(e) => setEvStart(e.target.value)} />
               <PixelInput label="End Date" type="date" value={evEnd} onChange={(e) => setEvEnd(e.target.value)} />
             </div>
@@ -577,8 +639,32 @@ export function CoordEventsPage() {
               <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, marginTop: 4 }}>
                 {eventMeta(selectedEvent)}
               </div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8 }}>
+                <span style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.05em" }}>TRACK ASSIGNMENT:</span>
+                {(selectedEvent.status === 'DRAFT' || selectedEvent.status === 'OPEN') ? (
+                  <select value={selectedEvent.trackSelectionMode} onChange={(e) => updateEventMode(e.target.value as TrackMode)}
+                    style={{ padding: "4px 8px", background: C.surface2, border: `1px solid ${C.border}`, color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, borderRadius: 0, outline: "none" }}>
+                    <option value="SELF_SELECT">Teams self-select</option>
+                    <option value="RANDOM">Random draw</option>
+                  </select>
+                ) : (
+                  <PixelBadge color={selectedEvent.trackSelectionMode === 'RANDOM' ? 'cyan' : 'blue'}>
+                    {selectedEvent.trackSelectionMode === 'RANDOM' ? 'RANDOM DRAW' : 'SELF-SELECT'}
+                  </PixelBadge>
+                )}
+              </div>
             </div>
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              {selectedEvent.status === 'SETUP' && (
+                <>
+                  <PixelButton variant="cyber" onClick={() => drawTracks(false)}>
+                    {drawing ? "DRAWING..." : "DRAW TRACKS"}
+                  </PixelButton>
+                  <PixelButton variant="secondary" onClick={() => drawTracks(true)}>
+                    REDRAW ALL
+                  </PixelButton>
+                </>
+              )}
               {nextStatusActions(selectedEvent.status).map(action => (
                 <PixelButton key={action.next + action.label} variant={action.variant} onClick={() => updateEventStatus(action.next)}>
                   {action.label}
@@ -607,11 +693,12 @@ export function CoordEventsPage() {
                 {detailLoading && <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>Loading...</div>}
                 {!detailLoading && tracks.length === 0 && <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>No tracks yet</div>}
                 {tracks.map(t => (
-                  <div key={t.trackId} style={{ padding: 12, background: C.surface2, border: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div key={t.trackId} style={{ padding: 12, background: C.surface2, border: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
                     <div>
                       <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 600 }}>{t.name}</div>
                       <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginTop: 2 }}>{t.description || "—"}</div>
                     </div>
+                    {t.capacity != null && <PixelBadge color="cyan">{t.capacity} SLOTS</PixelBadge>}
                   </div>
                 ))}
                 <div style={{ padding: 14, background: C.surface, border: `1px solid ${C.border}` }}>

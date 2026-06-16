@@ -22,7 +22,6 @@ export function CreateTeamScreen({
     const [teamName, setTeamName] = useState("");
     const [description, setDescription] = useState("");
     const [eventId, setEventId] = useState<number | null>(initialEventId);
-    const [trackId, setTrackId] = useState<number | null>(initialTrackId);
 
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -38,9 +37,7 @@ export function CreateTeamScreen({
     }, [initialEventId]);
 
     const selectedEvent = eventId != null ? activeEvents.find(e => e.eventId === eventId) : null;
-    const eventTracks = selectedEvent?.tracks ?? [];
-    const selectedTrack = trackId != null ? eventTracks.find(t => t.trackId === trackId) : null;
-    const canSubmit = teamName.trim() !== "" && eventId !== null && trackId !== null;
+    const canSubmit = teamName.trim() !== "" && eventId !== null;
 
     const inputStyle: React.CSSProperties = {
         width: "100%",
@@ -66,13 +63,12 @@ export function CreateTeamScreen({
     }
 
     async function handleCreate() {
-        if (!canSubmit || eventId == null || trackId == null) return;
+        if (!canSubmit || eventId == null) return;
         setSubmitting(true);
         setError(null);
         try {
             await teamsApi.create({
                 eventId,
-                trackId,
                 name: teamName.trim(),
                 description: description.trim() || undefined,
             });
@@ -163,7 +159,6 @@ export function CreateTeamScreen({
                             onChange={(e) => {
                                 const id = e.target.value ? Number(e.target.value) : null;
                                 setEventId(id);
-                                setTrackId(null);
                             }}
                             onFocus={handleFocus}
                             onBlur={handleBlur}
@@ -175,22 +170,10 @@ export function CreateTeamScreen({
                         </select>
                     </div>
 
-                    {/* Track select */}
-                    <div>
-                        <label style={labelStyle}>Track</label>
-                        <select
-                            style={{ ...inputStyle, cursor: eventId ? "pointer" : "not-allowed", appearance: "none", WebkitAppearance: "none", opacity: eventId ? 1 : 0.4 }}
-                            value={trackId ?? ""}
-                            disabled={!eventId}
-                            onChange={(e) => setTrackId(e.target.value ? Number(e.target.value) : null)}
-                            onFocus={handleFocus}
-                            onBlur={handleBlur}
-                        >
-                            <option value="" style={{ background: "#1a1a24" }}>— Select a track —</option>
-                            {eventTracks.map(tr => (
-                                <option key={tr.trackId} value={tr.trackId} style={{ background: "#1a1a24" }}>{tr.name}</option>
-                            ))}
-                        </select>
+                    {/* Track is assigned later (during SETUP) — not chosen at registration. */}
+                    <div style={{ background: "rgba(6,182,212,0.06)", border: "1px solid rgba(6,182,212,0.25)", color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, padding: "10px 12px", lineHeight: 1.5 }}>
+                        Track is assigned after registration closes — you'll pick it during
+                        the setup phase, or the coordinator draws it, depending on the event.
                     </div>
 
                     {/* Description */}
@@ -207,7 +190,7 @@ export function CreateTeamScreen({
                     </div>
 
                     {/* Info callout */}
-                    {selectedEvent && selectedTrack && (
+                    {selectedEvent && (
                         <div style={{
                             background: "rgba(34,197,94,0.06)",
                             border: `1px solid rgba(34,197,94,0.25)`,
@@ -220,7 +203,6 @@ export function CreateTeamScreen({
                             </div>
                             {[
                                 { label: "Event", value: selectedEvent.name },
-                                { label: "Track", value: selectedTrack.name },
                                 { label: "Role", value: "Team Leader" },
                             ].map(({ label, value }) => (
                                 <div key={label} style={{ display: "flex", gap: 12 }}>

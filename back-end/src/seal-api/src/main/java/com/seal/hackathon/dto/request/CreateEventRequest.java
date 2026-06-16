@@ -32,4 +32,6 @@ public class CreateEventRequest {
     private LocalDateTime endDate;
 
     private String status; // defaults to DRAFT if null
+
+    private String trackSelectionMode; // SELF_SELECT (default) | RANDOM
 }

@@ -11,8 +11,8 @@ public class CreateTeamRequest {
     @NotNull(message = "Event ID is required")
     private Integer eventId;
 
-    @NotNull(message = "Track ID is required")
-    private Integer trackId;
+    // No track at registration — it is assigned during the SETUP phase (leader
+    // self-selects or coordinator draws, depending on the event's mode).
 
     @NotBlank(message = "Team name is required")
     @Size(max = 255, message = "Team name must not exceed 255 characters")

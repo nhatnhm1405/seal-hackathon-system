@@ -300,7 +300,7 @@ INSERT INTO UserEventRole (user_id, role_id, event_id) VALUES
   (20, 4, 1),   -- Co Cam: JUDGE
   (5,  4, 1),   -- Guest judge: JUDGE
 
-  -- ── EVENT 2 (IN_PROGRESS) ──
+  -- ── EVENT 2 (OPEN — registration) ──
   (2,  2, 2),   -- Coordinator
   (27, 3, 2),   -- Thay Hung: MENTOR
   (3,  3, 2),   -- Thay An: MENTOR
@@ -348,7 +348,7 @@ INSERT INTO MentorAssignment (mentor_user_id, track_id) VALUES
 
 
 -- =====================================================
--- 7. TEAM  (team_id 1-10)
+-- 7. TEAM  (team_id 1-13)
 -- =====================================================
 -- Event 1 — Spring (team 1-5). track 1=Web, 2=Mobile, 3=AI
 INSERT INTO Team (event_id, track_id, name, description, status) VALUES
@@ -358,13 +358,20 @@ INSERT INTO Team (event_id, track_id, name, description, status) VALUES
   (1, 3, 'Team Eagle',   'AI cham diem bai tap tu dong',          'APPROVED'),  -- team 4
   (1, 1, 'Team Falcon',  'Web marketplace trao doi sach cu',      'APPROVED');  -- team 5
 
--- Event 2 — Summer (team 6-10). track 4=Web, 5=AI, 6=Social, 7=Green
+-- Event 2 — Summer (team 6-13): ALL register WITHOUT a track (track_id = NULL).
+-- Track is assigned during SETUP: leaders self-select (SELF_SELECT mode) or the
+-- coordinator draws (RANDOM mode) via POST /api/teams/event/2/draw-tracks.
+-- Mix of APPROVED/PENDING so the approval step can be demoed — only APPROVED teams
+-- count toward per-track slots and may pick / be drawn. (event tracks: 4-7)
 INSERT INTO Team (event_id, track_id, name, description, status) VALUES
-  (2, 4, 'Team Horizon',  'Web app ho tro tim viec lam',           'APPROVED'),  -- team 6
-  (2, 5, 'Team Nexus',    'AI tom tat tai lieu hoc tap',           'APPROVED'),  -- team 7
-  (2, 6, 'Team Verde',    'App ket noi tinh nguyen vien',          'APPROVED'),  -- team 8
-  (2, 7, 'Team EcoSmart', 'IoT monitoring chat luong khong khi',   'PENDING'),   -- team 9
-  (2, 4, 'Team Pixel',    'Platform thiet ke portfolio sinh vien', 'PENDING');   -- team 10
+  (2, NULL, 'Team Horizon',  'Web app ho tro tim viec lam',           'APPROVED'),  -- team 6
+  (2, NULL, 'Team Nexus',    'AI tom tat tai lieu hoc tap',           'APPROVED'),  -- team 7
+  (2, NULL, 'Team Verde',    'App ket noi tinh nguyen vien',          'APPROVED'),  -- team 8
+  (2, NULL, 'Team EcoSmart', 'IoT monitoring chat luong khong khi',   'PENDING'),   -- team 9
+  (2, NULL, 'Team Pixel',    'Platform thiet ke portfolio sinh vien', 'PENDING'),   -- team 10
+  (2, NULL, 'Team Comet',    'Web app cong dong sinh vien',           'APPROVED'),  -- team 11
+  (2, NULL, 'Team Vortex',   'Nen tang AI ho tro hoc tap',            'APPROVED'),  -- team 12
+  (2, NULL, 'Team Lumen',    'Giai phap cong nghe xanh',              'PENDING');   -- team 13
 
 
 -- =====================================================
@@ -396,6 +403,14 @@ INSERT INTO TeamMember (team_id, user_id, member_role) VALUES
   (9,  24, 'LEADER'), -- Dinh Van Khang (not approved)
   (10, 18, 'LEADER'), -- Le Van Nam
   (10, 19, 'MEMBER'); -- Hoang Thi Ly
+
+-- Event 2 teams 11-13 (NULL-track, for draw demo). Users free in event 2.
+INSERT INTO TeamMember (team_id, user_id, member_role) VALUES
+  (11, 8,  'LEADER'), -- Tran Van Duc
+  (11, 14, 'MEMBER'), -- Bui Thi Thu
+  (12, 9,  'LEADER'), -- Do Van Long
+  (12, 15, 'MEMBER'), -- Ngo Van Hieu
+  (13, 10, 'LEADER'); -- Vo Thi Hoa
 
 
 -- =====================================================

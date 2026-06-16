@@ -2,6 +2,7 @@ package com.seal.hackathon.controller;
 
 import com.seal.hackathon.dto.request.CreateTeamRequest;
 import com.seal.hackathon.dto.request.RejectTeamRequest;
+import com.seal.hackathon.dto.request.SelectTrackRequest;
 import com.seal.hackathon.dto.request.UpdateTeamRequest;
 import com.seal.hackathon.dto.response.ActiveEventResponse;
 import com.seal.hackathon.dto.response.ApiResponse;
@@ -52,6 +53,18 @@ public class TeamController {
     public ResponseEntity<ApiResponse<List<ActiveEventResponse>>> getActiveEvents() {
         return ResponseEntity.ok(ApiResponse.success("Active events retrieved successfully.",
                 teamService.getActiveEventsWithTracks()));
+    }
+
+    // SELF_SELECT events: the team leader picks the team's track during SETUP.
+    @PutMapping("/{teamId}/track")
+    @PreAuthorize("hasRole('PARTICIPANT')")
+    public ResponseEntity<ApiResponse<MyTeamResponse>> selectTrack(
+            @PathVariable Integer teamId,
+            @Valid @RequestBody SelectTrackRequest request,
+            Authentication authentication) {
+        UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
+        return ResponseEntity.ok(ApiResponse.success("Track selected.",
+                teamService.selectTrack(principal.getUserId(), teamId, request.getTrackId())));
     }
 
     // ── Participant: team management ─────────────────────────────────
@@ -120,6 +133,15 @@ public class TeamController {
     public ResponseEntity<ApiResponse<TeamDetailResponse>> getTeamById(@PathVariable Integer teamId) {
         return ResponseEntity.ok(ApiResponse.success("Team retrieved successfully.",
                 teamService.getTeamById(teamId)));
+    }
+
+    @PostMapping("/event/{eventId}/draw-tracks")
+    @PreAuthorize("hasRole('EVENT_COORDINATOR')")
+    public ResponseEntity<ApiResponse<List<TeamResponse>>> drawTracks(
+            @PathVariable Integer eventId,
+            @RequestParam(defaultValue = "false") boolean includeAssigned) {
+        return ResponseEntity.ok(ApiResponse.success("Tracks drawn successfully.",
+                teamService.drawTracks(eventId, includeAssigned)));
     }
 
     @PutMapping("/{teamId}/approve")

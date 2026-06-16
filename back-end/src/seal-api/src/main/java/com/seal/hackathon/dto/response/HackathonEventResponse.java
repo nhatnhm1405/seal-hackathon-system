@@ -42,6 +42,8 @@ public class HackathonEventResponse {
 
     private String status;
 
+    private String trackSelectionMode;
+
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime createdAt;
 }

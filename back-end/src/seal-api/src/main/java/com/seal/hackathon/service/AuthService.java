@@ -326,7 +326,9 @@ public class AuthService {
 
     private boolean isActiveEventMembership(TeamMember membership) {
         String status = membership.getTeam().getEvent().getStatus();
-        return "OPEN".equalsIgnoreCase(status) || "IN_PROGRESS".equalsIgnoreCase(status);
+        return "OPEN".equalsIgnoreCase(status)
+                || "SETUP".equalsIgnoreCase(status)
+                || "IN_PROGRESS".equalsIgnoreCase(status);
     }
 
     private String normalizeTeamRole(TeamMember membership) {
