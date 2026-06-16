@@ -67,6 +67,8 @@ public class SecurityConfig {
                 .requestMatchers("/error").permitAll()
                 // Public: Swagger UI (remove in production if desired)
                 .requestMatchers("/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+                // Public: uploaded files (avatars, etc.)
+                .requestMatchers("/uploads/**").permitAll()
                 // Public: list all hackathon events
                 .requestMatchers("/api/events/**").permitAll()
                 // Admin runs the PLATFORM: global users, role grants, system logs

@@ -15,10 +15,16 @@ import com.seal.hackathon.repository.UserRepository;
 import com.seal.hackathon.security.JwtService;
 import com.seal.hackathon.security.UserPrincipal;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -30,6 +36,9 @@ public class AuthService {
     private final TeamMemberRepository teamMemberRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+
+    @Value("${app.upload.dir:uploads}")
+    private String uploadDir;
 
     // ---------------------------------------------------------------
     // Register
@@ -178,6 +187,71 @@ public class AuthService {
         }
         userRepository.save(user);
         return mapToUserResponse(user);
+    }
+
+    /** A user replaces their own profile picture. Stores the file on disk and
+     *  saves the public URL (/uploads/avatars/...) on the user record. */
+    @Transactional
+    public UserResponse updateAvatar(String email, MultipartFile file) {
+        User user = userRepository.findByEmailWithRoles(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found."));
+
+        if (file == null || file.isEmpty()) {
+            throw new BadRequestException("No image file was uploaded.");
+        }
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.startsWith("image/")) {
+            throw new BadRequestException("Only image files are allowed.");
+        }
+        if (file.getSize() > 5L * 1024 * 1024) {
+            throw new BadRequestException("Image must be 5MB or smaller.");
+        }
+
+        try {
+            Path avatarDir = Paths.get(uploadDir, "avatars").toAbsolutePath().normalize();
+            Files.createDirectories(avatarDir);
+            String filename = "avatar_" + user.getUserId() + "_" + System.currentTimeMillis()
+                    + extensionFor(contentType);
+            Path target = avatarDir.resolve(filename);
+            file.transferTo(target.toFile());
+            user.setAvatarUrl("/uploads/avatars/" + filename);
+            userRepository.save(user);
+            return mapToUserResponse(user);
+        } catch (IOException e) {
+            throw new BadRequestException("Failed to store the uploaded image.");
+        }
+    }
+
+    /** A user removes their own profile picture. Clears avatarUrl and best-effort
+     *  deletes the stored file (only files we host under /uploads/). */
+    @Transactional
+    public UserResponse removeAvatar(String email) {
+        User user = userRepository.findByEmailWithRoles(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found."));
+
+        String current = user.getAvatarUrl();
+        if (current != null && current.startsWith("/uploads/")) {
+            try {
+                // current is like /uploads/avatars/foo.png — strip the leading /uploads/
+                Path file = Paths.get(uploadDir, current.substring("/uploads/".length()))
+                        .toAbsolutePath().normalize();
+                Files.deleteIfExists(file);
+            } catch (IOException ignored) {
+                // A leftover file is harmless; clearing the reference is what matters.
+            }
+        }
+        user.setAvatarUrl(null);
+        userRepository.save(user);
+        return mapToUserResponse(user);
+    }
+
+    private String extensionFor(String contentType) {
+        return switch (contentType) {
+            case "image/png" -> ".png";
+            case "image/gif" -> ".gif";
+            case "image/webp" -> ".webp";
+            default -> ".jpg";
+        };
     }
 
     // ---------------------------------------------------------------

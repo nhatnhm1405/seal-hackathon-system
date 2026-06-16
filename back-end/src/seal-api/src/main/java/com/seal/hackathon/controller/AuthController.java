@@ -9,10 +9,12 @@ import com.seal.hackathon.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -77,6 +79,30 @@ public class AuthController {
         String email = ((UserDetails) authentication.getPrincipal()).getUsername();
         return ResponseEntity.ok(ApiResponse.success("Profile updated.",
                 authService.updateOwnProfile(email, request)));
+    }
+
+    /**
+     * POST /api/auth/me/avatar
+     * Requires valid JWT. Uploads a new profile picture (multipart "file").
+     */
+    @PostMapping(value = "/me/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<UserResponse>> uploadAvatar(
+            @RequestParam("file") MultipartFile file,
+            Authentication authentication) {
+        String email = ((UserDetails) authentication.getPrincipal()).getUsername();
+        return ResponseEntity.ok(ApiResponse.success("Avatar updated.",
+                authService.updateAvatar(email, file)));
+    }
+
+    /**
+     * DELETE /api/auth/me/avatar
+     * Requires valid JWT. Removes the current user's profile picture.
+     */
+    @DeleteMapping("/me/avatar")
+    public ResponseEntity<ApiResponse<UserResponse>> removeAvatar(Authentication authentication) {
+        String email = ((UserDetails) authentication.getPrincipal()).getUsername();
+        return ResponseEntity.ok(ApiResponse.success("Avatar removed.",
+                authService.removeAvatar(email)));
     }
 
     /**
