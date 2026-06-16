@@ -36,8 +36,8 @@ export function MentorDashboard() {
   return (
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
       <PixelCard glow gradient style={{ padding: 24 }}>
-        <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", marginBottom: 6 }}>
-          // mentor_console
+        <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 700, marginBottom: 6 }}>
+          Mentor Console
         </div>
         <h1 style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 26, fontWeight: 800, lineHeight: 1.2 }}>
           <GradientText>Good day, {currentUser.full_name}</GradientText>
@@ -59,8 +59,8 @@ export function MentorDashboard() {
       </div>
 
       <PixelCard style={{ padding: 20 }}>
-        <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", marginBottom: 12 }}>
-          // my_tracks
+        <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 700, marginBottom: 12 }}>
+          My Tracks
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {loading && <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, padding: 8 }}>Loading...</div>}

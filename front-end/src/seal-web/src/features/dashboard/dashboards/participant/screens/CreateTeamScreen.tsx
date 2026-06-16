@@ -108,9 +108,6 @@ export function CreateTeamScreen({
             </button>
 
             <div style={{ marginBottom: 32 }}>
-                <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", marginBottom: 8 }}>
-                    // create_team
-                </div>
                 <h1 style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 900, fontSize: 32, lineHeight: 1.1, marginBottom: 10 }}>
                     <GradientText>Create Your Team</GradientText>
                 </h1>
@@ -194,13 +191,6 @@ export function CreateTeamScreen({
                                 <option key={tr.trackId} value={tr.trackId} style={{ background: "#1a1a24" }}>{tr.name}</option>
                             ))}
                         </select>
-
-                        {/* PLACEHOLDER: API has no per-track capacity yet (maxTeams). */}
-                        {selectedTrack && (
-                            <div style={{ marginTop: 8, display: "inline-flex", alignItems: "center", gap: 8, background: "rgba(6,182,212,0.08)", border: "1px solid rgba(6,182,212,0.25)", color: "#06b6d4", fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: "0.06em", padding: "4px 12px" }}>
-                                Max teams: 5 · 5 spots left
-                            </div>
-                        )}
                     </div>
 
                     {/* Description */}

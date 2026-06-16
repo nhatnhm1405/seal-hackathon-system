@@ -116,7 +116,7 @@ export function InvitationsDrawer({ onClose }: { onClose: () => void }) {
                         >
                             ← Back
                         </button>
-                        <span style={{ color: C.green, fontFamily: mono, fontSize: 11, letterSpacing: "0.1em" }}>// team_invitations</span>
+                        <span style={{ color: C.green, fontFamily: mono, fontSize: 15, fontWeight: 700 }}>Team Invitations</span>
                     </div>
                     <div style={{ background: "rgba(59,130,246,0.12)", border: "1px solid rgba(59,130,246,0.3)", color: C.blue, fontFamily: mono, fontSize: 10, letterSpacing: "0.1em", padding: "2px 10px" }}>
                         {pendingCount} PENDING
@@ -229,7 +229,7 @@ export function InvitationsDrawer({ onClose }: { onClose: () => void }) {
 
                     {/* Find a team to join */}
                     <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 20 }}>
-                        <div style={{ color: C.green, fontFamily: mono, fontSize: 11, letterSpacing: "0.1em", marginBottom: 12 }}>// find_a_team</div>
+                        <div style={{ color: C.green, fontFamily: mono, fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Find a Team</div>
                         <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
                             <div style={{ flex: 1 }}>
                                 <PixelInput label="Search teams with open seats (blank = all)" placeholder="e.g. ByteBuilders" value={query} onChange={e => setQuery(e.target.value)} />

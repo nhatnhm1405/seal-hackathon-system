@@ -49,8 +49,8 @@ export function AdminDashboard() {
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", marginBottom: 4 }}>
-            // system_administration
+          <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 700, marginBottom: 4 }}>
+            System Administration
           </div>
           <h1 style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 28, fontWeight: 800 }}>
             <GradientText>Platform Console</GradientText>
@@ -78,8 +78,8 @@ export function AdminDashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Role grant distribution */}
         <PixelCard className="p-5">
-          <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", marginBottom: 16 }}>
-            // role_grants
+          <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 700, marginBottom: 16 }}>
+            Role Grants
           </div>
           {loading ? (
             <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>Loading…</div>
@@ -99,8 +99,8 @@ export function AdminDashboard() {
 
         {/* Quick actions */}
         <PixelCard className="p-5">
-          <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", marginBottom: 16 }}>
-            // admin_actions
+          <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 700, marginBottom: 16 }}>
+            Admin Actions
           </div>
           <div className="flex flex-col gap-3">
             <PixelButton variant="primary" size="sm" className="justify-start" onClick={() => navigate("/admin/accounts")}>

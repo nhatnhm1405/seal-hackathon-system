@@ -203,7 +203,7 @@ export function JudgeScoringPage() {
           {/* Left panel */}
           <div style={{ width: 300, flexShrink: 0, display: "flex", flexDirection: "column", gap: 16 }}>
             <PixelCard style={{ padding: 14 }}>
-              <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: "0.1em", marginBottom: 10 }}>// rounds</div>
+              <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 700, marginBottom: 10 }}>Rounds</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {rounds.map(r => {
                   const active = selectedRoundId === r.roundId;

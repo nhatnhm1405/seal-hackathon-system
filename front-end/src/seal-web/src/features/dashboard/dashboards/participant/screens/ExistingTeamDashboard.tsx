@@ -69,8 +69,8 @@ export function ExistingTeamDashboard() {
     return (
         <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
             <PixelCard glow gradient style={{ padding: 24 }}>
-                <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", marginBottom: 6 }}>
-                    {isLeader ? '// team_leader_console' : '// participant_console'}
+                <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 700, marginBottom: 6 }}>
+                    {isLeader ? 'Team Leader Console' : 'Participant Console'}
                 </div>
                 <h1 style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 26, fontWeight: 800, lineHeight: 1.2 }}>
                     <GradientText>Good day, {currentUser.full_name}</GradientText>
@@ -100,7 +100,7 @@ export function ExistingTeamDashboard() {
 
             {/* Team info */}
             <PixelCard style={{ padding: 20 }}>
-                <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", marginBottom: 12 }}>// team_info</div>
+                <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Team Info</div>
                 {team.status === 'PENDING' && (
                     <div style={{ background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.35)", color: "#eab308", fontFamily: "'JetBrains Mono', monospace", fontSize: 11, padding: "8px 12px", marginBottom: 12 }}>
                         PENDING COORDINATOR APPROVAL — You cannot submit until approved.
@@ -138,7 +138,7 @@ export function ExistingTeamDashboard() {
 
             {/* Activity feed (from the user's notifications) */}
             <PixelCard style={{ padding: 20 }}>
-                <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", marginBottom: 12 }}>// activity_feed</div>
+                <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Activity Feed</div>
                 {feed.length === 0 ? (
                     <p style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}>No recent activity.</p>
                 ) : (

@@ -99,8 +99,8 @@ export function JudgeDashboard() {
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
       {/* Header */}
       <PixelCard glow gradient style={{ padding: 24 }}>
-        <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", marginBottom: 6 }}>
-          // judge_console
+        <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 700, marginBottom: 6 }}>
+          Judge Console
         </div>
         <h1 style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 26, fontWeight: 800, lineHeight: 1.2 }}>
           <GradientText>Good day, {currentUser.full_name}</GradientText>
@@ -126,8 +126,8 @@ export function JudgeDashboard() {
 
       {/* Overall progress */}
       <PixelCard style={{ padding: 20 }}>
-        <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", marginBottom: 12 }}>
-          // overall_progress
+        <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 700, marginBottom: 12 }}>
+          Overall Progress
         </div>
         <PixelProgress value={totalScored} max={totalTeams || 1} label={`${totalScored}/${totalTeams} submissions finalised`} gradient />
       </PixelCard>

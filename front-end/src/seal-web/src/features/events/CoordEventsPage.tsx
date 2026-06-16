@@ -477,7 +477,7 @@ export function CoordEventsPage() {
 
             {/* Staged tracks */}
             <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 14 }}>
-              <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", marginBottom: 10 }}>// tracks</div>
+              <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 700, marginBottom: 10 }}>Tracks</div>
               {draftTracks.length > 0 && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
                   {draftTracks.map((t, i) => (
@@ -500,7 +500,7 @@ export function CoordEventsPage() {
 
             {/* Staged rounds */}
             <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 14 }}>
-              <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", marginBottom: 10 }}>// rounds</div>
+              <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 700, marginBottom: 10 }}>Rounds</div>
               {draftRounds.length > 0 && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
                   {draftRounds.map((r, i) => (

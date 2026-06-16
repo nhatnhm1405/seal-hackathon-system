@@ -56,9 +56,6 @@ export function ForgotPasswordPage() {
             <div style={{ position: "absolute", bottom: 0, right: 0, width: 12, height: 12, borderBottom: `2px solid rgba(59,130,246,0.5)`, borderRight: `2px solid rgba(59,130,246,0.5)` }} />
 
             <div style={{ marginBottom: 28 }}>
-              <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", marginBottom: 10 }}>
-                // password_recovery
-              </div>
               <h1 style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 900, fontSize: 30, lineHeight: 1.1, marginBottom: 10 }}>
                 <GradientText>Forgot Password</GradientText>
               </h1>

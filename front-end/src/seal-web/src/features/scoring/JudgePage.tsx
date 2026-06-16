@@ -69,8 +69,8 @@ export function JudgePage({ navigate }: { navigate: (page: Page) => void }) {
     <div style={{ padding: 24 }}>
       <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <div>
-          <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", marginBottom: 4 }}>
-            // judge_dashboard
+          <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 700, marginBottom: 4 }}>
+            Judge Dashboard
           </div>
           <h1 style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 22, fontWeight: 700 }}>Judge Panel</h1>
         </div>
@@ -84,8 +84,8 @@ export function JudgePage({ navigate }: { navigate: (page: Page) => void }) {
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         {/* Left: queue */}
         <div>
-          <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", marginBottom: 12 }}>
-            // review_queue
+          <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 700, marginBottom: 12 }}>
+            Review Queue
           </div>
           <div className="flex flex-col gap-3">
             {toReview.map((sub, i) => {
@@ -118,8 +118,8 @@ export function JudgePage({ navigate }: { navigate: (page: Page) => void }) {
             })}
 
             {/* Reviewed */}
-            <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", marginTop: 8 }}>
-              // completed
+            <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 700, marginTop: 8 }}>
+              Completed
             </div>
             {reviewed.map((sub) => (
               <PixelCard key={sub.id} className="p-4" style={{ opacity: 0.6 }}>
@@ -166,8 +166,8 @@ export function JudgePage({ navigate }: { navigate: (page: Page) => void }) {
 
               {/* Scoring criteria */}
               <PixelCard className="p-5" glow>
-                <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", marginBottom: 16 }}>
-                  // scoring_criteria
+                <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 700, marginBottom: 16 }}>
+                  Scoring Criteria
                 </div>
                 <div className="flex flex-col gap-5">
                   {current.criteria.map((c) => {
@@ -252,8 +252,8 @@ export function JudgePage({ navigate }: { navigate: (page: Page) => void }) {
 
               {/* Feedback */}
               <PixelCard className="p-5">
-                <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", marginBottom: 12 }}>
-                  // judge_feedback
+                <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 700, marginBottom: 12 }}>
+                  Judge Feedback
                 </div>
                 <textarea
                   value={feedback}

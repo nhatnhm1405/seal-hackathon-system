@@ -42,9 +42,6 @@ function ApprovalModal({ account, reject, onClose, onConfirm, working, error }: 
         boxShadow: `0 0 40px ${accent}22, 0 16px 48px rgba(0,0,0,0.4)`, padding: 32,
       }}>
         <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${accent}, transparent)` }} />
-        <div style={{ color: accent, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", marginBottom: 12 }}>
-          // confirm_{reject ? "reject" : "approve"}
-        </div>
         <h2 style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 20, fontWeight: 800, color: C.text, marginBottom: 12, lineHeight: 1.2 }}>
           {reject ? "Reject this account?" : "Approve this account?"}
         </h2>

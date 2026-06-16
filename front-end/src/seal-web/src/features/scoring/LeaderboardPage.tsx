@@ -67,7 +67,6 @@ export function LeaderboardPage() {
   return (
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
       <div>
-        <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em" }}>// leaderboard</div>
         <h1 style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 28, fontWeight: 800 }}>
           <GradientText>Leaderboard</GradientText>
         </h1>

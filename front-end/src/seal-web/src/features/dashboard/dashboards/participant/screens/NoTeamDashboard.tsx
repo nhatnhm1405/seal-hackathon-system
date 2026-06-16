@@ -53,7 +53,6 @@ export function NoTeamDashboard({
                 <div style={{ position: "absolute", top: 0, left: 0, width: 14, height: 14, borderTop: `2px solid ${C.green}`, borderLeft: `2px solid ${C.green}` }} />
                 <div style={{ position: "absolute", bottom: 0, right: 0, width: 14, height: 14, borderBottom: `2px solid rgba(59,130,246,0.5)`, borderRight: `2px solid rgba(59,130,246,0.5)` }} />
 
-                <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", marginBottom: 8 }}>// join_an_event</div>
                 <h1 style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 900, fontSize: 28, lineHeight: 1.15, marginBottom: 10 }}>
                     <GradientText>Join an Event</GradientText>
                 </h1>
@@ -85,7 +84,7 @@ export function NoTeamDashboard({
             </div>
 
             {/* Open events */}
-            <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em" }}>// open_events</div>
+            <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 18, fontWeight: 700 }}>Open Events</div>
 
             {events.length === 0 ? (
                 <PixelCard style={{ padding: 20 }}>

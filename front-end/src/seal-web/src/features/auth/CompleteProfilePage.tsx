@@ -64,7 +64,6 @@ export function CompleteProfilePage() {
             <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${C.green}, ${C.blue}, transparent)`, opacity: 0.6 }} />
 
             <div style={{ marginBottom: 24 }}>
-              <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", marginBottom: 10 }}>// complete_profile</div>
               <h1 style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 900, fontSize: 26, lineHeight: 1.15, marginBottom: 10 }}>
                 <GradientText>Almost there{currentUser ? `, ${currentUser.full_name}` : ""}</GradientText>
               </h1>
