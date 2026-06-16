@@ -320,7 +320,8 @@ export function CoordTeamsPage() {
   const trackName = useMemo(() => {
     const map = new Map<number, string>();
     tracks.forEach(t => map.set(t.trackId, t.name));
-    return (id: number) => map.get(id) ?? "—";
+    // trackId 0 = no track yet (team awaiting the SETUP-phase random draw).
+    return (id: number) => (id ? map.get(id) ?? "—" : "Unassigned");
   }, [tracks]);
 
   const filtered = teams.filter(t => {

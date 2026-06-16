@@ -293,7 +293,8 @@ export interface HackathonEvent {
   registrationEnd: string;
   startDate: string;
   endDate: string;
-  status: 'DRAFT' | 'OPEN' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+  status: 'DRAFT' | 'OPEN' | 'SETUP' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+  trackSelectionMode?: 'SELF_SELECT' | 'RANDOM';
 }
 
 export interface CreateEventPayload {
@@ -306,12 +307,14 @@ export interface CreateEventPayload {
   startDate: string;
   endDate: string;
   status?: string;
+  trackSelectionMode?: string;
 }
 
 export interface UpdateEventPayload {
   name?: string;
   description?: string;
   status?: string;
+  trackSelectionMode?: string;
   registrationStart?: string;
   registrationEnd?: string;
   startDate?: string;
@@ -345,6 +348,7 @@ export interface Track {
   eventId: number;
   name: string;
   description?: string;
+  capacity?: number | null;
 }
 
 export interface CreateTrackPayload {
@@ -465,6 +469,8 @@ export interface MyTeam {
   eventName?: string;
   trackName?: string;
   name: string;
+  eventStatus?: 'DRAFT' | 'OPEN' | 'SETUP' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+  trackSelectionMode?: 'SELF_SELECT' | 'RANDOM';
   status?: 'PENDING' | 'APPROVED' | 'REJECTED' | 'DISQUALIFIED';
   myRole?: 'LEADER' | 'MEMBER';
   members: MyTeamMember[];
@@ -491,7 +497,6 @@ export interface ActiveEventWithTracks {
 
 export interface CreateTeamPayload {
   eventId: number;
-  trackId: number;
   name: string;
   description?: string;
 }
@@ -545,6 +550,19 @@ export const teamsApi = {
 
   leave: (teamId: number) =>
     apiFetch<ApiResponse<void>>(`/api/teams/${teamId}/leave`, { method: 'POST' }),
+
+  // SELF_SELECT events: leader picks the team's track during SETUP.
+  selectTrack: (teamId: number, trackId: number) =>
+    apiFetch<ApiResponse<MyTeam>>(`/api/teams/${teamId}/track`, {
+      method: 'PUT',
+      body: JSON.stringify({ trackId }),
+    }),
+
+  // RANDOM events (or to fill stragglers): coordinator draws teams into tracks.
+  drawTracks: (eventId: number, includeAssigned = false) =>
+    apiFetch<ApiResponse<Team[]>>(`/api/teams/event/${eventId}/draw-tracks?includeAssigned=${includeAssigned}`, {
+      method: 'POST',
+    }),
 };
 
 // ── Team Invites ──────────────────────────────────────────────────
