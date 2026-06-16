@@ -4,9 +4,12 @@ import com.seal.hackathon.dto.request.CreateEventRequest;
 import com.seal.hackathon.dto.request.UpdateEventRequest;
 import com.seal.hackathon.dto.response.HackathonEventResponse;
 import com.seal.hackathon.entity.HackathonEvent;
+import com.seal.hackathon.entity.Track;
 import com.seal.hackathon.exception.BadRequestException;
 import com.seal.hackathon.exception.ResourceNotFoundException;
 import com.seal.hackathon.repository.HackathonEventRepository;
+import com.seal.hackathon.repository.TeamRepository;
+import com.seal.hackathon.repository.TrackRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -23,16 +26,25 @@ import java.util.stream.Collectors;
 public class HackathonEventService {
 
     private final HackathonEventRepository hackathonEventRepository;
+    private final TrackRepository trackRepository;
+    private final TeamRepository teamRepository;
 
     private static final Set<String> VALID_STATUSES =
-            Set.of("DRAFT", "OPEN", "IN_PROGRESS", "COMPLETED", "CANCELLED");
+            Set.of("DRAFT", "OPEN", "SETUP", "IN_PROGRESS", "COMPLETED", "CANCELLED");
+
+    private static final Set<String> VALID_TRACK_MODES =
+            Set.of("SELF_SELECT", "RANDOM");
 
     // Allowed status transitions — backend is the source of truth (the FE buttons
-    // only mirror this). DRAFT→OPEN→IN_PROGRESS→COMPLETED; CANCELLED from any
+    // only mirror this). DRAFT→OPEN→SETUP→IN_PROGRESS→COMPLETED; CANCELLED from any
     // non-terminal state; a cancelled event may be reopened to DRAFT.
+    //
+    // SETUP = registration closed; coordinator locks/draws teams into tracks
+    // before competition starts. SETUP may fall back to OPEN to reopen registration.
     private static final Map<String, Set<String>> TRANSITIONS = Map.of(
             "DRAFT",       Set.of("OPEN", "CANCELLED"),
-            "OPEN",        Set.of("IN_PROGRESS", "CANCELLED"),
+            "OPEN",        Set.of("SETUP", "CANCELLED"),
+            "SETUP",       Set.of("IN_PROGRESS", "OPEN", "CANCELLED"),
             "IN_PROGRESS", Set.of("COMPLETED", "CANCELLED"),
             "COMPLETED",   Set.of(),
             "CANCELLED",   Set.of("DRAFT")
@@ -76,6 +88,11 @@ public class HackathonEventService {
                 : "DRAFT";
         requireValidStatus(status);
 
+        String trackMode = (request.getTrackSelectionMode() != null && !request.getTrackSelectionMode().isBlank())
+                ? request.getTrackSelectionMode().toUpperCase()
+                : "SELF_SELECT";
+        requireValidTrackMode(trackMode);
+
         HackathonEvent event = HackathonEvent.builder()
                 .name(request.getName().trim())
                 .season(request.getSeason().toUpperCase())
@@ -86,6 +103,7 @@ public class HackathonEventService {
                 .startDate(request.getStartDate())
                 .endDate(request.getEndDate())
                 .status(status)
+                .trackSelectionMode(trackMode)
                 .build();
 
         event = hackathonEventRepository.save(event);
@@ -121,11 +139,27 @@ public class HackathonEventService {
         if (request.getEndDate() != null) {
             event.setEndDate(request.getEndDate());
         }
+        if (request.getTrackSelectionMode() != null && !request.getTrackSelectionMode().isBlank()) {
+            String newMode = request.getTrackSelectionMode().toUpperCase();
+            requireValidTrackMode(newMode);
+            // Mode decides how SETUP behaves, so it can only change before SETUP.
+            if (!"DRAFT".equalsIgnoreCase(event.getStatus()) && !"OPEN".equalsIgnoreCase(event.getStatus())) {
+                throw new BadRequestException(
+                        "Track selection mode can only be changed while the event is in DRAFT or OPEN.");
+            }
+            event.setTrackSelectionMode(newMode);
+        }
+
         if (request.getStatus() != null && !request.getStatus().isBlank()) {
             String newStatus = request.getStatus().toUpperCase();
             requireValidStatus(newStatus);
             requireValidTransition(event.getStatus(), newStatus);
+            boolean enteringSetup = "SETUP".equals(newStatus) && !"SETUP".equalsIgnoreCase(event.getStatus());
             event.setStatus(newStatus);
+            // Closing registration freezes the team count and computes per-track slots.
+            if (enteringSetup) {
+                computeTrackCapacities(event);
+            }
         }
 
         // Validate the effective date ordering after applying any patches.
@@ -141,8 +175,38 @@ public class HackathonEventService {
     private void requireValidStatus(String status) {
         if (!VALID_STATUSES.contains(status)) {
             throw new BadRequestException("Invalid status '" + status
-                    + "'. Must be DRAFT, OPEN, IN_PROGRESS, COMPLETED or CANCELLED.");
+                    + "'. Must be DRAFT, OPEN, SETUP, IN_PROGRESS, COMPLETED or CANCELLED.");
         }
+    }
+
+    private void requireValidTrackMode(String mode) {
+        if (!VALID_TRACK_MODES.contains(mode)) {
+            throw new BadRequestException("Invalid track selection mode '" + mode
+                    + "'. Must be SELF_SELECT or RANDOM.");
+        }
+    }
+
+    /**
+     * Freezes the roster on entering SETUP and assigns each track an even slot
+     * count: floor = approvedTeams / trackCount, remainder r distributed one extra
+     * to the first r tracks. Total slots == approved team count, so when every team
+     * lands a slot the per-track counts differ by at most 1.
+     */
+    private void computeTrackCapacities(HackathonEvent event) {
+        List<Track> tracks = trackRepository.findAllByEvent_EventId(event.getEventId());
+        if (tracks.isEmpty()) {
+            throw new BadRequestException(
+                    "Add at least one track before closing registration (moving to SETUP).");
+        }
+        int approved = teamRepository
+                .findAllByEvent_EventIdAndStatus(event.getEventId(), "APPROVED").size();
+        int n = tracks.size();
+        int floor = approved / n;
+        int remainder = approved % n;
+        for (int i = 0; i < n; i++) {
+            tracks.get(i).setCapacity(i < remainder ? floor + 1 : floor);
+        }
+        trackRepository.saveAll(tracks);
     }
 
     private void requireValidTransition(String from, String to) {
@@ -180,6 +244,7 @@ public class HackathonEventService {
                 .startDate(event.getStartDate())
                 .endDate(event.getEndDate())
                 .status(event.getStatus())
+                .trackSelectionMode(event.getTrackSelectionMode())
                 .createdAt(event.getCreatedAt())
                 .build();
     }

@@ -14,5 +14,6 @@ public class UpdateEventRequest {
     private LocalDateTime registrationEnd;
     private LocalDateTime startDate;
     private LocalDateTime endDate;
-    private String status; // DRAFT | OPEN | IN_PROGRESS | COMPLETED | CANCELLED
+    private String status; // DRAFT | OPEN | SETUP | IN_PROGRESS | COMPLETED | CANCELLED
+    private String trackSelectionMode; // SELF_SELECT | RANDOM (changeable only before SETUP)
 }

@@ -14,4 +14,5 @@ public class TrackResponse {
     private Integer eventId;
     private String name;
     private String description;
+    private Integer capacity;
 }

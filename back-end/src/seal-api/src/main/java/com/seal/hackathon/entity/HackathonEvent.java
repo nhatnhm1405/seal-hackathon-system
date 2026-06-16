@@ -47,6 +47,12 @@ public class HackathonEvent {
     @Builder.Default
     private String status = "DRAFT";
 
+    // How teams get a track: SELF_SELECT (leaders pick during SETUP, capped per
+    // track) or RANDOM (coordinator draws during SETUP). Configured per event.
+    @Column(name = "track_selection_mode", nullable = false, length = 20)
+    @Builder.Default
+    private String trackSelectionMode = "SELF_SELECT";
+
     // created_by removed from schema — who created the event is traceable via
     // AuditLog (action = CREATE_EVENT) if needed.
 
