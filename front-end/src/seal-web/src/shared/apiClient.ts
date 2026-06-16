@@ -31,10 +31,13 @@ export async function apiFetch<T>(
   options: RequestInit = {},
 ): Promise<T> {
   const token = getToken();
+  // For FormData (file uploads) let the browser set the multipart Content-Type
+  // with its boundary — forcing application/json would break the request.
+  const isFormData = options.body instanceof FormData;
   const res = await fetch(`${BASE_URL}${path}`, {
     ...options,
     headers: {
-      'Content-Type': 'application/json',
+      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(options.headers ?? {}),
     },
@@ -85,6 +88,7 @@ export interface UserProfile {
   userType: string;
   isApproved: boolean;
   isActive: boolean;
+  avatarUrl?: string | null;
   roles?: UserEventRole[];
 }
 
@@ -128,6 +132,20 @@ export const authApi = {
 
   logout: () =>
     apiFetch<void>('/api/auth/logout', { method: 'POST' }),
+
+  // Upload a new profile picture (multipart). Returns the updated profile.
+  uploadAvatar: (file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return apiFetch<ApiResponse<UserProfile>>('/api/auth/me/avatar', {
+      method: 'POST',
+      body: form,
+    });
+  },
+
+  // Remove the current profile picture. Returns the updated profile.
+  deleteAvatar: () =>
+    apiFetch<ApiResponse<UserProfile>>('/api/auth/me/avatar', { method: 'DELETE' }),
 };
 
 export interface UpdateProfilePayload {

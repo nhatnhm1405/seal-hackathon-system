@@ -10,6 +10,7 @@ export interface AuthUser {
   student_type: 'FPT' | 'EXTERNAL' | null;
   student_id: string | null;
   university: string | null;
+  avatar_url: string | null;
   is_leader: boolean;
   team_id: number | null;
   // true for a first-time OAuth account that hasn't picked its userType yet
@@ -50,6 +51,8 @@ interface ApiUserProfile {
   studentId?: string | null;
   student_id?: string | null;
   university?: string | null;
+  avatarUrl?: string | null;
+  avatar_url?: string | null;
   // Role — API may return any of these; we handle all cases
   roles?: string | string[];
   role?: string | string[];
@@ -139,6 +142,7 @@ function mapApiUser(profile: ApiUserProfile): AuthUser {
                 : null,
     student_id:   profile.studentId ?? profile.student_id ?? null,
     university:   profile.university ?? null,
+    avatar_url:   profile.avatarUrl ?? profile.avatar_url ?? null,
     is_leader:    profile.isLeader ?? profile.is_leader ?? false,
     team_id:      profile.teamId ?? profile.team_id ?? null,
     profile_incomplete: userType === 'PENDING_PROFILE',

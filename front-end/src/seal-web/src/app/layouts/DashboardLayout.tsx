@@ -5,6 +5,7 @@ import { C, PixelBadge } from "@/shared/components/PixelComponents";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { useNotifications, UINotification } from "@/app/providers/NotificationProvider";
 import { usePendingAccounts } from "@/app/providers/PendingAccountsProvider";
+import { API_BASE_URL } from "@/shared/apiClient";
 import { SealFooter } from "@/shared/components/SealFooter";
 import sealLogo from "@/imports/image.png";
 
@@ -297,6 +298,9 @@ function TopNavbar({ pageTitle, collapsed, onToggleCollapse, currentUser, onLogo
 
   const badge = roleBadgeStyle(currentUser.role);
   const initials = getInitials(currentUser.full_name);
+  const avatarUrl = currentUser.avatar_url
+    ? (currentUser.avatar_url.startsWith("http") ? currentUser.avatar_url : `${API_BASE_URL}${currentUser.avatar_url}`)
+    : null;
 
   return (
     <header style={{
@@ -430,15 +434,23 @@ function TopNavbar({ pageTitle, collapsed, onToggleCollapse, currentUser, onLogo
             }}
           >
             {/* Avatar */}
-            <div style={{
-              width: 32, height: 32, borderRadius: "50%",
-              background: "linear-gradient(135deg, #22c55e 0%, #3b82f6 100%)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700, color: "#070c0f",
-              flexShrink: 0,
-            }}>
-              {initials}
-            </div>
+            {avatarUrl ? (
+              <img
+                src={avatarUrl}
+                alt={currentUser.full_name}
+                style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover", flexShrink: 0, border: `1px solid ${C.border}` }}
+              />
+            ) : (
+              <div style={{
+                width: 32, height: 32, borderRadius: "50%",
+                background: "linear-gradient(135deg, #22c55e 0%, #3b82f6 100%)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700, color: "#070c0f",
+                flexShrink: 0,
+              }}>
+                {initials}
+              </div>
+            )}
             <div style={{ textAlign: "left", display: "flex", flexDirection: "column", gap: 1 }}>
               <span style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" }}>
                 {currentUser.full_name}

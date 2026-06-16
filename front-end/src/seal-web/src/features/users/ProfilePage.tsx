@@ -1,9 +1,17 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/app/providers/AuthProvider";
 import {
   C, GradientText, PixelCard, PixelButton, PixelBadge, PixelInput, PixelTabs,
 } from "@/shared/components/PixelComponents";
-import { authApi, teamsApi, ApiError, MyTeam } from "@/shared/apiClient";
+import { authApi, teamsApi, ApiError, MyTeam, API_BASE_URL } from "@/shared/apiClient";
+
+const mono = "'JetBrains Mono', monospace";
+
+// OAuth avatars are absolute URLs; uploaded ones are /uploads/... served by the API.
+function avatarSrc(url: string | null | undefined): string | null {
+  if (!url) return null;
+  return url.startsWith("http") ? url : `${API_BASE_URL}${url}`;
+}
 
 export function ProfilePage() {
   const { currentUser, patchCurrentUser } = useAuth();
@@ -17,6 +25,21 @@ export function ProfilePage() {
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
+  // Avatar upload
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+  const [avatarSaved, setAvatarSaved] = useState(false);
+
+  // Change password (form is in place; server wiring is a follow-up)
+  const [curPwd, setCurPwd] = useState("");
+  const [newPwd, setNewPwd] = useState("");
+  const [confirmPwd, setConfirmPwd] = useState("");
+  const [pwdMsg, setPwdMsg] = useState<{ type: "error" | "info"; text: string } | null>(null);
+
   useEffect(() => {
     if (currentUser?.role === 'PARTICIPANT') {
       teamsApi.getMy().then(res => setTeam(res.data)).catch(() => setTeam(null));
@@ -27,6 +50,8 @@ export function ProfilePage() {
   const isStudent = currentUser.student_type !== null;
   const isExternal = currentUser.student_type === 'EXTERNAL';
 
+  const shownAvatar = preview ?? avatarSrc(currentUser.avatar_url);
+
   async function save() {
     setError(null); setSaved(false);
     if (!fullName.trim()) { setError("Full name is required."); return; }
@@ -34,7 +59,6 @@ export function ProfilePage() {
     try {
       const res = await authApi.updateMe({
         fullName: fullName.trim(),
-        studentId: isStudent ? studentId : undefined,
         university: isExternal ? university : undefined,
       });
       const p = res.data;
@@ -52,10 +76,76 @@ export function ProfilePage() {
     }
   }
 
+  function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const f = e.target.files?.[0];
+    e.target.value = ""; // allow re-picking the same file
+    if (!f) return;
+    if (!f.type.startsWith("image/")) { setAvatarError("Please choose an image file."); return; }
+    if (f.size > 5 * 1024 * 1024) { setAvatarError("Image must be 5MB or smaller."); return; }
+    setAvatarError(null);
+    setAvatarSaved(false);
+    setPendingFile(f);
+    setPreview(URL.createObjectURL(f));
+  }
+
+  async function uploadAvatar() {
+    if (!pendingFile) return;
+    setUploading(true); setAvatarError(null);
+    try {
+      const res = await authApi.uploadAvatar(pendingFile);
+      patchCurrentUser({ avatar_url: res.data.avatarUrl ?? null });
+      setPendingFile(null);
+      setPreview(null);
+      setAvatarSaved(true);
+      setTimeout(() => setAvatarSaved(false), 2500);
+    } catch (err) {
+      setAvatarError(err instanceof ApiError ? err.message : "Failed to upload image.");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function cancelAvatar() {
+    setPendingFile(null);
+    setPreview(null);
+    setAvatarError(null);
+  }
+
+  async function removeAvatar() {
+    setRemoving(true); setAvatarError(null);
+    try {
+      await authApi.deleteAvatar();
+      patchCurrentUser({ avatar_url: null });
+      setPendingFile(null);
+      setPreview(null);
+    } catch (err) {
+      setAvatarError(err instanceof ApiError ? err.message : "Failed to remove image.");
+    } finally {
+      setRemoving(false);
+    }
+  }
+
+  function submitPassword() {
+    setPwdMsg(null);
+    if (!curPwd || !newPwd || !confirmPwd) {
+      setPwdMsg({ type: "error", text: "Please fill in all three password fields." });
+      return;
+    }
+    if (newPwd.length < 8) {
+      setPwdMsg({ type: "error", text: "New password must be at least 8 characters." });
+      return;
+    }
+    if (newPwd !== confirmPwd) {
+      setPwdMsg({ type: "error", text: "New password and confirmation do not match." });
+      return;
+    }
+    setPwdMsg({ type: "info", text: "Password updates will be enabled once the server supports it." });
+  }
+
   return (
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
       <div>
-        <h1 style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 28, fontWeight: 800 }}>
+        <h1 style={{ fontFamily: mono, fontSize: 28, fontWeight: 800 }}>
           <GradientText>Profile</GradientText>
         </h1>
       </div>
@@ -67,13 +157,20 @@ export function ProfilePage() {
 
       {tab === "overview" && (
         <PixelCard glow gradient style={{ padding: 24 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 18, marginBottom: 24, flexWrap: "wrap" }}>
+            <Avatar src={shownAvatar} name={currentUser.full_name} size={88} />
+            <div>
+              <div style={{ color: C.text, fontFamily: mono, fontSize: 20, fontWeight: 800 }}>{currentUser.full_name}</div>
+              <div style={{ color: C.textMuted, fontFamily: mono, fontSize: 12, marginTop: 4 }}>{currentUser.email}</div>
+            </div>
+          </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 18 }}>
             <Field label="Full Name" value={currentUser.full_name} />
             <Field label="Email" value={currentUser.email} />
             <Field label="Role" badge={<PixelBadge color="blue">{currentUser.role}</PixelBadge>} />
             <Field label="Student Type" badge={currentUser.student_type
               ? <PixelBadge color={currentUser.student_type === 'FPT' ? 'green' : 'cyan'}>{currentUser.student_type}</PixelBadge>
-              : <span style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>—</span>} />
+              : <span style={{ color: C.textMuted, fontFamily: mono, fontSize: 12 }}>—</span>} />
             <Field label="Student ID" value={currentUser.student_id ?? "—"} />
             <Field label="University" value={currentUser.university ?? "—"} />
             {team && (
@@ -88,25 +185,53 @@ export function ProfilePage() {
 
       {tab === "settings" && (
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          {/* Profile photo */}
           <PixelCard style={{ padding: 24 }}>
-            <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", marginBottom: 16 }}>// profile_info</div>
+            <SectionHeading>Profile Photo</SectionHeading>
+            <div style={{ display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap" }}>
+              <Avatar src={shownAvatar} name={currentUser.full_name} size={96} />
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <input ref={fileInputRef} type="file" accept="image/*" onChange={onPickFile} style={{ display: "none" }} />
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                  <PixelButton variant="secondary" onClick={() => fileInputRef.current?.click()}>CHOOSE IMAGE</PixelButton>
+                  {pendingFile && (
+                    <>
+                      <PixelButton variant="cyber" onClick={uploadAvatar} disabled={uploading}>{uploading ? "UPLOADING…" : "UPLOAD"}</PixelButton>
+                      <PixelButton variant="ghost" onClick={cancelAvatar} disabled={uploading}>CANCEL</PixelButton>
+                    </>
+                  )}
+                  {!pendingFile && currentUser.avatar_url && (
+                    <PixelButton variant="danger" onClick={removeAvatar} disabled={removing}>{removing ? "REMOVING…" : "REMOVE PHOTO"}</PixelButton>
+                  )}
+                </div>
+                <div style={{ color: C.textMuted, fontFamily: mono, fontSize: 10 }}>PNG, JPG, GIF or WEBP · up to 5MB</div>
+              </div>
+            </div>
+            {avatarError && (
+              <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.35)", color: C.red, fontFamily: mono, fontSize: 11, padding: "10px 12px", marginTop: 14 }}>ERROR: {avatarError}</div>
+            )}
+            {avatarSaved && (
+              <div style={{ background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.35)", color: C.green, fontFamily: mono, fontSize: 12, padding: "10px 14px", marginTop: 14 }}>✓ Photo updated.</div>
+            )}
+          </PixelCard>
+
+          {/* Profile info */}
+          <PixelCard style={{ padding: 24 }}>
+            <SectionHeading>Profile Info</SectionHeading>
             <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 480 }}>
               <PixelInput label="Full Name" value={fullName} onChange={(e) => setFullName(e.target.value)} />
               {isStudent && (
-                <PixelInput label="Student ID" value={studentId} onChange={(e) => setStudentId(e.target.value)} />
+                <PixelInput label="Student ID" value={studentId} onChange={(e) => setStudentId(e.target.value)} disabled />
               )}
               {isExternal && (
                 <PixelInput label="University" value={university} onChange={(e) => setUniversity(e.target.value)} />
               )}
-              <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 10 }}>
-                Email and account type are managed by the administrator and cannot be changed here.
-              </div>
 
               {error && (
-                <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.35)", color: C.red, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, padding: "10px 12px" }}>ERROR: {error}</div>
+                <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.35)", color: C.red, fontFamily: mono, fontSize: 11, padding: "10px 12px" }}>ERROR: {error}</div>
               )}
               {saved && (
-                <div style={{ background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.35)", color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, padding: "10px 14px" }}>✓ Profile saved.</div>
+                <div style={{ background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.35)", color: C.green, fontFamily: mono, fontSize: 12, padding: "10px 14px" }}>✓ Profile saved.</div>
               )}
               <div>
                 <PixelButton variant="cyber" onClick={save} disabled={saving}>{saving ? "SAVING…" : "SAVE PROFILE"}</PixelButton>
@@ -114,10 +239,24 @@ export function ProfilePage() {
             </div>
           </PixelCard>
 
+          {/* Change password */}
           <PixelCard style={{ padding: 24 }}>
-            <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", marginBottom: 12 }}>// change_password</div>
-            <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>
-              Password change isn't available yet — it requires a backend endpoint. Contact the organizers if you need a reset.
+            <SectionHeading>Change Password</SectionHeading>
+            <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 480 }}>
+              <PixelInput label="Current Password" type="password" showToggle value={curPwd} onChange={(e) => setCurPwd(e.target.value)} />
+              <PixelInput label="New Password" type="password" showToggle value={newPwd} onChange={(e) => setNewPwd(e.target.value)} />
+              <PixelInput label="Confirm New Password" type="password" showToggle value={confirmPwd} onChange={(e) => setConfirmPwd(e.target.value)} />
+              {pwdMsg && (
+                <div style={{
+                  background: pwdMsg.type === "error" ? "rgba(239,68,68,0.08)" : "rgba(59,130,246,0.08)",
+                  border: `1px solid ${pwdMsg.type === "error" ? "rgba(239,68,68,0.35)" : "rgba(59,130,246,0.35)"}`,
+                  color: pwdMsg.type === "error" ? C.red : C.blue,
+                  fontFamily: mono, fontSize: 11, padding: "10px 14px",
+                }}>{pwdMsg.text}</div>
+              )}
+              <div>
+                <PixelButton variant="cyber" onClick={submitPassword}>UPDATE PASSWORD</PixelButton>
+              </div>
             </div>
           </PixelCard>
         </div>
@@ -126,11 +265,41 @@ export function ProfilePage() {
   );
 }
 
+function SectionHeading({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ color: C.green, fontFamily: mono, fontSize: 15, fontWeight: 700, marginBottom: 16 }}>
+      {children}
+    </div>
+  );
+}
+
+function Avatar({ src, name, size }: { src: string | null; name: string; size: number }) {
+  if (src) {
+    return (
+      <img
+        src={src}
+        alt={name}
+        style={{ width: size, height: size, objectFit: "cover", border: `1px solid ${C.border}`, background: C.surface2, borderRadius: 0 }}
+      />
+    );
+  }
+  const initials = name.trim().split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase() ?? "").join("");
+  return (
+    <div style={{
+      width: size, height: size, display: "grid", placeItems: "center",
+      background: "rgba(34,197,94,0.12)", border: `1px solid ${C.border}`,
+      color: C.green, fontFamily: mono, fontSize: size * 0.36, fontWeight: 800,
+    }}>
+      {initials || "?"}
+    </div>
+  );
+}
+
 function Field({ label, value, badge }: { label: string; value?: string; badge?: React.ReactNode }) {
   return (
     <div>
-      <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>{label}</div>
-      {badge ?? <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 14, fontWeight: 600 }}>{value}</div>}
+      <div style={{ color: C.textMuted, fontFamily: mono, fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>{label}</div>
+      {badge ?? <div style={{ color: C.text, fontFamily: mono, fontSize: 14, fontWeight: 600 }}>{value}</div>}
     </div>
   );
 }
