@@ -3,10 +3,6 @@ import { C, GradientText, PixelBadge } from "@/shared/components/PixelComponents
 import { tracksApi, roundsApi, HackathonEvent, Track, Round } from "@/shared/apiClient";
 import { fmtDate, fmtShort } from "../utils/formatters";
 
-// PLACEHOLDER: the API does not yet expose per-track capacity. Until a
-// `maxTeams` field is added to Track, show a fixed placeholder.
-const PLACEHOLDER_MAX_TEAMS = 5;
-
 function roundBadgeColor(status?: string) {
     const s = (status ?? "").toUpperCase();
     if (["ACTIVE", "OPEN", "IN_PROGRESS"].includes(s)) return { bg: "rgba(34,197,94,0.14)", color: "#22c55e", shadow: "0 0 8px rgba(34,197,94,0.35)" };
@@ -54,7 +50,7 @@ export function EventDetailDrawer({
                     >
                         ← Back
                     </button>
-                    <span style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em" }}>// event_detail</span>
+                    <span style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 700 }}>Event Detail</span>
                 </div>
 
                 <div style={{ padding: "24px", display: "flex", flexDirection: "column", gap: 28 }}>
@@ -74,7 +70,7 @@ export function EventDetailDrawer({
 
                     {/* Tracks */}
                     <div>
-                        <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", marginBottom: 14 }}>// available_tracks</div>
+                        <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 700, marginBottom: 14 }}>Available Tracks</div>
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                             {tracks.map(tr => (
                                 <div key={tr.trackId}
@@ -87,12 +83,9 @@ export function EventDetailDrawer({
                                     {tr.description && (
                                         <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, lineHeight: 1.5 }}>{tr.description}</div>
                                     )}
-                                    <div style={{ display: "inline-flex", alignItems: "center", background: "rgba(6,182,212,0.1)", border: "1px solid rgba(6,182,212,0.25)", color: "#06b6d4", fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.08em", padding: "2px 8px", alignSelf: "flex-start" }}>
-                                        Max teams: {PLACEHOLDER_MAX_TEAMS}
-                                    </div>
                                     <button
                                         onClick={() => onCreateTeam(event.eventId, tr.trackId)}
-                                        style={{ marginTop: 4, padding: "8px 10px", background: "rgba(34,197,94,0.08)", border: `1px solid rgba(34,197,94,0.35)`, color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: "0.06em", cursor: "pointer", borderRadius: 0, transition: "background 0.15s, box-shadow 0.15s", textAlign: "center" }}
+                                        style={{ marginTop: "auto", padding: "8px 10px", background: "rgba(34,197,94,0.08)", border: `1px solid rgba(34,197,94,0.35)`, color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: "0.06em", cursor: "pointer", borderRadius: 0, transition: "background 0.15s, box-shadow 0.15s", textAlign: "center" }}
                                         onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(34,197,94,0.16)"; (e.currentTarget as HTMLElement).style.boxShadow = `0 0 10px rgba(34,197,94,0.2)`; }}
                                         onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(34,197,94,0.08)"; (e.currentTarget as HTMLElement).style.boxShadow = "none"; }}
                                     >
@@ -105,7 +98,7 @@ export function EventDetailDrawer({
 
                     {/* Rounds */}
                     <div>
-                        <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", marginBottom: 14 }}>// rounds</div>
+                        <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 700, marginBottom: 14 }}>Rounds</div>
                         <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
                             {rounds.map((r, i) => {
                                 const badge = roundBadgeColor(r.status);
