@@ -18,7 +18,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -42,24 +46,15 @@ public class TeamService {
         HackathonEvent event = eventRepository.findById(request.getEventId())
                 .orElseThrow(() -> new ResourceNotFoundException("Event not found: " + request.getEventId()));
 
+        // Registration is gated purely by event status — OPEN means "accepting
+        // teams". Dates (registrationStart/End) are informational only.
         if (!"OPEN".equalsIgnoreCase(event.getStatus())) {
             throw new BadRequestException("This event is not currently open for registration.");
         }
 
-        LocalDateTime now = LocalDateTime.now();
-        if (event.getRegistrationStart() != null && now.isBefore(event.getRegistrationStart())) {
-            throw new BadRequestException("Registration has not started yet.");
-        }
-        if (event.getRegistrationEnd() != null && now.isAfter(event.getRegistrationEnd())) {
-            throw new BadRequestException("Registration deadline has passed.");
-        }
-
-        Track track = trackRepository.findById(request.getTrackId())
-                .orElseThrow(() -> new ResourceNotFoundException("Track not found: " + request.getTrackId()));
-
-        if (!track.getEvent().getEventId().equals(event.getEventId())) {
-            throw new BadRequestException("The selected track does not belong to the selected event.");
-        }
+        // Teams register WITHOUT a track. Track is assigned later during SETUP —
+        // either the leader self-selects (SELF_SELECT) or the coordinator draws
+        // (RANDOM) — once the roster is frozen and per-track slots are computed.
 
         if (teamRepository.existsByEvent_EventIdAndName(request.getEventId(), request.getName().trim())) {
             throw new BadRequestException("A team named '" + request.getName() + "' already exists in this event.");
@@ -71,7 +66,7 @@ public class TeamService {
 
         Team team = Team.builder()
                 .event(event)
-                .track(track)
+                .track(null)
                 .name(request.getName().trim())
                 .description(request.getDescription())
                 .status("PENDING")
@@ -92,7 +87,7 @@ public class TeamService {
 
     @Transactional(readOnly = true)
     public MyTeamResponse getMyTeam(Integer userId) {
-        List<String> activeStatuses = List.of("OPEN", "IN_PROGRESS");
+        List<String> activeStatuses = List.of("OPEN", "SETUP", "IN_PROGRESS");
         List<TeamMember> myMemberships = teamMemberRepository
                 .findByUser_UserIdAndTeam_Event_StatusIn(userId, activeStatuses);
 
@@ -120,8 +115,10 @@ public class TeamService {
                 .teamId(team.getTeamId())
                 .eventId(team.getEvent().getEventId())
                 .eventName(team.getEvent().getName())
-                .trackName(team.getTrack().getName())
+                .trackName(team.getTrack() != null ? team.getTrack().getName() : null)
                 .name(team.getName())
+                .eventStatus(team.getEvent().getStatus())
+                .trackSelectionMode(team.getEvent().getTrackSelectionMode())
                 .status(team.getStatus())
                 .myRole(membership.getMemberRole())
                 .members(memberInfos)
@@ -331,17 +328,125 @@ public class TeamService {
         return mapToDetailResponse(team);
     }
 
+    // ── Coordinator: Random track draw (SETUP phase) ─────────────────
+
+    /**
+     * Randomly assigns teams to the event's tracks in a balanced way. Only allowed
+     * while the event is in SETUP status (registration closed, tracks not yet locked
+     * for competition). Rejected/disqualified teams are excluded.
+     *
+     * @param includeAssigned when false (default), only teams without a track are
+     *                        drawn (teams that self-selected keep their choice);
+     *                        when true, every eligible team is re-shuffled.
+     */
+    @Transactional
+    public List<TeamResponse> drawTracks(Integer eventId, boolean includeAssigned) {
+        HackathonEvent event = eventRepository.findById(eventId)
+                .orElseThrow(() -> new ResourceNotFoundException("Event not found: " + eventId));
+
+        if (!"SETUP".equalsIgnoreCase(event.getStatus())) {
+            throw new BadRequestException(
+                    "Track draw is only allowed while the event is in SETUP status.");
+        }
+
+        List<Track> tracks = trackRepository.findAllByEvent_EventId(eventId);
+        if (tracks.isEmpty()) {
+            throw new BadRequestException("Cannot draw tracks: the event has no tracks.");
+        }
+
+        // Only approved teams are placed; track capacities were frozen on SETUP entry.
+        List<Team> approved = teamRepository.findAllByEvent_EventIdAndStatus(eventId, "APPROVED");
+
+        Map<Integer, Integer> count = new HashMap<>();
+        tracks.forEach(t -> count.put(t.getTrackId(), 0));
+
+        List<Team> toAssign = new ArrayList<>();
+        for (Team team : approved) {
+            if (includeAssigned) {
+                team.setTrack(null);
+            }
+            if (team.getTrack() == null) {
+                toAssign.add(team);
+            } else {
+                count.merge(team.getTrack().getTrackId(), 1, Integer::sum);
+            }
+        }
+
+        if (toAssign.isEmpty()) {
+            throw new BadRequestException("No unassigned teams to draw.");
+        }
+
+        // Greedy balance: each team goes to the track with the most free slots,
+        // never exceeding capacity. Equivalent to round-robin when starting empty.
+        Collections.shuffle(toAssign);
+        for (Team team : toAssign) {
+            Track best = null;
+            int bestFree = Integer.MIN_VALUE;
+            for (Track t : tracks) {
+                int cap = t.getCapacity() != null ? t.getCapacity() : Integer.MAX_VALUE;
+                int free = cap - count.get(t.getTrackId());
+                if (free > bestFree) {
+                    bestFree = free;
+                    best = t;
+                }
+            }
+            if (best == null || bestFree <= 0) {
+                throw new BadRequestException(
+                        "Not enough track capacity to assign all teams. Re-check tracks or approvals.");
+            }
+            team.setTrack(best);
+            count.merge(best.getTrackId(), 1, Integer::sum);
+        }
+        teamRepository.saveAll(toAssign);
+
+        return toAssign.stream().map(this::mapToTeamResponse).collect(Collectors.toList());
+    }
+
+    /** SELF_SELECT: a team leader picks the team's track during SETUP. */
+    @Transactional
+    public MyTeamResponse selectTrack(Integer userId, Integer teamId, Integer trackId) {
+        Team team = requireLeader(userId, teamId);
+        HackathonEvent event = team.getEvent();
+
+        if (!"SETUP".equalsIgnoreCase(event.getStatus())) {
+            throw new BadRequestException("Track selection is only open during the SETUP phase.");
+        }
+        if (!"SELF_SELECT".equalsIgnoreCase(event.getTrackSelectionMode())) {
+            throw new BadRequestException(
+                    "This event assigns tracks by random draw — leaders cannot pick a track.");
+        }
+        if (!"APPROVED".equalsIgnoreCase(team.getStatus())) {
+            throw new BadRequestException("Only approved teams can select a track.");
+        }
+
+        Track track = trackRepository.findById(trackId)
+                .orElseThrow(() -> new ResourceNotFoundException("Track not found: " + trackId));
+        if (!track.getEvent().getEventId().equals(event.getEventId())) {
+            throw new BadRequestException("The selected track does not belong to this event.");
+        }
+
+        if (track.getCapacity() != null) {
+            long current = teamRepository.findAllByTrack_TrackIdAndStatus(trackId, "APPROVED").stream()
+                    .filter(t -> !t.getTeamId().equals(teamId))
+                    .count();
+            if (current >= track.getCapacity()) {
+                throw new BadRequestException("This track is full. Please choose another track.");
+            }
+        }
+
+        team.setTrack(track);
+        teamRepository.save(team);
+        return getMyTeam(userId);
+    }
+
     // ── Participant: Get active events with tracks ────────────────────
 
     @Transactional(readOnly = true)
     public List<ActiveEventResponse> getActiveEventsWithTracks() {
-        LocalDateTime now = LocalDateTime.now();
+        // OPEN status is the single source of truth for "registration open" — the
+        // list of joinable events matches exactly what createTeam will accept.
         List<HackathonEvent> activeEvents = eventRepository.findAllByStatus("OPEN");
         return activeEvents.stream()
-                // Only OPEN events whose registration window currently includes "now"
-                // — so the create-team list matches what can actually be registered.
-                .filter(event -> event.getRegistrationStart() == null || !now.isBefore(event.getRegistrationStart()))
-                .filter(event -> event.getRegistrationEnd() == null || !now.isAfter(event.getRegistrationEnd()))
                 .map(event -> {
                     List<Track> tracks = trackRepository.findAllByEvent_EventId(event.getEventId());
                     List<TrackResponse> trackResponses = tracks.stream()
@@ -350,6 +455,7 @@ public class TeamService {
                                     .eventId(t.getEvent().getEventId())
                                     .name(t.getName())
                                     .description(t.getDescription())
+                                    .capacity(t.getCapacity())
                                     .build())
                             .collect(Collectors.toList());
                     return ActiveEventResponse.builder()
@@ -376,8 +482,8 @@ public class TeamService {
                 .teamId(team.getTeamId())
                 .eventId(team.getEvent().getEventId())
                 .eventName(team.getEvent().getName())
-                .trackId(team.getTrack().getTrackId())
-                .trackName(team.getTrack().getName())
+                .trackId(team.getTrack() != null ? team.getTrack().getTrackId() : null)
+                .trackName(team.getTrack() != null ? team.getTrack().getName() : null)
                 .name(team.getName())
                 .description(team.getDescription())
                 .status(team.getStatus())
@@ -411,8 +517,8 @@ public class TeamService {
                 .teamId(team.getTeamId())
                 .eventId(team.getEvent().getEventId())
                 .eventName(team.getEvent().getName())
-                .trackId(team.getTrack().getTrackId())
-                .trackName(team.getTrack().getName())
+                .trackId(team.getTrack() != null ? team.getTrack().getTrackId() : null)
+                .trackName(team.getTrack() != null ? team.getTrack().getName() : null)
                 .name(team.getName())
                 .description(team.getDescription())
                 .status(team.getStatus())

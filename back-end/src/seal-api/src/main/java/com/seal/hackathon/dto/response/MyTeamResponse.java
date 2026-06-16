@@ -25,6 +25,13 @@ public class MyTeamResponse {
     private String trackName;
     private String name;
 
+    /** Event lifecycle status (DRAFT/OPEN/SETUP/IN_PROGRESS/...) — drives the
+     *  SETUP-phase track picker for SELF_SELECT events. */
+    private String eventStatus;
+
+    /** SELF_SELECT | RANDOM — whether the leader picks the track or it is drawn. */
+    private String trackSelectionMode;
+
     /** PENDING | APPROVED | REJECTED | DISQUALIFIED */
     private String status;
 
