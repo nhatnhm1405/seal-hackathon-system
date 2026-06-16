@@ -16,7 +16,6 @@ export function TeamCreatePage() {
   const [teamName, setTeamName] = useState("");
   const [description, setDescription] = useState("");
   const [eventId, setEventId] = useState<number>(0);
-  const [trackId, setTrackId] = useState<number>(0);
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,20 +45,17 @@ export function TeamCreatePage() {
     );
   }
 
-  const trackOptions = activeEvents.find(e => e.eventId === eventId)?.tracks ?? [];
-
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!teamName.trim() || !eventId || !trackId) {
-      setError("Team name, event and track are required.");
+    if (!teamName.trim() || !eventId) {
+      setError("Team name and event are required.");
       return;
     }
     setSubmitting(true);
     try {
       await teamsApi.create({
         eventId,
-        trackId,
         name: teamName.trim(),
         description: description.trim() || undefined,
       });
@@ -127,18 +123,16 @@ export function TeamCreatePage() {
 
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 <label style={labelStyle}>Event</label>
-                <select value={eventId} onChange={(e) => { setEventId(Number(e.target.value)); setTrackId(0); }} style={selectStyle}>
+                <select value={eventId} onChange={(e) => setEventId(Number(e.target.value))} style={selectStyle}>
                   <option value={0}>Select event...</option>
                   {activeEvents.map(ev => <option key={ev.eventId} value={ev.eventId}>{ev.name}</option>)}
                 </select>
               </div>
 
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                <label style={labelStyle}>Track</label>
-                <select value={trackId} onChange={(e) => setTrackId(Number(e.target.value))} style={selectStyle} disabled={!eventId}>
-                  <option value={0}>Select track...</option>
-                  {trackOptions.map(t => <option key={t.trackId} value={t.trackId}>{t.name}</option>)}
-                </select>
+              <div style={{ background: "rgba(56,189,248,0.06)", border: "1px solid rgba(56,189,248,0.30)", color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, padding: "10px 12px", lineHeight: 1.5 }}>
+                Your track is assigned after registration closes — either you pick it
+                during the setup phase, or the coordinator draws it randomly, depending
+                on the event.
               </div>
 
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
