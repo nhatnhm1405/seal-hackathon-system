@@ -34,6 +34,7 @@ export function TeamViewPage() {
   const [searching, setSearching] = useState(false);
 
   const [transferTarget, setTransferTarget] = useState<MyTeamMember | null>(null);
+  const [removeTarget, setRemoveTarget] = useState<MyTeamMember | null>(null);
 
   const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
   const [busyReq, setBusyReq] = useState<number | null>(null);
@@ -146,6 +147,7 @@ export function TeamViewPage() {
     try {
       const res = await teamsApi.removeMember(team.teamId, m.userId);
       setTeam(res.data);
+      setRemoveTarget(null);
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Failed to remove member.");
     } finally { setBusy(false); }
@@ -232,7 +234,7 @@ export function TeamViewPage() {
       {/* Members */}
       <PixelCard style={{ padding: 0, overflow: "hidden" }}>
         <div style={{ padding: "14px 18px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
-          <span style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.12em" }}>// members</span>
+          <span style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 700 }}>Members</span>
           {isLeader && memberRows.length < 5 && (
             <PixelButton size="sm" variant="cyber" onClick={() => { setShowInvite(s => !s); setInviteResults([]); setInviteQuery(""); }}>
               {showInvite ? "CLOSE" : "INVITE MEMBER"}
@@ -293,7 +295,7 @@ export function TeamViewPage() {
                         {m.role === 'MEMBER' && (
                           <div style={{ display: "flex", gap: 6 }}>
                             <PixelButton size="sm" variant="ghost" onClick={() => setTransferTarget(m)} disabled={busy}>TRANSFER LEAD</PixelButton>
-                            <PixelButton size="sm" variant="danger" onClick={() => removeMember(m)} disabled={busy}>REMOVE</PixelButton>
+                            <PixelButton size="sm" variant="danger" onClick={() => setRemoveTarget(m)} disabled={busy}>REMOVE</PixelButton>
                           </div>
                         )}
                       </td>
@@ -310,12 +312,12 @@ export function TeamViewPage() {
       {isLeader && (
         <PixelCard glow={joinRequests.length > 0} glowColor="cyan" style={{ padding: 0, overflow: "hidden" }}>
           <div style={{ padding: "14px 18px", borderBottom: `1px solid ${C.border}` }}>
-            <span style={{ color: C.cyan, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.12em" }}>// join_requests</span>
+            <span style={{ color: C.cyan, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 700 }}>Join Requests</span>
           </div>
           {joinRequests.length === 0 ? (
             <div style={{ padding: "14px 18px" }}>
               <p style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, margin: 0 }}>
-                No pending requests. Participants who ask to join will appear here.
+                No pending requests.
               </p>
             </div>
           ) : (
@@ -379,6 +381,26 @@ export function TeamViewPage() {
                 CONFIRM LEAVE
               </PixelButton>
               <PixelButton variant="ghost" onClick={() => setConfirmLeave(false)}>CANCEL</PixelButton>
+            </div>
+          </PixelCard>
+        </div>
+      )}
+
+      {/* Remove member confirmation modal */}
+      {removeTarget && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(7,12,15,0.85)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <PixelCard glow style={{ padding: 32, maxWidth: 440, width: "90%", display: "flex", flexDirection: "column", gap: 20 }}>
+            <div>
+              <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 700, lineHeight: 1.5 }}>
+                Remove <span style={{ color: C.red }}>{removeTarget.memberName}</span> from the team?
+              </div>
+              <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, marginTop: 10, lineHeight: 1.7 }}>
+                They will lose access to this team and can be re-invited later.
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <PixelButton variant="danger" onClick={() => removeMember(removeTarget)} disabled={busy}>CONFIRM REMOVE</PixelButton>
+              <PixelButton variant="ghost" onClick={() => setRemoveTarget(null)} disabled={busy}>CANCEL</PixelButton>
             </div>
           </PixelCard>
         </div>
