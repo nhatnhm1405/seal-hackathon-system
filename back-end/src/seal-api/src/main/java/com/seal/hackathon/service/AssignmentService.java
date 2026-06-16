@@ -6,6 +6,7 @@ import com.seal.hackathon.dto.request.CreateGuestJudgeRequest;
 import com.seal.hackathon.dto.response.JudgeAssignmentResponse;
 import com.seal.hackathon.dto.response.JudgeRosterItemResponse;
 import com.seal.hackathon.dto.response.MentorAssignmentResponse;
+import com.seal.hackathon.dto.response.MentorRosterItemResponse;
 import com.seal.hackathon.dto.response.UserResponse;
 import com.seal.hackathon.entity.JudgeAssignment;
 import com.seal.hackathon.entity.MentorAssignment;
@@ -267,6 +268,30 @@ public class AssignmentService {
         JudgeAssignment assignment = judgeAssignmentRepository.findById(assignmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Judge assignment not found: " + assignmentId));
         judgeAssignmentRepository.delete(assignment);
+    }
+
+    /**
+     * Coordinator roster: all active mentor assignments (mentor -> track) in an event.
+     */
+    @Transactional(readOnly = true)
+    public List<MentorRosterItemResponse> listMentorAssignmentsByEvent(Integer eventId) {
+        return mentorAssignmentRepository.findActiveByEvent(eventId).stream()
+                .map(ma -> MentorRosterItemResponse.builder()
+                        .id(ma.getId())
+                        .mentorUserId(ma.getMentor().getUserId())
+                        .mentorName(ma.getMentor().getFullName())
+                        .trackId(ma.getTrack().getTrackId())
+                        .trackName(ma.getTrack().getName())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    /** Removes a mentor assignment (hard delete so the mentor can be re-assigned later). */
+    @Transactional
+    public void removeMentorAssignment(Integer assignmentId) {
+        MentorAssignment assignment = mentorAssignmentRepository.findById(assignmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Mentor assignment not found: " + assignmentId));
+        mentorAssignmentRepository.delete(assignment);
     }
 
     /**

@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
-import { setToken } from "@/shared/apiClient";
+import { setToken, authApi, PENDING_PROFILE } from "@/shared/apiClient";
+import { useNotifications } from "@/app/providers/NotificationProvider";
 import { C, GradientText, FloatingParticles } from "@/shared/components/PixelComponents";
 
 export function OAuth2RedirectPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { addAuthToast } = useNotifications();
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -23,8 +25,21 @@ export function OAuth2RedirectPage() {
     }
 
     setToken(token, true);
-    navigate("/dashboard", { replace: true });
-  }, [searchParams, navigate]);
+
+    // Mirror the email/password login UX: greet the user with a toast. Fetch the
+    // profile for their name and to tell a first-time sign-up from a returning user.
+    authApi.me()
+      .then(res => {
+        const u = res.data;
+        if (u.userType === PENDING_PROFILE) {
+          addAuthToast({ type: 'success', title: 'WELCOME', message: 'Complete your profile to get started.' });
+        } else {
+          addAuthToast({ type: 'success', title: 'WELCOME BACK', message: `Authenticated as ${u.fullName}` });
+        }
+      })
+      .catch(() => addAuthToast({ type: 'success', title: 'WELCOME BACK', message: 'You are signed in.' }))
+      .finally(() => navigate("/dashboard", { replace: true }));
+  }, [searchParams, navigate, addAuthToast]);
 
   return (
     <div

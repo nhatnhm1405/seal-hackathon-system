@@ -7,6 +7,7 @@ import {
   FloatingParticles,
 } from "@/shared/components/PixelComponents";
 import { SealFooter } from "@/shared/components/SealFooter";
+import { useForceDark } from "@/app/providers/ThemeProvider";
 import sealLogo from "@/imports/image.png";
 
 const mono = "'JetBrains Mono', monospace";
@@ -63,6 +64,7 @@ function PageHeader() {
 }
 
 export function AboutPage() {
+  useForceDark(); // public marketing page is designed dark-only
   return (
     <div style={{ background: C.bg, minHeight: "100vh" }}>
       <PageHeader />

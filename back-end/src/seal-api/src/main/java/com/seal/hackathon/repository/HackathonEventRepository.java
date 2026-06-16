@@ -6,7 +6,13 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
-@Repository
 public interface HackathonEventRepository extends JpaRepository<HackathonEvent, Integer> {
+
     List<HackathonEvent> findAllByStatus(String status);
+
+    boolean existsByYearAndSeasonIgnoreCaseAndStatusNotIgnoreCase(
+            Integer year,
+            String season,
+            String status
+    );
 }

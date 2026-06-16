@@ -26,6 +26,8 @@ public class RoundResultService {
     private final ScoringCriteriaRepository criteriaRepository;
     private final UserRepository userRepository;
     private final HackathonEventRepository eventRepository;
+    private final TeamMemberRepository teamMemberRepository;
+    private final NotificationService notificationService;
 
     // ── Get leaderboard (published results only) ──────────────────────
 
@@ -136,7 +138,7 @@ public class RoundResultService {
 
     @Transactional
     public List<RoundResultResponse> publishResults(Integer eventId, Integer roundId) {
-        roundRepository.findByIdAndEventId(roundId, eventId)
+        var round = roundRepository.findByIdAndEventId(roundId, eventId)
                 .orElseThrow(() -> new ResourceNotFoundException("Round not found: " + roundId));
 
         List<RoundResult> results = resultRepository.findAllByRound_RoundIdOrderByRankPosition(roundId);
@@ -144,8 +146,22 @@ public class RoundResultService {
             throw new BadRequestException("No results to publish. Please finalize the round first.");
         }
 
+        List<RoundResult> newlyPublished = results.stream()
+                .filter(r -> !Boolean.TRUE.equals(r.getIsPublished()))
+                .collect(Collectors.toList());
         results.forEach(r -> r.setIsPublished(true));
         resultRepository.saveAll(results);
+        newlyPublished.forEach(this::notifyTeamResultPublished);
+
+        // Notify each ranked team that results are out.
+        String roundName = round.getName();
+        results.forEach(r -> teamMemberRepository.findByTeam_TeamId(r.getTeam().getTeamId())
+                .forEach(m -> notificationService.createNotification(
+                        m.getUser().getUserId(),
+                        "Results published",
+                        "Results for \"" + roundName + "\" are out — your team ranked #"
+                                + r.getRankPosition() + (isAdvanced(r) ? " and advanced!" : "."),
+                        "RESULT")));
 
         return results.stream().map(this::mapToResponse).collect(Collectors.toList());
     }
@@ -178,5 +194,21 @@ public class RoundResultService {
     private boolean isAdvanced(RoundResult r) {
         Integer topN = r.getRound().getTopNAdvance();
         return topN != null && r.getRankPosition() <= topN;
+    }
+
+    private void notifyTeamResultPublished(RoundResult result) {
+        String content = "Results for round '" + result.getRound().getName() + "' have been published. " +
+                "Team '" + result.getTeam().getName() + "' ranked #" + result.getRankPosition() + ".";
+        if (isAdvanced(result)) {
+            content += " Your team advanced to the next round.";
+        }
+        String notificationContent = content;
+        teamMemberRepository.findByTeam_TeamId(result.getTeam().getTeamId())
+                .forEach(member -> notificationService.createNotification(
+                        member.getUser().getUserId(),
+                        "Round results published",
+                        notificationContent,
+                        "RESULT_PUBLISHED"
+                ));
     }
 }

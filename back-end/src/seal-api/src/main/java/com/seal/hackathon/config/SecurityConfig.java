@@ -74,6 +74,8 @@ public class SecurityConfig {
                 // Coordinator runs the COMPETITION: events, rounds, approvals, assignments
                 .requestMatchers("/api/coordinator/**").hasRole("EVENT_COORDINATOR")
                 .requestMatchers("/api/account-approvals/**").hasRole("EVENT_COORDINATOR")
+                // Join requests — participants only; leader checks happen in service
+                .requestMatchers("/api/join-requests/**").hasRole("PARTICIPANT")
                 // Participants access team and submission endpoints
                 .requestMatchers("/api/teams/**", "/api/submissions/**")
                     .hasAnyRole("PARTICIPANT", "EVENT_COORDINATOR")
@@ -85,6 +87,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/notifications/**").authenticated()
                 // Invitations — participants
                 .requestMatchers("/api/invites/**").hasAnyRole("PARTICIPANT", "EVENT_COORDINATOR")
+                // Join requests — participants
+                .requestMatchers("/api/join-requests/**").hasRole("PARTICIPANT")
                 // Round results — public for published, coordinator for all
                 .requestMatchers("/api/events/*/rounds/*/results/**").authenticated()
                 // Everything else must be authenticated

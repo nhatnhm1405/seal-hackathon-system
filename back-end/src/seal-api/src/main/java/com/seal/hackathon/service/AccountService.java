@@ -2,10 +2,12 @@ package com.seal.hackathon.service;
 
 import com.seal.hackathon.dto.response.UserResponse;
 import com.seal.hackathon.entity.User;
+import com.seal.hackathon.event.AccountApprovalEmailEvent;
 import com.seal.hackathon.exception.BadRequestException;
 import com.seal.hackathon.exception.ResourceNotFoundException;
 import com.seal.hackathon.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,10 +16,12 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-public class AccountApprovalService {
+public class AccountService {
 
     private final UserRepository userRepository;
     private final AuthService authService; // reuse the mapping helper
+    private final ApplicationEventPublisher eventPublisher;
+    private final NotificationService notificationService;
 
     // ---------------------------------------------------------------
     // List pending approvals
@@ -44,6 +48,24 @@ public class AccountApprovalService {
 
         user.setIsApproved(true);
         userRepository.save(user);
+        notificationService.createNotification(
+                user.getUserId(),
+                "Account approved",
+                "Your account has been approved. You can now access SEAL Hackathon.",
+                "ACCOUNT_APPROVED"
+        );
+        eventPublisher.publishEvent(new AccountApprovalEmailEvent(
+                user.getEmail(),
+                user.getFullName(),
+                true
+        ));
+        // Rejected users have is_active=false and cannot log in, so an in-app
+        // notification only makes sense for approvals (they get an email either way).
+        notificationService.createNotification(
+                user.getUserId(),
+                "Account approved",
+                "Your account has been approved. Welcome to SEAL Hackathon!",
+                "ACCOUNT");
         return authService.mapToUserResponse(user);
     }
 
@@ -64,6 +86,11 @@ public class AccountApprovalService {
         user.setIsApproved(false);
         user.setIsActive(false);
         userRepository.save(user);
+        eventPublisher.publishEvent(new AccountApprovalEmailEvent(
+                user.getEmail(),
+                user.getFullName(),
+                false
+        ));
         return authService.mapToUserResponse(user);
     }
 

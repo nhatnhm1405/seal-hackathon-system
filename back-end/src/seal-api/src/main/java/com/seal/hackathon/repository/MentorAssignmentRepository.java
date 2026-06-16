@@ -27,4 +27,13 @@ public interface MentorAssignmentRepository extends JpaRepository<MentorAssignme
     boolean existsByMentor_UserIdAndTrack_TrackId(Integer mentorUserId, Integer trackId);
 
     List<MentorAssignment> findAllByTrack_TrackIdAndIsActiveTrue(Integer trackId);
+
+    /** Coordinator roster: all active mentor assignments in an event. */
+    @Query("SELECT ma FROM MentorAssignment ma " +
+           "JOIN FETCH ma.track t " +
+           "JOIN FETCH ma.mentor m " +
+           "WHERE t.event.eventId = :eventId " +
+           "AND ma.isActive = true " +
+           "ORDER BY ma.id DESC")
+    List<MentorAssignment> findActiveByEvent(@Param("eventId") Integer eventId);
 }

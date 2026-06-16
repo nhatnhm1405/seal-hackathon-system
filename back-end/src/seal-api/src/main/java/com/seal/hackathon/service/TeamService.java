@@ -30,6 +30,7 @@ public class TeamService {
     private final HackathonEventRepository eventRepository;
     private final TrackRepository trackRepository;
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     // ── Participant: Create team ──────────────────────────────────────
 
@@ -107,7 +108,11 @@ public class TeamService {
                 .map(m -> MyTeamResponse.TeamMemberInfo.builder()
                         .userId(m.getUser().getUserId())
                         .memberName(m.getUser().getFullName())
+                        .email(m.getUser().getEmail())
+                        .studentType(m.getUser().getUserType())
+                        .studentId(m.getUser().getStudentId())
                         .role(m.getMemberRole())
+                        .joinedAt(m.getJoinedAt())
                         .build())
                 .collect(Collectors.toList());
 
@@ -271,6 +276,13 @@ public class TeamService {
         }
         team.setStatus("APPROVED");
         teamRepository.save(team);
+        notifyTeamMembers(
+                team,
+                "Team approved",
+                "Your team '" + team.getName() + "' has been approved for " +
+                        team.getEvent().getName() + ".",
+                "TEAM_APPROVED"
+        );
         return mapToDetailResponse(team);
     }
 
@@ -285,6 +297,14 @@ public class TeamService {
             team.setDisqualifiedReason(request.getReason());
         }
         teamRepository.save(team);
+        String reason = team.getDisqualifiedReason();
+        notifyTeamMembers(
+                team,
+                "Team rejected",
+                "Your team '" + team.getName() + "' was rejected." +
+                        (reason != null && !reason.isBlank() ? " Reason: " + reason : ""),
+                "TEAM_REJECTED"
+        );
         return mapToDetailResponse(team);
     }
 
@@ -300,6 +320,14 @@ public class TeamService {
         }
         team.setDisqualifiedAt(LocalDateTime.now());
         teamRepository.save(team);
+        String reason = team.getDisqualifiedReason();
+        notifyTeamMembers(
+                team,
+                "Team disqualified",
+                "Your team '" + team.getName() + "' was disqualified." +
+                        (reason != null && !reason.isBlank() ? " Reason: " + reason : ""),
+                "TEAM_DISQUALIFIED"
+        );
         return mapToDetailResponse(team);
     }
 
@@ -355,6 +383,16 @@ public class TeamService {
                 .status(team.getStatus())
                 .createdAt(team.getCreatedAt())
                 .build();
+    }
+
+    private void notifyTeamMembers(Team team, String title, String content, String type) {
+        teamMemberRepository.findByTeam_TeamId(team.getTeamId())
+                .forEach(member -> notificationService.createNotification(
+                        member.getUser().getUserId(),
+                        title,
+                        content,
+                        type
+                ));
     }
 
     private TeamDetailResponse mapToDetailResponse(Team team) {

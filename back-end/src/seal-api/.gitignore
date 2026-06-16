@@ -4,9 +4,8 @@ target/
 !**/src/main/**/target/
 !**/src/test/**/target/
 
-# Machine-specific: real DB password + OAuth2 client secrets.
-# Use application.properties.example as the template.
-src/main/resources/application.properties
+# Local secrets (OAuth2 client id/secret, DB password, mail) — share via chat, never commit.
+.env
 
 ### STS ###
 .apt_generated

@@ -4,11 +4,13 @@ import com.seal.hackathon.dto.request.LoginRequest;
 import com.seal.hackathon.dto.request.RegisterRequest;
 import com.seal.hackathon.dto.response.AuthResponse;
 import com.seal.hackathon.dto.response.UserResponse;
+import com.seal.hackathon.entity.TeamMember;
 import com.seal.hackathon.entity.User;
 import com.seal.hackathon.exception.BadRequestException;
 import com.seal.hackathon.exception.ForbiddenException;
 import com.seal.hackathon.exception.ResourceNotFoundException;
 import com.seal.hackathon.exception.UnauthorizedException;
+import com.seal.hackathon.repository.TeamMemberRepository;
 import com.seal.hackathon.repository.UserRepository;
 import com.seal.hackathon.security.JwtService;
 import com.seal.hackathon.security.UserPrincipal;
@@ -25,6 +27,7 @@ import java.util.stream.Collectors;
 public class AuthService {
 
     private final UserRepository userRepository;
+    private final TeamMemberRepository teamMemberRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
 
@@ -121,7 +124,10 @@ public class AuthService {
     public UserResponse getCurrentUser(String email) {
         User user = userRepository.findByEmailWithRoles(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found."));
-        return mapToUserResponse(user);
+
+        UserResponse response = mapToUserResponse(user);
+        enrichCurrentTeamInfo(response, user.getUserId());
+        return response;
     }
 
     /**
@@ -215,6 +221,7 @@ public class AuthService {
                 .email(user.getEmail())
                 .fullName(user.getFullName())
                 .userType(user.getUserType())
+                .judgeType(user.getJudgeType())
                 .studentId(user.getStudentId())
                 .university(user.getUniversity())
                 .judgeType(user.getJudgeType())
@@ -226,5 +233,32 @@ public class AuthService {
                 .roles(roles)
                 .createdAt(user.getCreatedAt())
                 .build();
+    }
+
+    private void enrichCurrentTeamInfo(UserResponse response, Integer userId) {
+        List<TeamMember> memberships = teamMemberRepository.findByUser_UserIdOrderByIdDesc(userId);
+        if (memberships.isEmpty()) {
+            return;
+        }
+
+        TeamMember membership = memberships.stream()
+                .filter(this::isActiveEventMembership)
+                .findFirst()
+                .orElse(memberships.get(0));
+
+        response.setTeamId(membership.getTeam().getTeamId());
+        response.setIsLeader(normalizeTeamRole(membership));
+    }
+
+    private boolean isActiveEventMembership(TeamMember membership) {
+        String status = membership.getTeam().getEvent().getStatus();
+        return "OPEN".equalsIgnoreCase(status) || "IN_PROGRESS".equalsIgnoreCase(status);
+    }
+
+    private String normalizeTeamRole(TeamMember membership) {
+        if ("LEADER".equalsIgnoreCase(membership.getMemberRole())) {
+            return "LEADER";
+        }
+        return "MEMBER";
     }
 }

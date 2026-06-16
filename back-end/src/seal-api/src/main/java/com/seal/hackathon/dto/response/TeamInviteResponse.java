@@ -16,6 +16,8 @@ public class TeamInviteResponse {
     private Integer teamId;
     private String teamName;
     private String eventName;
+    private String trackName;
+    private String teamStatus;
     private Integer invitedUserId;
     private String invitedUserName;
     private Integer invitedById;

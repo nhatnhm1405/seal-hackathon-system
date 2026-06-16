@@ -19,7 +19,10 @@ public class CreateEventRequest {
 
     private String description;
 
+    @NotNull(message = "Registration start date is required")
     private LocalDateTime registrationStart;
+
+    @NotNull(message = "Registration end date is required")
     private LocalDateTime registrationEnd;
 
     @NotNull(message = "Start date is required")
