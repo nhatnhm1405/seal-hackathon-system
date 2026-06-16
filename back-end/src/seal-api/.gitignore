@@ -4,6 +4,9 @@ target/
 !**/src/main/**/target/
 !**/src/test/**/target/
 
+# Local secrets (OAuth2 client id/secret, DB password, mail) — share via chat, never commit.
+.env
+
 ### STS ###
 .apt_generated
 .classpath
