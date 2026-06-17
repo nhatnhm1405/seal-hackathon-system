@@ -41,11 +41,15 @@ public class HackathonEventService {
     //
     // SETUP = registration closed; coordinator locks/draws teams into tracks
     // before competition starts. SETUP may fall back to OPEN to reopen registration.
+    // NOTE: IN_PROGRESS -> COMPLETED is intentionally NOT in this map. Completing
+    // an event is a System-Admin-only action handled by the dedicated
+    // completeEvent()/POST /complete path, so the generic PUT (reachable by a
+    // Coordinator) can never complete an event (it would 400 here).
     private static final Map<String, Set<String>> TRANSITIONS = Map.of(
             "DRAFT",       Set.of("OPEN", "CANCELLED"),
             "OPEN",        Set.of("SETUP", "CANCELLED"),
             "SETUP",       Set.of("IN_PROGRESS", "OPEN", "CANCELLED"),
-            "IN_PROGRESS", Set.of("COMPLETED", "CANCELLED"),
+            "IN_PROGRESS", Set.of("CANCELLED"),
             "COMPLETED",   Set.of(),
             "CANCELLED",   Set.of("DRAFT")
     );
@@ -166,6 +170,43 @@ public class HackathonEventService {
         requireValidDates(event.getRegistrationStart(), event.getRegistrationEnd(),
                 event.getStartDate(), event.getEndDate());
 
+        event = hackathonEventRepository.save(event);
+        return mapToResponse(event);
+    }
+
+    /**
+     * Completes a running event (IN_PROGRESS -> COMPLETED). System-Admin-only
+     * dedicated path — deliberately separate from {@link #updateEvent} (whose
+     * TRANSITIONS map no longer allows IN_PROGRESS -> COMPLETED) so a
+     * Coordinator's generic PUT can never complete an event.
+     */
+    @Transactional
+    public HackathonEventResponse completeEvent(Integer eventId) {
+        HackathonEvent event = hackathonEventRepository.findById(eventId)
+                .orElseThrow(() -> new ResourceNotFoundException("Event not found: " + eventId));
+        if (!"IN_PROGRESS".equalsIgnoreCase(event.getStatus())) {
+            throw new BadRequestException("Only an IN_PROGRESS event can be completed.");
+        }
+        event.setStatus("COMPLETED");
+        event = hackathonEventRepository.save(event);
+        return mapToResponse(event);
+    }
+
+    /**
+     * Reopens a COMPLETED event back to IN_PROGRESS. This is the System Admin's
+     * dedicated path — deliberately separate from {@link #updateEvent} because
+     * the normal TRANSITIONS map blocks COMPLETED -> * (so a Coordinator's PUT
+     * can never reopen). Only callable from the admin-guarded /reopen endpoint
+     * (and the reopen-request approval flow).
+     */
+    @Transactional
+    public HackathonEventResponse reopenEvent(Integer eventId) {
+        HackathonEvent event = hackathonEventRepository.findById(eventId)
+                .orElseThrow(() -> new ResourceNotFoundException("Event not found: " + eventId));
+        if (!"COMPLETED".equalsIgnoreCase(event.getStatus())) {
+            throw new BadRequestException("Only a COMPLETED event can be reopened.");
+        }
+        event.setStatus("IN_PROGRESS");
         event = hackathonEventRepository.save(event);
         return mapToResponse(event);
     }
