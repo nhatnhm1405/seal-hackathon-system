@@ -29,6 +29,7 @@ import { CoordAccountsPage } from "@/features/users/CoordAccountsPage";
 import { CoordTeamsPage } from "@/features/teams/CoordTeamsPage";
 import { CoordJudgesPage } from "@/features/scoring/CoordJudgesPage";
 import { CoordScoringPage } from "@/features/scoring/CoordScoringPage";
+import { AdminEventsPage } from "@/features/events/AdminEventsPage";
 import { AdminAccountsPage } from "@/features/users/AdminAccountsPage";
 import { AdminRolesPage } from "@/features/users/AdminRolesPage";
 import { AdminSystemLogsPage } from "@/features/users/AdminSystemLogsPage";
@@ -186,6 +187,10 @@ export const router = createBrowserRouter([
                   {
                     path: "/admin/dashboard",
                     Component: RoleDashboardPage,
+                  },
+                  {
+                    path: "/admin/events",
+                    Component: AdminEventsPage,
                   },
                   {
                     path: "/admin/accounts",

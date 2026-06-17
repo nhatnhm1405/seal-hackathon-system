@@ -357,6 +357,63 @@ export const eventsApi = {
       method: 'PUT',
       body: JSON.stringify(payload),
     }),
+
+  // Complete a running event (IN_PROGRESS → COMPLETED). Backend: SYSTEM_ADMIN
+  // only — a Coordinator token gets 403 here.
+  complete: (eventId: number) =>
+    apiFetch<ApiResponse<HackathonEvent>>(`/api/events/${eventId}/complete`, {
+      method: 'POST',
+    }),
+
+  // Reopen a COMPLETED event (COMPLETED → IN_PROGRESS). Backend: SYSTEM_ADMIN
+  // only — a Coordinator token gets 403 here.
+  reopen: (eventId: number) =>
+    apiFetch<ApiResponse<HackathonEvent>>(`/api/events/${eventId}/reopen`, {
+      method: 'POST',
+    }),
+};
+
+// ── Reopen Requests ────────────────────────────────────────────────
+// Coordinator asks an Admin to reopen a COMPLETED event (Coordinators cannot
+// reopen themselves). Admin reviews the queue and approves (→ reopens) / rejects.
+
+export interface ReopenRequest {
+  requestId: number;
+  eventId: number;
+  eventName?: string;
+  requestedById: number;
+  requesterName?: string;
+  requesterEmail?: string;
+  reason?: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  resolvedById?: number;
+  resolverName?: string;
+  createdAt: string;
+  resolvedAt?: string;
+}
+
+export const reopenRequestsApi = {
+  // Coordinator: file a reopen request for a COMPLETED event.
+  create: (eventId: number, reason?: string) =>
+    apiFetch<ApiResponse<ReopenRequest>>(`/api/events/${eventId}/reopen-requests`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    }),
+
+  // Latest request for an event (data may be null) — used to show "awaiting
+  // admin review" instead of a fresh request button.
+  getForEvent: (eventId: number) =>
+    apiFetch<ApiResponse<ReopenRequest | null>>(`/api/events/${eventId}/reopen-requests`),
+
+  // Admin: pending review queue.
+  getPending: () =>
+    apiFetch<ApiResponse<ReopenRequest[]>>('/api/admin/reopen-requests'),
+
+  approve: (requestId: number) =>
+    apiFetch<ApiResponse<ReopenRequest>>(`/api/admin/reopen-requests/${requestId}/approve`, { method: 'POST' }),
+
+  reject: (requestId: number) =>
+    apiFetch<ApiResponse<ReopenRequest>>(`/api/admin/reopen-requests/${requestId}/reject`, { method: 'POST' }),
 };
 
 // ── Tracks ────────────────────────────────────────────────────────

@@ -59,6 +59,7 @@ function buildNav(role: string, isLeader: boolean, teamId: number | null, pendin
   if (role === "ADMIN") {
     return [
       { path: "/admin/dashboard", label: "Dashboard"   },
+      { path: "/admin/events",    label: "Events"      },
       { path: "/admin/accounts",  label: "Accounts"    },
       { path: "/admin/roles",     label: "Role Grants" },
       { path: "/admin/logs",      label: "System Logs" },
@@ -83,6 +84,7 @@ function getPageTitle(pathname: string): string {
   const map: Record<string, string> = {
     "/dashboard": "Dashboard",
     "/admin/dashboard": "Dashboard",
+    "/admin/events": "Events",
     "/admin/accounts": "Accounts",
     "/admin/roles": "Role Grants",
     "/admin/logs": "System Logs",

@@ -1,24 +1,23 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, ReactNode } from "react";
 import {
   C, GradientText, PixelCard, PixelButton, PixelBadge, PixelInput, PixelTabs,
 } from "@/shared/components/PixelComponents";
-import { apiFetch, ApiError } from "@/shared/apiClient";
+import { apiFetch, ApiError, reopenRequestsApi, type ReopenRequest } from "@/shared/apiClient";
+import { ConfirmDialog, type ConfirmVariant } from "@/shared/components/ConfirmDialog";
+import { usePermissions } from "@/shared/permissions";
+import { useNotifications } from "@/app/providers/NotificationProvider";
+import {
+  EventStatus, TrackMode, EventRow, ApiEvent,
+  normalizeEvent, eventStatusBadge, eventMeta, nextStatusActions, statusChangeCopy, pickDefaultEvent,
+} from "@/features/events/eventUtils";
 
-// ── API shapes (tolerate camelCase + snake_case from the backend) ─────
-interface ApiEvent {
-  id?: number; eventId?: number; event_id?: number;
-  name?: string;
-  season?: string;
-  year?: number;
-  description?: string | null;
-  registrationStart?: string; registration_start?: string;
-  registrationEnd?: string; registration_end?: string;
-  startDate?: string; start_date?: string;
-  endDate?: string; end_date?: string;
-  status?: string;
-  trackSelectionMode?: string; track_selection_mode?: string;
-}
+// Coordinator's event console. Coordinators run an event's forward lifecycle
+// (OPEN → SETUP → IN_PROGRESS → COMPLETED) and configure tracks/rounds/criteria,
+// but they CANNOT create an event (Admin does) and CANNOT reopen a COMPLETED one
+// — for a completed event they file a reopen request for the Admin to approve.
+// Every status change is gated behind a confirmation dialog.
 
+// ── Detail API shapes (track/round/criteria stay local to this page) ──
 interface ApiTrack {
   id?: number; trackId?: number; track_id?: number;
   eventId?: number; event_id?: number;
@@ -47,27 +46,6 @@ interface ApiCriteria {
   orderNumber?: number; order_number?: number;
 }
 
-// ── Normalized rows the UI renders ────────────────────────────────────
-// Event status enum per backend schema (HackathonEvent.status):
-// DRAFT, OPEN, SETUP, IN_PROGRESS, COMPLETED, CANCELLED.
-// SETUP = registration closed; coordinator draws/locks teams into tracks
-// before competition starts.
-type EventStatus = 'DRAFT' | 'OPEN' | 'SETUP' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
-type TrackMode = 'SELF_SELECT' | 'RANDOM';
-
-interface EventRow {
-  eventId: number;
-  name: string;
-  season: string;
-  year: number | null;
-  registrationStart: string;
-  registrationEnd: string;
-  startDate: string;
-  endDate: string;
-  status: EventStatus;
-  trackSelectionMode: TrackMode;
-}
-
 interface TrackRow {
   trackId: number;
   name: string;
@@ -92,22 +70,6 @@ interface CriteriaRow {
   weight: number;
   maxScore: number;
   orderNumber: number;
-}
-
-function normalizeEvent(item: ApiEvent): EventRow {
-  const status = (item.status ?? 'DRAFT').toUpperCase();
-  return {
-    eventId:           item.id ?? item.eventId ?? item.event_id ?? 0,
-    name:              item.name ?? '',
-    season:            item.season ?? '',
-    year:              item.year ?? null,
-    registrationStart: item.registrationStart ?? item.registration_start ?? '',
-    registrationEnd:   item.registrationEnd ?? item.registration_end ?? '',
-    startDate:         item.startDate ?? item.start_date ?? '',
-    endDate:           item.endDate ?? item.end_date ?? '',
-    status:            (['DRAFT', 'OPEN', 'SETUP', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'].includes(status) ? status : 'DRAFT') as EventStatus,
-    trackSelectionMode: ((item.trackSelectionMode ?? item.track_selection_mode ?? 'SELF_SELECT').toUpperCase() === 'RANDOM' ? 'RANDOM' : 'SELF_SELECT') as TrackMode,
-  };
 }
 
 function normalizeTrack(item: ApiTrack): TrackRow {
@@ -142,30 +104,21 @@ function normalizeCriteria(item: ApiCriteria): CriteriaRow {
   };
 }
 
-function eventStatusBadge(status: EventStatus) {
-  if (status === 'OPEN')        return <PixelBadge color="green">OPEN</PixelBadge>;
-  if (status === 'SETUP')       return <PixelBadge color="yellow">SETUP</PixelBadge>;
-  if (status === 'IN_PROGRESS') return <PixelBadge color="cyan">IN_PROGRESS</PixelBadge>;
-  if (status === 'COMPLETED')   return <PixelBadge color="blue">COMPLETED</PixelBadge>;
-  if (status === 'CANCELLED')   return <PixelBadge color="red">CANCELLED</PixelBadge>;
-  return <PixelBadge color="gray">DRAFT</PixelBadge>;
-}
-
-// Lifecycle per schema: DRAFT → OPEN (registration) → SETUP (registration closed,
-// draw tracks) → IN_PROGRESS (running) → COMPLETED. An event may be CANCELLED from
-// any non-terminal state, or a cancelled event reopened back to DRAFT.
-function nextStatusActions(status: EventStatus): { label: string; next: EventStatus; variant: "cyber" | "secondary" | "danger" }[] {
-  switch (status) {
-    case 'DRAFT':       return [{ label: 'OPEN EVENT', next: 'OPEN', variant: 'cyber' }, { label: 'CANCEL', next: 'CANCELLED', variant: 'danger' }];
-    case 'OPEN':        return [{ label: 'CLOSE REGISTRATION', next: 'SETUP', variant: 'cyber' }, { label: 'CANCEL', next: 'CANCELLED', variant: 'danger' }];
-    case 'SETUP':       return [{ label: 'START EVENT', next: 'IN_PROGRESS', variant: 'cyber' }, { label: 'REOPEN REGISTRATION', next: 'OPEN', variant: 'secondary' }, { label: 'CANCEL', next: 'CANCELLED', variant: 'danger' }];
-    case 'IN_PROGRESS': return [{ label: 'COMPLETE EVENT', next: 'COMPLETED', variant: 'cyber' }, { label: 'CANCEL', next: 'CANCELLED', variant: 'danger' }];
-    case 'COMPLETED':   return [];
-    case 'CANCELLED':   return [{ label: 'REOPEN', next: 'DRAFT', variant: 'secondary' }];
-  }
+// A queued action awaiting confirmation in the dialog.
+interface PendingAction {
+  title: string;
+  message: ReactNode;
+  warning?: ReactNode;
+  confirmLabel: string;
+  variant: ConfirmVariant;
+  withReason?: boolean;          // show optional reason textarea (reopen request)
+  run: (reason?: string) => Promise<void>;
 }
 
 export function CoordEventsPage() {
+  const { canChangeEventStatus, canCompleteEvent, canRequestReopen } = usePermissions();
+  const { addToast } = useNotifications();
+
   const [events, setEvents] = useState<EventRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -175,8 +128,6 @@ export function CoordEventsPage() {
 
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
   const [detailTab, setDetailTab] = useState<string>("tracks");
-
-  const [showCreate, setShowCreate] = useState(false);
 
   // Detail data for the selected event
   const [tracks, setTracks] = useState<TrackRow[]>([]);
@@ -190,26 +141,14 @@ export function CoordEventsPage() {
   const [criteriaLoading, setCriteriaLoading] = useState(false);
   const [criteriaError, setCriteriaError] = useState<string | null>(null);
 
-  // Create-event form
-  const [evName, setEvName] = useState("");
-  const [evSeason, setEvSeason] = useState<'SPRING' | 'SUMMER' | 'FALL'>("SPRING");
-  const [evYear, setEvYear] = useState(String(new Date().getFullYear()));
-  const [evRegStart, setEvRegStart] = useState("");
-  const [evRegEnd, setEvRegEnd] = useState("");
-  const [evStart, setEvStart] = useState("");
-  const [evEnd, setEvEnd] = useState("");
-  const [evMode, setEvMode] = useState<TrackMode>("SELF_SELECT");
-  const [creating, setCreating] = useState(false);
+  // Confirmation dialog state (shared by every status change + reopen request).
+  const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
+  const [actionWorking, setActionWorking] = useState(false);
+  const [dialogError, setDialogError] = useState<string | null>(null);
+  const [reason, setReason] = useState("");
 
-  // Tracks + rounds staged inside the create-event form, POSTed after the
-  // event is created (they need the new event_id from the API response).
-  const [draftTracks, setDraftTracks] = useState<{ name: string; description: string }[]>([]);
-  const [draftRounds, setDraftRounds] = useState<{ name: string; submissionDeadline: string; topNAdvance: number }[]>([]);
-  const [ntName, setNtName] = useState("");
-  const [ntDesc, setNtDesc] = useState("");
-  const [nrName, setNrName] = useState("");
-  const [nrDeadline, setNrDeadline] = useState("");
-  const [nrTopN, setNrTopN] = useState(3);
+  // Latest reopen request for the selected (COMPLETED) event, if any.
+  const [reopenReq, setReopenReq] = useState<ReopenRequest | null>(null);
 
   // Track form
   const [trkName, setTrkName] = useState("");
@@ -239,7 +178,9 @@ export function CoordEventsPage() {
       .then(res => {
         const rows = (res.data ?? []).map(normalizeEvent);
         setEvents(rows);
-        setSelectedEventId(prev => prev ?? rows[0]?.eventId ?? null);
+        // Default-highlight the running event (or the most recently finished one);
+        // only on first load — `prev ??` keeps the actor's manual selection.
+        setSelectedEventId(prev => prev ?? pickDefaultEvent(rows)?.eventId ?? null);
       })
       .catch(err => setFetchError(err instanceof ApiError ? err.message : "Failed to load events."))
       .finally(() => setLoading(false));
@@ -267,6 +208,17 @@ export function CoordEventsPage() {
       .finally(() => setDetailLoading(false));
   }, [selectedEventId]);
 
+  // ── Load latest reopen request for a COMPLETED event ──────────────
+  useEffect(() => {
+    setReopenReq(null);
+    if (!selectedEvent || selectedEvent.status !== 'COMPLETED' || !canRequestReopen) return;
+    let cancelled = false;
+    reopenRequestsApi.getForEvent(selectedEvent.eventId)
+      .then(res => { if (!cancelled) setReopenReq(res.data ?? null); })
+      .catch(() => { /* non-fatal — button just defaults to "request" */ });
+    return () => { cancelled = true; };
+  }, [selectedEvent, canRequestReopen]);
+
   // ── Load criteria when the selected round changes ─────────────────
   useEffect(() => {
     if (selectedEventId == null || selectedRoundId == null) {
@@ -281,98 +233,77 @@ export function CoordEventsPage() {
       .finally(() => setCriteriaLoading(false));
   }, [selectedEventId, selectedRoundId]);
 
-  // ── Create-form draft track/round helpers ─────────────────────────
-  function addDraftTrack() {
-    if (!ntName.trim()) return;
-    setDraftTracks(prev => [...prev, { name: ntName.trim(), description: ntDesc.trim() }]);
-    setNtName(""); setNtDesc("");
-  }
-  function removeDraftTrack(index: number) {
-    setDraftTracks(prev => prev.filter((_, i) => i !== index));
-  }
-  function addDraftRound() {
-    if (!nrName.trim()) return;
-    setDraftRounds(prev => [...prev, { name: nrName.trim(), submissionDeadline: nrDeadline, topNAdvance: nrTopN }]);
-    setNrName(""); setNrDeadline(""); setNrTopN(3);
-  }
-  function removeDraftRound(index: number) {
-    setDraftRounds(prev => prev.filter((_, i) => i !== index));
+  // ── Confirmation plumbing ─────────────────────────────────────────
+  function openConfirm(action: PendingAction) {
+    setDialogError(null);
+    setReason("");
+    setPendingAction(action);
   }
 
-  function resetCreateForm() {
-    setEvName(""); setEvRegStart(""); setEvRegEnd(""); setEvStart(""); setEvEnd(""); setEvMode("SELF_SELECT");
-    setDraftTracks([]); setDraftRounds([]);
-    setNtName(""); setNtDesc(""); setNrName(""); setNrDeadline(""); setNrTopN(3);
+  function closeConfirm() {
+    setPendingAction(null);
+    setDialogError(null);
+    setReason("");
   }
 
-  // ── Mutations ─────────────────────────────────────────────────────
-  async function addEvent(e: React.FormEvent) {
-    e.preventDefault();
-    if (!evName || creating) return;
-    setActionError(null);
-    setCreating(true);
+  async function handleConfirmAction() {
+    if (!pendingAction) return;
+    setActionWorking(true);
+    setDialogError(null);
     try {
-      const res = await apiFetch<{ data: ApiEvent }>('/api/events', {
-        method: 'POST',
-        body: JSON.stringify({
-          name: evName,
-          season: evSeason,
-          year: Number(evYear) || new Date().getFullYear(),
-          registrationStart: evRegStart || undefined,
-          registrationEnd: evRegEnd || undefined,
-          startDate: evStart || undefined,
-          endDate: evEnd || undefined,
-          status: 'DRAFT',
-          trackSelectionMode: evMode,
-        }),
-      });
-      const created = normalizeEvent(res.data);
-
-      // Create the staged tracks and rounds against the new event.
-      for (const t of draftTracks) {
-        await apiFetch(`/api/events/${created.eventId}/tracks`, {
-          method: 'POST',
-          body: JSON.stringify({ name: t.name, description: t.description || undefined }),
-        });
-      }
-      for (let i = 0; i < draftRounds.length; i++) {
-        const r = draftRounds[i];
-        await apiFetch(`/api/events/${created.eventId}/rounds`, {
-          method: 'POST',
-          body: JSON.stringify({
-            name: r.name,
-            orderNumber: i + 1,
-            submissionDeadline: r.submissionDeadline || undefined,
-            topNAdvance: r.topNAdvance,
-          }),
-        });
-      }
-
-      setEvents(prev => [...prev, created]);
-      // Selecting the new event triggers the detail effect, which re-fetches
-      // its tracks and rounds from the API.
-      setSelectedEventId(created.eventId);
-      resetCreateForm();
-      setShowCreate(false);
+      await pendingAction.run(reason.trim() || undefined);
+      closeConfirm();
     } catch (err) {
-      setActionError(err instanceof ApiError ? err.message : "Failed to create event.");
+      setDialogError(err instanceof ApiError ? err.message : "Action failed.");
     } finally {
-      setCreating(false);
+      setActionWorking(false);
     }
   }
 
-  async function updateEventStatus(next: EventStatus) {
+  // ── Mutations (each is invoked only after dialog confirmation) ────
+  async function doUpdateStatus(next: EventStatus) {
     if (!selectedEvent) return;
-    setActionError(null);
-    try {
-      await apiFetch(`/api/events/${selectedEvent.eventId}`, {
-        method: 'PUT',
-        body: JSON.stringify({ status: next }),
-      });
-      setEvents(prev => prev.map(e => e.eventId === selectedEvent.eventId ? { ...e, status: next } : e));
-    } catch (err) {
-      setActionError(err instanceof ApiError ? err.message : "Failed to update event status.");
-    }
+    await apiFetch(`/api/events/${selectedEvent.eventId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ status: next }),
+    });
+    setEvents(prev => prev.map(e => e.eventId === selectedEvent.eventId ? { ...e, status: next } : e));
+    addToast({ type: 'success', title: 'STATUS UPDATED', message: `Event moved to ${next}.` });
+  }
+
+  async function doRequestReopen(reasonText?: string) {
+    if (!selectedEvent) return;
+    const res = await reopenRequestsApi.create(selectedEvent.eventId, reasonText);
+    setReopenReq(res.data);
+    addToast({ type: 'success', title: 'REQUEST SENT', message: 'Your reopen request was sent to System Admin.' });
+  }
+
+  // Open the confirm dialog for a lifecycle status change.
+  function requestStatusChange(next: EventStatus, label: string, variant: ConfirmVariant) {
+    if (!selectedEvent) return;
+    const copy = statusChangeCopy(selectedEvent.status, { next, label, variant });
+    openConfirm({
+      title: copy.title,
+      message: copy.message,
+      warning: copy.warning,
+      confirmLabel: copy.confirmLabel,
+      variant: copy.variant,
+      run: async () => { await doUpdateStatus(next); },
+    });
+  }
+
+  // Open the confirm dialog for filing a reopen request.
+  function requestReopen() {
+    if (!selectedEvent) return;
+    openConfirm({
+      title: 'Request to reopen this event?',
+      message: `Send a request to reopen "${selectedEvent.name}" (currently Completed) to System Admin.`,
+      warning: 'You cannot reopen the event yourself. The request is sent to System Admin for review; the event status will not change until an admin approves it.',
+      confirmLabel: 'SEND REQUEST',
+      variant: 'cyber',
+      withReason: true,
+      run: async (reasonText) => { await doRequestReopen(reasonText); },
+    });
   }
 
   // Random track draw — only meaningful while the event is in SETUP. includeAssigned
@@ -482,11 +413,6 @@ export function CoordEventsPage() {
     }
   }
 
-  function eventMeta(ev: EventRow) {
-    const period = [ev.startDate, ev.endDate].filter(Boolean).join(" → ");
-    return [ev.season, ev.year, period].filter(Boolean).join(" · ");
-  }
-
   return (
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
@@ -495,7 +421,7 @@ export function CoordEventsPage() {
             <GradientText>Events</GradientText>
           </h1>
         </div>
-        <PixelButton variant="cyber" onClick={() => setShowCreate(!showCreate)}>CREATE EVENT</PixelButton>
+        {/* Coordinators do not create events — that is a System Admin action. */}
       </div>
 
       {actionError && (
@@ -508,90 +434,6 @@ export function CoordEventsPage() {
         <div style={{ background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.35)", color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, padding: "10px 14px" }}>
           {successMsg}
         </div>
-      )}
-
-      {showCreate && (
-        <PixelCard style={{ padding: 20 }}>
-          <form onSubmit={addEvent} style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
-              <PixelInput label="Event Name" value={evName} onChange={(e) => setEvName(e.target.value)} placeholder="SEAL Fall 2026" />
-              <div>
-                <label style={{ color: C.greenMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase" }}>Season</label>
-                <select value={evSeason} onChange={(e) => setEvSeason(e.target.value as 'SPRING' | 'SUMMER' | 'FALL')} style={{ width: "100%", marginTop: 6, padding: "10px 12px", background: C.surface2, border: `1px solid ${C.border}`, color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, borderRadius: 0, outline: "none" }}>
-                  <option value="SPRING">Spring</option>
-                  <option value="SUMMER">Summer</option>
-                  <option value="FALL">Fall</option>
-                </select>
-              </div>
-              <PixelInput label="Year" type="number" value={evYear} onChange={(e) => setEvYear(e.target.value)} />
-              <PixelInput label="Registration Start" type="date" value={evRegStart} onChange={(e) => setEvRegStart(e.target.value)} />
-              <PixelInput label="Registration End" type="date" value={evRegEnd} onChange={(e) => setEvRegEnd(e.target.value)} />
-              <div>
-                <label style={{ color: C.greenMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase" }}>Track Assignment</label>
-                <select value={evMode} onChange={(e) => setEvMode(e.target.value as TrackMode)} style={{ width: "100%", marginTop: 6, padding: "10px 12px", background: C.surface2, border: `1px solid ${C.border}`, color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, borderRadius: 0, outline: "none" }}>
-                  <option value="SELF_SELECT">Teams self-select</option>
-                  <option value="RANDOM">Random draw</option>
-                </select>
-              </div>
-              <PixelInput label="Start Date" type="date" value={evStart} onChange={(e) => setEvStart(e.target.value)} />
-              <PixelInput label="End Date" type="date" value={evEnd} onChange={(e) => setEvEnd(e.target.value)} />
-            </div>
-
-            {/* Staged tracks */}
-            <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 14 }}>
-              <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 700, marginBottom: 10 }}>Tracks</div>
-              {draftTracks.length > 0 && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
-                  {draftTracks.map((t, i) => (
-                    <div key={i} style={{ padding: "8px 12px", background: C.surface2, border: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <div>
-                        <span style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, fontWeight: 600 }}>{t.name}</span>
-                        {t.description && <span style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginLeft: 8 }}>{t.description}</span>}
-                      </div>
-                      <button type="button" onClick={() => removeDraftTrack(i)} style={{ background: "none", border: "none", color: C.red, cursor: "pointer", fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}>REMOVE</button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr auto", gap: 10, alignItems: "end" }}>
-                <PixelInput label="Track Name" value={ntName} onChange={(e) => setNtName(e.target.value)} placeholder="Web App" />
-                <PixelInput label="Description" value={ntDesc} onChange={(e) => setNtDesc(e.target.value)} placeholder="Optional" />
-                <PixelButton type="button" variant="secondary" onClick={addDraftTrack}>ADD TRACK</PixelButton>
-              </div>
-            </div>
-
-            {/* Staged rounds */}
-            <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 14 }}>
-              <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 700, marginBottom: 10 }}>Rounds</div>
-              {draftRounds.length > 0 && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
-                  {draftRounds.map((r, i) => (
-                    <div key={i} style={{ padding: "8px 12px", background: C.surface2, border: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <div>
-                        <span style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, fontWeight: 600 }}>{i + 1}. {r.name}</span>
-                        <span style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginLeft: 8 }}>
-                          {r.submissionDeadline ? `Deadline: ${r.submissionDeadline}` : "No deadline"} · Top {r.topNAdvance}
-                        </span>
-                      </div>
-                      <button type="button" onClick={() => removeDraftRound(i)} style={{ background: "none", border: "none", color: C.red, cursor: "pointer", fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}>REMOVE</button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <div style={{ display: "grid", gridTemplateColumns: "2fr 1.5fr 80px auto", gap: 10, alignItems: "end" }}>
-                <PixelInput label="Round Name" value={nrName} onChange={(e) => setNrName(e.target.value)} placeholder="Preliminary" />
-                <PixelInput label="Deadline" type="datetime-local" value={nrDeadline} onChange={(e) => setNrDeadline(e.target.value)} />
-                <PixelInput label="Top N" type="number" value={String(nrTopN)} onChange={(e) => setNrTopN(Number(e.target.value))} />
-                <PixelButton type="button" variant="secondary" onClick={addDraftRound}>ADD ROUND</PixelButton>
-              </div>
-            </div>
-
-            <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 14, display: "flex", gap: 10 }}>
-              <PixelButton type="submit" variant="cyber">{creating ? "CREATING..." : "ADD EVENT"}</PixelButton>
-              <PixelButton type="button" variant="secondary" onClick={() => { resetCreateForm(); setShowCreate(false); }}>CANCEL</PixelButton>
-            </div>
-          </form>
-        </PixelCard>
       )}
 
       {/* Events list */}
@@ -665,11 +507,27 @@ export function CoordEventsPage() {
                   </PixelButton>
                 </>
               )}
-              {nextStatusActions(selectedEvent.status).map(action => (
-                <PixelButton key={action.next + action.label} variant={action.variant} onClick={() => updateEventStatus(action.next)}>
-                  {action.label}
-                </PixelButton>
-              ))}
+
+              {/* Forward / cancel lifecycle transitions — each confirmed first.
+                  COMPLETE is filtered out for non-admins: only System Admin may
+                  complete an event (backend enforces it too). */}
+              {canChangeEventStatus && nextStatusActions(selectedEvent.status)
+                .filter(action => action.next !== 'COMPLETED' || canCompleteEvent)
+                .map(action => (
+                  <PixelButton key={action.next + action.label} variant={action.variant}
+                    onClick={() => requestStatusChange(action.next, action.label, action.variant)}>
+                    {action.label}
+                  </PixelButton>
+                ))}
+
+              {/* COMPLETED: coordinators can only REQUEST a reopen. */}
+              {selectedEvent.status === 'COMPLETED' && canRequestReopen && (
+                reopenReq?.status === 'PENDING' ? (
+                  <PixelBadge color="yellow">AWAITING ADMIN REVIEW</PixelBadge>
+                ) : (
+                  <PixelButton variant="secondary" onClick={requestReopen}>REQUEST REOPEN</PixelButton>
+                )
+              )}
             </div>
           </div>
 
@@ -801,6 +659,40 @@ export function CoordEventsPage() {
             )}
           </div>
         </PixelCard>
+      )}
+
+      {/* Shared confirmation dialog for every status change + reopen request */}
+      {pendingAction && (
+        <ConfirmDialog
+          title={pendingAction.title}
+          message={pendingAction.message}
+          warning={pendingAction.warning}
+          confirmLabel={pendingAction.confirmLabel}
+          variant={pendingAction.variant}
+          working={actionWorking}
+          error={dialogError}
+          onConfirm={handleConfirmAction}
+          onClose={closeConfirm}
+        >
+          {pendingAction.withReason && (
+            <div>
+              <label style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                Reason (optional)
+              </label>
+              <textarea
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                rows={3}
+                placeholder="Why does this event need to be reopened?"
+                style={{
+                  width: "100%", marginTop: 6, padding: "10px 12px", background: C.surface2,
+                  border: `1px solid ${C.border}`, color: C.text, fontFamily: "'JetBrains Mono', monospace",
+                  fontSize: 12, borderRadius: 0, outline: "none", resize: "vertical",
+                }}
+              />
+            </div>
+          )}
+        </ConfirmDialog>
       )}
     </div>
   );
