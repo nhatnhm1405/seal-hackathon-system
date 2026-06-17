@@ -386,6 +386,30 @@ CREATE TABLE JoinRequest (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- =====================================================
+-- EVENT REOPEN REQUESTS
+-- A Coordinator cannot reopen a COMPLETED event themselves; they file a
+-- request here that a SYSTEM_ADMIN approves (which performs the reopen) or
+-- rejects. The service layer enforces "at most one PENDING request per event".
+-- =====================================================
+
+CREATE TABLE ReopenRequest (
+  request_id   INT          NOT NULL AUTO_INCREMENT,
+  event_id     INT          NOT NULL,
+  requested_by INT          NOT NULL COMMENT 'Coordinator who asked to reopen',
+  reason       TEXT                  COMMENT 'Optional explanation for the admin',
+  status       VARCHAR(20)  NOT NULL DEFAULT 'PENDING' COMMENT 'PENDING, APPROVED, REJECTED',
+  resolved_by  INT                   COMMENT 'Admin who approved/rejected',
+  created_at   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  resolved_at  DATETIME,
+  PRIMARY KEY (request_id),
+  KEY idx_reopen_event  (event_id),
+  KEY idx_reopen_status (status),
+  CONSTRAINT fk_reopen_event     FOREIGN KEY (event_id)     REFERENCES HackathonEvent (event_id),
+  CONSTRAINT fk_reopen_requester FOREIGN KEY (requested_by) REFERENCES `User` (user_id),
+  CONSTRAINT fk_reopen_resolver  FOREIGN KEY (resolved_by)  REFERENCES `User` (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- =====================================================
 -- COMMUNICATION & AUDIT
 -- =====================================================
 

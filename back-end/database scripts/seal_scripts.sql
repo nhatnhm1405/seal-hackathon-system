@@ -48,6 +48,7 @@ SELECT 'Prize' AS tbl;                    SELECT * FROM Prize;
 -- 7. Approval & invite
 SELECT 'AccountApproval' AS tbl;         SELECT * FROM AccountApproval;
 SELECT 'TeamInvite' AS tbl;              SELECT * FROM TeamInvite;
+SELECT 'ReopenRequest' AS tbl;           SELECT * FROM ReopenRequest;
 
 -- 8. Communication & audit
 SELECT 'Notification' AS tbl;            SELECT * FROM Notification;
