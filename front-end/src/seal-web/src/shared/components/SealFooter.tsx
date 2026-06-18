@@ -19,12 +19,12 @@ type FooterLink = {
 
 export function SealFooter() {
   const navigate = useNavigate();
-  const { openRules } = useRules();
+  const { openRules, rulesLinkLabel } = useRules();
 
   const teamLinks: FooterLink[] = [
     { label: "About the Project", to: "/about" },
     { label: "Our Team", to: "/team" },
-    { label: "Competition Rules", action: openRules },
+    { label: rulesLinkLabel, action: openRules },
     { label: "GitHub", href: GITHUB_URL, external: true, icon: Github },
   ];
 
