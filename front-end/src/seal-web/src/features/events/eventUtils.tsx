@@ -1,4 +1,5 @@
-import { PixelBadge } from "@/shared/components/PixelComponents";
+import { useState } from "react";
+import { C, PixelBadge, PixelCard, PixelInput } from "@/shared/components/PixelComponents";
 import type { ConfirmVariant } from "@/shared/components/ConfirmDialog";
 
 // Shared event model + presentation helpers used by both CoordEventsPage and
@@ -78,23 +79,94 @@ function latestByEndDate(rows: EventRow[]): EventRow {
   return rows.reduce((best, ev) => (endTime(ev) > endTime(best) ? ev : best));
 }
 
-// Which event the Events console highlights by default on first load. Prefers a
-// running event, then the most recently finished one, so the actor lands on the
-// event that matters right now:
-//   1. IN_PROGRESS — if several, the one with the latest endDate
+// Which event the Events console highlights by default on first load. Lands the
+// actor on the event that is currently being managed, ignoring DRAFTs:
+//   1. An actively-managed event (OPEN / SETUP / IN_PROGRESS) — if several, the
+//      one with the latest endDate (the newest live event)
 //   2. else COMPLETED — the one with the latest endDate (most recently finished)
 //   3. else the newest non-DRAFT event (API returns newest-first), else the first row
 // Returns undefined only for an empty list.
 export function pickDefaultEvent(rows: EventRow[]): EventRow | undefined {
   if (rows.length === 0) return undefined;
 
-  const inProgress = rows.filter(e => e.status === 'IN_PROGRESS');
-  if (inProgress.length > 0) return latestByEndDate(inProgress);
+  const active = rows.filter(e => e.status === 'OPEN' || e.status === 'SETUP' || e.status === 'IN_PROGRESS');
+  if (active.length > 0) return latestByEndDate(active);
 
   const completed = rows.filter(e => e.status === 'COMPLETED');
   if (completed.length > 0) return latestByEndDate(completed);
 
   return rows.find(e => e.status !== 'DRAFT') ?? rows[0];
+}
+
+// Shared "all events" summary card used by both the Admin and Coordinator
+// consoles (below the detail panel). Includes a live "find event" filter that
+// matches name / season / year (case-insensitive substring). The filter only
+// narrows this list — it never changes the current selection or the detail panel.
+export function EventsListCard({
+  events, loading, error, selectedEventId, onSelect,
+}: {
+  events: EventRow[];
+  loading: boolean;
+  error: string | null;
+  selectedEventId: number | null;
+  onSelect: (eventId: number) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const q = query.trim().toLowerCase();
+  const filtered = q
+    ? events.filter(ev =>
+        ev.name.toLowerCase().includes(q) ||
+        ev.season.toLowerCase().includes(q) ||
+        String(ev.year ?? "").includes(q))
+    : events;
+
+  const muted: React.CSSProperties = { padding: 20, color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, textAlign: "center" };
+
+  return (
+    <PixelCard style={{ padding: 18 }}>
+      {loading ? (
+        <div style={muted}>Loading...</div>
+      ) : error ? (
+        <div style={{ ...muted, color: C.red }}>{error}</div>
+      ) : events.length === 0 ? (
+        <div style={muted}>No events yet</div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <PixelInput
+            placeholder="Find event by name, season, or year..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          {filtered.length === 0 ? (
+            <div style={{ ...muted, padding: 12 }}>No events match your search.</div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {filtered.map(ev => {
+                const active = selectedEventId === ev.eventId;
+                return (
+                  <button key={ev.eventId} onClick={() => onSelect(ev.eventId)}
+                    style={{
+                      padding: "12px 14px",
+                      background: active ? "rgba(34,197,94,0.1)" : C.surface2,
+                      border: active ? `1px solid ${C.green}` : `1px solid ${C.border}`,
+                      display: "flex", justifyContent: "space-between", alignItems: "center",
+                      fontFamily: "'JetBrains Mono', monospace", color: C.text,
+                      cursor: "pointer", borderRadius: 0, textAlign: "left",
+                    }}>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 700 }}>{ev.name}</div>
+                      <div style={{ color: C.textMuted, fontSize: 11, marginTop: 4 }}>{eventMeta(ev)}</div>
+                    </div>
+                    {eventStatusBadge(ev.status)}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </PixelCard>
+  );
 }
 
 export interface StatusAction {
@@ -103,15 +175,17 @@ export interface StatusAction {
   variant: ConfirmVariant;
 }
 
-// Forward / cancel transitions per the backend lifecycle. Deliberately does NOT
-// include COMPLETED → * : reopening is an Admin-only dedicated action (and the
-// backend transition map blocks COMPLETED → anything for the generic PUT).
+// Forward / rollback / cancel transitions per the backend lifecycle. The operable
+// states DRAFT/OPEN/SETUP/IN_PROGRESS can be walked both ways one step at a time, so
+// each step also exposes its reverse (OPEN→DRAFT, SETUP→OPEN, IN_PROGRESS→SETUP).
+// Deliberately does NOT include COMPLETED → * : reopening is an Admin-only dedicated
+// action (and the backend transition map blocks COMPLETED → anything for the PUT).
 export function nextStatusActions(status: EventStatus): StatusAction[] {
   switch (status) {
     case 'DRAFT':       return [{ label: 'OPEN EVENT', next: 'OPEN', variant: 'cyber' }, { label: 'CANCEL', next: 'CANCELLED', variant: 'danger' }];
-    case 'OPEN':        return [{ label: 'CLOSE REGISTRATION', next: 'SETUP', variant: 'cyber' }, { label: 'CANCEL', next: 'CANCELLED', variant: 'danger' }];
+    case 'OPEN':        return [{ label: 'CLOSE REGISTRATION', next: 'SETUP', variant: 'cyber' }, { label: 'BACK TO DRAFT', next: 'DRAFT', variant: 'secondary' }, { label: 'CANCEL', next: 'CANCELLED', variant: 'danger' }];
     case 'SETUP':       return [{ label: 'START EVENT', next: 'IN_PROGRESS', variant: 'cyber' }, { label: 'REOPEN REGISTRATION', next: 'OPEN', variant: 'secondary' }, { label: 'CANCEL', next: 'CANCELLED', variant: 'danger' }];
-    case 'IN_PROGRESS': return [{ label: 'COMPLETE EVENT', next: 'COMPLETED', variant: 'cyber' }, { label: 'CANCEL', next: 'CANCELLED', variant: 'danger' }];
+    case 'IN_PROGRESS': return [{ label: 'COMPLETE EVENT', next: 'COMPLETED', variant: 'cyber' }, { label: 'BACK TO SETUP', next: 'SETUP', variant: 'secondary' }, { label: 'CANCEL', next: 'CANCELLED', variant: 'danger' }];
     case 'COMPLETED':   return [];
     case 'CANCELLED':   return [{ label: 'REOPEN', next: 'DRAFT', variant: 'secondary' }];
   }

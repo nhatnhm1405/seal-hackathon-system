@@ -2,10 +2,12 @@ package com.seal.hackathon.controller;
 
 import com.seal.hackathon.dto.response.ApiResponse;
 import com.seal.hackathon.dto.response.UserResponse;
+import com.seal.hackathon.security.UserPrincipal;
 import com.seal.hackathon.service.AccountService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -38,8 +40,10 @@ public class AccountApprovalController {
      */
     @PutMapping("/{userId}/approve")
     @PreAuthorize("hasRole('EVENT_COORDINATOR')")
-    public ResponseEntity<ApiResponse<UserResponse>> approveUser(@PathVariable Integer userId) {
-        UserResponse user = approvalService.approveUser(userId);
+    public ResponseEntity<ApiResponse<UserResponse>> approveUser(
+            @PathVariable Integer userId, Authentication authentication) {
+        UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
+        UserResponse user = approvalService.approveUser(userId, principal.getUserId());
         return ResponseEntity.ok(ApiResponse.success("User approved successfully.", user));
     }
 
@@ -50,8 +54,12 @@ public class AccountApprovalController {
      */
     @PutMapping("/{userId}/reject")
     @PreAuthorize("hasRole('EVENT_COORDINATOR')")
-    public ResponseEntity<ApiResponse<UserResponse>> rejectUser(@PathVariable Integer userId) {
-        UserResponse user = approvalService.rejectUser(userId);
+    public ResponseEntity<ApiResponse<UserResponse>> rejectUser(
+            @PathVariable Integer userId,
+            @RequestParam(required = false) String reason,
+            Authentication authentication) {
+        UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
+        UserResponse user = approvalService.rejectUser(userId, principal.getUserId(), reason);
         return ResponseEntity.ok(ApiResponse.success("User rejected and account deactivated.", user));
     }
 }

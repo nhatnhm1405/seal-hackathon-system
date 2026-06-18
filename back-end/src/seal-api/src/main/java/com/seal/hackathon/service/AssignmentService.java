@@ -33,7 +33,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -62,6 +64,7 @@ public class AssignmentService {
     private final RoleRepository roleRepository;
     private final UserEventRoleRepository userEventRoleRepository;
     private final PasswordEncoder passwordEncoder;
+    private final AuditLogService auditLogService;
 
     /**
      * Danh sách STAFF đã được duyệt + đang hoạt động, để Coordinator chọn người
@@ -164,7 +167,7 @@ public class AssignmentService {
      * mentor holds the MENTOR role for that track's event so they gain access.
      */
     @Transactional
-    public MentorAssignmentResponse assignMentor(AssignMentorRequest request) {
+    public MentorAssignmentResponse assignMentor(AssignMentorRequest request, Integer actorUserId) {
         User mentor = userRepository.findByIdWithRoles(request.getMentorUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + request.getMentorUserId()));
         Track track = trackRepository.findById(request.getTrackId())
@@ -181,6 +184,10 @@ public class AssignmentService {
                 .track(track)
                 .build());
 
+        auditLogService.record(actorUserId, "ASSIGN_MENTOR", "TRACK", track.getTrackId(), null,
+                Map.of("mentor_user_id", mentor.getUserId(),
+                        "event_id", track.getEvent().getEventId()));
+
         return getMentorAssignments(mentor.getUserId());
     }
 
@@ -190,7 +197,7 @@ public class AssignmentService {
      * and ensures the judge holds the JUDGE role for that round's event.
      */
     @Transactional
-    public JudgeAssignmentResponse assignJudge(AssignJudgeRequest request) {
+    public JudgeAssignmentResponse assignJudge(AssignJudgeRequest request, Integer actorUserId) {
         User judge = userRepository.findByIdWithRoles(request.getJudgeUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + request.getJudgeUserId()));
         Round round = roundRepository.findById(request.getRoundId())
@@ -235,6 +242,15 @@ public class AssignmentService {
                 .round(round)
                 .track(track)
                 .build());
+
+        Map<String, Object> meta = new LinkedHashMap<>();
+        meta.put("judge_user_id", judge.getUserId());
+        meta.put("round_id", round.getRoundId());
+        meta.put("event_id", round.getEvent().getEventId());
+        if (track != null) {
+            meta.put("track_id", track.getTrackId());
+        }
+        auditLogService.record(actorUserId, "ASSIGN_JUDGE", "ROUND", round.getRoundId(), null, meta);
 
         return getJudgeAssignments(judge.getUserId());
     }
@@ -299,7 +315,7 @@ public class AssignmentService {
      * step. The trackId rule is enforced by {@link #assignJudge}.
      */
     @Transactional
-    public JudgeAssignmentResponse createGuestJudge(CreateGuestJudgeRequest request) {
+    public JudgeAssignmentResponse createGuestJudge(CreateGuestJudgeRequest request, Integer actorUserId) {
         String email = request.getEmail().toLowerCase().trim();
         if (userRepository.existsByEmail(email)) {
             throw new BadRequestException("An account with this email already exists.");
@@ -320,7 +336,7 @@ public class AssignmentService {
         assign.setJudgeUserId(guest.getUserId());
         assign.setRoundId(request.getRoundId());
         assign.setTrackId(request.getTrackId());
-        return assignJudge(assign);
+        return assignJudge(assign, actorUserId);
     }
 
     /**

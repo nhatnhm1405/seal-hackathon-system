@@ -4,11 +4,13 @@ import com.seal.hackathon.dto.request.CreateEventRequest;
 import com.seal.hackathon.dto.request.UpdateEventRequest;
 import com.seal.hackathon.dto.response.ApiResponse;
 import com.seal.hackathon.dto.response.HackathonEventResponse;
+import com.seal.hackathon.security.UserPrincipal;
 import com.seal.hackathon.service.HackathonEventService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -37,9 +39,11 @@ public class HackathonEventController {
     @PostMapping
     @PreAuthorize("hasRole('SYSTEM_ADMIN')")
     public ResponseEntity<ApiResponse<HackathonEventResponse>> createEvent(
-            @Valid @RequestBody CreateEventRequest request) {
+            @Valid @RequestBody CreateEventRequest request,
+            Authentication authentication) {
+        UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
         return ResponseEntity.ok(ApiResponse.success("Event created successfully.",
-                hackathonEventService.createEvent(request)));
+                hackathonEventService.createEvent(request, principal.getUserId())));
     }
 
     // Generic update (status transitions, dates, mode, name) — both the owning

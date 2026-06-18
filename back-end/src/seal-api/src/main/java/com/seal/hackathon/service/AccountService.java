@@ -22,6 +22,7 @@ public class AccountService {
     private final AuthService authService; // reuse the mapping helper
     private final ApplicationEventPublisher eventPublisher;
     private final NotificationService notificationService;
+    private final AuditLogService auditLogService;
 
     // ---------------------------------------------------------------
     // List pending approvals
@@ -39,7 +40,7 @@ public class AccountService {
     // ---------------------------------------------------------------
 
     @Transactional
-    public UserResponse approveUser(Integer userId) {
+    public UserResponse approveUser(Integer userId, Integer actorUserId) {
         User user = getUserOrThrow(userId);
 
         if (Boolean.TRUE.equals(user.getIsApproved())) {
@@ -66,17 +67,18 @@ public class AccountService {
                 "Account approved",
                 "Your account has been approved. Welcome to SEAL Hackathon!",
                 "ACCOUNT");
+        auditLogService.record(actorUserId, "APPROVE_ACCOUNT", "USER", user.getUserId());
         return authService.mapToUserResponse(user);
     }
 
     // ---------------------------------------------------------------
     // Reject a user
     // Rejection sets is_active = false so the user cannot log in.
-    // Reason can be stored in AuditLog (not implemented in this module).
+    // Recorded in AuditLog (REJECT_ACCOUNT) with the optional reason.
     // ---------------------------------------------------------------
 
     @Transactional
-    public UserResponse rejectUser(Integer userId) {
+    public UserResponse rejectUser(Integer userId, Integer actorUserId, String reason) {
         User user = getUserOrThrow(userId);
 
         if (!Boolean.TRUE.equals(user.getIsActive())) {
@@ -91,6 +93,8 @@ public class AccountService {
                 user.getFullName(),
                 false
         ));
+        auditLogService.record(actorUserId, "REJECT_ACCOUNT", "USER", user.getUserId(),
+                (reason != null && !reason.isBlank()) ? reason.trim() : null, null);
         return authService.mapToUserResponse(user);
     }
 
