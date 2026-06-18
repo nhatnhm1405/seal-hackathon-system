@@ -2,13 +2,13 @@ import { useEffect, useState, ReactNode } from "react";
 import {
   C, GradientText, PixelCard, PixelButton, PixelBadge, PixelInput, PixelTabs,
 } from "@/shared/components/PixelComponents";
-import { apiFetch, ApiError, reopenRequestsApi, type ReopenRequest } from "@/shared/apiClient";
+import { apiFetch, ApiError, reopenRequestsApi, type ReopenRequest, auditLogsApi, type AuditLogEntry } from "@/shared/apiClient";
 import { ConfirmDialog, type ConfirmVariant } from "@/shared/components/ConfirmDialog";
 import { usePermissions } from "@/shared/permissions";
 import { useNotifications } from "@/app/providers/NotificationProvider";
 import {
   EventStatus, TrackMode, EventRow, ApiEvent,
-  normalizeEvent, eventStatusBadge, eventMeta, nextStatusActions, statusChangeCopy, pickDefaultEvent,
+  normalizeEvent, eventStatusBadge, eventMeta, nextStatusActions, statusChangeCopy, pickDefaultEvent, EventsListCard,
 } from "@/features/events/eventUtils";
 
 // Coordinator's event console. Coordinators run an event's forward lifecycle
@@ -111,7 +111,8 @@ interface PendingAction {
   warning?: ReactNode;
   confirmLabel: string;
   variant: ConfirmVariant;
-  withReason?: boolean;          // show optional reason textarea (reopen request)
+  withReason?: boolean;          // show optional reason textarea (reopen request / redraw)
+  reasonPlaceholder?: string;    // placeholder for the reason textarea when withReason
   run: (reason?: string) => Promise<void>;
 }
 
@@ -149,6 +150,11 @@ export function CoordEventsPage() {
 
   // Latest reopen request for the selected (COMPLETED) event, if any.
   const [reopenReq, setReopenReq] = useState<ReopenRequest | null>(null);
+
+  // Audit trail for the selected event — loaded lazily when the Audit tab opens.
+  const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditError, setAuditError] = useState<string | null>(null);
 
   // Track form
   const [trkName, setTrkName] = useState("");
@@ -232,6 +238,19 @@ export function CoordEventsPage() {
       .catch(err => setCriteriaError(err instanceof ApiError ? err.message : "Failed to load criteria."))
       .finally(() => setCriteriaLoading(false));
   }, [selectedEventId, selectedRoundId]);
+
+  // ── Load audit trail when the Audit tab is open ───────────────────
+  // Re-runs whenever the tab is (re)opened, so a draw/redraw done on the Tracks
+  // tab shows up as soon as the actor switches over to Audit.
+  useEffect(() => {
+    if (selectedEventId == null || detailTab !== 'audit') return;
+    setAuditLoading(true);
+    setAuditError(null);
+    auditLogsApi.getForEvent(selectedEventId)
+      .then(res => setAuditLogs(res.data ?? []))
+      .catch(err => setAuditError(err instanceof ApiError ? err.message : "Failed to load audit log."))
+      .finally(() => setAuditLoading(false));
+  }, [selectedEventId, detailTab]);
 
   // ── Confirmation plumbing ─────────────────────────────────────────
   function openConfirm(action: PendingAction) {
@@ -325,6 +344,33 @@ export function CoordEventsPage() {
     } finally {
       setDrawing(false);
     }
+  }
+
+  // REDRAW ALL is destructive (wipes every assignment) and a fairness risk if used
+  // to re-roll until satisfied — so, unlike the additive DRAW TRACKS, it is gated
+  // behind a confirmation that spells out the fairness caveat. Errors surface in the
+  // dialog (the run() rethrows) rather than as a page-level banner.
+  function requestRedrawAll() {
+    if (!selectedEvent) return;
+    openConfirm({
+      title: 'Redraw ALL track assignments?',
+      message: `Clear every team's track in "${selectedEvent.name}" and reshuffle from scratch.`,
+      warning: 'A single random draw is already fair. Re-rolling until you like the result undermines that — only redraw to fix a setup mistake (wrong tracks or capacities).',
+      confirmLabel: 'CONFIRM REDRAW',
+      variant: 'danger',
+      withReason: true,
+      reasonPlaceholder: 'Why redraw? e.g. fixed track capacities / added a track',
+      run: async (reasonText) => {
+        const qs = reasonText ? `&reason=${encodeURIComponent(reasonText)}` : '';
+        const res = await apiFetch<{ data: unknown[] }>(
+          `/api/teams/event/${selectedEvent.eventId}/draw-tracks?includeAssigned=true${qs}`,
+          { method: 'POST' },
+        );
+        const count = (res.data ?? []).length;
+        setActionError(null);
+        setSuccessMsg(`Redraw complete — ${count} team(s) reshuffled across tracks.`);
+      },
+    });
   }
 
   async function updateEventMode(mode: TrackMode) {
@@ -436,47 +482,16 @@ export function CoordEventsPage() {
         </div>
       )}
 
-      {/* Events list */}
-      <PixelCard style={{ padding: 18 }}>
-        {loading ? (
-          <div style={{ padding: 20, color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, textAlign: "center" }}>Loading...</div>
-        ) : fetchError ? (
-          <div style={{ padding: 20, color: C.red, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, textAlign: "center" }}>{fetchError}</div>
-        ) : events.length === 0 ? (
-          <div style={{ padding: 20, color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, textAlign: "center" }}>No events yet</div>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {events.map(ev => {
-              const active = selectedEventId === ev.eventId;
-              return (
-                <button key={ev.eventId} onClick={() => setSelectedEventId(ev.eventId)}
-                  style={{
-                    padding: "12px 14px",
-                    background: active ? "rgba(34,197,94,0.1)" : C.surface2,
-                    border: active ? `1px solid ${C.green}` : `1px solid ${C.border}`,
-                    display: "flex", justifyContent: "space-between", alignItems: "center",
-                    fontFamily: "'JetBrains Mono', monospace", color: C.text,
-                    cursor: "pointer", borderRadius: 0, textAlign: "left",
-                  }}>
-                  <div>
-                    <div style={{ fontSize: 14, fontWeight: 700 }}>{ev.name}</div>
-                    <div style={{ color: C.textMuted, fontSize: 11, marginTop: 4 }}>{eventMeta(ev)}</div>
-                  </div>
-                  {eventStatusBadge(ev.status)}
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </PixelCard>
-
-      {/* Detail panel */}
+      {/* Detail panel (selected event) — on top, above the all-events list */}
       {selectedEvent && (
         <PixelCard glow gradient style={{ padding: 20 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, gap: 12, flexWrap: "wrap" }}>
             <div>
-              <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 20, fontWeight: 700, marginTop: 4 }}>
-                {selectedEvent.name}
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4, flexWrap: "wrap" }}>
+                <span style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 20, fontWeight: 700 }}>
+                  {selectedEvent.name}
+                </span>
+                {eventStatusBadge(selectedEvent.status)}
               </div>
               <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, marginTop: 4 }}>
                 {eventMeta(selectedEvent)}
@@ -497,17 +512,6 @@ export function CoordEventsPage() {
               </div>
             </div>
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-              {selectedEvent.status === 'SETUP' && (
-                <>
-                  <PixelButton variant="cyber" onClick={() => drawTracks(false)}>
-                    {drawing ? "DRAWING..." : "DRAW TRACKS"}
-                  </PixelButton>
-                  <PixelButton variant="secondary" onClick={() => drawTracks(true)}>
-                    REDRAW ALL
-                  </PixelButton>
-                </>
-              )}
-
               {/* Forward / cancel lifecycle transitions — each confirmed first.
                   COMPLETE is filtered out for non-admins: only System Admin may
                   complete an event (backend enforces it too). */}
@@ -536,6 +540,7 @@ export function CoordEventsPage() {
               { id: "tracks", label: "Tracks" },
               { id: "rounds", label: "Rounds" },
               { id: "criteria", label: "Criteria" },
+              { id: "audit", label: "Audit" },
             ]}
             active={detailTab}
             onChange={setDetailTab}
@@ -548,6 +553,34 @@ export function CoordEventsPage() {
           <div style={{ marginTop: 16 }}>
             {detailTab === "tracks" && (
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {/* Random track draw — SETUP-only coordinator tool, grouped here since it
+                    operates on this event's tracks (kept out of the status header). */}
+                {selectedEvent.status === 'SETUP' && tracks.length > 0 && (
+                  <div style={{ padding: 14, background: C.surface, border: `1px solid ${C.border}` }}>
+                    <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 700, marginBottom: 10, letterSpacing: "0.05em" }}>
+                      {selectedEvent.trackSelectionMode === 'RANDOM' ? 'Random track draw' : 'Fill unassigned tracks'}
+                    </div>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                      <PixelButton variant="cyber" onClick={() => drawTracks(false)}>
+                        {drawing ? "DRAWING..." : "DRAW TRACKS"}
+                      </PixelButton>
+                      {/* REDRAW ALL wipes every assignment — only offered for RANDOM events
+                          (it would destroy team self-selections) and gated behind a
+                          fairness-warning confirm so it isn't used to re-roll until "happy". */}
+                      {selectedEvent.trackSelectionMode === 'RANDOM' && (
+                        <PixelButton variant="secondary" onClick={requestRedrawAll}>
+                          REDRAW ALL
+                        </PixelButton>
+                      )}
+                    </div>
+                    <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginTop: 8, lineHeight: 1.6 }}>
+                      DRAW TRACKS — assigns only teams without a track yet (keeps existing picks).
+                      {selectedEvent.trackSelectionMode === 'RANDOM' && (
+                        <><br />REDRAW ALL — clears every team's track and reshuffles from scratch; use only to fix a setup mistake — a single draw is already fair.</>
+                      )}
+                    </div>
+                  </div>
+                )}
                 {detailLoading && <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>Loading...</div>}
                 {!detailLoading && tracks.length === 0 && <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>No tracks yet</div>}
                 {tracks.map(t => (
@@ -657,9 +690,50 @@ export function CoordEventsPage() {
                 )}
               </div>
             )}
+
+            {detailTab === "audit" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {auditLoading && <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>Loading...</div>}
+                {auditError && <div style={{ color: C.red, fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}>{auditError}</div>}
+                {!auditLoading && !auditError && auditLogs.length === 0 && (
+                  <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>No audit entries for this event yet.</div>
+                )}
+                {auditLogs.map(log => (
+                  <div key={log.logId} style={{ padding: 12, background: C.surface2, border: `1px solid ${C.border}` }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                      <PixelBadge color="cyan">{log.action}</PixelBadge>
+                      <span style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}>
+                        {new Date(log.createdAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                      </span>
+                    </div>
+                    <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, marginTop: 6 }}>
+                      {log.actorName ?? `User#${log.actorUserId}`}
+                      {log.targetType && (
+                        <span style={{ color: C.textMuted }}> · {log.targetType}{log.targetId != null ? `#${log.targetId}` : ""}</span>
+                      )}
+                    </div>
+                    {log.reason && (
+                      <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginTop: 4, fontStyle: "italic" }}>"{log.reason}"</div>
+                    )}
+                    {log.metadataJson && (
+                      <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, marginTop: 4, opacity: 0.8, wordBreak: "break-all" }}>{log.metadataJson}</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </PixelCard>
       )}
+
+      {/* All-events summary list with find filter — below the detail panel */}
+      <EventsListCard
+        events={events}
+        loading={loading}
+        error={fetchError}
+        selectedEventId={selectedEventId}
+        onSelect={setSelectedEventId}
+      />
 
       {/* Shared confirmation dialog for every status change + reopen request */}
       {pendingAction && (
@@ -683,7 +757,7 @@ export function CoordEventsPage() {
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
                 rows={3}
-                placeholder="Why does this event need to be reopened?"
+                placeholder={pendingAction.reasonPlaceholder ?? "Why does this event need to be reopened?"}
                 style={{
                   width: "100%", marginTop: 6, padding: "10px 12px", background: C.surface2,
                   border: `1px solid ${C.border}`, color: C.text, fontFamily: "'JetBrains Mono', monospace",

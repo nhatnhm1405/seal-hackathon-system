@@ -1,6 +1,6 @@
 import { useEffect, useState, ReactNode } from "react";
 import {
-  C, GradientText, PixelCard, PixelButton, PixelBadge, PixelInput,
+  C, GradientText, PixelCard, PixelButton, PixelInput,
 } from "@/shared/components/PixelComponents";
 import { apiFetch, ApiError, eventsApi, reopenRequestsApi, type ReopenRequest } from "@/shared/apiClient";
 import { ConfirmDialog, type ConfirmVariant } from "@/shared/components/ConfirmDialog";
@@ -8,7 +8,7 @@ import { usePermissions } from "@/shared/permissions";
 import { useNotifications } from "@/app/providers/NotificationProvider";
 import {
   TrackMode, EventRow, ApiEvent,
-  normalizeEvent, eventStatusBadge, eventMeta, pickDefaultEvent,
+  normalizeEvent, eventStatusBadge, eventMeta, pickDefaultEvent, EventsListCard,
 } from "@/features/events/eventUtils";
 
 // System Admin's event console. The Admin is the only role that can CREATE an
@@ -40,7 +40,6 @@ export function AdminEventsPage() {
 
   // Reopen-request review queue
   const [requests, setRequests] = useState<ReopenRequest[]>([]);
-  const [requestsLoading, setRequestsLoading] = useState(true);
 
   // Create-event form
   const [showCreate, setShowCreate] = useState(false);
@@ -86,12 +85,10 @@ export function AdminEventsPage() {
   }
 
   function loadRequests() {
-    if (!canManageReopenRequests) { setRequestsLoading(false); return; }
-    setRequestsLoading(true);
+    if (!canManageReopenRequests) return;
     reopenRequestsApi.getPending()
       .then(res => setRequests(res.data ?? []))
-      .catch(() => { /* non-fatal */ })
-      .finally(() => setRequestsLoading(false));
+      .catch(() => { /* non-fatal */ });
   }
 
   useEffect(() => { loadEvents(); loadRequests(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
@@ -267,37 +264,31 @@ export function AdminEventsPage() {
         )}
       </div>
 
-      {/* Reopen request review queue */}
-      {canManageReopenRequests && (
+      {/* Reopen request review queue — only shown when there is at least one pending request */}
+      {canManageReopenRequests && requests.length > 0 && (
         <PixelCard style={{ padding: 18 }}>
           <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 700, marginBottom: 12, letterSpacing: "0.05em" }}>
-            // reopen requests {requests.length > 0 && <span style={{ color: C.textMuted }}>· {requests.length} pending</span>}
+            Reopen Requests <span style={{ color: C.textMuted }}>· {requests.length} pending</span>
           </div>
-          {requestsLoading ? (
-            <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>Loading...</div>
-          ) : requests.length === 0 ? (
-            <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>No pending requests.</div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {requests.map(req => (
-                <div key={req.requestId} style={{ padding: 12, background: C.surface2, border: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 700 }}>{req.eventName}</div>
-                    <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginTop: 3 }}>
-                      {req.requesterName ?? 'Coordinator'} · {fmtDateTime(req.createdAt)}
-                    </div>
-                    {req.reason && (
-                      <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginTop: 4, fontStyle: "italic" }}>"{req.reason}"</div>
-                    )}
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {requests.map(req => (
+              <div key={req.requestId} style={{ padding: 12, background: C.surface2, border: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 700 }}>{req.eventName}</div>
+                  <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginTop: 3 }}>
+                    {req.requesterName ?? 'Coordinator'} · {fmtDateTime(req.createdAt)}
                   </div>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <PixelButton size="sm" variant="cyber" onClick={() => confirmApprove(req)}>APPROVE</PixelButton>
-                    <PixelButton size="sm" variant="danger" onClick={() => confirmReject(req)}>REJECT</PixelButton>
-                  </div>
+                  {req.reason && (
+                    <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginTop: 4, fontStyle: "italic" }}>"{req.reason}"</div>
+                  )}
                 </div>
-              ))}
-            </div>
-          )}
+                <div style={{ display: "flex", gap: 8 }}>
+                  <PixelButton size="sm" variant="cyber" onClick={() => confirmApprove(req)}>APPROVE</PixelButton>
+                  <PixelButton size="sm" variant="danger" onClick={() => confirmReject(req)}>REJECT</PixelButton>
+                </div>
+              </div>
+            ))}
+          </div>
         </PixelCard>
       )}
 
@@ -391,41 +382,7 @@ export function AdminEventsPage() {
         </PixelCard>
       )}
 
-      {/* Events list */}
-      <PixelCard style={{ padding: 18 }}>
-        {loading ? (
-          <div style={{ padding: 20, color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, textAlign: "center" }}>Loading...</div>
-        ) : fetchError ? (
-          <div style={{ padding: 20, color: C.red, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, textAlign: "center" }}>{fetchError}</div>
-        ) : events.length === 0 ? (
-          <div style={{ padding: 20, color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, textAlign: "center" }}>No events yet</div>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {events.map(ev => {
-              const active = selectedEventId === ev.eventId;
-              return (
-                <button key={ev.eventId} onClick={() => setSelectedEventId(ev.eventId)}
-                  style={{
-                    padding: "12px 14px",
-                    background: active ? "rgba(34,197,94,0.1)" : C.surface2,
-                    border: active ? `1px solid ${C.green}` : `1px solid ${C.border}`,
-                    display: "flex", justifyContent: "space-between", alignItems: "center",
-                    fontFamily: "'JetBrains Mono', monospace", color: C.text,
-                    cursor: "pointer", borderRadius: 0, textAlign: "left",
-                  }}>
-                  <div>
-                    <div style={{ fontSize: 14, fontWeight: 700 }}>{ev.name}</div>
-                    <div style={{ color: C.textMuted, fontSize: 11, marginTop: 4 }}>{eventMeta(ev)}</div>
-                  </div>
-                  {eventStatusBadge(ev.status)}
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </PixelCard>
-
-      {/* Detail panel — Admin lifecycle actions */}
+      {/* Detail panel — Admin lifecycle actions; on top, above the all-events list */}
       {selectedEvent && (
         <PixelCard glow gradient style={{ padding: 20 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
@@ -445,6 +402,15 @@ export function AdminEventsPage() {
           </div>
         </PixelCard>
       )}
+
+      {/* All-events summary list with find filter — below the detail panel */}
+      <EventsListCard
+        events={events}
+        loading={loading}
+        error={fetchError}
+        selectedEventId={selectedEventId}
+        onSelect={setSelectedEventId}
+      />
 
       {/* Shared confirmation dialog */}
       {pendingAction && (

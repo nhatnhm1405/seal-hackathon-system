@@ -416,6 +416,29 @@ export const reopenRequestsApi = {
     apiFetch<ApiResponse<ReopenRequest>>(`/api/admin/reopen-requests/${requestId}/reject`, { method: 'POST' }),
 };
 
+// ── Audit Log ──────────────────────────────────────────────────────
+// Competition business-action trail for an event (CREATE_EVENT, DRAW_TRACKS,
+// REDRAW_TRACKS...). Readable by the event's Coordinator and the System Admin.
+
+export interface AuditLogEntry {
+  logId: number;
+  actorUserId: number;
+  actorName?: string;
+  action: string;
+  targetType?: string;
+  targetId?: number;
+  reason?: string;
+  metadataJson?: string;
+  ipAddress?: string;
+  createdAt: string;
+}
+
+export const auditLogsApi = {
+  // Newest-first audit entries scoped to one event (target EVENT/eventId).
+  getForEvent: (eventId: number) =>
+    apiFetch<ApiResponse<AuditLogEntry[]>>(`/api/events/${eventId}/audit-logs`),
+};
+
 // ── Tracks ────────────────────────────────────────────────────────
 
 export interface Track {
