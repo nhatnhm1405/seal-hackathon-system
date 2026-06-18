@@ -1,15 +1,15 @@
 
-| `feat` | Thêm tính năng mới |
-| `fix` | Sửa bug |
-| `docs` | Thay đổi tài liệu (README, comment…) |
-| `style` | Format code, thiếu dấu chấm phẩy… (không đổi logic) |
-| `refactor` | Tái cấu trúc code, không thêm feature hay fix bug |
-| `test` | Thêm hoặc sửa test |
-| `chore` | Cập nhật build tool, dependency, config… |
-| `perf` | Cải thiện hiệu năng |
-| `ci` | Thay đổi CI/CD pipeline |
-| `revert` | Revert commit trước |
-| `build` | Thay đổi build system hoặc external dependency |
+feat: Thêm tính năng mới
+fix: Sửa bug
+docs: Thay đổi tài liệu (README, comment…)
+style: Format code, thiếu dấu chấm phẩy… (không đổi logic)
+refactor: Tái cấu trúc code, không thêm feature hay fix bug
+test: Thêm hoặc sửa test
+chore: Cập nhật build tool, dependency, config…
+perf: Cải thiện hiệu năng
+ci: Thay đổi CI/CD pipeline
+revert: Revert commit trước
+build: Thay đổi build system hoặc external dependency
 
 vd:
 
