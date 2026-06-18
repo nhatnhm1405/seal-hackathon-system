@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { C, GradientText, PixelButton, PixelBadge, PixelCard } from "@/shared/components/PixelComponents";
 import { teamsApi, roundsApi, HackathonEvent, ActiveEventWithTracks, Round } from "@/shared/apiClient";
+import { useTour } from "@/app/providers/TourProvider";
+import { ParticipantJourneyBar } from "@/shared/components/ParticipantJourneyBar";
 import { fmtShort } from "../utils/formatters";
 
 export function NoTeamDashboard({
@@ -16,6 +18,7 @@ export function NoTeamDashboard({
     pendingTeamName: string | null;
     pendingInviteCount: number;
 }) {
+    const { openTour } = useTour();
     const [events, setEvents] = useState<ActiveEventWithTracks[]>([]);
     const [roundsByEvent, setRoundsByEvent] = useState<Record<number, Round[]>>({});
 
@@ -42,6 +45,9 @@ export function NoTeamDashboard({
 
     return (
         <div style={{ padding: "24px", display: "flex", flexDirection: "column", gap: 20 }}>
+            {/* Live journey progress */}
+            <ParticipantJourneyBar team={null} />
+
             {/* Header hero card */}
             <div style={{
                 position: "relative",
@@ -80,6 +86,14 @@ export function NoTeamDashboard({
                             </span>
                         )}
                     </div>
+                    <button
+                        onClick={openTour}
+                        style={{ background: "transparent", border: "none", cursor: "pointer", color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, letterSpacing: "0.04em", display: "inline-flex", alignItems: "center", gap: 6, padding: "0 6px", transition: "color 0.15s" }}
+                        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = C.green; }}
+                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = C.textMuted; }}
+                    >
+                        ? How it works
+                    </button>
                 </div>
             </div>
 

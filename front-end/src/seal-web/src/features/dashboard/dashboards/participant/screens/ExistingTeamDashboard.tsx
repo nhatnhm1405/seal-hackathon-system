@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router";
 import { useAuth } from "@/app/providers/AuthProvider";
+import { useNotifications } from "@/app/providers/NotificationProvider";
 import {
     C, GradientText, PixelCard, PixelButton, PixelBadge, CyberStatCard,
 } from "@/shared/components/PixelComponents";
@@ -8,11 +9,13 @@ import {
     teamsApi, tracksApi, roundsApi, submissionsApi, resultsApi, notificationsApi,
     MyTeam, Track, Round, RoundResult, Notification, ApiError,
 } from "@/shared/apiClient";
+import { ParticipantJourneyBar } from "@/shared/components/ParticipantJourneyBar";
 import { fmtDate, roundStatusColor, teamStatusColor } from "../utils/formatters";
 
 export function ExistingTeamDashboard() {
     const navigate = useNavigate();
     const { currentUser } = useAuth();
+    const { addToast } = useNotifications();
 
     const [team, setTeam] = useState<MyTeam | null>(null);
     const [tracks, setTracks] = useState<Track[]>([]);
@@ -73,8 +76,10 @@ export function ExistingTeamDashboard() {
         setError(null);
         setPicking(true);
         try {
+            const picked = tracks.find(t => t.trackId === trackId);
             await teamsApi.selectTrack(team.teamId, trackId);
             await reload();
+            addToast({ type: "success", title: "Track selected", message: picked ? `Your team is now in the "${picked.name}" track.` : "Your team's track has been set." });
         } catch (err) {
             setError(err instanceof ApiError ? err.message : "Failed to select track.");
         } finally {
@@ -94,6 +99,8 @@ export function ExistingTeamDashboard() {
 
     return (
         <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
+            <ParticipantJourneyBar team={team} />
+
             <PixelCard glow gradient style={{ padding: 24 }}>
                 <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 700, marginBottom: 6 }}>
                     {isLeader ? 'Team Leader Console' : 'Participant Console'}
