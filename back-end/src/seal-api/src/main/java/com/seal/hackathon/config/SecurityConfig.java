@@ -78,9 +78,13 @@ public class SecurityConfig {
                 .requestMatchers("/api/account-approvals/**").hasRole("EVENT_COORDINATOR")
                 // Join requests — participants only; leader checks happen in service
                 .requestMatchers("/api/join-requests/**").hasRole("PARTICIPANT")
-                // Participants access team and submission endpoints
-                .requestMatchers("/api/teams/**", "/api/submissions/**")
+                // Participants access team endpoints
+                .requestMatchers("/api/teams/**")
                     .hasAnyRole("PARTICIPANT", "EVENT_COORDINATOR")
+                // Submissions: participants submit/view their own, judges list a round
+                // to score. Fine-grained access is enforced per-endpoint via @PreAuthorize.
+                .requestMatchers("/api/submissions/**")
+                    .hasAnyRole("PARTICIPANT", "EVENT_COORDINATOR", "JUDGE")
                 // Judges access scoring endpoints
                 .requestMatchers("/api/scores/**", "/api/judge/**").hasAnyRole("JUDGE", "EVENT_COORDINATOR")
                 // Mentors access mentor endpoints
