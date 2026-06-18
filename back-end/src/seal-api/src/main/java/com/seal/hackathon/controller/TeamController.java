@@ -129,7 +129,7 @@ public class TeamController {
     }
 
     @GetMapping("/{teamId}")
-    @PreAuthorize("hasAnyRole('EVENT_COORDINATOR', 'MENTOR', 'JUDGE')")
+    @PreAuthorize("hasAnyRole('EVENT_COORDINATOR', 'MENTOR')")
     public ResponseEntity<ApiResponse<TeamDetailResponse>> getTeamById(@PathVariable Integer teamId) {
         return ResponseEntity.ok(ApiResponse.success("Team retrieved successfully.",
                 teamService.getTeamById(teamId)));

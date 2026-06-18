@@ -14,16 +14,26 @@ import com.seal.hackathon.repository.TeamMemberRepository;
 import com.seal.hackathon.repository.TeamRepository;
 import com.seal.hackathon.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class TeamInviteService {
+
+    private static final int MAX_TEAM_MEMBERS = 5;
+    private static final int MAX_MESSAGE_LENGTH = 1000;
+    private static final String STATUS_PENDING = "PENDING";
+    private static final String STATUS_ACCEPTED = "ACCEPTED";
+    private static final String STATUS_DECLINED = "DECLINED";
+    private static final Set<String> INVITABLE_USER_TYPES = Set.of("FPT_STUDENT", "EXTERNAL_STUDENT");
 
     private final TeamInviteRepository inviteRepository;
     private final TeamRepository teamRepository;
@@ -31,51 +41,49 @@ public class TeamInviteService {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
 
-    // ── Leader sends invite ───────────────────────────────────────────
-
     @Transactional
     public TeamInviteResponse createInvite(Integer inviterId, Integer teamId, CreateInviteRequest request) {
+        requireId(inviterId, "Inviter ID");
+        requireId(teamId, "Team ID");
+        Integer invitedUserId = requireInvitedUserId(request);
+        String message = normalizeMessage(request);
+
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new ResourceNotFoundException("Team not found: " + teamId));
+        User inviter = requireApprovedActiveUser(inviterId, "Inviter");
 
-        // Only the team leader can send invites
         boolean isLeader = teamMemberRepository.findByTeam_TeamId(teamId).stream()
-                .anyMatch(m -> m.getUser().getUserId().equals(inviterId)
-                        && "LEADER".equalsIgnoreCase(m.getMemberRole()));
+                .anyMatch(member -> inviterId.equals(member.getUser().getUserId())
+                        && "LEADER".equalsIgnoreCase(member.getMemberRole()));
         if (!isLeader) {
             throw new ForbiddenException("Only the team leader can send invitations.");
         }
 
-        User invitedUser = userRepository.findById(request.getInvitedUserId())
-                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + request.getInvitedUserId()));
+        validateTeamCanReceiveInvite(team);
 
-        if (!Boolean.TRUE.equals(invitedUser.getIsApproved())) {
-            throw new BadRequestException("Cannot invite a user whose account is not approved.");
-        }
+        User invitedUser = userRepository.findById(invitedUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + invitedUserId));
+        validateInvitableUser(invitedUser);
 
-        // Cannot invite someone already in the same event's team
         if (teamMemberRepository.existsByUser_UserIdAndTeam_Event_EventId(
                 invitedUser.getUserId(), team.getEvent().getEventId())) {
             throw new BadRequestException("This user is already a member of a team in this event.");
         }
 
-        User inviter = userRepository.findById(inviterId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + inviterId));
-
-        // A row may already exist from a previous invite (the UNIQUE (team_id,
-        // invited_user_id) constraint forbids a second one). If it is still
-        // PENDING, block; otherwise (ACCEPTED/DECLINED — e.g. the user joined
-        // then left) reuse it and reset it to a fresh PENDING invitation.
         TeamInvite invite = inviteRepository
-                .findByTeam_TeamIdAndInvitedUser_UserId(teamId, invitedUser.getUserId())
+                .findByTeamIdAndInvitedUserIdForUpdate(teamId, invitedUser.getUserId())
                 .orElse(null);
         if (invite != null) {
-            if ("PENDING".equalsIgnoreCase(invite.getStatus())) {
+            if (STATUS_PENDING.equalsIgnoreCase(invite.getStatus())) {
                 throw new BadRequestException("There is already a pending invitation for this user.");
             }
+            if (!STATUS_ACCEPTED.equalsIgnoreCase(invite.getStatus())
+                    && !STATUS_DECLINED.equalsIgnoreCase(invite.getStatus())) {
+                throw new BadRequestException("This invitation has an invalid status: " + invite.getStatus() + ".");
+            }
             invite.setInvitedBy(inviter);
-            invite.setMessage(request.getMessage());
-            invite.setStatus("PENDING");
+            invite.setMessage(message);
+            invite.setStatus(STATUS_PENDING);
             invite.setCreatedAt(LocalDateTime.now());
             invite.setRespondedAt(null);
         } else {
@@ -83,12 +91,12 @@ public class TeamInviteService {
                     .team(team)
                     .invitedUser(invitedUser)
                     .invitedBy(inviter)
-                    .message(request.getMessage())
-                    .status("PENDING")
+                    .message(message)
+                    .status(STATUS_PENDING)
                     .build();
         }
-        invite = inviteRepository.save(invite);
 
+        invite = saveInvite(invite);
         notificationService.createNotification(
                 invitedUser.getUserId(),
                 "Team invitation",
@@ -99,89 +107,179 @@ public class TeamInviteService {
         return mapToResponse(invite);
     }
 
-    // ── Get pending invites for current user ──────────────────────────
-
     @Transactional(readOnly = true)
     public List<TeamInviteResponse> getPendingInvites(Integer userId) {
-        return inviteRepository.findByInvitedUser_UserIdAndStatus(userId, "PENDING").stream()
+        requireId(userId, "User ID");
+        requireApprovedActiveUser(userId, "User");
+
+        return inviteRepository.findByInvitedUser_UserIdAndStatus(userId, STATUS_PENDING).stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
 
-    // ── Accept invite ─────────────────────────────────────────────────
-
     @Transactional
     public TeamInviteResponse acceptInvite(Integer userId, Integer inviteId) {
+        requireId(userId, "User ID");
+        requireId(inviteId, "Invite ID");
+        User user = requireApprovedActiveUser(userId, "User");
+
         TeamInvite invite = getInviteForUser(userId, inviteId);
+        Team team = lockTeam(invite.getTeam().getTeamId());
+        invite.setTeam(team);
+
+        validateTeamCanReceiveInvite(team);
+        validateInvitableUser(invite.getInvitedUser());
 
         if (teamMemberRepository.existsByUser_UserIdAndTeam_Event_EventId(
-                userId, invite.getTeam().getEvent().getEventId())) {
+                userId, team.getEvent().getEventId())) {
             throw new BadRequestException("You are already a member of a team in this event.");
         }
 
-        // Hard cap: a team may have at most 5 members (per competition rules).
-        if (teamMemberRepository.findByTeam_TeamId(invite.getTeam().getTeamId()).size() >= 5) {
-            throw new BadRequestException("This team is already full (maximum 5 members).");
-        }
+        LocalDateTime now = LocalDateTime.now();
+        invite.setStatus(STATUS_ACCEPTED);
+        invite.setRespondedAt(now);
+        invite = saveInvite(invite);
 
-        invite.setStatus("ACCEPTED");
-        invite.setRespondedAt(LocalDateTime.now());
-        inviteRepository.save(invite);
-
-        User user = invite.getInvitedUser();
         TeamMember member = TeamMember.builder()
-                .team(invite.getTeam())
+                .team(team)
                 .user(user)
                 .memberRole("MEMBER")
                 .build();
-        teamMemberRepository.save(member);
+        saveMember(member);
 
-        TeamMember leader = findCurrentLeader(invite.getTeam());
+        TeamMember leader = findCurrentLeader(team);
         notificationService.createNotification(
                 leader.getUser().getUserId(),
                 "Invitation accepted",
-                user.getFullName() + " accepted the invitation to join team '" +
-                        invite.getTeam().getName() + "'.",
+                user.getFullName() + " accepted the invitation to join team '" + team.getName() + "'.",
                 "TEAM_INVITE_ACCEPTED"
         );
 
-        // Cancel all other pending invites for this user in the same event
-        inviteRepository.findByInvitedUser_UserIdAndStatus(userId, "PENDING").stream()
-                .filter(i -> !i.getInviteId().equals(inviteId))
-                .filter(i -> i.getTeam().getEvent().getEventId()
-                        .equals(invite.getTeam().getEvent().getEventId()))
-                .forEach(i -> {
-                    i.setStatus("DECLINED");
-                    i.setRespondedAt(LocalDateTime.now());
-                    inviteRepository.save(i);
-                });
+        List<TeamInvite> otherPending = inviteRepository
+                .findByInvitedUser_UserIdAndStatusAndTeam_Event_EventId(
+                        userId, STATUS_PENDING, team.getEvent().getEventId()).stream()
+                .filter(other -> !other.getInviteId().equals(inviteId))
+                .collect(Collectors.toList());
+        otherPending.forEach(other -> {
+            other.setStatus(STATUS_DECLINED);
+            other.setRespondedAt(now);
+        });
+        inviteRepository.saveAll(otherPending);
 
         return mapToResponse(invite);
     }
-
-    // ── Decline invite ────────────────────────────────────────────────
 
     @Transactional
     public TeamInviteResponse declineInvite(Integer userId, Integer inviteId) {
+        requireId(userId, "User ID");
+        requireId(inviteId, "Invite ID");
+        requireApprovedActiveUser(userId, "User");
+
         TeamInvite invite = getInviteForUser(userId, inviteId);
-        invite.setStatus("DECLINED");
+        invite.setStatus(STATUS_DECLINED);
         invite.setRespondedAt(LocalDateTime.now());
-        inviteRepository.save(invite);
+        invite = saveInvite(invite);
         return mapToResponse(invite);
     }
 
-    // ── Helpers ───────────────────────────────────────────────────────
-
     private TeamInvite getInviteForUser(Integer userId, Integer inviteId) {
-        TeamInvite invite = inviteRepository.findById(inviteId)
+        TeamInvite invite = inviteRepository.findByIdForUpdate(inviteId)
                 .orElseThrow(() -> new ResourceNotFoundException("Invite not found: " + inviteId));
-        if (!invite.getInvitedUser().getUserId().equals(userId)) {
+        if (!userId.equals(invite.getInvitedUser().getUserId())) {
             throw new ForbiddenException("This invitation does not belong to you.");
         }
-        if (!"PENDING".equalsIgnoreCase(invite.getStatus())) {
-            throw new BadRequestException("This invitation has already been " + invite.getStatus().toLowerCase() + ".");
+        if (!STATUS_PENDING.equalsIgnoreCase(invite.getStatus())) {
+            String status = invite.getStatus() == null ? "unknown" : invite.getStatus().toLowerCase(Locale.ROOT);
+            throw new BadRequestException("This invitation has already been " +
+                    status + ".");
         }
         return invite;
+    }
+
+    private void requireId(Integer id, String fieldName) {
+        if (id == null) {
+            throw new BadRequestException(fieldName + " is required.");
+        }
+    }
+
+    private Integer requireInvitedUserId(CreateInviteRequest request) {
+        if (request == null) {
+            throw new BadRequestException("Request body is required.");
+        }
+        requireId(request.getInvitedUserId(), "Invited user ID");
+        return request.getInvitedUserId();
+    }
+
+    private User requireApprovedActiveUser(Integer userId, String label) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException(label + " not found: " + userId));
+        if (!Boolean.TRUE.equals(user.getIsApproved()) || !Boolean.TRUE.equals(user.getIsActive())) {
+            throw new BadRequestException(label + " account is not approved or active.");
+        }
+        return user;
+    }
+
+    private void validateInvitableUser(User user) {
+        if (!Boolean.TRUE.equals(user.getIsApproved()) || !Boolean.TRUE.equals(user.getIsActive())) {
+            throw new BadRequestException("Cannot invite a user whose account is not approved or active.");
+        }
+        if (user.getUserType() == null || !INVITABLE_USER_TYPES.contains(user.getUserType().toUpperCase(Locale.ROOT))) {
+            throw new BadRequestException("Only student participant accounts can be invited to a team.");
+        }
+    }
+
+    private void validateTeamCanReceiveInvite(Team team) {
+        if (team.getEvent() == null) {
+            throw new BadRequestException("This team is not linked to an event.");
+        }
+        if (!"OPEN".equalsIgnoreCase(team.getEvent().getStatus())) {
+            throw new BadRequestException("This event is not open for team registration.");
+        }
+        LocalDateTime now = LocalDateTime.now();
+        if (team.getEvent().getRegistrationStart() != null && now.isBefore(team.getEvent().getRegistrationStart())) {
+            throw new BadRequestException("Registration has not started yet.");
+        }
+        if (team.getEvent().getRegistrationEnd() != null && now.isAfter(team.getEvent().getRegistrationEnd())) {
+            throw new BadRequestException("Registration deadline has passed.");
+        }
+        if (!"APPROVED".equalsIgnoreCase(team.getStatus())) {
+            throw new BadRequestException("Only approved teams can receive invitations.");
+        }
+        if (teamMemberRepository.countByTeam_TeamId(team.getTeamId()) >= MAX_TEAM_MEMBERS) {
+            throw new BadRequestException("This team is already full (maximum 5 members).");
+        }
+    }
+
+    private Team lockTeam(Integer teamId) {
+        return teamRepository.findByIdForUpdate(teamId)
+                .orElseThrow(() -> new ResourceNotFoundException("Team not found: " + teamId));
+    }
+
+    private String normalizeMessage(CreateInviteRequest request) {
+        if (request == null || request.getMessage() == null || request.getMessage().isBlank()) {
+            return null;
+        }
+        String message = request.getMessage().trim();
+        if (message.length() > MAX_MESSAGE_LENGTH) {
+            throw new BadRequestException("Message must be at most " + MAX_MESSAGE_LENGTH + " characters.");
+        }
+        return message;
+    }
+
+    private TeamInvite saveInvite(TeamInvite invite) {
+        try {
+            return inviteRepository.saveAndFlush(invite);
+        } catch (DataIntegrityViolationException ex) {
+            throw new BadRequestException("Invitation could not be saved because it conflicts with existing data.");
+        }
+    }
+
+    private void saveMember(TeamMember member) {
+        try {
+            teamMemberRepository.save(member);
+        } catch (DataIntegrityViolationException ex) {
+            throw new BadRequestException("This user is already a member of this team.");
+        }
     }
 
     private TeamMember findCurrentLeader(Team team) {

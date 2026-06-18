@@ -40,7 +40,7 @@ public class TeamInvite {
     @Builder.Default
     private String status = "PENDING"; // PENDING | ACCEPTED | DECLINED
 
-    @Column(name = "created_at", nullable = false, updatable = false)
+    @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
     @Column(name = "responded_at")

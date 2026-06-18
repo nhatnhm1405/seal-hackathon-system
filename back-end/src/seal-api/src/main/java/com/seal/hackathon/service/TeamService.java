@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -56,7 +57,8 @@ public class TeamService {
         // either the leader self-selects (SELF_SELECT) or the coordinator draws
         // (RANDOM) — once the roster is frozen and per-track slots are computed.
 
-        if (teamRepository.existsByEvent_EventIdAndName(request.getEventId(), request.getName().trim())) {
+        String teamName = request.getName().trim();
+        if (teamRepository.existsByEventIdAndNormalizedName(request.getEventId(), normalizeName(teamName))) {
             throw new BadRequestException("A team named '" + request.getName() + "' already exists in this event.");
         }
 
@@ -67,7 +69,7 @@ public class TeamService {
         Team team = Team.builder()
                 .event(event)
                 .track(null)
-                .name(request.getName().trim())
+                .name(teamName)
                 .description(request.getDescription())
                 .status("PENDING")
                 .build();
@@ -131,13 +133,13 @@ public class TeamService {
     @Transactional
     public MyTeamResponse updateTeam(Integer userId, Integer teamId, UpdateTeamRequest request) {
         Team team = requireLeader(userId, teamId);
-        if ("REJECTED".equalsIgnoreCase(team.getStatus()) || "DISQUALIFIED".equalsIgnoreCase(team.getStatus())) {
-            throw new BadRequestException("This team can no longer be edited.");
-        }
+        ensureTeamManageable(team);
         if (request.getName() != null && !request.getName().isBlank()) {
             String newName = request.getName().trim();
-            if (!newName.equals(team.getName())
-                    && teamRepository.existsByEvent_EventIdAndName(team.getEvent().getEventId(), newName)) {
+            String normalizedOldName = normalizeName(team.getName());
+            String normalizedNewName = normalizeName(newName);
+            if (!normalizedNewName.equals(normalizedOldName)
+                    && teamRepository.existsByEventIdAndNormalizedName(team.getEvent().getEventId(), normalizedNewName)) {
                 throw new BadRequestException("A team named '" + newName + "' already exists in this event.");
             }
             team.setName(newName);
@@ -152,7 +154,8 @@ public class TeamService {
     /** Leader removes a MEMBER (not themselves, not another leader). */
     @Transactional
     public MyTeamResponse removeMember(Integer leaderUserId, Integer teamId, Integer targetUserId) {
-        requireLeader(leaderUserId, teamId);
+        Team team = requireLeader(leaderUserId, teamId);
+        ensureTeamManageable(team);
         if (leaderUserId.equals(targetUserId)) {
             throw new BadRequestException("The leader cannot remove themselves. Transfer leadership or leave the team.");
         }
@@ -170,7 +173,8 @@ public class TeamService {
     /** Leader hands leadership to an existing member and becomes a member. */
     @Transactional
     public MyTeamResponse transferLeadership(Integer leaderUserId, Integer teamId, Integer newLeaderUserId) {
-        requireLeader(leaderUserId, teamId);
+        Team team = requireLeader(leaderUserId, teamId);
+        ensureTeamManageable(team);
         if (leaderUserId.equals(newLeaderUserId)) {
             throw new BadRequestException("You are already the leader.");
         }
@@ -194,6 +198,7 @@ public class TeamService {
     public void leaveTeam(Integer userId, Integer teamId) {
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new ResourceNotFoundException("Team not found: " + teamId));
+        ensureTeamManageable(team);
         List<TeamMember> members = teamMemberRepository.findByTeam_TeamId(teamId);
         TeamMember me = members.stream().filter(m -> m.getUser().getUserId().equals(userId)).findFirst()
                 .orElseThrow(() -> new BadRequestException("You are not a member of this team."));
@@ -244,6 +249,21 @@ public class TeamService {
 
     // ── Coordinator: Get all teams by event ──────────────────────────
 
+    private void ensureTeamManageable(Team team) {
+        if ("REJECTED".equalsIgnoreCase(team.getStatus()) || "DISQUALIFIED".equalsIgnoreCase(team.getStatus())) {
+            throw new BadRequestException("This team can no longer be managed.");
+        }
+    }
+
+    private String normalizeName(String name) {
+        return name == null ? "" : name.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private String normalizeReason(String reason) {
+        String trimmed = reason.trim();
+        return trimmed.isBlank() ? null : trimmed;
+    }
+
     @Transactional(readOnly = true)
     public List<TeamDetailResponse> getTeamsByEvent(Integer eventId) {
         eventRepository.findById(eventId)
@@ -268,8 +288,8 @@ public class TeamService {
     public TeamDetailResponse approveTeam(Integer teamId) {
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new ResourceNotFoundException("Team not found: " + teamId));
-        if ("APPROVED".equalsIgnoreCase(team.getStatus())) {
-            throw new BadRequestException("Team is already approved.");
+        if (!"PENDING".equalsIgnoreCase(team.getStatus())) {
+            throw new BadRequestException("Only pending teams can be approved.");
         }
         team.setStatus("APPROVED");
         teamRepository.save(team);
@@ -289,9 +309,12 @@ public class TeamService {
     public TeamDetailResponse rejectTeam(Integer teamId, RejectTeamRequest request) {
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new ResourceNotFoundException("Team not found: " + teamId));
+        if (!"PENDING".equalsIgnoreCase(team.getStatus())) {
+            throw new BadRequestException("Only pending teams can be rejected.");
+        }
         team.setStatus("REJECTED");
         if (request != null && request.getReason() != null) {
-            team.setDisqualifiedReason(request.getReason());
+            team.setDisqualifiedReason(normalizeReason(request.getReason()));
         }
         teamRepository.save(team);
         String reason = team.getDisqualifiedReason();
@@ -311,9 +334,12 @@ public class TeamService {
     public TeamDetailResponse disqualifyTeam(Integer teamId, RejectTeamRequest request) {
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new ResourceNotFoundException("Team not found: " + teamId));
+        if (!"APPROVED".equalsIgnoreCase(team.getStatus())) {
+            throw new BadRequestException("Only approved teams can be disqualified.");
+        }
         team.setStatus("DISQUALIFIED");
         if (request != null && request.getReason() != null) {
-            team.setDisqualifiedReason(request.getReason());
+            team.setDisqualifiedReason(normalizeReason(request.getReason()));
         }
         team.setDisqualifiedAt(LocalDateTime.now());
         teamRepository.save(team);
