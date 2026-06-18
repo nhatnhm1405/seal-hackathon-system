@@ -4,12 +4,14 @@ import com.seal.hackathon.dto.request.CreateGuestJudgeRequest;
 import com.seal.hackathon.dto.response.ApiResponse;
 import com.seal.hackathon.dto.response.JudgeAssignmentResponse;
 import com.seal.hackathon.dto.response.UserResponse;
+import com.seal.hackathon.security.UserPrincipal;
 import com.seal.hackathon.service.AssignmentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -41,9 +43,11 @@ public class CoordinatorController {
     /** Create a GUEST judge account and assign it to a round in one step. */
     @PostMapping("/guest-judges")
     public ResponseEntity<ApiResponse<JudgeAssignmentResponse>> createGuestJudge(
-            @Valid @RequestBody CreateGuestJudgeRequest request) {
+            @Valid @RequestBody CreateGuestJudgeRequest request,
+            Authentication authentication) {
+        UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Guest judge created and assigned.",
-                        assignmentService.createGuestJudge(request)));
+                        assignmentService.createGuestJudge(request, principal.getUserId())));
     }
 }

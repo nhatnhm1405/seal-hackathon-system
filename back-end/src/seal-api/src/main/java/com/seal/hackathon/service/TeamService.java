@@ -35,6 +35,7 @@ public class TeamService {
     private final TrackRepository trackRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final AuditLogService auditLogService;
 
     // ── Participant: Create team ──────────────────────────────────────
 
@@ -338,9 +339,12 @@ public class TeamService {
      * @param includeAssigned when false (default), only teams without a track are
      *                        drawn (teams that self-selected keep their choice);
      *                        when true, every eligible team is re-shuffled.
+     * @param actorUserId     coordinator performing the draw (for the audit trail)
+     * @param reason          optional justification, recorded on a REDRAW
      */
     @Transactional
-    public List<TeamResponse> drawTracks(Integer eventId, boolean includeAssigned) {
+    public List<TeamResponse> drawTracks(Integer eventId, boolean includeAssigned,
+                                         Integer actorUserId, String reason) {
         HackathonEvent event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new ResourceNotFoundException("Event not found: " + eventId));
 
@@ -398,6 +402,15 @@ public class TeamService {
             count.merge(best.getTrackId(), 1, Integer::sum);
         }
         teamRepository.saveAll(toAssign);
+
+        // Audit trail: a REDRAW wipes & reshuffles everyone (fairness-sensitive, so
+        // it carries the coordinator's reason); a plain DRAW only fills unassigned.
+        String action = includeAssigned ? "REDRAW_TRACKS" : "DRAW_TRACKS";
+        auditLogService.record(actorUserId, action, "EVENT", eventId,
+                (reason != null && !reason.isBlank()) ? reason.trim() : null,
+                Map.of("mode", event.getTrackSelectionMode(),
+                        "assigned", toAssign.size(),
+                        "include_assigned", includeAssigned));
 
         return toAssign.stream().map(this::mapToTeamResponse).collect(Collectors.toList());
     }

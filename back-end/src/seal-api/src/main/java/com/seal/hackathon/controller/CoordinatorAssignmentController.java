@@ -7,12 +7,14 @@ import com.seal.hackathon.dto.response.JudgeAssignmentResponse;
 import com.seal.hackathon.dto.response.JudgeRosterItemResponse;
 import com.seal.hackathon.dto.response.MentorAssignmentResponse;
 import com.seal.hackathon.dto.response.MentorRosterItemResponse;
+import com.seal.hackathon.security.UserPrincipal;
 import com.seal.hackathon.service.AssignmentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -34,8 +36,10 @@ public class CoordinatorAssignmentController {
 
     @PostMapping("/mentors")
     public ResponseEntity<ApiResponse<MentorAssignmentResponse>> assignMentor(
-            @Valid @RequestBody AssignMentorRequest request) {
-        MentorAssignmentResponse response = assignmentService.assignMentor(request);
+            @Valid @RequestBody AssignMentorRequest request,
+            Authentication authentication) {
+        UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
+        MentorAssignmentResponse response = assignmentService.assignMentor(request, principal.getUserId());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Mentor assigned successfully.", response));
     }
@@ -56,8 +60,10 @@ public class CoordinatorAssignmentController {
 
     @PostMapping("/judges")
     public ResponseEntity<ApiResponse<JudgeAssignmentResponse>> assignJudge(
-            @Valid @RequestBody AssignJudgeRequest request) {
-        JudgeAssignmentResponse response = assignmentService.assignJudge(request);
+            @Valid @RequestBody AssignJudgeRequest request,
+            Authentication authentication) {
+        UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
+        JudgeAssignmentResponse response = assignmentService.assignJudge(request, principal.getUserId());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Judge assigned successfully.", response));
     }

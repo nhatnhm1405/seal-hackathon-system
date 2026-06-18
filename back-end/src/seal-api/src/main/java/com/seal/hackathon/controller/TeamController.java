@@ -139,9 +139,12 @@ public class TeamController {
     @PreAuthorize("hasRole('EVENT_COORDINATOR')")
     public ResponseEntity<ApiResponse<List<TeamResponse>>> drawTracks(
             @PathVariable Integer eventId,
-            @RequestParam(defaultValue = "false") boolean includeAssigned) {
+            @RequestParam(defaultValue = "false") boolean includeAssigned,
+            @RequestParam(required = false) String reason,
+            Authentication authentication) {
+        UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
         return ResponseEntity.ok(ApiResponse.success("Tracks drawn successfully.",
-                teamService.drawTracks(eventId, includeAssigned)));
+                teamService.drawTracks(eventId, includeAssigned, principal.getUserId(), reason)));
     }
 
     @PutMapping("/{teamId}/approve")

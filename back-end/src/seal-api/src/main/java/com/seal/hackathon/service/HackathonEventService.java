@@ -28,6 +28,7 @@ public class HackathonEventService {
     private final HackathonEventRepository hackathonEventRepository;
     private final TrackRepository trackRepository;
     private final TeamRepository teamRepository;
+    private final AuditLogService auditLogService;
 
     private static final Set<String> VALID_STATUSES =
             Set.of("DRAFT", "OPEN", "SETUP", "IN_PROGRESS", "COMPLETED", "CANCELLED");
@@ -36,20 +37,23 @@ public class HackathonEventService {
             Set.of("SELF_SELECT", "RANDOM");
 
     // Allowed status transitions — backend is the source of truth (the FE buttons
-    // only mirror this). DRAFT→OPEN→SETUP→IN_PROGRESS→COMPLETED; CANCELLED from any
+    // only mirror this). The Coordinator-operable states DRAFT/OPEN/SETUP/IN_PROGRESS
+    // form a line that may be walked BOTH ways one step at a time — forward to
+    // advance, backward to roll back: DRAFT↔OPEN↔SETUP↔IN_PROGRESS. CANCELLED from any
     // non-terminal state; a cancelled event may be reopened to DRAFT.
     //
-    // SETUP = registration closed; coordinator locks/draws teams into tracks
-    // before competition starts. SETUP may fall back to OPEN to reopen registration.
+    // SETUP = registration closed; coordinator locks/draws teams into tracks before
+    // competition starts. Rolling back into SETUP (IN_PROGRESS→SETUP) re-enters the
+    // setup phase; the roster was already frozen when registration closed.
     // NOTE: IN_PROGRESS -> COMPLETED is intentionally NOT in this map. Completing
     // an event is a System-Admin-only action handled by the dedicated
     // completeEvent()/POST /complete path, so the generic PUT (reachable by a
     // Coordinator) can never complete an event (it would 400 here).
     private static final Map<String, Set<String>> TRANSITIONS = Map.of(
             "DRAFT",       Set.of("OPEN", "CANCELLED"),
-            "OPEN",        Set.of("SETUP", "CANCELLED"),
+            "OPEN",        Set.of("SETUP", "DRAFT", "CANCELLED"),
             "SETUP",       Set.of("IN_PROGRESS", "OPEN", "CANCELLED"),
-            "IN_PROGRESS", Set.of("CANCELLED"),
+            "IN_PROGRESS", Set.of("SETUP", "CANCELLED"),
             "COMPLETED",   Set.of(),
             "CANCELLED",   Set.of("DRAFT")
     );
@@ -71,7 +75,7 @@ public class HackathonEventService {
     }
 
     @Transactional
-    public HackathonEventResponse createEvent(CreateEventRequest request) {
+    public HackathonEventResponse createEvent(CreateEventRequest request, Integer actorUserId) {
         String[] validSeasons = {"SPRING", "SUMMER", "FALL"};
         boolean validSeason = false;
         for (String s : validSeasons) {
@@ -111,6 +115,9 @@ public class HackathonEventService {
                 .build();
 
         event = hackathonEventRepository.save(event);
+        auditLogService.record(actorUserId, "CREATE_EVENT", "EVENT", event.getEventId(), null,
+                Map.of("name", event.getName(), "season", event.getSeason(),
+                        "year", event.getYear(), "status", event.getStatus()));
         return mapToResponse(event);
     }
 
