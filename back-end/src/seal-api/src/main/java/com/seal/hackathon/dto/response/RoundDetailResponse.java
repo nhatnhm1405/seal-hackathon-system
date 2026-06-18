@@ -16,6 +16,6 @@ public class RoundDetailResponse {
     private LocalDateTime endTime;
     private LocalDateTime submissionDeadline;
     private Integer topNAdvance;
-    private Boolean isCalibration;
+    private Boolean isFinal;
     private String status;
 }

@@ -3,14 +3,10 @@ import { useTheme } from "@/app/providers/ThemeProvider";
 import { useNavigate, useLocation, Link } from "react-router";
 import { C, PixelBadge } from "@/shared/components/PixelComponents";
 import { useAuth } from "@/app/providers/AuthProvider";
-import { useNotifications } from "@/app/providers/NotificationProvider";
+import { useNotifications, UINotification } from "@/app/providers/NotificationProvider";
 import { usePendingAccounts } from "@/app/providers/PendingAccountsProvider";
-import { AppNotification } from "@/shared/mocks/mockData";
+import { API_BASE_URL } from "@/shared/apiClient";
 import { SealFooter } from "@/shared/components/SealFooter";
-import {
-  events, tracks, rounds,
-  userEventRoles, teams, HackathonEvent,
-} from "@/shared/mocks/mockData";
 import sealLogo from "@/imports/image.png";
 
 const NAVBAR_H = 60;
@@ -60,16 +56,24 @@ function buildNav(role: string, isLeader: boolean, teamId: number | null, pendin
       { path: "/profile",      label: "Profile"          },
     ];
   }
+  if (role === "ADMIN") {
+    return [
+      { path: "/admin/dashboard", label: "Dashboard"   },
+      { path: "/admin/events",    label: "Events"      },
+      { path: "/admin/accounts",  label: "Accounts"    },
+      { path: "/admin/roles",     label: "Role Grants" },
+      { path: "/admin/logs",      label: "System Logs" },
+      { path: "/profile",         label: "Profile"     },
+    ];
+  }
   if (role === "COORDINATOR") {
     return [
       { path: "/coordinator/dashboard", label: "Dashboard"         },
       { path: "/coordinator/events",    label: "Events"            },
       { path: "/coordinator/accounts",  label: "Accounts", badge: pendingCount },
       { path: "/coordinator/teams",     label: "Teams"             },
-      { path: "/coordinator/judges",    label: "Judges & Mentors"  },
+      { path: "/coordinator/judges",    label: "Assignments"       },
       { path: "/coordinator/scoring",   label: "Scoring & Results" },
-      { path: "/coordinator/prizes",    label: "Prizes"            },
-      { path: "/coordinator/audit",     label: "Audit Log"         },
       { path: "/profile",               label: "Profile"           },
     ];
   }
@@ -79,6 +83,11 @@ function buildNav(role: string, isLeader: boolean, teamId: number | null, pendin
 function getPageTitle(pathname: string): string {
   const map: Record<string, string> = {
     "/dashboard": "Dashboard",
+    "/admin/dashboard": "Dashboard",
+    "/admin/events": "Events",
+    "/admin/accounts": "Accounts",
+    "/admin/roles": "Role Grants",
+    "/admin/logs": "System Logs",
     "/leaderboard": "Leaderboard",
     "/profile": "Profile",
     "/team/create": "Create Team",
@@ -92,31 +101,15 @@ function getPageTitle(pathname: string): string {
     "/coordinator/events": "Events",
     "/coordinator/accounts": "Accounts",
     "/coordinator/teams": "Teams",
-    "/coordinator/judges": "Judges & Mentors",
+    "/coordinator/judges": "Assignments",
     "/coordinator/scoring": "Scoring & Results",
-    "/coordinator/prizes": "Prizes",
-    "/coordinator/audit": "Audit Log",
   };
   return map[pathname] || "Console";
 }
 
-function getAvailableEvents(role: string, userId: number): HackathonEvent[] {
-  if (role === 'COORDINATOR') return events;
-  if (role === 'MENTOR') {
-    const assigned = userEventRoles.filter(r => r.user_id === userId && r.role_name === 'MENTOR');
-    const eventIds = new Set(assigned.map(r => r.event_id).filter((id): id is number => id !== null));
-    return events.filter(e => eventIds.has(e.event_id));
-  }
-  if (role === 'JUDGE') {
-    const assigned = userEventRoles.filter(r => r.user_id === userId && r.role_name === 'JUDGE');
-    const eventIds = new Set(assigned.map(r => r.event_id).filter((id): id is number => id !== null));
-    return events.filter(e => eventIds.has(e.event_id));
-  }
-  return [];
-}
-
 function roleBadgeStyle(role: string): { bg: string; color: string } {
   switch (role) {
+    case "ADMIN":       return { bg: "rgba(239,68,68,0.15)", color: "#ef4444" };
     case "COORDINATOR": return { bg: "rgba(234,179,8,0.15)", color: "#eab308" };
     case "MENTOR":      return { bg: "rgba(6,182,212,0.15)",  color: "#06b6d4" };
     case "JUDGE":       return { bg: "rgba(59,130,246,0.15)", color: "#3b82f6" };
@@ -131,7 +124,7 @@ function getInitials(fullName: string): string {
 }
 
 // ── Notification Bell ──────────────────────────────────────────────
-function typeColor(type: AppNotification["type"]) {
+function typeColor(type: UINotification["type"]) {
   if (type === "success") return C.green;
   if (type === "warning") return "#eab308";
   return "#06b6d4";
@@ -288,37 +281,28 @@ interface TopNavbarProps {
   collapsed: boolean;
   onToggleCollapse: () => void;
   currentUser: { user_id: number; full_name: string; role: string; is_leader: boolean; team_id: number | null };
-  currentEvent: HackathonEvent | null;
-  onSelectEvent: (e: HackathonEvent) => void;
   onLogout: () => void;
   onNavigate: (path: string) => void;
 }
 
-function TopNavbar({ pageTitle, collapsed, onToggleCollapse, currentUser, currentEvent, onSelectEvent, onLogout, onNavigate }: TopNavbarProps) {
+function TopNavbar({ pageTitle, collapsed, onToggleCollapse, currentUser, onLogout, onNavigate }: TopNavbarProps) {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const [eventDropOpen, setEventDropOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
   const userMenuRef = useRef<HTMLDivElement>(null);
-  const eventDropRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) setUserMenuOpen(false);
-      if (eventDropRef.current && !eventDropRef.current.contains(e.target as Node)) setEventDropOpen(false);
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  const isParticipant = currentUser.role === "PARTICIPANT";
-  // Coordinator manages events from the Events page, not via the navbar switcher
-  const hasEventSwitcher = !isParticipant && currentUser.role !== "COORDINATOR";
-  const available = hasEventSwitcher ? getAvailableEvents(currentUser.role, currentUser.user_id) : [];
   const badge = roleBadgeStyle(currentUser.role);
   const initials = getInitials(currentUser.full_name);
-
-  const statusColor = (status: string) =>
-    status === 'OPEN' ? C.green : status === 'DRAFT' ? C.textMuted : C.red;
+  const avatarUrl = currentUser.avatar_url
+    ? (currentUser.avatar_url.startsWith("http") ? currentUser.avatar_url : `${API_BASE_URL}${currentUser.avatar_url}`)
+    : null;
 
   return (
     <header style={{
@@ -387,67 +371,8 @@ function TopNavbar({ pageTitle, collapsed, onToggleCollapse, currentUser, curren
         <span style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 14, fontWeight: 600 }}>{pageTitle}</span>
       </div>
 
-      {/* CENTER — event context */}
-      <div style={{ flex: 1, display: "flex", justifyContent: "center" }}>
-        {isParticipant ? (
-          currentEvent && (
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <span style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, fontWeight: 700 }}>
-                {currentEvent.name}
-              </span>
-            </div>
-          )
-        ) : (
-          available.length > 0 && (
-            <div ref={eventDropRef} style={{ position: "relative" }}>
-              <button
-                onClick={() => setEventDropOpen(o => !o)}
-                style={{
-                  display: "flex", alignItems: "center", gap: 6,
-                  background: eventDropOpen ? "rgba(34,197,94,0.08)" : "rgba(34,197,94,0.04)",
-                  border: `1px solid ${C.border}`,
-                  padding: "6px 14px",
-                  cursor: "pointer",
-                  borderRadius: 0,
-                }}
-              >
-                <span style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, fontWeight: 700 }}>
-                  {currentEvent?.name ?? "Select Event"}
-                </span>
-              </button>
-              {eventDropOpen && (
-                <div style={{
-                  position: "absolute", top: "100%", left: "50%", transform: "translateX(-50%)",
-                  minWidth: 220, background: C.surface, border: `1px solid ${C.border}`,
-                  borderTop: "none", zIndex: 200, boxShadow: "0 8px 24px rgba(0,0,0,0.5)",
-                }}>
-                  {available.map(ev => {
-                    const isActive = ev.event_id === currentEvent?.event_id;
-                    return (
-                      <button
-                        key={ev.event_id}
-                        onClick={() => { onSelectEvent(ev); setEventDropOpen(false); }}
-                        style={{
-                          width: "100%", display: "flex", flexDirection: "column", gap: 2,
-                          padding: "10px 14px",
-                          background: isActive ? "rgba(34,197,94,0.08)" : "transparent",
-                          border: "none", borderLeft: isActive ? `2px solid ${C.green}` : "2px solid transparent",
-                          cursor: "pointer", textAlign: "left", borderRadius: 0,
-                        }}
-                        onMouseEnter={(e) => { if (!isActive) (e.currentTarget as HTMLElement).style.background = "rgba(34,197,94,0.06)"; }}
-                        onMouseLeave={(e) => { if (!isActive) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
-                      >
-                        <span style={{ color: isActive ? C.green : C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600 }}>{ev.name}</span>
-                        <span style={{ color: statusColor(ev.status), fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.1em" }}>{ev.status}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )
-        )}
-      </div>
+      {/* CENTER — spacer */}
+      <div style={{ flex: 1 }} />
 
       {/* RIGHT — theme toggle + bell + user menu */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
@@ -511,15 +436,23 @@ function TopNavbar({ pageTitle, collapsed, onToggleCollapse, currentUser, curren
             }}
           >
             {/* Avatar */}
-            <div style={{
-              width: 32, height: 32, borderRadius: "50%",
-              background: "linear-gradient(135deg, #22c55e 0%, #3b82f6 100%)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700, color: "#070c0f",
-              flexShrink: 0,
-            }}>
-              {initials}
-            </div>
+            {avatarUrl ? (
+              <img
+                src={avatarUrl}
+                alt={currentUser.full_name}
+                style={{ width: 32, height: 32, borderRadius: "50%", objectFit: "cover", flexShrink: 0, border: `1px solid ${C.border}` }}
+              />
+            ) : (
+              <div style={{
+                width: 32, height: 32, borderRadius: "50%",
+                background: "linear-gradient(135deg, #22c55e 0%, #3b82f6 100%)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700, color: "#070c0f",
+                flexShrink: 0,
+              }}>
+                {initials}
+              </div>
+            )}
             <div style={{ textAlign: "left", display: "flex", flexDirection: "column", gap: 1 }}>
               <span style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" }}>
                 {currentUser.full_name}
@@ -566,114 +499,13 @@ function TopNavbar({ pageTitle, collapsed, onToggleCollapse, currentUser, curren
   );
 }
 
-// ── Event Context Block (sidebar) ──────────────────────────────────
-interface EventContextBlockProps {
-  role: string;
-  userId: number;
-  teamId: number | null;
-  currentEvent: HackathonEvent | null;
-  onSelectEvent: (e: HackathonEvent) => void;
-  dropdownOpen: boolean;
-  onToggleDropdown: () => void;
-  collapsed: boolean;
-}
-
-function EventContextBlock({ role, userId, teamId, currentEvent, onSelectEvent, dropdownOpen, onToggleDropdown, collapsed }: EventContextBlockProps) {
-  if (collapsed) return null;
-  // Coordinator manages events from the Events page, not via the sidebar switcher
-  if (role === 'COORDINATOR') return null;
-
-  if (role === 'PARTICIPANT') {
-    if (!currentEvent || teamId === null) return null;
-    const team = teams.find(t => t.team_id === teamId);
-    const track = team ? tracks.find(tr => tr.track_id === team.track_id) : null;
-    const activeRound = rounds.find(r => r.event_id === currentEvent.event_id && r.status === 'ACTIVE');
-    return (
-      <div style={{ borderBottom: `1px solid ${C.border}`, padding: "10px 14px", background: "rgba(34,197,94,0.04)" }}>
-        <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700, letterSpacing: "0.04em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-          {currentEvent.name}
-        </div>
-        {track && (
-          <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-            {track.name}
-          </div>
-        )}
-        {activeRound && (
-          <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4 }}>
-            <div style={{ width: 5, height: 5, background: C.green, borderRadius: "50%", boxShadow: `0 0 4px ${C.green}` }} />
-            <span style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.08em" }}>
-              {activeRound.name} · ACTIVE
-            </span>
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  const available = getAvailableEvents(role, userId);
-  if (available.length === 0) return null;
-
-  const statusColor = (status: string) =>
-    status === 'OPEN' ? C.green : status === 'DRAFT' ? C.textMuted : C.red;
-
-  return (
-    <div style={{ borderBottom: `1px solid ${C.border}`, position: "relative" }}>
-      <button
-        onClick={onToggleDropdown}
-        style={{
-          width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: "10px 14px", background: dropdownOpen ? "rgba(34,197,94,0.06)" : "rgba(34,197,94,0.03)",
-          border: "none", cursor: "pointer", borderRadius: 0, gap: 6,
-        }}
-      >
-        <div style={{ flex: 1, textAlign: "left", minWidth: 0 }}>
-          <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-            {currentEvent?.name ?? "Select Event"}
-          </div>
-          {currentEvent && (
-            <div style={{ color: statusColor(currentEvent.status), fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.1em", marginTop: 1 }}>
-              {currentEvent.status}
-            </div>
-          )}
-        </div>
-      </button>
-
-      {dropdownOpen && (
-        <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: C.surface, border: `1px solid ${C.border}`, borderTop: "none", zIndex: 100, boxShadow: "0 8px 24px rgba(0,0,0,0.5)" }}>
-          {available.map(ev => {
-            const isActive = ev.event_id === currentEvent?.event_id;
-            return (
-              <button
-                key={ev.event_id}
-                onClick={() => onSelectEvent(ev)}
-                style={{
-                  width: "100%", display: "flex", flexDirection: "column", gap: 2, padding: "10px 14px",
-                  background: isActive ? "rgba(34,197,94,0.08)" : "transparent",
-                  border: "none", borderLeft: isActive ? `2px solid ${C.green}` : "2px solid transparent",
-                  cursor: "pointer", textAlign: "left", borderRadius: 0,
-                }}
-                onMouseEnter={(e) => { if (!isActive) (e.currentTarget as HTMLElement).style.background = "rgba(34,197,94,0.06)"; }}
-                onMouseLeave={(e) => { if (!isActive) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
-              >
-                <span style={{ color: isActive ? C.green : C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600 }}>{ev.name}</span>
-                <span style={{ color: statusColor(ev.status), fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.1em" }}>{ev.status}</span>
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ── Dashboard Layout ───────────────────────────────────────────────
 export function DashboardLayout({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { currentUser, logout, currentEvent, setCurrentEvent, availableRoles, setActiveRole } = useAuth();
+  const { currentUser, logout, availableRoles, setActiveRole } = useAuth();
   const { addAuthToast } = useNotifications();
   const [collapsed, setCollapsed] = useState(false);
-  const [eventDropdownOpen, setEventDropdownOpen] = useState(false);
   // Coordinator badge reads the shared pending count so it stays in sync with
   // approve/reject actions on the Accounts page (single source of truth).
   const { pendingCount } = usePendingAccounts();
@@ -701,8 +533,6 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
         collapsed={collapsed}
         onToggleCollapse={() => setCollapsed(c => !c)}
         currentUser={currentUser}
-        currentEvent={currentEvent}
-        onSelectEvent={(e) => setCurrentEvent(e)}
         onLogout={handleLogout}
         onNavigate={navigate}
       />
@@ -724,17 +554,6 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
             overflow: "hidden",
           }}
         >
-          <EventContextBlock
-            role={currentUser.role}
-            userId={currentUser.user_id}
-            teamId={currentUser.team_id}
-            currentEvent={currentEvent}
-            onSelectEvent={(e) => { setCurrentEvent(e); setEventDropdownOpen(false); }}
-            dropdownOpen={eventDropdownOpen}
-            onToggleDropdown={() => setEventDropdownOpen(o => !o)}
-            collapsed={collapsed}
-          />
-
           <nav style={{ flex: 1, overflowY: "auto", padding: collapsed ? "12px 6px" : "16px 10px", display: "flex", flexDirection: "column", gap: 2 }}>
             {/* Home — never active, uses Link for no-reload */}
             <Link

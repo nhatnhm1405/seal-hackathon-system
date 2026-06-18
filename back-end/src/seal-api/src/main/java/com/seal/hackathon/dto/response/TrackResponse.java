@@ -11,6 +11,8 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class TrackResponse {
     private Integer trackId;
+    private Integer eventId;
     private String name;
     private String description;
+    private Integer capacity;
 }

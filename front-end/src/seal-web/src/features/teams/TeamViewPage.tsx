@@ -1,263 +1,327 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router";
 import { useAuth } from "@/app/providers/AuthProvider";
+import { useNotifications } from "@/app/providers/NotificationProvider";
 import {
   C, GradientText, PixelCard, PixelButton, PixelBadge, PixelInput,
 } from "@/shared/components/PixelComponents";
-import {
-  teams, tracks, events, teamMembers as initialTeamMembers, users, TeamMember,
-} from "@/shared/mocks/mockData";
+import { teamsApi, invitesApi, joinRequestsApi, ApiError, MyTeam, MyTeamMember, UserItem, JoinRequest } from "@/shared/apiClient";
+import { isTeamEditable, teamLockReason, MIN_TEAM_SIZE, MAX_TEAM_SIZE } from "@/shared/teamPhase";
 
-function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+function statusBadgeColor(status?: string): "green" | "yellow" | "red" | "gray" {
+  const s = (status ?? "").toUpperCase();
+  if (s === "APPROVED") return "green";
+  if (s === "PENDING") return "yellow";
+  if (s === "REJECTED" || s === "DISQUALIFIED") return "red";
+  return "gray";
 }
 
 export function TeamViewPage() {
-  const { currentUser, updateLeaderStatus } = useAuth();
-  const [members, setMembers] = useState<TeamMember[]>(initialTeamMembers);
-  const [teamName, setTeamName] = useState<string | null>(null);
+  const navigate = useNavigate();
+  const { currentUser, refreshTeamContext } = useAuth();
+  const { addToast } = useNotifications();
+
+  const [team, setTeam] = useState<MyTeam | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState("");
+
   const [showInvite, setShowInvite] = useState(false);
   const [inviteQuery, setInviteQuery] = useState("");
-  const [inviteResult, setInviteResult] = useState<string | null>(null);
-  const [transferTarget, setTransferTarget] = useState<TeamMember | null>(null);
+  const [inviteResults, setInviteResults] = useState<UserItem[]>([]);
+  const [searching, setSearching] = useState(false);
 
-  if (!currentUser || currentUser.team_id === null) {
+  const [transferTarget, setTransferTarget] = useState<MyTeamMember | null>(null);
+  const [removeTarget, setRemoveTarget] = useState<MyTeamMember | null>(null);
+
+  const [joinRequests, setJoinRequests] = useState<JoinRequest[]>([]);
+  const [busyReq, setBusyReq] = useState<number | null>(null);
+  const [confirmLeave, setConfirmLeave] = useState(false);
+
+  const loadJoinRequests = useCallback((teamId: number) => {
+    joinRequestsApi.getForTeam(teamId).then(r => setJoinRequests(r.data ?? [])).catch(() => setJoinRequests([]));
+  }, []);
+
+  const load = useCallback(() => {
+    setLoading(true);
+    setLoadError(null);
+    teamsApi.getMy()
+      .then(res => {
+        setTeam(res.data);
+        if (res.data?.myRole === 'LEADER') loadJoinRequests(res.data.teamId);
+      })
+      .catch(err => {
+        if (err instanceof ApiError && err.status === 404) setTeam(null);
+        else setLoadError(err instanceof ApiError ? err.message : "Failed to load your team.");
+      })
+      .finally(() => setLoading(false));
+  }, [loadJoinRequests]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const isLeader = team?.myRole === 'LEADER';
+  const editable = isTeamEditable(team?.eventStatus);
+  const lockReason = teamLockReason(team?.eventStatus);
+
+  if (loading) {
+    return <div style={{ padding: 24 }}><PixelCard style={{ padding: 32, textAlign: "center" }}>
+      <p style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 13 }}>Loading...</p>
+    </PixelCard></div>;
+  }
+
+  if (!team) {
     return (
       <div style={{ padding: 24 }}>
-        <PixelCard style={{ padding: 24 }}>
-          <p style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 13 }}>
-            You are not part of any team yet.
+        <PixelCard style={{ padding: 32, textAlign: "center" }}>
+          <p style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, marginBottom: 20 }}>
+            {loadError ?? "You are not part of any team yet."}
           </p>
+          {!loadError && <PixelButton variant="cyber" onClick={() => navigate('/team/create')}>CREATE A TEAM</PixelButton>}
         </PixelCard>
       </div>
     );
   }
 
-  const team = teams.find(t => t.team_id === currentUser.team_id)!;
-  if (!team) return null;
+  async function saveName() {
+    if (!team || !nameInput.trim() || nameInput.trim() === team.name) { setEditingName(false); return; }
+    setBusy(true); setActionError(null);
+    try {
+      const res = await teamsApi.update(team.teamId, { name: nameInput.trim() });
+      setTeam(res.data);
+      setEditingName(false);
+      addToast({ type: "success", title: "Team renamed", message: `Your team is now "${res.data.name}".` });
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : "Failed to rename team.");
+    } finally { setBusy(false); }
+  }
 
-  const track = tracks.find(tr => tr.track_id === team.track_id);
-  const event = track ? events.find(e => e.event_id === track.event_id) : null;
-  const teamMemberRows = members.filter(m => m.team_id === team.team_id);
-  const displayName = teamName ?? team.name;
-  const isLeader = currentUser.is_leader;
+  async function doSearch() {
+    const q = inviteQuery.trim();
+    if (q.length < 2) { setInviteResults([]); return; }
+    setSearching(true);
+    try {
+      const res = await teamsApi.searchUsers(q);
+      setInviteResults(res.data ?? []);
+    } catch { setInviteResults([]); }
+    finally { setSearching(false); }
+  }
 
-  const statusColor = team.status === 'APPROVED' ? 'green' : team.status === 'PENDING' ? 'yellow' : 'red';
-
-  function handleInvite() {
-    const q = inviteQuery.trim().toLowerCase();
-    if (!q) return;
-    const found = users.find(u =>
-      u.email.toLowerCase() === q || u.student_id?.toLowerCase() === q
-    );
-    if (!found) {
-      setInviteResult("No user found with that email or student ID.");
-      return;
+  async function sendInvite(user: UserItem) {
+    if (!team) return;
+    setActionError(null); setNotice(null);
+    try {
+      await invitesApi.send(team.teamId, { invitedUserId: user.userId });
+      setNotice(`Invitation sent to ${user.fullName}. They will appear once they accept.`);
+      addToast({ type: "success", title: "Invitation sent", message: `${user.fullName} has been invited to your team.` });
+      setInviteQuery(""); setInviteResults([]); setShowInvite(false);
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : "Failed to send invite.");
     }
-    const alreadyMember = teamMemberRows.some(m => m.user_id === found.user_id);
-    if (alreadyMember) {
-      setInviteResult(`${found.full_name} is already on the team.`);
-      return;
-    }
-    if (teamMemberRows.length >= 5) {
-      setInviteResult("Team is full (maximum 5 members).");
-      return;
-    }
-    setMembers(prev => [...prev, {
-      team_id: team.team_id,
-      user_id: found.user_id,
-      joined_at: new Date().toISOString(),
-      member_role: 'MEMBER' as const,
-    }]);
-    setInviteResult(`${found.full_name} has been invited and added to the team.`);
-    setInviteQuery("");
-    setShowInvite(false);
-    setTimeout(() => setInviteResult(null), 3000);
   }
 
-  function handleRemove(userId: number) {
-    setMembers(prev => prev.filter(m => !(m.team_id === team.team_id && m.user_id === userId)));
+  async function acceptJoin(r: JoinRequest) {
+    if (!team) return;
+    setBusyReq(r.requestId); setActionError(null); setNotice(null);
+    try {
+      await joinRequestsApi.accept(r.requestId);
+      const res = await teamsApi.getMy();
+      setTeam(res.data);
+      loadJoinRequests(team.teamId);
+      setNotice(`${r.requesterName} has joined the team.`);
+      addToast({ type: "success", title: "Member added", message: `${r.requesterName} has joined your team.` });
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : "Failed to accept request.");
+    } finally { setBusyReq(null); }
   }
 
-  function handleTransferConfirm() {
-    if (!transferTarget) return;
-    setMembers(prev => prev.map(m => {
-      if (m.team_id !== team.team_id) return m;
-      if (m.user_id === currentUser!.user_id) return { ...m, member_role: 'MEMBER' as const };
-      if (m.user_id === transferTarget.user_id) return { ...m, member_role: 'LEADER' as const };
-      return m;
-    }));
-    updateLeaderStatus(false);
-    setTransferTarget(null);
+  async function declineJoin(r: JoinRequest) {
+    setBusyReq(r.requestId); setActionError(null);
+    try {
+      await joinRequestsApi.decline(r.requestId);
+      setJoinRequests(prev => prev.filter(x => x.requestId !== r.requestId));
+      addToast({ type: "info", title: "Request declined", message: `${r.requesterName}'s join request was declined.` });
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : "Failed to decline request.");
+    } finally { setBusyReq(null); }
   }
 
-  function handleSaveName() {
-    if (nameInput.trim()) setTeamName(nameInput.trim());
-    setEditingName(false);
-    setNameInput("");
+  async function removeMember(m: MyTeamMember) {
+    if (!team) return;
+    setBusy(true); setActionError(null);
+    try {
+      const res = await teamsApi.removeMember(team.teamId, m.userId);
+      setTeam(res.data);
+      setRemoveTarget(null);
+      addToast({ type: "warning", title: "Member removed", message: `${m.memberName} was removed from the team.` });
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : "Failed to remove member.");
+    } finally { setBusy(false); }
   }
+
+  async function confirmTransfer() {
+    if (!team || !transferTarget) return;
+    setBusy(true); setActionError(null);
+    try {
+      const res = await teamsApi.transferLeadership(team.teamId, transferTarget.userId);
+      setTeam(res.data);
+      await refreshTeamContext();
+      addToast({ type: "success", title: "Leadership transferred", message: `${transferTarget.memberName} is now the team leader.` });
+      setTransferTarget(null);
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : "Failed to transfer leadership.");
+    } finally { setBusy(false); }
+  }
+
+  async function leaveTeam() {
+    if (!team) return;
+    setBusy(true); setActionError(null);
+    try {
+      const leftName = team.name;
+      await teamsApi.leave(team.teamId);
+      await refreshTeamContext();
+      addToast({ type: "info", title: "Left team", message: `You have left "${leftName}".` });
+      navigate('/dashboard');
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : "Failed to leave team.");
+    } finally { setBusy(false); }
+  }
+
+  const memberRows = team.members ?? [];
 
   return (
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
-
       {/* Header */}
-      <div>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          {editingName ? (
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <input
-                value={nameInput}
-                onChange={e => setNameInput(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter') handleSaveName(); if (e.key === 'Escape') setEditingName(false); }}
-                autoFocus
-                style={{
-                  background: C.surface2,
-                  border: `1px solid ${C.green}`,
-                  color: C.text,
-                  fontFamily: "'JetBrains Mono', monospace",
-                  fontSize: 24,
-                  fontWeight: 800,
-                  padding: "4px 10px",
-                  outline: "none",
-                  borderRadius: 0,
-                }}
-              />
-              <PixelButton size="sm" variant="cyber" onClick={handleSaveName}>SAVE</PixelButton>
-              <PixelButton size="sm" variant="ghost" onClick={() => setEditingName(false)}>CANCEL</PixelButton>
-            </div>
-          ) : (
-            <h1 style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 28, fontWeight: 800, lineHeight: 1.1 }}>
-              <GradientText>{displayName}</GradientText>
-            </h1>
-          )}
-          <PixelBadge color={statusColor}>{team.status}</PixelBadge>
-          {isLeader && !editingName && (
-            <button
-              onClick={() => { setNameInput(displayName); setEditingName(true); }}
-              style={{
-                background: "transparent",
-                border: `1px solid ${C.border}`,
-                color: C.textMuted,
-                fontFamily: "'JetBrains Mono', monospace",
-                fontSize: 10,
-                padding: "4px 8px",
-                cursor: "pointer",
-                borderRadius: 0,
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
-              }}
-            >
-              EDIT NAME
-            </button>
-          )}
-        </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        {editingName ? (
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <input
+              value={nameInput} onChange={e => setNameInput(e.target.value)} autoFocus
+              onKeyDown={e => { if (e.key === 'Enter') saveName(); if (e.key === 'Escape') setEditingName(false); }}
+              style={{ background: C.surface2, border: `1px solid ${C.green}`, color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 24, fontWeight: 800, padding: "4px 10px", outline: "none", borderRadius: 0 }}
+            />
+            <PixelButton size="sm" variant="cyber" onClick={saveName} disabled={busy}>SAVE</PixelButton>
+            <PixelButton size="sm" variant="ghost" onClick={() => setEditingName(false)}>CANCEL</PixelButton>
+          </div>
+        ) : (
+          <h1 style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 28, fontWeight: 800, lineHeight: 1.1 }}>
+            <GradientText>{team.name}</GradientText>
+          </h1>
+        )}
+        <PixelBadge color={statusBadgeColor(team.status)}>{team.status ?? "—"}</PixelBadge>
+        {isLeader && editable && !editingName && (
+          <button onClick={() => { setNameInput(team.name); setEditingName(true); }}
+            style={{ background: "transparent", border: `1px solid ${C.border}`, color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, padding: "4px 8px", cursor: "pointer", borderRadius: 0, letterSpacing: "0.1em", textTransform: "uppercase" }}>
+            EDIT NAME
+          </button>
+        )}
       </div>
 
-      {/* Pending banner */}
       {team.status === 'PENDING' && (
-        <div style={{
-          background: "rgba(234,179,8,0.08)",
-          border: "1px solid rgba(234,179,8,0.4)",
-          color: "#eab308",
-          fontFamily: "'JetBrains Mono', monospace",
-          fontSize: 12,
-          padding: "12px 16px",
-          letterSpacing: "0.01em",
-        }}>
+        <div style={{ background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.4)", color: "#eab308", fontFamily: "'JetBrains Mono', monospace", fontSize: 12, padding: "12px 16px" }}>
           Your team is awaiting coordinator approval. You cannot submit until approved.
         </div>
       )}
 
-      {/* Team info */}
+      {lockReason && (
+        <div style={{ background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.4)", color: "#3b82f6", fontFamily: "'JetBrains Mono', monospace", fontSize: 12, padding: "12px 16px", display: "flex", gap: 8 }}>
+          <span aria-hidden style={{ flexShrink: 0 }}>🔒</span>
+          <span>{lockReason}</span>
+        </div>
+      )}
+
+      {editable && memberRows.length < MIN_TEAM_SIZE && (
+        <div style={{ background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.4)", color: "#eab308", fontFamily: "'JetBrains Mono', monospace", fontSize: 12, padding: "12px 16px" }}>
+          Your team has {memberRows.length}/{MIN_TEAM_SIZE} minimum members. Teams with fewer than {MIN_TEAM_SIZE} members may be merged by a coordinator.
+        </div>
+      )}
+
+      {actionError && (
+        <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.35)", color: C.red, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, padding: "10px 14px" }}>ERROR: {actionError}</div>
+      )}
+      {notice && (
+        <div style={{ background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.35)", color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, padding: "10px 14px" }}>{notice}</div>
+      )}
+
+      {/* Info */}
       <PixelCard style={{ padding: 20 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 16 }}>
-          <InfoCell label="Track" value={track?.name ?? "—"} />
-          <InfoCell label="Event" value={event?.name ?? "—"} />
-          <InfoCell label="Members" value={`${teamMemberRows.length}/5`} accent />
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 16 }}>
+          <InfoCell label="Event" value={team.eventName ?? "—"} />
+          <InfoCell label="Track" value={team.trackName ?? "—"} />
+          <InfoCell label="Members" value={`${memberRows.length}/${MAX_TEAM_SIZE}`} accent />
+          <InfoCell label="Your role" value={team.myRole ?? "—"} />
         </div>
       </PixelCard>
 
-      {/* Member list */}
+      {/* Members */}
       <PixelCard style={{ padding: 0, overflow: "hidden" }}>
-        <div style={{ padding: "14px 18px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          {isLeader && teamMemberRows.length < 5 && (
-            <PixelButton size="sm" variant="cyber" onClick={() => { setShowInvite(s => !s); setInviteResult(null); }}>
-              {showInvite ? "CANCEL INVITE" : "INVITE MEMBER"}
+        <div style={{ padding: "14px 18px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+          <span style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 700 }}>Members</span>
+          {isLeader && editable && memberRows.length < MAX_TEAM_SIZE && (
+            <PixelButton size="sm" variant="cyber" onClick={() => { setShowInvite(s => !s); setInviteResults([]); setInviteQuery(""); }}>
+              {showInvite ? "CLOSE" : "INVITE MEMBER"}
             </PixelButton>
           )}
         </div>
 
-        {/* Invite form */}
         {showInvite && (
-          <div style={{ padding: "12px 18px", background: "rgba(34,197,94,0.04)", borderBottom: `1px solid ${C.border}`, display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap" }}>
-            <div style={{ flex: 1, minWidth: 200 }}>
-              <PixelInput
-                label="Search by email or student ID"
-                placeholder="se000000 or user@seal.edu"
-                value={inviteQuery}
-                onChange={e => setInviteQuery(e.target.value)}
-              />
+          <div style={{ padding: "12px 18px", background: "rgba(34,197,94,0.04)", borderBottom: `1px solid ${C.border}` }}>
+            <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
+              <div style={{ flex: 1 }}>
+                <PixelInput label="Search by name, email or student ID" placeholder="min 2 characters"
+                  value={inviteQuery}
+                  onChange={e => setInviteQuery(e.target.value)}
+                />
+              </div>
+              <PixelButton size="sm" variant="secondary" onClick={doSearch} disabled={searching}>{searching ? "…" : "SEARCH"}</PixelButton>
             </div>
-            <PixelButton size="sm" variant="cyber" onClick={handleInvite}>ADD</PixelButton>
+            {inviteResults.length > 0 && (
+              <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
+                {inviteResults.map(u => (
+                  <div key={u.userId} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 10px", background: C.surface2, border: `1px solid ${C.border}` }}>
+                    <div style={{ minWidth: 0 }}>
+                      <span style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>{u.fullName}</span>
+                      <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 10 }}>{u.email}{u.studentId ? ` · ${u.studentId}` : ""}</div>
+                    </div>
+                    <PixelButton size="sm" variant="cyber" onClick={() => sendInvite(u)}>INVITE</PixelButton>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
-        {inviteResult && (
-          <div style={{ padding: "8px 18px", background: "rgba(34,197,94,0.06)", borderBottom: `1px solid ${C.border}` }}>
-            <span style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}>{inviteResult}</span>
-          </div>
-        )}
-
-        {/* Table */}
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'JetBrains Mono', monospace" }}>
             <thead>
               <tr style={{ background: C.surface2, borderBottom: `1px solid ${C.border}` }}>
-                {["Full Name", "Student Type", "Student ID", "Role", "Joined", ...(isLeader ? ["Actions"] : [])].map(h => (
-                  <th key={h} style={{ color: C.green, fontSize: 10, letterSpacing: "0.12em", textAlign: "left", padding: "11px 14px", fontWeight: 600, textTransform: "uppercase" }}>
-                    {h}
-                  </th>
+                {["Member", "Role", ...(isLeader && editable ? ["Actions"] : [])].map(h => (
+                  <th key={h} style={{ color: C.green, fontSize: 10, letterSpacing: "0.12em", textAlign: "left", padding: "11px 14px", fontWeight: 600, textTransform: "uppercase" }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {teamMemberRows.map((m, i) => {
-                const u = users.find(uu => uu.user_id === m.user_id);
-                if (!u) return null;
-                const isSelf = m.user_id === currentUser.user_id;
+              {memberRows.map((m, i) => {
+                const isSelf = currentUser?.user_id === m.userId;
                 return (
-                  <tr key={m.user_id} style={{ borderBottom: `1px solid rgba(34,197,94,0.06)`, background: i % 2 === 0 ? C.surface : C.surface2 }}>
+                  <tr key={m.userId} style={{ borderBottom: `1px solid rgba(34,197,94,0.06)`, background: i % 2 === 0 ? C.surface : C.surface2 }}>
                     <td style={{ padding: "11px 14px" }}>
-                      <span style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: m.member_role === 'LEADER' ? 700 : 400 }}>{u.full_name}</span>
-                      {isSelf && <span style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, marginLeft: 6 }}>(you)</span>}
+                      <span style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: m.role === 'LEADER' ? 700 : 400 }}>{m.memberName}</span>
+                      {isSelf && <span style={{ color: C.textMuted, fontSize: 10, marginLeft: 6 }}>(you)</span>}
                     </td>
                     <td style={{ padding: "11px 14px" }}>
-                      <PixelBadge color={u.student_type === 'FPT' ? 'green' : 'cyan'}>{u.student_type ?? "—"}</PixelBadge>
+                      <PixelBadge color={m.role === 'LEADER' ? 'cyan' : 'blue'}>{m.role === 'LEADER' ? "Leader" : "Member"}</PixelBadge>
                     </td>
-                    <td style={{ color: C.textMuted, fontSize: 11, padding: "11px 14px" }}>{u.student_id ?? "—"}</td>
-                    <td style={{ padding: "11px 14px" }}>
-                      <PixelBadge color={m.member_role === 'LEADER' ? 'cyan' : 'blue'}>{m.member_role === 'LEADER' ? "Leader" : "Member"}</PixelBadge>
-                    </td>
-                    <td style={{ color: C.textMuted, fontSize: 11, padding: "11px 14px" }}>{fmtDate(m.joined_at)}</td>
-                    {isLeader && (
+                    {isLeader && editable && (
                       <td style={{ padding: "11px 14px" }}>
-                        {m.member_role === 'MEMBER' && (
+                        {m.role === 'MEMBER' && (
                           <div style={{ display: "flex", gap: 6 }}>
-                            <PixelButton
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => setTransferTarget(m)}
-                            >
-                              TRANSFER LEAD
-                            </PixelButton>
-                            <PixelButton
-                              size="sm"
-                              variant="danger"
-                              onClick={() => handleRemove(m.user_id)}
-                            >
-                              REMOVE
-                            </PixelButton>
+                            <PixelButton size="sm" variant="ghost" onClick={() => setTransferTarget(m)} disabled={busy}>TRANSFER LEAD</PixelButton>
+                            <PixelButton size="sm" variant="danger" onClick={() => setRemoveTarget(m)} disabled={busy}>REMOVE</PixelButton>
                           </div>
                         )}
                       </td>
@@ -270,34 +334,130 @@ export function TeamViewPage() {
         </div>
       </PixelCard>
 
-      {/* Transfer Leadership Modal */}
-      {transferTarget && (() => {
-        const targetUser = users.find(u => u.user_id === transferTarget.user_id);
-        return (
-          <div style={{
-            position: "fixed", inset: 0, zIndex: 200,
-            background: "rgba(7,12,15,0.85)",
-            backdropFilter: "blur(4px)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-          }}>
-            <PixelCard glow style={{ padding: 32, maxWidth: 440, width: "90%", display: "flex", flexDirection: "column", gap: 20 }}>
-              <div>
-                <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 700, lineHeight: 1.5 }}>
-                  Transfer leadership to{" "}
-                  <span style={{ color: C.green }}>{targetUser?.full_name}</span>?
-                </div>
-                <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, marginTop: 10, lineHeight: 1.7 }}>
-                  You will become a regular member and lose access to team management, invite, and submit controls.
-                </div>
-              </div>
-              <div style={{ display: "flex", gap: 10 }}>
-                <PixelButton variant="danger" onClick={handleTransferConfirm}>CONFIRM TRANSFER</PixelButton>
-                <PixelButton variant="ghost" onClick={() => setTransferTarget(null)}>CANCEL</PixelButton>
-              </div>
-            </PixelCard>
+      {/* Join requests (leader only) */}
+      {isLeader && (
+        <PixelCard glow={joinRequests.length > 0} glowColor="cyan" style={{ padding: 0, overflow: "hidden" }}>
+          <div style={{ padding: "14px 18px", borderBottom: `1px solid ${C.border}` }}>
+            <span style={{ color: C.cyan, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 700 }}>Join Requests</span>
           </div>
-        );
-      })()}
+          {joinRequests.length === 0 ? (
+            <div style={{ padding: "14px 18px" }}>
+              <p style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, margin: 0 }}>
+                No pending requests.
+              </p>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column" }}>
+              {joinRequests.map(r => (
+                <div key={r.requestId} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "12px 18px", borderTop: `1px solid rgba(34,197,94,0.06)`, flexWrap: "wrap" }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 600 }}>{r.requesterName}</div>
+                    <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginTop: 2 }}>
+                      {r.requesterEmail ?? ""}{r.message ? ` — "${r.message}"` : ""}
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <PixelButton size="sm" variant="cyber" onClick={() => acceptJoin(r)} disabled={busyReq === r.requestId || memberRows.length >= MAX_TEAM_SIZE || !editable}>ACCEPT</PixelButton>
+                    <PixelButton size="sm" variant="danger" onClick={() => declineJoin(r)} disabled={busyReq === r.requestId}>DECLINE</PixelButton>
+                  </div>
+                </div>
+              ))}
+              {!editable && (
+                <div style={{ padding: "0 18px 12px", color: "#3b82f6", fontFamily: "'JetBrains Mono', monospace", fontSize: 10 }}>
+                  The team is locked for this phase — you can no longer accept new members.
+                </div>
+              )}
+              {editable && memberRows.length >= MAX_TEAM_SIZE && (
+                <div style={{ padding: "0 18px 12px", color: "#eab308", fontFamily: "'JetBrains Mono', monospace", fontSize: 10 }}>
+                  Team is full ({MAX_TEAM_SIZE}/{MAX_TEAM_SIZE}) — remove a member before accepting new requests.
+                </div>
+              )}
+            </div>
+          )}
+        </PixelCard>
+      )}
+
+      {/* Leave */}
+      {editable && (
+        <div>
+          <PixelButton variant="danger" onClick={() => setConfirmLeave(true)} disabled={busy}>LEAVE TEAM</PixelButton>
+          {isLeader && memberRows.length > 1 && (
+            <span style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginLeft: 12 }}>
+              (transfer leadership first)
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Leave confirmation modal */}
+      {confirmLeave && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(7,12,15,0.85)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <PixelCard glow style={{ padding: 32, maxWidth: 440, width: "90%", display: "flex", flexDirection: "column", gap: 20 }}>
+            <div>
+              <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 700, lineHeight: 1.5 }}>
+                Leave <span style={{ color: C.red }}>{team.name}</span>?
+              </div>
+              <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, marginTop: 10, lineHeight: 1.7 }}>
+                {isLeader && memberRows.length > 1
+                  ? "As leader you must transfer leadership before leaving."
+                  : isLeader
+                    ? "You are the only member — leaving will disband this team."
+                    : "You will be removed from the team and can be re-invited later."}
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <PixelButton
+                variant="danger"
+                onClick={async () => { await leaveTeam(); setConfirmLeave(false); }}
+                disabled={busy || (isLeader && memberRows.length > 1)}
+              >
+                CONFIRM LEAVE
+              </PixelButton>
+              <PixelButton variant="ghost" onClick={() => setConfirmLeave(false)}>CANCEL</PixelButton>
+            </div>
+          </PixelCard>
+        </div>
+      )}
+
+      {/* Remove member confirmation modal */}
+      {removeTarget && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(7,12,15,0.85)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <PixelCard glow style={{ padding: 32, maxWidth: 440, width: "90%", display: "flex", flexDirection: "column", gap: 20 }}>
+            <div>
+              <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 700, lineHeight: 1.5 }}>
+                Remove <span style={{ color: C.red }}>{removeTarget.memberName}</span> from the team?
+              </div>
+              <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, marginTop: 10, lineHeight: 1.7 }}>
+                They will lose access to this team and can be re-invited later.
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <PixelButton variant="danger" onClick={() => removeMember(removeTarget)} disabled={busy}>CONFIRM REMOVE</PixelButton>
+              <PixelButton variant="ghost" onClick={() => setRemoveTarget(null)} disabled={busy}>CANCEL</PixelButton>
+            </div>
+          </PixelCard>
+        </div>
+      )}
+
+      {/* Transfer modal */}
+      {transferTarget && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(7,12,15,0.85)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <PixelCard glow style={{ padding: 32, maxWidth: 440, width: "90%", display: "flex", flexDirection: "column", gap: 20 }}>
+            <div>
+              <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 700, lineHeight: 1.5 }}>
+                Transfer leadership to <span style={{ color: C.green }}>{transferTarget.memberName}</span>?
+              </div>
+              <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, marginTop: 10, lineHeight: 1.7 }}>
+                You will become a regular member and lose management, invite and submit controls.
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <PixelButton variant="danger" onClick={confirmTransfer} disabled={busy}>CONFIRM TRANSFER</PixelButton>
+              <PixelButton variant="ghost" onClick={() => setTransferTarget(null)}>CANCEL</PixelButton>
+            </div>
+          </PixelCard>
+        </div>
+      )}
     </div>
   );
 }
@@ -305,12 +465,8 @@ export function TeamViewPage() {
 function InfoCell({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
     <div>
-      <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 }}>
-        {label}
-      </div>
-      <div style={{ color: accent ? C.green : C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 600 }}>
-        {value}
-      </div>
+      <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 }}>{label}</div>
+      <div style={{ color: accent ? C.green : C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 600 }}>{value}</div>
     </div>
   );
 }

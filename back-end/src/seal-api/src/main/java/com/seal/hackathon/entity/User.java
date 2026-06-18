@@ -13,16 +13,16 @@ import java.util.List;
  * provider tracks which auth method was used (LOCAL, GOOGLE, GITHUB).
  */
 @Entity
-@Table(name = "`User`")
+@Table(name = "`User`") //các dấu backtick `` dùng với mục đích phân biệt keyword trong MySQL và tên bảng thật sự
 @Getter
-@Setter
+@Setter //lombok tự sinh getter/setter, constructure và builder pattern
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
 public class User {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.IDENTITY) //DB tự tăng user_id (đã có auto_increment trong MySQL)
     @Column(name = "user_id")
     private Integer userId;
 
@@ -39,6 +39,10 @@ public class User {
     // FPT_STUDENT | EXTERNAL_STUDENT | STAFF
     @Column(name = "user_type", nullable = false, length = 20)
     private String userType;
+
+    // INTERNAL | GUEST; only set for users who act as judges
+    @Column(name = "judge_type", length = 20)
+    private String judgeType;
 
     @Column(name = "student_id", length = 50)
     private String studentId;

@@ -1,10 +1,15 @@
 package com.seal.hackathon.controller;
 
 import com.seal.hackathon.dto.request.CreateTeamRequest;
+import com.seal.hackathon.dto.request.RejectTeamRequest;
+import com.seal.hackathon.dto.request.SelectTrackRequest;
+import com.seal.hackathon.dto.request.UpdateTeamRequest;
 import com.seal.hackathon.dto.response.ActiveEventResponse;
 import com.seal.hackathon.dto.response.ApiResponse;
 import com.seal.hackathon.dto.response.MyTeamResponse;
+import com.seal.hackathon.dto.response.TeamDetailResponse;
 import com.seal.hackathon.dto.response.TeamResponse;
+import com.seal.hackathon.dto.response.UserResponse;
 import com.seal.hackathon.security.UserPrincipal;
 import com.seal.hackathon.service.TeamService;
 import jakarta.validation.Valid;
@@ -23,33 +28,147 @@ public class TeamController {
 
     private final TeamService teamService;
 
+    // ── Participant endpoints ────────────────────────────────────────
+
     @PostMapping
     @PreAuthorize("hasRole('PARTICIPANT')")
     public ResponseEntity<ApiResponse<TeamResponse>> createTeam(
             @Valid @RequestBody CreateTeamRequest request,
             Authentication authentication) {
         UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
-        TeamResponse response = teamService.createTeam(principal.getUserId(), request);
-        return ResponseEntity.ok(ApiResponse.success("Team created successfully. You are now the Team Leader.", response));
+        return ResponseEntity.ok(ApiResponse.success(
+                "Team created successfully. You are now the Team Leader.",
+                teamService.createTeam(principal.getUserId(), request)));
     }
 
-    /**
-     * GET /api/teams/my
-     * Returns the team the current user belongs to in the active event.
-     * Business rule: 1 participant = 1 team = 1 track per event.
-     */
     @GetMapping("/my")
     @PreAuthorize("hasRole('PARTICIPANT')")
     public ResponseEntity<ApiResponse<MyTeamResponse>> getMyTeam(Authentication authentication) {
         UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
-        MyTeamResponse myTeam = teamService.getMyTeam(principal.getUserId());
-        return ResponseEntity.ok(ApiResponse.success("My team retrieved successfully.", myTeam));
+        return ResponseEntity.ok(ApiResponse.success("My team retrieved successfully.",
+                teamService.getMyTeam(principal.getUserId())));
     }
 
     @GetMapping("/active-events")
     public ResponseEntity<ApiResponse<List<ActiveEventResponse>>> getActiveEvents() {
-        List<ActiveEventResponse> activeEvents = teamService.getActiveEventsWithTracks();
-        return ResponseEntity.ok(ApiResponse.success("Active events retrieved successfully.", activeEvents));
+        return ResponseEntity.ok(ApiResponse.success("Active events retrieved successfully.",
+                teamService.getActiveEventsWithTracks()));
+    }
+
+    // SELF_SELECT events: the team leader picks the team's track during SETUP.
+    @PutMapping("/{teamId}/track")
+    @PreAuthorize("hasRole('PARTICIPANT')")
+    public ResponseEntity<ApiResponse<MyTeamResponse>> selectTrack(
+            @PathVariable Integer teamId,
+            @Valid @RequestBody SelectTrackRequest request,
+            Authentication authentication) {
+        UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
+        return ResponseEntity.ok(ApiResponse.success("Track selected.",
+                teamService.selectTrack(principal.getUserId(), teamId, request.getTrackId())));
+    }
+
+    // ── Participant: team management ─────────────────────────────────
+
+    @GetMapping("/search-users")
+    @PreAuthorize("hasRole('PARTICIPANT')")
+    public ResponseEntity<ApiResponse<List<UserResponse>>> searchUsers(@RequestParam String query) {
+        return ResponseEntity.ok(ApiResponse.success("Users retrieved.",
+                teamService.searchInvitableUsers(query)));
+    }
+
+    @PutMapping("/{teamId}")
+    @PreAuthorize("hasRole('PARTICIPANT')")
+    public ResponseEntity<ApiResponse<MyTeamResponse>> updateTeam(
+            @PathVariable Integer teamId,
+            @Valid @RequestBody UpdateTeamRequest request,
+            Authentication authentication) {
+        UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
+        return ResponseEntity.ok(ApiResponse.success("Team updated.",
+                teamService.updateTeam(principal.getUserId(), teamId, request)));
+    }
+
+    @DeleteMapping("/{teamId}/members/{userId}")
+    @PreAuthorize("hasRole('PARTICIPANT')")
+    public ResponseEntity<ApiResponse<MyTeamResponse>> removeMember(
+            @PathVariable Integer teamId,
+            @PathVariable Integer userId,
+            Authentication authentication) {
+        UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
+        return ResponseEntity.ok(ApiResponse.success("Member removed.",
+                teamService.removeMember(principal.getUserId(), teamId, userId)));
+    }
+
+    @PutMapping("/{teamId}/transfer/{newLeaderUserId}")
+    @PreAuthorize("hasRole('PARTICIPANT')")
+    public ResponseEntity<ApiResponse<MyTeamResponse>> transferLeadership(
+            @PathVariable Integer teamId,
+            @PathVariable Integer newLeaderUserId,
+            Authentication authentication) {
+        UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
+        return ResponseEntity.ok(ApiResponse.success("Leadership transferred.",
+                teamService.transferLeadership(principal.getUserId(), teamId, newLeaderUserId)));
+    }
+
+    @PostMapping("/{teamId}/leave")
+    @PreAuthorize("hasRole('PARTICIPANT')")
+    public ResponseEntity<ApiResponse<Void>> leaveTeam(
+            @PathVariable Integer teamId,
+            Authentication authentication) {
+        UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
+        teamService.leaveTeam(principal.getUserId(), teamId);
+        return ResponseEntity.ok(ApiResponse.success("You have left the team.", null));
+    }
+
+    // ── Coordinator endpoints ────────────────────────────────────────
+
+    @GetMapping("/event/{eventId}")
+    @PreAuthorize("hasRole('EVENT_COORDINATOR')")
+    public ResponseEntity<ApiResponse<List<TeamDetailResponse>>> getTeamsByEvent(@PathVariable Integer eventId) {
+        return ResponseEntity.ok(ApiResponse.success("Teams retrieved successfully.",
+                teamService.getTeamsByEvent(eventId)));
+    }
+
+    @GetMapping("/{teamId}")
+    @PreAuthorize("hasAnyRole('EVENT_COORDINATOR', 'MENTOR')")
+    public ResponseEntity<ApiResponse<TeamDetailResponse>> getTeamById(@PathVariable Integer teamId) {
+        return ResponseEntity.ok(ApiResponse.success("Team retrieved successfully.",
+                teamService.getTeamById(teamId)));
+    }
+
+    @PostMapping("/event/{eventId}/draw-tracks")
+    @PreAuthorize("hasRole('EVENT_COORDINATOR')")
+    public ResponseEntity<ApiResponse<List<TeamResponse>>> drawTracks(
+            @PathVariable Integer eventId,
+            @RequestParam(defaultValue = "false") boolean includeAssigned,
+            @RequestParam(required = false) String reason,
+            Authentication authentication) {
+        UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
+        return ResponseEntity.ok(ApiResponse.success("Tracks drawn successfully.",
+                teamService.drawTracks(eventId, includeAssigned, principal.getUserId(), reason)));
+    }
+
+    @PutMapping("/{teamId}/approve")
+    @PreAuthorize("hasRole('EVENT_COORDINATOR')")
+    public ResponseEntity<ApiResponse<TeamDetailResponse>> approveTeam(@PathVariable Integer teamId) {
+        return ResponseEntity.ok(ApiResponse.success("Team approved successfully.",
+                teamService.approveTeam(teamId)));
+    }
+
+    @PutMapping("/{teamId}/reject")
+    @PreAuthorize("hasRole('EVENT_COORDINATOR')")
+    public ResponseEntity<ApiResponse<TeamDetailResponse>> rejectTeam(
+            @PathVariable Integer teamId,
+            @RequestBody(required = false) RejectTeamRequest request) {
+        return ResponseEntity.ok(ApiResponse.success("Team rejected.",
+                teamService.rejectTeam(teamId, request)));
+    }
+
+    @PutMapping("/{teamId}/disqualify")
+    @PreAuthorize("hasRole('EVENT_COORDINATOR')")
+    public ResponseEntity<ApiResponse<TeamDetailResponse>> disqualifyTeam(
+            @PathVariable Integer teamId,
+            @RequestBody(required = false) RejectTeamRequest request) {
+        return ResponseEntity.ok(ApiResponse.success("Team disqualified.",
+                teamService.disqualifyTeam(teamId, request)));
     }
 }
-

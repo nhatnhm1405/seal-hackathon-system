@@ -3,8 +3,40 @@ import {
   ReactNode, useRef,
 } from "react";
 import { useAuth } from "@/app/providers/AuthProvider";
-import { notifications as seedNotifications, AppNotification } from "@/shared/mocks/mockData";
+import { notificationsApi, Notification as ApiNotification } from "@/shared/apiClient";
 import { C } from "@/shared/components/PixelComponents";
+
+// ── UI notification (mapped from the API NotificationResponse) ───────
+export type NotifKind = "info" | "success" | "warning";
+
+export interface UINotification {
+  notification_id: number;
+  title: string;
+  message: string;
+  is_read: boolean;
+  type: NotifKind;
+  created_at: string;
+}
+
+// Backend `type` is a free-form string (e.g. TEAM_APPROVED, ACCOUNT_REJECTED);
+// fold it into the three visual kinds the bell/toast styling understands.
+function toKind(type?: string): NotifKind {
+  const t = (type ?? "").toUpperCase();
+  if (/SUCCESS|APPROV|ACCEPT|PUBLISH|WIN|ADVANCE/.test(t)) return "success";
+  if (/WARN|REJECT|DISQUALIF|FAIL|REMOV|DECLINE/.test(t)) return "warning";
+  return "info";
+}
+
+function mapNotification(n: ApiNotification): UINotification {
+  return {
+    notification_id: n.notificationId,
+    title: n.title,
+    message: n.content,
+    is_read: Boolean(n.isRead),
+    type: toKind(n.type),
+    created_at: n.createdAt,
+  };
+}
 
 // ── Toast ───────────────────────────────────────────────────────────
 export interface Toast {
@@ -24,10 +56,10 @@ export interface AuthToast {
 
 // ── Context type ────────────────────────────────────────────────────
 interface NotificationContextType {
-  allNotifications: AppNotification[];
-  userNotifications: AppNotification[];
+  userNotifications: UINotification[];
   unreadCount: number;
   markAllRead: () => void;
+  refresh: () => void;
   addToast: (t: Omit<Toast, "id">) => void;
   addAuthToast: (t: Omit<AuthToast, "id">) => void;
 }
@@ -270,25 +302,35 @@ function ToastContainer({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id
 // ── Provider ────────────────────────────────────────────────────────
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const { currentUser } = useAuth();
-  const [allNotifications, setAllNotifications] = useState<AppNotification[]>(seedNotifications);
+  const [notifications, setNotifications] = useState<UINotification[]>([]);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [authToasts, setAuthToasts] = useState<AuthToast[]>([]);
   const counterRef = useRef(0);
 
-  const userNotifications = currentUser
-    ? [...allNotifications]
-        .filter(n => n.user_id === currentUser.user_id)
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-    : [];
+  // The /api/notifications endpoint already scopes to the authenticated user.
+  const refresh = useCallback(() => {
+    notificationsApi.getAll()
+      .then(res => {
+        const list = (res.data ?? [])
+          .map(mapNotification)
+          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        setNotifications(list);
+      })
+      .catch(() => { /* keep last known list on failure */ });
+  }, []);
 
-  const unreadCount = userNotifications.filter(n => !n.is_read).length;
+  useEffect(() => {
+    if (!currentUser) { setNotifications([]); return; }
+    refresh();
+  }, [currentUser, refresh]);
+
+  const userNotifications = notifications;
+  const unreadCount = notifications.filter(n => !n.is_read).length;
 
   const markAllRead = useCallback(() => {
-    if (!currentUser) return;
-    setAllNotifications(prev =>
-      prev.map(n => n.user_id === currentUser.user_id ? { ...n, is_read: true } : n)
-    );
-  }, [currentUser]);
+    notificationsApi.markAllAsRead().catch(() => {});
+    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+  }, []);
 
   const dismissToast = useCallback((id: string) => {
     setToasts(prev => prev.filter(t => t.id !== id));
@@ -309,7 +351,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <NotificationContext.Provider value={{ allNotifications, userNotifications, unreadCount, markAllRead, addToast, addAuthToast }}>
+    <NotificationContext.Provider value={{ userNotifications, unreadCount, markAllRead, refresh, addToast, addAuthToast }}>
       {children}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
       <AuthToastContainer toasts={authToasts} onDismiss={dismissAuthToast} />

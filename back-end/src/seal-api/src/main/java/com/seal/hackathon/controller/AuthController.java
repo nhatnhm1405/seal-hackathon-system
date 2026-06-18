@@ -9,10 +9,12 @@ import com.seal.hackathon.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -51,6 +53,56 @@ public class AuthController {
         String email = ((UserDetails) authentication.getPrincipal()).getUsername();
         UserResponse user = authService.getCurrentUser(email);
         return ResponseEntity.ok(ApiResponse.success("User profile retrieved.", user));
+    }
+
+    /**
+     * PUT /api/auth/complete-profile
+     * First-time OAuth user picks account type + student details.
+     */
+    @PutMapping("/complete-profile")
+    public ResponseEntity<ApiResponse<UserResponse>> completeProfile(
+            @Valid @RequestBody com.seal.hackathon.dto.request.CompleteProfileRequest request,
+            Authentication authentication) {
+        String email = ((UserDetails) authentication.getPrincipal()).getUsername();
+        return ResponseEntity.ok(ApiResponse.success("Profile completed.",
+                authService.completeProfile(email, request)));
+    }
+
+    /**
+     * PUT /api/auth/me
+     * Requires valid JWT. The user patches their own profile fields.
+     */
+    @PutMapping("/me")
+    public ResponseEntity<ApiResponse<UserResponse>> updateProfile(
+            @Valid @RequestBody com.seal.hackathon.dto.request.UpdateProfileRequest request,
+            Authentication authentication) {
+        String email = ((UserDetails) authentication.getPrincipal()).getUsername();
+        return ResponseEntity.ok(ApiResponse.success("Profile updated.",
+                authService.updateOwnProfile(email, request)));
+    }
+
+    /**
+     * POST /api/auth/me/avatar
+     * Requires valid JWT. Uploads a new profile picture (multipart "file").
+     */
+    @PostMapping(value = "/me/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiResponse<UserResponse>> uploadAvatar(
+            @RequestParam("file") MultipartFile file,
+            Authentication authentication) {
+        String email = ((UserDetails) authentication.getPrincipal()).getUsername();
+        return ResponseEntity.ok(ApiResponse.success("Avatar updated.",
+                authService.updateAvatar(email, file)));
+    }
+
+    /**
+     * DELETE /api/auth/me/avatar
+     * Requires valid JWT. Removes the current user's profile picture.
+     */
+    @DeleteMapping("/me/avatar")
+    public ResponseEntity<ApiResponse<UserResponse>> removeAvatar(Authentication authentication) {
+        String email = ((UserDetails) authentication.getPrincipal()).getUsername();
+        return ResponseEntity.ok(ApiResponse.success("Avatar removed.",
+                authService.removeAvatar(email)));
     }
 
     /**

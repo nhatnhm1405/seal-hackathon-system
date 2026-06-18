@@ -3,6 +3,7 @@ import { ParticipantDashboard } from "@/features/dashboard/dashboards/Participan
 import { MentorDashboard } from "@/features/dashboard/dashboards/MentorDashboard";
 import { JudgeDashboard } from "@/features/dashboard/dashboards/JudgeDashboard";
 import { CoordinatorDashboard } from "@/features/dashboard/dashboards/CoordinatorDashboard";
+import { AdminDashboard } from "@/features/dashboard/dashboards/AdminDashboard";
 
 export function RoleDashboardPage() {
   const { currentUser } = useAuth();
@@ -12,6 +13,7 @@ export function RoleDashboardPage() {
     case 'MENTOR': return <MentorDashboard />;
     case 'JUDGE': return <JudgeDashboard />;
     case 'COORDINATOR': return <CoordinatorDashboard />;
+    case 'ADMIN': return <AdminDashboard />;
     default: return null;
   }
 }

@@ -5,7 +5,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -36,7 +35,6 @@ public class MentorAssignmentResponse {
         private Integer teamId;
         private String teamName;
         private String trackName;
-        private LocalDateTime assignedAt;
         private List<TeamMemberInfo> members;
     }
 

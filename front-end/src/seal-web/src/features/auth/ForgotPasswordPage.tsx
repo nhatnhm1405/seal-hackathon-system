@@ -3,22 +3,22 @@ import { useForceDark } from "@/app/providers/ThemeProvider";
 import { useNavigate } from "react-router";
 import { C, GradientText, PixelButton, PixelInput, FloatingParticles } from "@/shared/components/PixelComponents";
 import { SealFooter } from "@/shared/components/SealFooter";
-import { users } from "@/shared/mocks/mockData";
 import sealLogo from "@/imports/image.png";
 
 export function ForgotPasswordPage() {
   useForceDark();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
-  const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
+  const [status, setStatus] = useState<"idle" | "sent">("idle");
   const [submittedEmail, setSubmittedEmail] = useState("");
 
+  // No password-reset backend yet — show the standard generic acknowledgement
+  // (which never reveals whether an account exists). Wiring to a real reset
+  // endpoint is a deferred backend task.
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const trimmed = email.trim().toLowerCase();
-    const found = users.find(u => u.email.toLowerCase() === trimmed && u.status === "ACTIVE");
-    setSubmittedEmail(trimmed);
-    setStatus(found ? "success" : "error");
+    setSubmittedEmail(email.trim());
+    setStatus("sent");
   }
 
   return (
@@ -56,9 +56,6 @@ export function ForgotPasswordPage() {
             <div style={{ position: "absolute", bottom: 0, right: 0, width: 12, height: 12, borderBottom: `2px solid rgba(59,130,246,0.5)`, borderRight: `2px solid rgba(59,130,246,0.5)` }} />
 
             <div style={{ marginBottom: 28 }}>
-              <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", marginBottom: 10 }}>
-                // password_recovery
-              </div>
               <h1 style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 900, fontSize: 30, lineHeight: 1.1, marginBottom: 10 }}>
                 <GradientText>Forgot Password</GradientText>
               </h1>
@@ -82,7 +79,7 @@ export function ForgotPasswordPage() {
               </form>
             )}
 
-            {status === "success" && (
+            {status === "sent" && (
               <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                 <div style={{
                   background: "rgba(34,197,94,0.06)",
@@ -94,50 +91,17 @@ export function ForgotPasswordPage() {
                   padding: "14px 16px",
                   lineHeight: 1.7,
                 }}>
-                  <div style={{ fontWeight: 700, marginBottom: 4, letterSpacing: "0.06em" }}>RESET LINK SENT</div>
+                  <div style={{ fontWeight: 700, marginBottom: 4, letterSpacing: "0.06em" }}>REQUEST RECEIVED</div>
                   <div style={{ color: C.text }}>
-                    A password reset link has been sent to{" "}
-                    <span style={{ color: C.green, fontWeight: 700 }}>{submittedEmail}</span>.
-                    Check your inbox.
+                    If an account exists for{" "}
+                    <span style={{ color: C.green, fontWeight: 700 }}>{submittedEmail}</span>,
+                    password reset instructions will be sent. If you don't receive anything,
+                    please contact the hackathon organizers.
                   </div>
                 </div>
-                <PixelButton variant="secondary" fullWidth onClick={() => setStatus("idle")}>
-                  SEND AGAIN
+                <PixelButton variant="secondary" fullWidth onClick={() => { setStatus("idle"); setEmail(""); }}>
+                  DONE
                 </PixelButton>
-              </div>
-            )}
-
-            {status === "error" && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                <div style={{
-                  background: "rgba(239,68,68,0.06)",
-                  border: "1px solid rgba(239,68,68,0.35)",
-                  borderLeft: "3px solid #ef4444",
-                  color: C.red,
-                  fontFamily: "'JetBrains Mono', monospace",
-                  fontSize: 12,
-                  padding: "14px 16px",
-                  lineHeight: 1.7,
-                }}>
-                  <div style={{ fontWeight: 700, marginBottom: 4, letterSpacing: "0.06em" }}>ERROR: EMAIL NOT FOUND</div>
-                  <div style={{ color: C.textMuted }}>
-                    No active account found for{" "}
-                    <span style={{ color: C.red }}>{submittedEmail}</span>.
-                    Please check the address and try again.
-                  </div>
-                </div>
-                <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                  <PixelInput
-                    label="Email"
-                    placeholder="you@seal.edu"
-                    type="email"
-                    value={email}
-                    onChange={(e) => { setEmail(e.target.value); setStatus("idle"); }}
-                  />
-                  <PixelButton type="submit" variant="cyber" size="lg" fullWidth>
-                    RETRY
-                  </PixelButton>
-                </form>
               </div>
             )}
 

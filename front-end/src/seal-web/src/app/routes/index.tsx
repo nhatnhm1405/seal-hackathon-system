@@ -6,7 +6,6 @@ import {
   useNavigate,
 } from "react-router";
 import { useAuth } from "@/app/providers/AuthProvider";
-import { DevToolbar } from "@/shared/components/DevToolbar";
 import { LandingPage } from "@/features/landing/LandingPage";
 import { LoginPage } from "@/features/auth/LoginPage";
 import { RegisterPage } from "@/features/auth/RegisterPage";
@@ -20,7 +19,6 @@ import { CoordinatorDashboard } from "@/features/dashboard/dashboards/Coordinato
 import { LeaderboardPage } from "@/features/scoring/LeaderboardPage";
 import { ProfilePage } from "@/features/users/ProfilePage";
 import { TeamCreatePage } from "@/features/teams/TeamCreatePage";
-import { TeamManagePage } from "@/features/teams/TeamManagePage";
 import { TeamSubmitPage } from "@/features/submissions/TeamSubmitPage";
 import { TeamViewPage } from "@/features/teams/TeamViewPage";
 import { MentorTracksPage } from "@/features/tracks/MentorTracksPage";
@@ -31,9 +29,12 @@ import { CoordAccountsPage } from "@/features/users/CoordAccountsPage";
 import { CoordTeamsPage } from "@/features/teams/CoordTeamsPage";
 import { CoordJudgesPage } from "@/features/scoring/CoordJudgesPage";
 import { CoordScoringPage } from "@/features/scoring/CoordScoringPage";
-import { CoordPrizesPage } from "@/features/events/CoordPrizesPage";
-import { CoordAuditPage } from "@/features/users/CoordAuditPage";
+import { AdminEventsPage } from "@/features/events/AdminEventsPage";
+import { AdminAccountsPage } from "@/features/users/AdminAccountsPage";
+import { AdminRolesPage } from "@/features/users/AdminRolesPage";
+import { AdminSystemLogsPage } from "@/features/users/AdminSystemLogsPage";
 import { ForgotPasswordPage } from "@/features/auth/ForgotPasswordPage";
+import { CompleteProfilePage } from "@/features/auth/CompleteProfilePage";
 import { OAuth2RedirectPage } from "@/features/auth/OAuth2RedirectPage";
 import { AboutPage } from "@/features/landing/AboutPage";
 import { TeamPage } from "@/features/landing/TeamPage";
@@ -58,6 +59,14 @@ function RequireAuth({
         replace
       />
     );
+  // First-time OAuth users must finish signup before reaching any app screen.
+  if (currentUser?.profile_incomplete && location.pathname !== "/complete-profile") {
+    return <Navigate to="/complete-profile" replace />;
+  }
+  // Authenticated but not yet approved by a coordinator → hold on the pending page.
+  if (currentUser && !currentUser.approved && !currentUser.profile_incomplete) {
+    return <Navigate to="/pending-approval" replace />;
+  }
   if (
     allowedRoles &&
     currentUser &&
@@ -86,12 +95,7 @@ function DashboardWrapper() {
 }
 
 function RootLayout() {
-  return (
-    <>
-      <Outlet />
-      <DevToolbar />
-    </>
-  );
+  return <Outlet />;
 }
 
 function LandingPageWrapper() {
@@ -132,6 +136,8 @@ export const router = createBrowserRouter([
       {
         element: <RequireAuth />,
         children: [
+          // Full-page (no dashboard chrome) — first-time OAuth profile completion
+          { path: "/complete-profile", Component: CompleteProfilePage },
           {
             element: <DashboardWrapper />,
             children: [
@@ -166,11 +172,37 @@ export const router = createBrowserRouter([
                   },
                   {
                     path: "/team/manage",
-                    Component: TeamManagePage,
+                    element: <Navigate to="/team/view" replace />,
                   },
                   {
                     path: "/team/submit",
                     Component: TeamSubmitPage,
+                  },
+                ],
+              },
+              // Admin routes — SYSTEM_ADMIN is single-role, no RoleGate needed
+              {
+                element: <RequireAuth allowedRoles={["ADMIN"]} />,
+                children: [
+                  {
+                    path: "/admin/dashboard",
+                    Component: RoleDashboardPage,
+                  },
+                  {
+                    path: "/admin/events",
+                    Component: AdminEventsPage,
+                  },
+                  {
+                    path: "/admin/accounts",
+                    Component: AdminAccountsPage,
+                  },
+                  {
+                    path: "/admin/roles",
+                    Component: AdminRolesPage,
+                  },
+                  {
+                    path: "/admin/logs",
+                    Component: AdminSystemLogsPage,
                   },
                 ],
               },
@@ -245,14 +277,6 @@ export const router = createBrowserRouter([
                       {
                         path: "/coordinator/scoring",
                         Component: CoordScoringPage,
-                      },
-                      {
-                        path: "/coordinator/prizes",
-                        Component: CoordPrizesPage,
-                      },
-                      {
-                        path: "/coordinator/audit",
-                        Component: CoordAuditPage,
                       },
                     ],
                   },

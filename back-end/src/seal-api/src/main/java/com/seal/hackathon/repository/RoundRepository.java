@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -12,4 +13,6 @@ public interface RoundRepository extends JpaRepository<Round, Integer> {
 
     @Query("SELECT r FROM Round r JOIN FETCH r.event WHERE r.roundId = :roundId AND r.event.eventId = :eventId")
     Optional<Round> findByIdAndEventId(Integer roundId, Integer eventId);
+
+    List<Round> findAllByEvent_EventIdOrderByOrderNumber(Integer eventId);
 }

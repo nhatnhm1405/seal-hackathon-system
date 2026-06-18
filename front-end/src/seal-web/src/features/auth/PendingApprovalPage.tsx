@@ -4,11 +4,13 @@ import {
   C, GradientText, PixelButton, PixelCard, FloatingParticles,
 } from "@/shared/components/PixelComponents";
 import { SealFooter } from "@/shared/components/SealFooter";
+import { useAuth } from "@/app/providers/AuthProvider";
 import sealLogo from "@/imports/image.png";
 
 export function PendingApprovalPage() {
   useForceDark();
   const navigate = useNavigate();
+  const { isAuthenticated, logout } = useAuth();
 
   return (
     <div style={{ background: C.bg, display: "flex", flexDirection: "column", minHeight: "100vh" }}>
@@ -55,9 +57,15 @@ export function PendingApprovalPage() {
             This process typically takes 1-2 business days.
           </p>
 
-          <PixelButton variant="cyber" size="lg" onClick={() => navigate('/')}>
-            BACK TO HOME
-          </PixelButton>
+          {isAuthenticated ? (
+            <PixelButton variant="cyber" size="lg" onClick={() => { logout(); navigate('/login', { replace: true }); }}>
+              SIGN OUT
+            </PixelButton>
+          ) : (
+            <PixelButton variant="cyber" size="lg" onClick={() => navigate('/')}>
+              BACK TO HOME
+            </PixelButton>
+          )}
         </PixelCard>
       </div>
     </div>

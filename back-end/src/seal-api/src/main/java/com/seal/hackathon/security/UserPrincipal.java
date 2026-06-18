@@ -30,6 +30,7 @@ public class UserPrincipal implements UserDetails, OAuth2User {
     private final Integer userId;
     private final String email;
     private final String password;
+    private final String userType;
     private final boolean approved;
     private final boolean active;
     private final Collection<? extends GrantedAuthority> authorities;
@@ -51,6 +52,7 @@ public class UserPrincipal implements UserDetails, OAuth2User {
         this.userId      = user.getUserId();
         this.email       = user.getEmail();
         this.password    = user.getPasswordHash() != null ? user.getPasswordHash() : "";
+        this.userType    = user.getUserType();
         this.approved    = Boolean.TRUE.equals(user.getIsApproved());
         this.active      = Boolean.TRUE.equals(user.getIsActive());
         this.authorities = buildAuthorities(user);

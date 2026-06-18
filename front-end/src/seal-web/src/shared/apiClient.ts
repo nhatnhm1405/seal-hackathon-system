@@ -31,10 +31,13 @@ export async function apiFetch<T>(
   options: RequestInit = {},
 ): Promise<T> {
   const token = getToken();
+  // For FormData (file uploads) let the browser set the multipart Content-Type
+  // with its boundary — forcing application/json would break the request.
+  const isFormData = options.body instanceof FormData;
   const res = await fetch(`${BASE_URL}${path}`, {
     ...options,
     headers: {
-      'Content-Type': 'application/json',
+      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(options.headers ?? {}),
     },
@@ -85,6 +88,7 @@ export interface UserProfile {
   userType: string;
   isApproved: boolean;
   isActive: boolean;
+  avatarUrl?: string | null;
   roles?: UserEventRole[];
 }
 
@@ -113,9 +117,52 @@ export const authApi = {
   me: () =>
     apiFetch<ApiResponse<UserProfile>>('/api/auth/me'),
 
+  updateMe: (payload: UpdateProfilePayload) =>
+    apiFetch<ApiResponse<UserProfile>>('/api/auth/me', {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
+
+  // First-time OAuth user picks their account type + student details.
+  completeProfile: (payload: CompleteProfilePayload) =>
+    apiFetch<ApiResponse<UserProfile>>('/api/auth/complete-profile', {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
+
   logout: () =>
     apiFetch<void>('/api/auth/logout', { method: 'POST' }),
+
+  // Upload a new profile picture (multipart). Returns the updated profile.
+  uploadAvatar: (file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return apiFetch<ApiResponse<UserProfile>>('/api/auth/me/avatar', {
+      method: 'POST',
+      body: form,
+    });
+  },
+
+  // Remove the current profile picture. Returns the updated profile.
+  deleteAvatar: () =>
+    apiFetch<ApiResponse<UserProfile>>('/api/auth/me/avatar', { method: 'DELETE' }),
 };
+
+export interface UpdateProfilePayload {
+  fullName?: string;
+  studentId?: string;
+  university?: string;
+}
+
+// OAuth self-signup is for students only; staff are provisioned by an admin.
+export interface CompleteProfilePayload {
+  userType: 'FPT_STUDENT' | 'EXTERNAL_STUDENT';
+  studentId?: string;
+  university?: string;
+}
+
+// Sentinel userType for a first-time OAuth account that hasn't completed signup.
+export const PENDING_PROFILE = 'PENDING_PROFILE';
 
 // ── Account Approvals ─────────────────────────────────────────────
 
@@ -140,84 +187,122 @@ export const accountApprovalsApi = {
     apiFetch<ApiResponse<void>>(`/api/account-approvals/${userId}/reject`, { method: 'PUT' }),
 };
 
-// ── User Management ───────────────────────────────────────────────
+// ── Admin: Platform Administration (SYSTEM_ADMIN only) ────────────
+// Maps the /api/admin/** endpoints. Mirrors backend UserResponse,
+// UserEventRoleResponse, SystemLogResponse and the Create/Grant requests.
 
 export interface UserItem {
   userId: number;
   email: string;
   fullName: string;
   userType: string;
-  isApproved: boolean;
-  isActive: boolean;
   studentId?: string;
   university?: string;
+  judgeType?: string;
+  isApproved: boolean;
+  isActive: boolean;
+  expiredAt?: string;
+  provider?: string;
+  avatarUrl?: string;
+  roles?: string[];
   createdAt?: string;
 }
 
-export interface UserEventRoleItem {
+export interface RoleGrantItem {
   id: number;
   userId: number;
-  email: string;
-  fullName: string;
+  userFullName: string;
+  userEmail: string;
   roleName: string;
   eventId?: number;
-  trackId?: number;
-  roundId?: number;
-  judgeType?: string;
-  assignedAt: string;
+  eventName?: string;
 }
 
-export interface CreateStaffPayload {
+export interface SystemLogItem {
+  logId: number;
+  actorUserId?: number;
+  actorName?: string;
+  action: string;
+  detail?: string;
+  ipAddress?: string;
+  createdAt: string;
+}
+
+// POST /api/admin/users — role grants are a SEPARATE step
+export interface CreateUserPayload {
   email: string;
   password: string;
   fullName: string;
-  roleName: 'JUDGE' | 'MENTOR' | 'COORDINATOR';
+  userType: 'FPT_STUDENT' | 'EXTERNAL_STUDENT' | 'STAFF';
   judgeType?: 'INTERNAL' | 'GUEST';
-  eventId?: number;
-  roundId?: number;
-  trackId?: number;
 }
 
-export interface AssignRolePayload {
-  roleName: string;
-  eventId?: number;
-  trackId?: number;
-  roundId?: number;
+// PUT /api/admin/users/{id} — patch semantics, null fields left unchanged
+export interface UpdateUserPayload {
+  fullName?: string;
+  studentId?: string;
+  university?: string;
+  judgeType?: string;
 }
 
-export const usersApi = {
-  getAll: () =>
-    apiFetch<ApiResponse<UserItem[]>>('/api/users'),
+// POST /api/admin/roles/grant — DELETE /api/admin/roles/revoke
+export interface GrantRolePayload {
+  userId: number;
+  roleName: 'SYSTEM_ADMIN' | 'EVENT_COORDINATOR' | 'MENTOR' | 'JUDGE';
+  eventId?: number | null;
+}
 
-  getById: (userId: number) =>
-    apiFetch<ApiResponse<UserItem>>(`/api/users/${userId}`),
+export const adminApi = {
+  // Users
+  getUsers: () =>
+    apiFetch<ApiResponse<UserItem[]>>('/api/admin/users'),
 
-  getRoles: () =>
-    apiFetch<ApiResponse<UserEventRoleItem[]>>('/api/users/roles'),
+  getUserById: (userId: number) =>
+    apiFetch<ApiResponse<UserItem>>(`/api/admin/users/${userId}`),
 
-  createStaff: (payload: CreateStaffPayload) =>
-    apiFetch<ApiResponse<{ userId: number; email: string; fullName: string }>>('/api/users/staff', {
+  createUser: (payload: CreateUserPayload) =>
+    apiFetch<ApiResponse<UserItem>>('/api/admin/users', {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
 
-  assignRole: (userId: number, payload: AssignRolePayload) =>
-    apiFetch<ApiResponse<UserEventRoleItem>>(`/api/users/${userId}/roles`, {
+  updateUser: (userId: number, payload: UpdateUserPayload) =>
+    apiFetch<ApiResponse<UserItem>>(`/api/admin/users/${userId}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
+
+  activateUser: (userId: number) =>
+    apiFetch<ApiResponse<UserItem>>(`/api/admin/users/${userId}/activate`, { method: 'PUT' }),
+
+  deactivateUser: (userId: number) =>
+    apiFetch<ApiResponse<UserItem>>(`/api/admin/users/${userId}/deactivate`, { method: 'PUT' }),
+
+  // Role grants
+  getRoleGrants: () =>
+    apiFetch<ApiResponse<RoleGrantItem[]>>('/api/admin/roles'),
+
+  grantRole: (payload: GrantRolePayload) =>
+    apiFetch<ApiResponse<UserItem>>('/api/admin/roles/grant', {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
 
-  activate: (userId: number) =>
-    apiFetch<ApiResponse<void>>(`/api/users/${userId}/activate`, { method: 'PUT' }),
+  revokeRole: (payload: GrantRolePayload) =>
+    apiFetch<ApiResponse<UserItem>>('/api/admin/roles/revoke', {
+      method: 'DELETE',
+      body: JSON.stringify(payload),
+    }),
 
-  deactivate: (userId: number) =>
-    apiFetch<ApiResponse<void>>(`/api/users/${userId}/deactivate`, { method: 'PUT' }),
+  // System log
+  getSystemLogs: () =>
+    apiFetch<ApiResponse<SystemLogItem[]>>('/api/admin/system-logs'),
 };
 
 // ── Events ────────────────────────────────────────────────────────
 
 export interface HackathonEvent {
-  id: number;
+  eventId: number;
   name: string;
   season: string;
   year: number;
@@ -226,7 +311,8 @@ export interface HackathonEvent {
   registrationEnd: string;
   startDate: string;
   endDate: string;
-  status: 'DRAFT' | 'OPEN' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+  status: 'DRAFT' | 'OPEN' | 'SETUP' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+  trackSelectionMode?: 'SELF_SELECT' | 'RANDOM';
 }
 
 export interface CreateEventPayload {
@@ -239,12 +325,14 @@ export interface CreateEventPayload {
   startDate: string;
   endDate: string;
   status?: string;
+  trackSelectionMode?: string;
 }
 
 export interface UpdateEventPayload {
   name?: string;
   description?: string;
   status?: string;
+  trackSelectionMode?: string;
   registrationStart?: string;
   registrationEnd?: string;
   startDate?: string;
@@ -269,15 +357,96 @@ export const eventsApi = {
       method: 'PUT',
       body: JSON.stringify(payload),
     }),
+
+  // Complete a running event (IN_PROGRESS → COMPLETED). Backend: SYSTEM_ADMIN
+  // only — a Coordinator token gets 403 here.
+  complete: (eventId: number) =>
+    apiFetch<ApiResponse<HackathonEvent>>(`/api/events/${eventId}/complete`, {
+      method: 'POST',
+    }),
+
+  // Reopen a COMPLETED event (COMPLETED → IN_PROGRESS). Backend: SYSTEM_ADMIN
+  // only — a Coordinator token gets 403 here.
+  reopen: (eventId: number) =>
+    apiFetch<ApiResponse<HackathonEvent>>(`/api/events/${eventId}/reopen`, {
+      method: 'POST',
+    }),
+};
+
+// ── Reopen Requests ────────────────────────────────────────────────
+// Coordinator asks an Admin to reopen a COMPLETED event (Coordinators cannot
+// reopen themselves). Admin reviews the queue and approves (→ reopens) / rejects.
+
+export interface ReopenRequest {
+  requestId: number;
+  eventId: number;
+  eventName?: string;
+  requestedById: number;
+  requesterName?: string;
+  requesterEmail?: string;
+  reason?: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  resolvedById?: number;
+  resolverName?: string;
+  createdAt: string;
+  resolvedAt?: string;
+}
+
+export const reopenRequestsApi = {
+  // Coordinator: file a reopen request for a COMPLETED event.
+  create: (eventId: number, reason?: string) =>
+    apiFetch<ApiResponse<ReopenRequest>>(`/api/events/${eventId}/reopen-requests`, {
+      method: 'POST',
+      body: JSON.stringify({ reason }),
+    }),
+
+  // Latest request for an event (data may be null) — used to show "awaiting
+  // admin review" instead of a fresh request button.
+  getForEvent: (eventId: number) =>
+    apiFetch<ApiResponse<ReopenRequest | null>>(`/api/events/${eventId}/reopen-requests`),
+
+  // Admin: pending review queue.
+  getPending: () =>
+    apiFetch<ApiResponse<ReopenRequest[]>>('/api/admin/reopen-requests'),
+
+  approve: (requestId: number) =>
+    apiFetch<ApiResponse<ReopenRequest>>(`/api/admin/reopen-requests/${requestId}/approve`, { method: 'POST' }),
+
+  reject: (requestId: number) =>
+    apiFetch<ApiResponse<ReopenRequest>>(`/api/admin/reopen-requests/${requestId}/reject`, { method: 'POST' }),
+};
+
+// ── Audit Log ──────────────────────────────────────────────────────
+// Competition business-action trail for an event (CREATE_EVENT, DRAW_TRACKS,
+// REDRAW_TRACKS...). Readable by the event's Coordinator and the System Admin.
+
+export interface AuditLogEntry {
+  logId: number;
+  actorUserId: number;
+  actorName?: string;
+  action: string;
+  targetType?: string;
+  targetId?: number;
+  reason?: string;
+  metadataJson?: string;
+  ipAddress?: string;
+  createdAt: string;
+}
+
+export const auditLogsApi = {
+  // Newest-first audit entries scoped to one event (target EVENT/eventId).
+  getForEvent: (eventId: number) =>
+    apiFetch<ApiResponse<AuditLogEntry[]>>(`/api/events/${eventId}/audit-logs`),
 };
 
 // ── Tracks ────────────────────────────────────────────────────────
 
 export interface Track {
-  id: number;
+  trackId: number;
   eventId: number;
   name: string;
   description?: string;
+  capacity?: number | null;
 }
 
 export interface CreateTrackPayload {
@@ -311,15 +480,16 @@ export const tracksApi = {
 // ── Rounds ────────────────────────────────────────────────────────
 
 export interface Round {
-  id: number;
+  roundId: number;
   eventId: number;
+  eventName?: string;
   name: string;
   orderNumber: number;
   startTime: string;
   endTime: string;
   submissionDeadline: string;
   topNAdvance?: number;
-  isCalibration: boolean;
+  isFinal: boolean;
   status?: string;
 }
 
@@ -330,7 +500,7 @@ export interface CreateRoundPayload {
   endTime: string;
   submissionDeadline: string;
   topNAdvance?: number;
-  isCalibration?: boolean;
+  isFinal?: boolean;
 }
 
 export interface UpdateRoundPayload {
@@ -365,12 +535,15 @@ export const roundsApi = {
 // ── Teams ─────────────────────────────────────────────────────────
 
 export interface Team {
-  id: number;
+  teamId: number;
   eventId: number;
+  eventName?: string;
   trackId: number;
+  trackName?: string;
   name: string;
   description?: string;
   status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'DISQUALIFIED';
+  createdAt?: string;
   members?: TeamMember[];
 }
 
@@ -381,15 +554,47 @@ export interface TeamMember {
   role: 'LEADER' | 'MEMBER';
 }
 
-export interface ActiveEventWithTracks {
-  id: number;
+// GET /api/teams/my — the current user's team in the active event.
+export interface MyTeamMember {
+  userId: number;
+  memberName: string;
+  role: 'LEADER' | 'MEMBER';
+}
+
+export interface MyTeam {
+  teamId: number;
+  eventId?: number;
+  eventName?: string;
+  trackName?: string;
   name: string;
-  tracks: { id: number; name: string }[];
+  eventStatus?: 'DRAFT' | 'OPEN' | 'SETUP' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+  trackSelectionMode?: 'SELF_SELECT' | 'RANDOM';
+  status?: 'PENDING' | 'APPROVED' | 'REJECTED' | 'DISQUALIFIED';
+  myRole?: 'LEADER' | 'MEMBER';
+  members: MyTeamMember[];
+}
+
+export interface UpdateTeamPayload {
+  name?: string;
+  description?: string;
+}
+
+export interface ActiveEventWithTracks {
+  eventId: number;
+  name: string;
+  season?: string;
+  year?: number;
+  description?: string;
+  registrationStart?: string;
+  registrationEnd?: string;
+  startDate?: string;
+  endDate?: string;
+  status?: string;
+  tracks: { trackId: number; name: string; description?: string }[];
 }
 
 export interface CreateTeamPayload {
   eventId: number;
-  trackId: number;
   name: string;
   description?: string;
 }
@@ -405,7 +610,7 @@ export const teamsApi = {
     }),
 
   getMy: () =>
-    apiFetch<ApiResponse<Team>>('/api/teams/my'),
+    apiFetch<ApiResponse<MyTeam>>('/api/teams/my'),
 
   getByEvent: (eventId: number) =>
     apiFetch<ApiResponse<Team[]>>(`/api/teams/event/${eventId}`),
@@ -424,19 +629,57 @@ export const teamsApi = {
 
   disqualify: (teamId: number) =>
     apiFetch<ApiResponse<void>>(`/api/teams/${teamId}/disqualify`, { method: 'PUT' }),
+
+  // Participant team management
+  searchUsers: (query: string) =>
+    apiFetch<ApiResponse<UserItem[]>>(`/api/teams/search-users?query=${encodeURIComponent(query)}`),
+
+  update: (teamId: number, payload: UpdateTeamPayload) =>
+    apiFetch<ApiResponse<MyTeam>>(`/api/teams/${teamId}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
+
+  removeMember: (teamId: number, userId: number) =>
+    apiFetch<ApiResponse<MyTeam>>(`/api/teams/${teamId}/members/${userId}`, { method: 'DELETE' }),
+
+  transferLeadership: (teamId: number, newLeaderUserId: number) =>
+    apiFetch<ApiResponse<MyTeam>>(`/api/teams/${teamId}/transfer/${newLeaderUserId}`, { method: 'PUT' }),
+
+  leave: (teamId: number) =>
+    apiFetch<ApiResponse<void>>(`/api/teams/${teamId}/leave`, { method: 'POST' }),
+
+  // SELF_SELECT events: leader picks the team's track during SETUP.
+  selectTrack: (teamId: number, trackId: number) =>
+    apiFetch<ApiResponse<MyTeam>>(`/api/teams/${teamId}/track`, {
+      method: 'PUT',
+      body: JSON.stringify({ trackId }),
+    }),
+
+  // RANDOM events (or to fill stragglers): coordinator draws teams into tracks.
+  drawTracks: (eventId: number, includeAssigned = false) =>
+    apiFetch<ApiResponse<Team[]>>(`/api/teams/event/${eventId}/draw-tracks?includeAssigned=${includeAssigned}`, {
+      method: 'POST',
+    }),
 };
 
 // ── Team Invites ──────────────────────────────────────────────────
 
 export interface TeamInvite {
-  id: number;
+  inviteId: number;
   teamId: number;
   teamName: string;
-  invitedByUserId: number;
+  eventName?: string;
+  trackName?: string;
+  teamStatus?: string;
+  invitedUserId: number;
+  invitedUserName?: string;
+  invitedById: number;
   invitedByName: string;
   message?: string;
   status: 'PENDING' | 'ACCEPTED' | 'DECLINED';
   createdAt: string;
+  respondedAt?: string;
 }
 
 export interface SendInvitePayload {
@@ -461,18 +704,85 @@ export const invitesApi = {
     apiFetch<ApiResponse<void>>(`/api/invites/${inviteId}/decline`, { method: 'PUT' }),
 };
 
+// ── Join Requests (participant asks to join a team) ────────────────
+
+export interface JoinableTeam {
+  teamId: number;
+  name: string;
+  eventId: number;
+  eventName: string;
+  trackId?: number;
+  trackName?: string;
+  status: string;
+  memberCount: number;
+  leaderName?: string;
+  alreadyRequested: boolean;
+}
+
+export interface JoinRequest {
+  requestId: number;
+  teamId: number;
+  teamName: string;
+  eventName?: string;
+  trackName?: string;
+  requesterId: number;
+  requesterName: string;
+  requesterEmail?: string;
+  message?: string;
+  status: 'PENDING' | 'ACCEPTED' | 'DECLINED';
+  createdAt: string;
+  respondedAt?: string;
+}
+
+export const joinRequestsApi = {
+  // Browse / search teams the participant can request to join.
+  getJoinableTeams: (params: { eventId?: number; query?: string } = {}) => {
+    const qs = new URLSearchParams();
+    if (params.eventId != null) qs.set('eventId', String(params.eventId));
+    if (params.query) qs.set('query', params.query);
+    const suffix = qs.toString() ? `?${qs.toString()}` : '';
+    return apiFetch<ApiResponse<JoinableTeam[]>>(`/api/join-requests/joinable-teams${suffix}`);
+  },
+
+  send: (teamId: number, message?: string) =>
+    apiFetch<ApiResponse<JoinRequest>>(`/api/join-requests/teams/${teamId}`, {
+      method: 'POST',
+      body: JSON.stringify({ message }),
+    }),
+
+  // Requests the current participant has sent.
+  getMine: () =>
+    apiFetch<ApiResponse<JoinRequest[]>>('/api/join-requests/my'),
+
+  cancel: (requestId: number) =>
+    apiFetch<ApiResponse<void>>(`/api/join-requests/${requestId}`, { method: 'DELETE' }),
+
+  // Leader inbox: pending requests for a team they lead.
+  getForTeam: (teamId: number) =>
+    apiFetch<ApiResponse<JoinRequest[]>>(`/api/join-requests/teams/${teamId}`),
+
+  accept: (requestId: number) =>
+    apiFetch<ApiResponse<JoinRequest>>(`/api/join-requests/${requestId}/accept`, { method: 'PUT' }),
+
+  decline: (requestId: number) =>
+    apiFetch<ApiResponse<JoinRequest>>(`/api/join-requests/${requestId}/decline`, { method: 'PUT' }),
+};
+
 // ── Submissions ───────────────────────────────────────────────────
 
 export interface Submission {
-  id: number;
+  submissionId: number;
   teamId: number;
   teamName: string;
   roundId: number;
+  roundName?: string;
   repoUrl: string;
   demoUrl?: string;
   slideUrl?: string;
   description?: string;
   submittedAt: string;
+  submittedByName?: string;
+  status?: string;
 }
 
 export interface CreateSubmissionPayload {
@@ -503,8 +813,7 @@ export const submissionsApi = {
 // ── Scoring ───────────────────────────────────────────────────────
 
 export interface ScoringCriteria {
-  id: number;
-  roundId: number;
+  criteriaId: number;
   name: string;
   description?: string;
   weight: number;
@@ -532,14 +841,19 @@ export interface SubmitScoresPayload {
   scores: ScoreEntry[];
 }
 
+// Backend returns a FLAT list — one row per (judge, criteria) — not grouped.
 export interface ScoreRecord {
-  id: number;
+  scoreId: number;
   submissionId: number;
-  judgeId: number;
+  judgeUserId: number;
   judgeName: string;
-  draft: boolean;
-  scores: (ScoreEntry & { criteriaName: string })[];
-  submittedAt: string;
+  criteriaId: number;
+  criteriaName: string;
+  value: number;
+  comment?: string;
+  isDraft: boolean;
+  scoredAt?: string;
+  updatedAt?: string;
 }
 
 export const scoringApi = {
@@ -553,7 +867,7 @@ export const scoringApi = {
     }),
 
   submitScores: (payload: SubmitScoresPayload) =>
-    apiFetch<ApiResponse<ScoreRecord>>('/api/scores', {
+    apiFetch<ApiResponse<unknown>>('/api/scores', {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
@@ -568,12 +882,17 @@ export const scoringApi = {
 // ── Round Results ─────────────────────────────────────────────────
 
 export interface RoundResult {
+  resultId: number;
   teamId: number;
   teamName: string;
-  submissionId: number;
+  trackName?: string;
+  roundId: number;
+  roundName?: string;
   totalScore: number;
-  rank: number;
+  rankPosition: number;
   advanced: boolean;
+  isPublished?: boolean;
+  finalizedAt?: string;
 }
 
 export const resultsApi = {
@@ -597,10 +916,11 @@ export const resultsApi = {
 // ── Notifications ─────────────────────────────────────────────────
 
 export interface Notification {
-  id: number;
+  notificationId: number;
   title: string;
-  message: string;
-  read: boolean;
+  content: string;
+  type?: string;
+  isRead: boolean;
   createdAt: string;
 }
 
@@ -620,29 +940,129 @@ export const notificationsApi = {
 
 // ── Team Assignments ──────────────────────────────────────────────
 
-export interface MentorAssignment {
+// Both endpoints return a SINGLE object (the logged-in mentor/judge) whose
+// `teams` is the work list. Judge entries carry the roundId to score.
+export interface AssignmentMember {
+  userId: number;
+  fullName: string;
+  email: string;
+  memberRole: 'LEADER' | 'MEMBER';
+}
+
+export interface MentorAssignedTeam {
   teamId: number;
   teamName: string;
-  trackId: number;
   trackName: string;
-  eventId: number;
+  members: AssignmentMember[];
+}
+
+export interface JudgeAssignedTeam {
+  teamId: number;
+  teamName: string;
+  trackName: string;
+  roundId: number;
+  members: AssignmentMember[];
+}
+
+export interface MentorAssignment {
+  mentorId: number;
+  mentorName: string;
   eventName: string;
-  members: TeamMember[];
+  teams: MentorAssignedTeam[];
 }
 
 export interface JudgeAssignment {
-  submissionId: number;
-  teamId: number;
-  teamName: string;
-  roundId: number;
-  roundName: string;
-  scored: boolean;
+  judgeId: number;
+  judgeName: string;
+  eventName: string;
+  teams: JudgeAssignedTeam[];
 }
 
 export const assignmentsApi = {
   getMentorAssignments: () =>
-    apiFetch<ApiResponse<MentorAssignment[]>>('/api/mentor/assignments'),
+    apiFetch<ApiResponse<MentorAssignment>>('/api/mentor/assignments'),
 
   getJudgeAssignments: () =>
-    apiFetch<ApiResponse<JudgeAssignment[]>>('/api/judge/assignments'),
+    apiFetch<ApiResponse<JudgeAssignment>>('/api/judge/assignments'),
+};
+
+// ── Coordinator lookups & assignments ─────────────────────────────
+
+// Roster row: one judge assigned to one round (+track for preliminary rounds).
+export interface JudgeRosterItem {
+  id: number;
+  judgeUserId: number;
+  judgeName: string;
+  judgeType?: string;
+  roundId: number;
+  roundName: string;
+  isFinal?: boolean;
+  trackId?: number;
+  trackName?: string;
+}
+
+export interface AssignJudgePayload {
+  judgeUserId: number;
+  roundId: number;
+  trackId?: number | null;
+}
+
+// Mentor roster row: one mentor assigned to one track (whole event).
+export interface MentorRosterItem {
+  id: number;
+  mentorUserId: number;
+  mentorName: string;
+  trackId: number;
+  trackName: string;
+}
+
+export interface AssignMentorPayload {
+  mentorUserId: number;
+  trackId: number;
+}
+
+export interface CreateGuestJudgePayload {
+  fullName: string;
+  email: string;
+  password: string;
+  roundId: number;
+  trackId?: number | null;
+}
+
+export const coordinatorApi = {
+  // Approved STAFF pool (no longer available under /api/admin after the split)
+  getStaff: () =>
+    apiFetch<ApiResponse<UserItem[]>>('/api/coordinator/staff'),
+
+  // Judge roster for an event
+  getJudgeRoster: (eventId: number) =>
+    apiFetch<ApiResponse<JudgeRosterItem[]>>(`/api/coordinator/assignments/judges?eventId=${eventId}`),
+
+  assignJudge: (payload: AssignJudgePayload) =>
+    apiFetch<ApiResponse<unknown>>('/api/coordinator/assignments/judges', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  removeJudgeAssignment: (assignmentId: number) =>
+    apiFetch<ApiResponse<void>>(`/api/coordinator/assignments/judges/${assignmentId}`, { method: 'DELETE' }),
+
+  // Mentor assignments (mentor -> track, whole event)
+  getMentorRoster: (eventId: number) =>
+    apiFetch<ApiResponse<MentorRosterItem[]>>(`/api/coordinator/assignments/mentors?eventId=${eventId}`),
+
+  assignMentor: (payload: AssignMentorPayload) =>
+    apiFetch<ApiResponse<unknown>>('/api/coordinator/assignments/mentors', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  removeMentorAssignment: (assignmentId: number) =>
+    apiFetch<ApiResponse<void>>(`/api/coordinator/assignments/mentors/${assignmentId}`, { method: 'DELETE' }),
+
+  createGuestJudge: (payload: CreateGuestJudgePayload) =>
+    apiFetch<ApiResponse<unknown>>('/api/coordinator/guest-judges', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
 };

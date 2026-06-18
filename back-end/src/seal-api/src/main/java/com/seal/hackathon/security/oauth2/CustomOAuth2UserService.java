@@ -3,6 +3,7 @@ package com.seal.hackathon.security.oauth2;
 import com.seal.hackathon.entity.User;
 import com.seal.hackathon.repository.UserRepository;
 import com.seal.hackathon.security.UserPrincipal;
+import com.seal.hackathon.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
@@ -29,6 +30,7 @@ import java.util.Map;
 public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
     private final UserRepository userRepository;
+    private final NotificationService notificationService;
 
     @Override
     @Transactional
@@ -49,11 +51,25 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
 
         String providerUpper = registrationId.toUpperCase(); // GOOGLE or GITHUB
 
-        User user = userRepository.findByEmailWithRoles(email)
-                .map(existing -> updateExistingUser(existing, userInfo, providerUpper))
+        var existing = userRepository.findByEmailWithRoles(email);
+        boolean isNewAccount = existing.isEmpty();
+        User user = existing
+                .map(e -> updateExistingUser(e, userInfo, providerUpper))
                 .orElseGet(() -> createNewUser(userInfo, providerUpper));
 
         userRepository.save(user);
+
+        // First-time OAuth sign-up gets the same welcome other users receive — the
+        // approval path notifies local registrants, but OAuth accounts are created
+        // here, so greet them at account creation.
+        if (isNewAccount) {
+            String providerLabel = providerUpper.charAt(0) + providerUpper.substring(1).toLowerCase();
+            notificationService.createNotification(
+                    user.getUserId(),
+                    "Welcome to SEAL Hackathon!",
+                    "Your account was created with " + providerLabel + ". Complete your profile to get started.",
+                    "ACCOUNT");
+        }
 
         // Truyền attributes từ provider để UserPrincipal thoả mãn interface OAuth2User
         return new UserPrincipal(user, oAuth2User.getAttributes());
@@ -78,7 +94,9 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         return User.builder()
                 .email(userInfo.getEmail())
                 .fullName(userInfo.getName() != null ? userInfo.getName() : userInfo.getEmail())
-                .userType("STAFF")         // OAuth2 users default to STAFF; coordinator assigns the actual role later
+                // OAuth gives us only name/email — the user must pick FPT_STUDENT /
+                // EXTERNAL_STUDENT / STAFF on the complete-profile screen first.
+                .userType("PENDING_PROFILE")
                 .provider(provider)
                 .providerId(userInfo.getProviderId())
                 .avatarUrl(userInfo.getAvatarUrl())

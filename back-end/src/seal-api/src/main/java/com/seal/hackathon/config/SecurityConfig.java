@@ -67,18 +67,36 @@ public class SecurityConfig {
                 .requestMatchers("/error").permitAll()
                 // Public: Swagger UI (remove in production if desired)
                 .requestMatchers("/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+                // Public: uploaded files (avatars, etc.)
+                .requestMatchers("/uploads/**").permitAll()
                 // Public: list all hackathon events
                 .requestMatchers("/api/events/**").permitAll()
-                // Coordinator manages approvals, user activation, and role assignments
+                // Admin runs the PLATFORM: global users, role grants, system logs
+                .requestMatchers("/api/admin/**").hasRole("SYSTEM_ADMIN")
+                // Coordinator runs the COMPETITION: events, rounds, approvals, assignments
+                .requestMatchers("/api/coordinator/**").hasRole("EVENT_COORDINATOR")
                 .requestMatchers("/api/account-approvals/**").hasRole("EVENT_COORDINATOR")
-                .requestMatchers("/api/users/**").hasRole("EVENT_COORDINATOR")
-                // Participants access team and submission endpoints
-                .requestMatchers("/api/teams/**", "/api/submissions/**")
+                // Join requests — participants only; leader checks happen in service
+                .requestMatchers("/api/join-requests/**").hasRole("PARTICIPANT")
+                // Participants access team endpoints
+                .requestMatchers("/api/teams/**")
                     .hasAnyRole("PARTICIPANT", "EVENT_COORDINATOR")
+                // Submissions: participants submit/view their own, judges list a round
+                // to score. Fine-grained access is enforced per-endpoint via @PreAuthorize.
+                .requestMatchers("/api/submissions/**")
+                    .hasAnyRole("PARTICIPANT", "EVENT_COORDINATOR", "JUDGE")
                 // Judges access scoring endpoints
                 .requestMatchers("/api/scores/**", "/api/judge/**").hasAnyRole("JUDGE", "EVENT_COORDINATOR")
                 // Mentors access mentor endpoints
                 .requestMatchers("/api/mentor/**").hasAnyRole("MENTOR", "EVENT_COORDINATOR")
+                // Notifications — any authenticated user
+                .requestMatchers("/api/notifications/**").authenticated()
+                // Invitations — participants
+                .requestMatchers("/api/invites/**").hasAnyRole("PARTICIPANT", "EVENT_COORDINATOR")
+                // Join requests — participants
+                .requestMatchers("/api/join-requests/**").hasRole("PARTICIPANT")
+                // Round results — public for published, coordinator for all
+                .requestMatchers("/api/events/*/rounds/*/results/**").authenticated()
                 // Everything else must be authenticated
                 .anyRequest().authenticated()
             )

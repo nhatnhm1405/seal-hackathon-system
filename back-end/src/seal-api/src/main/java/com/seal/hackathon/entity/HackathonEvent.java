@@ -47,9 +47,14 @@ public class HackathonEvent {
     @Builder.Default
     private String status = "DRAFT";
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "created_by", nullable = false)
-    private User createdBy;
+    // How teams get a track: SELF_SELECT (leaders pick during SETUP, capped per
+    // track) or RANDOM (coordinator draws during SETUP). Configured per event.
+    @Column(name = "track_selection_mode", nullable = false, length = 20)
+    @Builder.Default
+    private String trackSelectionMode = "SELF_SELECT";
+
+    // created_by removed from schema — who created the event is traceable via
+    // AuditLog (action = CREATE_EVENT) if needed.
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

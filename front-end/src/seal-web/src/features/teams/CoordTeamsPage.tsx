@@ -204,9 +204,6 @@ function TeamActionModal({
       }}>
         <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${accent}, transparent)` }} />
 
-        <div style={{ color: accent, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", marginBottom: 12 }}>
-          // confirm_{type}
-        </div>
         <h2 style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 20, fontWeight: 800, color: C.text, marginBottom: 12, lineHeight: 1.2 }}>
           {title}
         </h2>
@@ -320,7 +317,8 @@ export function CoordTeamsPage() {
   const trackName = useMemo(() => {
     const map = new Map<number, string>();
     tracks.forEach(t => map.set(t.trackId, t.name));
-    return (id: number) => map.get(id) ?? "—";
+    // trackId 0 = no track yet (team awaiting the SETUP-phase random draw).
+    return (id: number) => (id ? map.get(id) ?? "—" : "Unassigned");
   }, [tracks]);
 
   const filtered = teams.filter(t => {

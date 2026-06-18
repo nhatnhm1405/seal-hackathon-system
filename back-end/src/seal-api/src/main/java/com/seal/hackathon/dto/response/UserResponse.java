@@ -23,10 +23,14 @@ public class UserResponse {
     private String email;
     private String fullName;
     private String userType;
+    private String judgeType;
     private String studentId;
     private String university;
+
     private Boolean isApproved;
     private Boolean isActive;
+    private Integer teamId;
+    private String isLeader;
 
     // Set for time-limited accounts (e.g. guest judges); null for regular accounts
     private LocalDateTime expiredAt;

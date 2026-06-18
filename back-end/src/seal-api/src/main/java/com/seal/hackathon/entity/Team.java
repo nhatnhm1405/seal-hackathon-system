@@ -23,8 +23,10 @@ public class Team {
     @JoinColumn(name = "event_id", nullable = false)
     private HackathonEvent event;
 
+    // Nullable: a team may register without a track and be assigned one later
+    // via the coordinator's random track draw during the SETUP phase.
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "track_id", nullable = false)
+    @JoinColumn(name = "track_id")
     private Track track;
 
     @Column(name = "name", nullable = false, length = 255)

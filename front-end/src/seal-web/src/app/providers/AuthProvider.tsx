@@ -1,22 +1,22 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import {
-  users, teamMembers, events, tracks, rounds,
-  userEventRoles, teams,
-  HackathonEvent,
-} from "@/shared/mocks/mockData";
-import { apiFetch, getToken, setToken, clearToken, ApiError } from "@/shared/apiClient";
+import { apiFetch, getToken, setToken, clearToken, ApiError, teamsApi } from "@/shared/apiClient";
 
 // ── Public AuthUser shape ────────────────────────────────────────────
 export interface AuthUser {
   user_id: number;
   full_name: string;
   email: string;
-  role: 'PARTICIPANT' | 'MENTOR' | 'JUDGE' | 'COORDINATOR';
+  role: 'PARTICIPANT' | 'MENTOR' | 'JUDGE' | 'COORDINATOR' | 'ADMIN';
   student_type: 'FPT' | 'EXTERNAL' | null;
   student_id: string | null;
   university: string | null;
+  avatar_url: string | null;
   is_leader: boolean;
   team_id: number | null;
+  // true for a first-time OAuth account that hasn't picked its userType yet
+  profile_incomplete: boolean;
+  // false until a coordinator approves the account
+  approved: boolean;
 }
 
 // ── Context type ─────────────────────────────────────────────────────
@@ -24,16 +24,15 @@ interface AuthContextType {
   currentUser: AuthUser | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  currentEvent: HackathonEvent | null;
-  setCurrentEvent: (event: HackathonEvent | null) => void;
   availableRoles: string[];
   activeRole: string | null;
   setActiveRole: (role: string | null) => void;
   login: (email: string, password: string, rememberMe?: boolean) => Promise<'ok' | 'ok:select-role' | 'invalid_credentials' | 'pending_approval' | 'inactive'>;
   logout: () => void;
-  switchUser: (userId: number) => void;
   updateLeaderStatus: (isLeader: boolean) => void;
   clearTeam: () => void;
+  refreshTeamContext: () => Promise<void>;
+  patchCurrentUser: (fields: Partial<AuthUser>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -52,6 +51,8 @@ interface ApiUserProfile {
   studentId?: string | null;
   student_id?: string | null;
   university?: string | null;
+  avatarUrl?: string | null;
+  avatar_url?: string | null;
   // Role — API may return any of these; we handle all cases
   roles?: string | string[];
   role?: string | string[];
@@ -62,10 +63,12 @@ interface ApiUserProfile {
   team_id?: number | null;
   isLeader?: boolean;
   is_leader?: boolean;
+  isApproved?: boolean;
+  is_approved?: boolean;
 }
 
 // ── Collects all raw role strings from backend profile ────────────────
-const STAFF_ROLE_KEYWORDS = ['JUDGE', 'MENTOR', 'COORDINATOR'];
+const STAFF_ROLE_KEYWORDS = ['ADMIN', 'JUDGE', 'MENTOR', 'COORDINATOR'];
 
 function resolveAllRoles(profile: ApiUserProfile): string[] {
   const raw: string[] = [];
@@ -90,6 +93,7 @@ function resolveAllRoles(profile: ApiUserProfile): string[] {
 // ── Maps a raw backend role string to frontend AuthUser role ──────────
 function mapBackendRole(backendRole: string): AuthUser['role'] {
   const r = backendRole.toUpperCase();
+  if (r.includes('ADMIN'))       return 'ADMIN';
   if (r.includes('COORDINATOR')) return 'COORDINATOR';
   if (r.includes('JUDGE'))       return 'JUDGE';
   if (r === 'MENTOR')            return 'MENTOR';
@@ -98,7 +102,7 @@ function mapBackendRole(backendRole: string): AuthUser['role'] {
 
 // ── CRITICAL: role resolver ───────────────────────────────────────────
 // Handles: string, string[], nested object, snake_case, camelCase
-// Priority: COORDINATOR > JUDGE > MENTOR > PARTICIPANT
+// Priority: ADMIN > COORDINATOR > JUDGE > MENTOR > PARTICIPANT
 function resolveRole(profile: ApiUserProfile): AuthUser['role'] {
   const raw: string[] = [];
 
@@ -119,6 +123,7 @@ function resolveRole(profile: ApiUserProfile): AuthUser['role'] {
   collect(profile.roleName);
   collect(profile.role_name);
 
+  if (raw.some(r => r.includes('ADMIN')))       return 'ADMIN';
   if (raw.some(r => r.includes('COORDINATOR'))) return 'COORDINATOR';
   if (raw.some(r => r.includes('JUDGE')))       return 'JUDGE';
   if (raw.some(r => r === 'MENTOR'))            return 'MENTOR';
@@ -137,76 +142,35 @@ function mapApiUser(profile: ApiUserProfile): AuthUser {
                 : null,
     student_id:   profile.studentId ?? profile.student_id ?? null,
     university:   profile.university ?? null,
+    avatar_url:   profile.avatarUrl ?? profile.avatar_url ?? null,
     is_leader:    profile.isLeader ?? profile.is_leader ?? false,
     team_id:      profile.teamId ?? profile.team_id ?? null,
+    profile_incomplete: userType === 'PENDING_PROFILE',
+    approved:     profile.isApproved ?? profile.is_approved ?? true,
   };
 }
 
-// ── Mock helpers (used by DevToolbar switchUser only) ─────────────────
-function buildAuthUser(userId: number): AuthUser | null {
-  const user = users.find(u => u.user_id === userId);
-  if (!user) return null;
-  const userMemberships = teamMembers.filter(m => m.user_id === userId);
-  const membership = userMemberships.length > 1
-    ? userMemberships.slice().sort((a, b) => {
-        const eventIdOf = (m: typeof a) => {
-          const team = teams.find(t => t.team_id === m.team_id);
-          const track = team ? tracks.find(tr => tr.track_id === team.track_id) : null;
-          return track?.event_id ?? 0;
-        };
-        return eventIdOf(b) - eventIdOf(a);
-      })[0]
-    : userMemberships[0];
-  let role: AuthUser['role'] = 'PARTICIPANT';
-  if (user.user_type === 'STAFF') {
-    const eventRole = userEventRoles.find(r => r.user_id === userId);
-    if (eventRole?.role_name === 'EVENT_COORDINATOR') role = 'COORDINATOR';
-    else if (eventRole?.role_name === 'JUDGE')        role = 'JUDGE';
-    else if (eventRole?.role_name === 'MENTOR')       role = 'MENTOR';
+// ── Team context ──────────────────────────────────────────────────────
+// team_id / is_leader are NOT in /api/auth/me — they live in /api/teams/my,
+// which only PARTICIPANTs may call. Until the backend adds member userId / a
+// myRole field to MyTeamResponse, leadership is inferred by matching the full
+// name (temporary — see deferred backend note).
+async function fetchTeamContext(role: AuthUser['role'], fullName: string): Promise<{ teamId: number | null; isLeader: boolean }> {
+  if (role !== 'PARTICIPANT') return { teamId: null, isLeader: false };
+  try {
+    const res = await teamsApi.getMy();
+    const t = res.data;
+    if (!t || t.teamId == null) return { teamId: null, isLeader: false };
+    const myRole = t.myRole ?? t.members?.find(m => m.memberName === fullName)?.role;
+    return { teamId: t.teamId, isLeader: (myRole ?? '').toString().toUpperCase() === 'LEADER' };
+  } catch {
+    return { teamId: null, isLeader: false };
   }
-
-  return {
-    user_id:      user.user_id,
-    full_name:    user.full_name,
-    email:        user.email,
-    role,
-    student_type: user.user_type === 'FPT_STUDENT'     ? 'FPT'
-                : user.user_type === 'EXTERNAL_STUDENT' ? 'EXTERNAL'
-                : null,
-    student_id:   user.student_id,
-    university:   user.university_name,
-    is_leader:    membership?.member_role === 'LEADER',
-    team_id:      membership ? membership.team_id : null,
-  };
-}
-
-function deriveDefaultEvent(userId: number, role: string, teamId: number | null): HackathonEvent | null {
-  if (role === 'PARTICIPANT') {
-    if (teamId === null) return null;
-    const team = teams.find(t => t.team_id === teamId);
-    const track = team ? tracks.find(tr => tr.track_id === team.track_id) : null;
-    return track ? (events.find(e => e.event_id === track.event_id) ?? null) : null;
-  }
-  if (role === 'MENTOR') {
-    const assigned = userEventRoles.filter(r => r.user_id === userId && r.role_name === 'MENTOR');
-    const eventIds = new Set(assigned.map(r => r.event_id).filter((id): id is number => id !== null));
-    return events.find(e => eventIds.has(e.event_id)) ?? null;
-  }
-  if (role === 'JUDGE') {
-    const assigned = userEventRoles.filter(r => r.user_id === userId && r.role_name === 'JUDGE');
-    const eventIds = new Set(assigned.map(r => r.event_id).filter((id): id is number => id !== null));
-    return events.find(e => eventIds.has(e.event_id)) ?? null;
-  }
-  if (role === 'COORDINATOR') {
-    return events.find(e => e.status === 'IN_PROGRESS' || e.status === 'OPEN') ?? events[events.length - 1] ?? null;
-  }
-  return null;
 }
 
 // ── Provider ──────────────────────────────────────────────────────────
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
-  const [currentEvent, setCurrentEvent] = useState<HackathonEvent | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [availableRoles, setAvailableRoles] = useState<string[]>([]);
   const [activeRole, setActiveRoleState] = useState<string | null>(
@@ -231,7 +195,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!token) { setIsLoading(false); return; }
 
     apiFetch<{ data: ApiUserProfile }>('/api/auth/me')
-      .then(res => {
+      .then(async res => {
         const allRoles = resolveAllRoles(res.data);
         setAvailableRoles(allRoles);
 
@@ -248,8 +212,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setActiveRoleState(resolvedActive);
         const authUser = mapApiUser(res.data);
         if (resolvedActive) authUser.role = mapBackendRole(resolvedActive);
+        const tc = await fetchTeamContext(authUser.role, authUser.full_name);
+        authUser.team_id = tc.teamId;
+        authUser.is_leader = tc.isLeader;
         setCurrentUser(authUser);
-        setCurrentEvent(deriveDefaultEvent(authUser.user_id, authUser.role, authUser.team_id));
       })
       .catch(() => {
         clearToken();
@@ -291,8 +257,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setActiveRoleState(resolvedActive);
       const authUser = mapApiUser(meRes.data);
       if (resolvedActive) authUser.role = mapBackendRole(resolvedActive);
+      const tc = await fetchTeamContext(authUser.role, authUser.full_name);
+      authUser.team_id = tc.teamId;
+      authUser.is_leader = tc.isLeader;
       setCurrentUser(authUser);
-      setCurrentEvent(deriveDefaultEvent(authUser.user_id, authUser.role, authUser.team_id));
       // Signal to the caller that the user must pick a role before entering any dashboard
       return allRoles.length > 1 && resolvedActive === null ? 'ok:select-role' : 'ok';
     } catch (err) {
@@ -324,15 +292,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setCurrentUser(null);
     setAvailableRoles([]);
     setActiveRoleState(null);
-    setCurrentEvent(null);
-  }
-
-  // ── DevToolbar: switch to mock user without touching token ──────────
-  function switchUser(userId: number) {
-    const authUser = buildAuthUser(userId);
-    if (!authUser) return;
-    setCurrentUser(authUser);
-    setCurrentEvent(deriveDefaultEvent(userId, authUser.role, authUser.team_id));
   }
 
   function updateLeaderStatus(isLeader: boolean) {
@@ -343,14 +302,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setCurrentUser(prev => prev ? { ...prev, team_id: null, is_leader: false } : prev);
   }
 
+  // Apply edited profile fields to the in-memory user (after PUT /api/auth/me).
+  function patchCurrentUser(fields: Partial<AuthUser>) {
+    setCurrentUser(prev => prev ? { ...prev, ...fields } : prev);
+  }
+
+  // Re-pull team membership (team_id / is_leader) after the user creates,
+  // joins, or leaves a team — keeps routing and the sidebar in sync.
+  async function refreshTeamContext() {
+    if (!currentUser) return;
+    const tc = await fetchTeamContext(currentUser.role, currentUser.full_name);
+    setCurrentUser(prev => prev ? { ...prev, team_id: tc.teamId, is_leader: tc.isLeader } : prev);
+  }
+
   return (
     <AuthContext.Provider value={{
       currentUser,
       isAuthenticated: !!currentUser,
       isLoading,
-      currentEvent, setCurrentEvent,
       availableRoles, activeRole, setActiveRole,
-      login, logout, switchUser, updateLeaderStatus, clearTeam,
+      login, logout, updateLeaderStatus, clearTeam, refreshTeamContext, patchCurrentUser,
     }}>
       {children}
     </AuthContext.Provider>
