@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router";
 import { useAuth } from "@/app/providers/AuthProvider";
+import { useNotifications } from "@/app/providers/NotificationProvider";
 import {
   C, GradientText, PixelCard, PixelButton, PixelBadge, PixelInput,
 } from "@/shared/components/PixelComponents";
 import { teamsApi, invitesApi, joinRequestsApi, ApiError, MyTeam, MyTeamMember, UserItem, JoinRequest } from "@/shared/apiClient";
+import { isTeamEditable, teamLockReason, MIN_TEAM_SIZE, MAX_TEAM_SIZE } from "@/shared/teamPhase";
 
 function statusBadgeColor(status?: string): "green" | "yellow" | "red" | "gray" {
   const s = (status ?? "").toUpperCase();
@@ -17,6 +19,7 @@ function statusBadgeColor(status?: string): "green" | "yellow" | "red" | "gray" 
 export function TeamViewPage() {
   const navigate = useNavigate();
   const { currentUser, refreshTeamContext } = useAuth();
+  const { addToast } = useNotifications();
 
   const [team, setTeam] = useState<MyTeam | null>(null);
   const [loading, setLoading] = useState(true);
@@ -62,6 +65,8 @@ export function TeamViewPage() {
   useEffect(() => { load(); }, [load]);
 
   const isLeader = team?.myRole === 'LEADER';
+  const editable = isTeamEditable(team?.eventStatus);
+  const lockReason = teamLockReason(team?.eventStatus);
 
   if (loading) {
     return <div style={{ padding: 24 }}><PixelCard style={{ padding: 32, textAlign: "center" }}>
@@ -89,6 +94,7 @@ export function TeamViewPage() {
       const res = await teamsApi.update(team.teamId, { name: nameInput.trim() });
       setTeam(res.data);
       setEditingName(false);
+      addToast({ type: "success", title: "Team renamed", message: `Your team is now "${res.data.name}".` });
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Failed to rename team.");
     } finally { setBusy(false); }
@@ -111,6 +117,7 @@ export function TeamViewPage() {
     try {
       await invitesApi.send(team.teamId, { invitedUserId: user.userId });
       setNotice(`Invitation sent to ${user.fullName}. They will appear once they accept.`);
+      addToast({ type: "success", title: "Invitation sent", message: `${user.fullName} has been invited to your team.` });
       setInviteQuery(""); setInviteResults([]); setShowInvite(false);
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Failed to send invite.");
@@ -126,6 +133,7 @@ export function TeamViewPage() {
       setTeam(res.data);
       loadJoinRequests(team.teamId);
       setNotice(`${r.requesterName} has joined the team.`);
+      addToast({ type: "success", title: "Member added", message: `${r.requesterName} has joined your team.` });
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Failed to accept request.");
     } finally { setBusyReq(null); }
@@ -136,6 +144,7 @@ export function TeamViewPage() {
     try {
       await joinRequestsApi.decline(r.requestId);
       setJoinRequests(prev => prev.filter(x => x.requestId !== r.requestId));
+      addToast({ type: "info", title: "Request declined", message: `${r.requesterName}'s join request was declined.` });
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Failed to decline request.");
     } finally { setBusyReq(null); }
@@ -148,6 +157,7 @@ export function TeamViewPage() {
       const res = await teamsApi.removeMember(team.teamId, m.userId);
       setTeam(res.data);
       setRemoveTarget(null);
+      addToast({ type: "warning", title: "Member removed", message: `${m.memberName} was removed from the team.` });
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Failed to remove member.");
     } finally { setBusy(false); }
@@ -160,6 +170,7 @@ export function TeamViewPage() {
       const res = await teamsApi.transferLeadership(team.teamId, transferTarget.userId);
       setTeam(res.data);
       await refreshTeamContext();
+      addToast({ type: "success", title: "Leadership transferred", message: `${transferTarget.memberName} is now the team leader.` });
       setTransferTarget(null);
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Failed to transfer leadership.");
@@ -170,8 +181,10 @@ export function TeamViewPage() {
     if (!team) return;
     setBusy(true); setActionError(null);
     try {
+      const leftName = team.name;
       await teamsApi.leave(team.teamId);
       await refreshTeamContext();
+      addToast({ type: "info", title: "Left team", message: `You have left "${leftName}".` });
       navigate('/dashboard');
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Failed to leave team.");
@@ -200,7 +213,7 @@ export function TeamViewPage() {
           </h1>
         )}
         <PixelBadge color={statusBadgeColor(team.status)}>{team.status ?? "—"}</PixelBadge>
-        {isLeader && !editingName && (
+        {isLeader && editable && !editingName && (
           <button onClick={() => { setNameInput(team.name); setEditingName(true); }}
             style={{ background: "transparent", border: `1px solid ${C.border}`, color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, padding: "4px 8px", cursor: "pointer", borderRadius: 0, letterSpacing: "0.1em", textTransform: "uppercase" }}>
             EDIT NAME
@@ -211,6 +224,19 @@ export function TeamViewPage() {
       {team.status === 'PENDING' && (
         <div style={{ background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.4)", color: "#eab308", fontFamily: "'JetBrains Mono', monospace", fontSize: 12, padding: "12px 16px" }}>
           Your team is awaiting coordinator approval. You cannot submit until approved.
+        </div>
+      )}
+
+      {lockReason && (
+        <div style={{ background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.4)", color: "#3b82f6", fontFamily: "'JetBrains Mono', monospace", fontSize: 12, padding: "12px 16px", display: "flex", gap: 8 }}>
+          <span aria-hidden style={{ flexShrink: 0 }}>🔒</span>
+          <span>{lockReason}</span>
+        </div>
+      )}
+
+      {editable && memberRows.length < MIN_TEAM_SIZE && (
+        <div style={{ background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.4)", color: "#eab308", fontFamily: "'JetBrains Mono', monospace", fontSize: 12, padding: "12px 16px" }}>
+          Your team has {memberRows.length}/{MIN_TEAM_SIZE} minimum members. Teams with fewer than {MIN_TEAM_SIZE} members may be merged by a coordinator.
         </div>
       )}
 
@@ -226,7 +252,7 @@ export function TeamViewPage() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 16 }}>
           <InfoCell label="Event" value={team.eventName ?? "—"} />
           <InfoCell label="Track" value={team.trackName ?? "—"} />
-          <InfoCell label="Members" value={`${memberRows.length}/5`} accent />
+          <InfoCell label="Members" value={`${memberRows.length}/${MAX_TEAM_SIZE}`} accent />
           <InfoCell label="Your role" value={team.myRole ?? "—"} />
         </div>
       </PixelCard>
@@ -235,7 +261,7 @@ export function TeamViewPage() {
       <PixelCard style={{ padding: 0, overflow: "hidden" }}>
         <div style={{ padding: "14px 18px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
           <span style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 700 }}>Members</span>
-          {isLeader && memberRows.length < 5 && (
+          {isLeader && editable && memberRows.length < MAX_TEAM_SIZE && (
             <PixelButton size="sm" variant="cyber" onClick={() => { setShowInvite(s => !s); setInviteResults([]); setInviteQuery(""); }}>
               {showInvite ? "CLOSE" : "INVITE MEMBER"}
             </PixelButton>
@@ -273,7 +299,7 @@ export function TeamViewPage() {
           <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'JetBrains Mono', monospace" }}>
             <thead>
               <tr style={{ background: C.surface2, borderBottom: `1px solid ${C.border}` }}>
-                {["Member", "Role", ...(isLeader ? ["Actions"] : [])].map(h => (
+                {["Member", "Role", ...(isLeader && editable ? ["Actions"] : [])].map(h => (
                   <th key={h} style={{ color: C.green, fontSize: 10, letterSpacing: "0.12em", textAlign: "left", padding: "11px 14px", fontWeight: 600, textTransform: "uppercase" }}>{h}</th>
                 ))}
               </tr>
@@ -290,7 +316,7 @@ export function TeamViewPage() {
                     <td style={{ padding: "11px 14px" }}>
                       <PixelBadge color={m.role === 'LEADER' ? 'cyan' : 'blue'}>{m.role === 'LEADER' ? "Leader" : "Member"}</PixelBadge>
                     </td>
-                    {isLeader && (
+                    {isLeader && editable && (
                       <td style={{ padding: "11px 14px" }}>
                         {m.role === 'MEMBER' && (
                           <div style={{ display: "flex", gap: 6 }}>
@@ -331,14 +357,19 @@ export function TeamViewPage() {
                     </div>
                   </div>
                   <div style={{ display: "flex", gap: 8 }}>
-                    <PixelButton size="sm" variant="cyber" onClick={() => acceptJoin(r)} disabled={busyReq === r.requestId || memberRows.length >= 5}>ACCEPT</PixelButton>
+                    <PixelButton size="sm" variant="cyber" onClick={() => acceptJoin(r)} disabled={busyReq === r.requestId || memberRows.length >= MAX_TEAM_SIZE || !editable}>ACCEPT</PixelButton>
                     <PixelButton size="sm" variant="danger" onClick={() => declineJoin(r)} disabled={busyReq === r.requestId}>DECLINE</PixelButton>
                   </div>
                 </div>
               ))}
-              {memberRows.length >= 5 && (
+              {!editable && (
+                <div style={{ padding: "0 18px 12px", color: "#3b82f6", fontFamily: "'JetBrains Mono', monospace", fontSize: 10 }}>
+                  The team is locked for this phase — you can no longer accept new members.
+                </div>
+              )}
+              {editable && memberRows.length >= MAX_TEAM_SIZE && (
                 <div style={{ padding: "0 18px 12px", color: "#eab308", fontFamily: "'JetBrains Mono', monospace", fontSize: 10 }}>
-                  Team is full (5/5) — remove a member before accepting new requests.
+                  Team is full ({MAX_TEAM_SIZE}/{MAX_TEAM_SIZE}) — remove a member before accepting new requests.
                 </div>
               )}
             </div>
@@ -347,14 +378,16 @@ export function TeamViewPage() {
       )}
 
       {/* Leave */}
-      <div>
-        <PixelButton variant="danger" onClick={() => setConfirmLeave(true)} disabled={busy}>LEAVE TEAM</PixelButton>
-        {isLeader && memberRows.length > 1 && (
-          <span style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginLeft: 12 }}>
-            (transfer leadership first)
-          </span>
-        )}
-      </div>
+      {editable && (
+        <div>
+          <PixelButton variant="danger" onClick={() => setConfirmLeave(true)} disabled={busy}>LEAVE TEAM</PixelButton>
+          {isLeader && memberRows.length > 1 && (
+            <span style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginLeft: 12 }}>
+              (transfer leadership first)
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Leave confirmation modal */}
       {confirmLeave && (
