@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router";
 import { Github } from "lucide-react";
 import { C } from "@/shared/components/PixelComponents";
+import { useRules } from "@/app/providers/RulesProvider";
 import sealLogo from "@/imports/image.png";
 
 const GITHUB_URL = "https://github.com/nhatnhm1405/seal-hackathon-system.git";
@@ -13,20 +14,24 @@ type FooterLink = {
   href?: string;
   external?: boolean;
   icon?: typeof Github;
+  action?: () => void;
 };
 
 export function SealFooter() {
   const navigate = useNavigate();
+  const { openRules } = useRules();
 
   const teamLinks: FooterLink[] = [
     { label: "About the Project", to: "/about" },
     { label: "Our Team", to: "/team" },
+    { label: "Competition Rules", action: openRules },
     { label: "GitHub", href: GITHUB_URL, external: true, icon: Github },
   ];
 
   function handleClick(link: FooterLink, e: React.MouseEvent) {
     if (link.external) return;
     e.preventDefault();
+    if (link.action) { link.action(); return; }
     if (!link.to) return;
     if (link.to.startsWith("/#")) {
       const hash = link.to.slice(1);
