@@ -4,7 +4,7 @@ import {
   C, GradientText, PixelCard, PixelBadge,
 } from "@/shared/components/PixelComponents";
 import {
-  teamsApi, eventsApi, roundsApi, resultsApi, ApiError, Round, RoundResult,
+  teamsApi, eventsApi, roundsApi, resultsApi, ApiError, Round, RoundResult, HackathonEvent,
 } from "@/shared/apiClient";
 
 const selectStyle: React.CSSProperties = {
@@ -15,6 +15,7 @@ const selectStyle: React.CSSProperties = {
 export function LeaderboardPage() {
   const { currentUser } = useAuth();
 
+  const [events, setEvents] = useState<HackathonEvent[]>([]);
   const [eventId, setEventId] = useState<number | null>(null);
   const [rounds, setRounds] = useState<Round[]>([]);
   const [selectedRoundId, setSelectedRoundId] = useState<number | null>(null);
@@ -23,33 +24,51 @@ export function LeaderboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Resolve the relevant event (the participant's team event, else active event).
+  // Load the event list and pick a sensible default: the participant's team
+  // event, else the active one, else the most recent completed season (so the
+  // previous season's champions are visible even before the running event has
+  // any published results).
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      let evId: number | null = null;
+      const evs = await eventsApi.getAll().then(r => r.data ?? []).catch(() => []);
+      let teamEventId: number | null = null;
       try {
         const my = await teamsApi.getMy().then(r => r.data).catch(() => null);
-        if (my?.eventId != null) evId = my.eventId;
+        if (my?.eventId != null) teamEventId = my.eventId;
       } catch { /* not in a team */ }
-      if (evId == null) {
-        const events = await eventsApi.getAll().then(r => r.data ?? []).catch(() => []);
-        const ev = events.find(e => e.status === 'IN_PROGRESS' || e.status === 'OPEN') ?? events[events.length - 1];
-        evId = ev?.eventId ?? null;
-      }
       if (cancelled) return;
-      setEventId(evId);
-      if (evId != null) {
-        const rs = await roundsApi.getAll(evId).then(r => r.data ?? []).catch(() => []);
-        if (cancelled) return;
-        const sorted = [...rs].sort((a, b) => (a.orderNumber ?? a.roundId) - (b.orderNumber ?? b.roundId));
-        setRounds(sorted);
-        setSelectedRoundId(sorted[0]?.roundId ?? null);
-      }
-      setLoading(false);
+      // Newest first (by year then season order) for the dropdown.
+      const ordered = [...evs].sort((a, b) => b.year - a.year || b.eventId - a.eventId);
+      setEvents(ordered);
+      const defaultEv =
+        (teamEventId != null && ordered.find(e => e.eventId === teamEventId)) ||
+        ordered.find(e => e.status === 'IN_PROGRESS' || e.status === 'OPEN') ||
+        ordered.find(e => e.status === 'COMPLETED') ||
+        ordered[0];
+      setEventId(defaultEv?.eventId ?? null);
+      if (defaultEv == null) setLoading(false);
     })();
     return () => { cancelled = true; };
   }, []);
+
+  // Load rounds whenever the selected event changes.
+  useEffect(() => {
+    if (eventId == null) { setRounds([]); setSelectedRoundId(null); return; }
+    let cancelled = false;
+    setLoading(true);
+    roundsApi.getAll(eventId).then(r => r.data ?? []).catch(() => [])
+      .then(rs => {
+        if (cancelled) return;
+        const sorted = [...rs].sort((a, b) => (a.orderNumber ?? a.roundId) - (b.orderNumber ?? b.roundId));
+        setRounds(sorted);
+        // Prefer the final round so champions show first; else the first round.
+        setSelectedRoundId((sorted.find(r => r.isFinal) ?? sorted[0])?.roundId ?? null);
+        setTrackFilter("");
+        setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [eventId]);
 
   // Load published results for the selected round.
   useEffect(() => {
@@ -77,7 +96,18 @@ export function LeaderboardPage() {
       )}
 
       <PixelCard style={{ padding: 16 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+          <div>
+            <label style={{ color: C.greenMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase" }}>Event</label>
+            <select value={eventId ?? 0} onChange={(e) => setEventId(Number(e.target.value) || null)} style={selectStyle}>
+              {events.length === 0 && <option value={0}>No events</option>}
+              {events.map(ev => (
+                <option key={ev.eventId} value={ev.eventId}>
+                  {ev.name}{ev.status === 'COMPLETED' ? " (Completed)" : ev.status === 'IN_PROGRESS' ? " (Live)" : ""}
+                </option>
+              ))}
+            </select>
+          </div>
           <div>
             <label style={{ color: C.greenMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase" }}>Round</label>
             <select value={selectedRoundId ?? 0} onChange={(e) => setSelectedRoundId(Number(e.target.value) || null)} style={selectStyle}>
