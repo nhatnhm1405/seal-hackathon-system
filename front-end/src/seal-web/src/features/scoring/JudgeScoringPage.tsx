@@ -6,6 +6,7 @@ import {
   assignmentsApi, eventsApi, roundsApi, submissionsApi, scoringApi, ApiError,
   Round, Submission, ScoringCriteria, ScoreRecord,
 } from "@/shared/apiClient";
+import { buildTeamCodeMap } from "./anon";
 
 type SubStatus = "not_scored" | "draft" | "scored";
 type FilterType = "all" | SubStatus;
@@ -24,6 +25,8 @@ export function JudgeScoringPage() {
   const [eventId, setEventId] = useState<number | null>(null);
   const [rounds, setRounds] = useState<Round[]>([]);
   const [teamsByRound, setTeamsByRound] = useState<Record<number, Set<number>>>({});
+  // Anonymised team codes (e.g. WEB-1) — judging stays impartial, names hidden.
+  const [teamCodes, setTeamCodes] = useState<Map<number, string>>(new Map());
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loadingCtx, setLoadingCtx] = useState(true);
 
@@ -55,6 +58,7 @@ export function JudgeScoringPage() {
         const teams = assignment?.teams ?? [];
         const map: Record<number, Set<number>> = {};
         teams.forEach(t => { (map[t.roundId] ??= new Set()).add(t.teamId); });
+        const codes = buildTeamCodeMap(teams);
 
         const events = await eventsApi.getAll().then(r => r.data ?? []).catch(() => []);
         const event = events.find(e => e.name === assignment?.eventName)
@@ -64,6 +68,7 @@ export function JudgeScoringPage() {
 
         if (cancelled) return;
         setTeamsByRound(map);
+        setTeamCodes(codes);
         setEventId(event?.eventId ?? null);
         // Only rounds the judge is actually assigned to.
         const assignedRounds = rs.filter(r => map[r.roundId])
@@ -111,6 +116,11 @@ export function JudgeScoringPage() {
     if (s.some(x => !x.isDraft)) return "scored";
     return "draft";
   }, [myScores]);
+
+  const codeOf = useCallback(
+    (sub: Submission) => teamCodes.get(sub.teamId) ?? `#${sub.submissionId}`,
+    [teamCodes],
+  );
 
   const selectedRound = rounds.find(r => r.roundId === selectedRoundId) ?? null;
   const selectedSub = submissions.find(s => s.submissionId === selectedSubId) ?? null;
@@ -256,7 +266,7 @@ export function JudgeScoringPage() {
                           textAlign: "left", cursor: "pointer", borderRadius: 0,
                           display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6,
                         }}>
-                        <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{sub.teamName}</span>
+                        <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{codeOf(sub)}</span>
                         {statusBadge(st)}
                       </button>
                     );
@@ -277,7 +287,7 @@ export function JudgeScoringPage() {
                 <PixelCard glow gradient style={{ padding: 20 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
                     <div>
-                      <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 20, fontWeight: 700 }}>{selectedSub.teamName}</div>
+                      <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 20, fontWeight: 700 }}>{codeOf(selectedSub)}</div>
                       <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginTop: 4 }}>
                         {selectedRound?.name} · Submitted {fmtDateTime(selectedSub.submittedAt)}
                       </div>
