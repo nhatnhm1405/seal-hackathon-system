@@ -90,9 +90,8 @@ export function ParticipantDashboard() {
                 <EventDetailDrawer
                     event={drawerEvent}
                     onClose={() => setDrawerEvent(null)}
-                    onCreateTeam={(eventId, trackId) => {
+                    onCreateTeam={(eventId) => {
                         setCreateEventId(eventId);
-                        setCreateTrackId(trackId);
                         setDrawerEvent(null);
                         setScreen('create');
                     }}

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { C, GradientText, PixelBadge } from "@/shared/components/PixelComponents";
+import { C, GradientText, PixelBadge, PixelButton } from "@/shared/components/PixelComponents";
 import { tracksApi, roundsApi, HackathonEvent, Track, Round } from "@/shared/apiClient";
 import { fmtDate, fmtShort } from "../utils/formatters";
 
@@ -17,7 +17,7 @@ export function EventDetailDrawer({
 }: {
     event: HackathonEvent;
     onClose: () => void;
-    onCreateTeam: (eventId: number, trackId: number) => void;
+    onCreateTeam: (eventId: number) => void;
 }) {
     const [tracks, setTracks] = useState<Track[]>([]);
     const [rounds, setRounds] = useState<Round[]>([]);
@@ -68,29 +68,23 @@ export function EventDetailDrawer({
                         </div>
                     </div>
 
-                    {/* Tracks */}
+                    {/* Tracks — informational only. Participants do NOT pick a track when
+                        registering; it is assigned during the Setup phase. */}
                     <div>
-                        <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 700, marginBottom: 14 }}>Available Tracks</div>
+                        <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 700, marginBottom: 8 }}>Available Tracks</div>
+                        <div style={{ background: "rgba(6,182,212,0.06)", border: "1px solid rgba(6,182,212,0.25)", color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, padding: "8px 12px", lineHeight: 1.5, marginBottom: 14 }}>
+                            You don't choose a track when registering. Tracks are assigned during the Setup phase — the team leader self-selects, or the coordinator draws one.
+                        </div>
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                             {tracks.map(tr => (
                                 <div key={tr.trackId}
-                                    style={{ background: C.surface, border: `1px solid ${C.border}`, padding: "16px", display: "flex", flexDirection: "column", gap: 8, position: "relative", overflow: "hidden", transition: "border-color 0.15s" }}
-                                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(34,197,94,0.4)"; }}
-                                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = C.border; }}
+                                    style={{ background: C.surface, border: `1px solid ${C.border}`, padding: "16px", display: "flex", flexDirection: "column", gap: 8, position: "relative", overflow: "hidden" }}
                                 >
                                     <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${C.green}, transparent)`, opacity: 0.5 }} />
                                     <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 700 }}>{tr.name}</div>
                                     {tr.description && (
                                         <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, lineHeight: 1.5 }}>{tr.description}</div>
                                     )}
-                                    <button
-                                        onClick={() => onCreateTeam(event.eventId, tr.trackId)}
-                                        style={{ marginTop: "auto", padding: "8px 10px", background: "rgba(34,197,94,0.08)", border: `1px solid rgba(34,197,94,0.35)`, color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: "0.06em", cursor: "pointer", borderRadius: 0, transition: "background 0.15s, box-shadow 0.15s", textAlign: "center" }}
-                                        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(34,197,94,0.16)"; (e.currentTarget as HTMLElement).style.boxShadow = `0 0 10px rgba(34,197,94,0.2)`; }}
-                                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(34,197,94,0.08)"; (e.currentTarget as HTMLElement).style.boxShadow = "none"; }}
-                                    >
-                                        JOIN THIS TRACK → CREATE TEAM
-                                    </button>
                                 </div>
                             ))}
                         </div>
@@ -129,6 +123,16 @@ export function EventDetailDrawer({
                                     </div>
                                 );
                             })}
+                        </div>
+                    </div>
+
+                    {/* Register CTA — no track choice here; the team picks/gets a track at Setup */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        <PixelButton variant="cyber" fullWidth onClick={() => onCreateTeam(event.eventId)}>
+                            REGISTER & CREATE TEAM
+                        </PixelButton>
+                        <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, textAlign: "center", lineHeight: 1.6 }}>
+                            You'll become the team leader. Your track is assigned later during Setup.
                         </div>
                     </div>
                 </div>
