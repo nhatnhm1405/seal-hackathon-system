@@ -204,8 +204,8 @@ function NotificationBell() {
             borderBottom: `1px solid ${C.border}`,
             flexShrink: 0,
           }}>
-            <span style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em" }}>
-              // notifications
+            <span style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 700, letterSpacing: "0.05em" }}>
+              Notifications
               {unreadCount > 0 && (
                 <span style={{ color: C.textMuted }}> · {unreadCount} unread</span>
               )}
