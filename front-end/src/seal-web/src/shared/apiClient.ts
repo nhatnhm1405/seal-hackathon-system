@@ -716,15 +716,20 @@ export const invitesApi = {
 
 export interface JoinableTeam {
   teamId: number;
-  name: string;
+  teamName: string;
   eventId: number;
   eventName: string;
   trackId?: number;
   trackName?: string;
-  status: string;
+  teamStatus: string;
   memberCount: number;
   leaderName?: string;
-  alreadyRequested: boolean;
+  alreadyRequested?: boolean;
+}
+
+export interface JoinableTeamList {
+  totalJoinableTeams: number;
+  teams: JoinableTeam[];
 }
 
 export interface JoinRequest {
@@ -749,7 +754,7 @@ export const joinRequestsApi = {
     if (params.eventId != null) qs.set('eventId', String(params.eventId));
     if (params.query) qs.set('query', params.query);
     const suffix = qs.toString() ? `?${qs.toString()}` : '';
-    return apiFetch<ApiResponse<JoinableTeam[]>>(`/api/join-requests/joinable-teams${suffix}`);
+    return apiFetch<ApiResponse<JoinableTeamList>>(`/api/join-requests/joinable-teams${suffix}`);
   },
 
   send: (teamId: number, message?: string) =>

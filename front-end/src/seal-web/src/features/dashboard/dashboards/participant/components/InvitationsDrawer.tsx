@@ -64,7 +64,7 @@ export function InvitationsDrawer({ onClose }: { onClose: () => void }) {
         setSearching(true); setError(null);
         try {
             const res = await joinRequestsApi.getJoinableTeams({ query: query.trim() || undefined });
-            setResults(res.data ?? []);
+            setResults(res.data?.teams ?? []);
             setSearched(true);
         } catch (err) {
             setError(err instanceof ApiError ? err.message : "Search failed.");
@@ -248,7 +248,7 @@ export function InvitationsDrawer({ onClose }: { onClose: () => void }) {
                                     return (
                                         <div key={t.teamId} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "10px 12px", background: C.surface2, border: `1px solid ${C.border}`, flexWrap: "wrap" }}>
                                             <div style={{ minWidth: 0 }}>
-                                                <span style={{ color: C.text, fontFamily: mono, fontSize: 12, fontWeight: 600 }}>{t.name}</span>
+                                                <span style={{ color: C.text, fontFamily: mono, fontSize: 12, fontWeight: 600 }}>{t.teamName}</span>
                                                 <div style={{ color: C.textMuted, fontFamily: mono, fontSize: 10, marginTop: 2 }}>
                                                     {t.eventName} · {t.trackName ?? "—"} · {t.memberCount}/5{t.leaderName ? ` · ${t.leaderName}` : ""}
                                                 </div>
