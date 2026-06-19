@@ -3,7 +3,8 @@ import { useAuth } from "@/app/providers/AuthProvider";
 import {
   C, GradientText, PixelCard, PixelButton, PixelBadge, PixelInput, PixelTabs,
 } from "@/shared/components/PixelComponents";
-import { authApi, teamsApi, ApiError, MyTeam, API_BASE_URL } from "@/shared/apiClient";
+import { authApi, teamsApi, ApiError, apiErrorMessage, MyTeam, API_BASE_URL } from "@/shared/apiClient";
+import { useNotifications } from "@/app/providers/NotificationProvider";
 
 const mono = "'JetBrains Mono', monospace";
 
@@ -15,6 +16,7 @@ function avatarSrc(url: string | null | undefined): string | null {
 
 export function ProfilePage() {
   const { currentUser, patchCurrentUser } = useAuth();
+  const { addToast } = useNotifications();
   const [tab, setTab] = useState("overview");
   const [team, setTeam] = useState<MyTeam | null>(null);
 
@@ -54,7 +56,11 @@ export function ProfilePage() {
 
   async function save() {
     setError(null); setSaved(false);
-    if (!fullName.trim()) { setError("Full name is required."); return; }
+    if (!fullName.trim()) {
+      setError("Full name is required.");
+      addToast({ type: "warning", title: "Missing name", message: "Full name is required." });
+      return;
+    }
     setSaving(true);
     try {
       const res = await authApi.updateMe({
@@ -69,8 +75,10 @@ export function ProfilePage() {
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
+      addToast({ type: "success", title: "Profile saved", message: "Your profile has been updated." });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to save profile.");
+      addToast({ type: "warning", title: "Save failed", message: apiErrorMessage(err, "Failed to save profile.") });
     } finally {
       setSaving(false);
     }
@@ -80,8 +88,8 @@ export function ProfilePage() {
     const f = e.target.files?.[0];
     e.target.value = ""; // allow re-picking the same file
     if (!f) return;
-    if (!f.type.startsWith("image/")) { setAvatarError("Please choose an image file."); return; }
-    if (f.size > 5 * 1024 * 1024) { setAvatarError("Image must be 5MB or smaller."); return; }
+    if (!f.type.startsWith("image/")) { setAvatarError("Please choose an image file."); addToast({ type: "warning", title: "Invalid file", message: "Please choose an image file." }); return; }
+    if (f.size > 5 * 1024 * 1024) { setAvatarError("Image must be 5MB or smaller."); addToast({ type: "warning", title: "Image too large", message: "Image must be 5MB or smaller." }); return; }
     setAvatarError(null);
     setAvatarSaved(false);
     setPendingFile(f);
@@ -98,8 +106,10 @@ export function ProfilePage() {
       setPreview(null);
       setAvatarSaved(true);
       setTimeout(() => setAvatarSaved(false), 2500);
+      addToast({ type: "success", title: "Photo updated", message: "Your profile photo has been updated." });
     } catch (err) {
       setAvatarError(err instanceof ApiError ? err.message : "Failed to upload image.");
+      addToast({ type: "warning", title: "Upload failed", message: apiErrorMessage(err, "Failed to upload image.") });
     } finally {
       setUploading(false);
     }
@@ -118,8 +128,10 @@ export function ProfilePage() {
       patchCurrentUser({ avatar_url: null });
       setPendingFile(null);
       setPreview(null);
+      addToast({ type: "info", title: "Photo removed", message: "Your profile photo has been removed." });
     } catch (err) {
       setAvatarError(err instanceof ApiError ? err.message : "Failed to remove image.");
+      addToast({ type: "warning", title: "Remove failed", message: apiErrorMessage(err, "Failed to remove image.") });
     } finally {
       setRemoving(false);
     }

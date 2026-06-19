@@ -132,7 +132,7 @@ function typeColor(type: UINotification["type"]) {
 }
 
 function NotificationBell() {
-  const { userNotifications, unreadCount, markAllRead } = useNotifications();
+  const { userNotifications, unreadCount, markAllRead, bellOpenSignal } = useNotifications();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -143,6 +143,11 @@ function NotificationBell() {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, []);
+
+  // A banner click asks us to reveal the full notification history.
+  useEffect(() => {
+    if (bellOpenSignal > 0) setOpen(true);
+  }, [bellOpenSignal]);
 
   function fmtTime(iso: string) {
     return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });

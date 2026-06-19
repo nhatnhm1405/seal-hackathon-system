@@ -2,8 +2,9 @@ import { useState, useEffect } from "react";
 import {
   C, GradientText, PixelCard, PixelButton, PixelBadge,
 } from "@/shared/components/PixelComponents";
-import { accountApprovalsApi, ApiError, PendingAccount } from "@/shared/apiClient";
+import { accountApprovalsApi, ApiError, apiErrorMessage, PendingAccount } from "@/shared/apiClient";
 import { usePendingAccounts } from "@/app/providers/PendingAccountsProvider";
+import { useNotifications } from "@/app/providers/NotificationProvider";
 
 // After the platform split, a Coordinator's only account responsibility is the
 // approval queue. Full account management (list-all, edit, activate/deactivate,
@@ -76,6 +77,7 @@ export function CoordAccountsPage() {
   const [actionError, setActionError] = useState<string | null>(null);
 
   const { setPendingCount } = usePendingAccounts();
+  const { addToast } = useNotifications();
 
   useEffect(() => {
     setLoading(true);
@@ -112,9 +114,15 @@ export function CoordAccountsPage() {
         setPendingCount(next.length);
         return next;
       });
+      addToast({
+        type: reject ? "info" : "success",
+        title: reject ? "ACCOUNT REJECTED" : "ACCOUNT APPROVED",
+        message: `"${account.fullName}" ${reject ? "was rejected." : "can now log in."}`,
+      });
       setConfirmTarget(null);
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Action failed.");
+      addToast({ type: "warning", title: "ACTION FAILED", message: apiErrorMessage(err, "Action failed.") });
     } finally {
       setWorking(false);
     }
