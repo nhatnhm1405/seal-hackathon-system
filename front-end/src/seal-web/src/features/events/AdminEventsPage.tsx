@@ -53,13 +53,6 @@ export function AdminEventsPage() {
   const [evStart, setEvStart] = useState("");
   const [evEnd, setEvEnd] = useState("");
   const [evMode, setEvMode] = useState<TrackMode>("SELF_SELECT");
-  const [draftTracks, setDraftTracks] = useState<{ name: string; description: string }[]>([]);
-  const [draftRounds, setDraftRounds] = useState<{ name: string; submissionDeadline: string; topNAdvance: number }[]>([]);
-  const [ntName, setNtName] = useState("");
-  const [ntDesc, setNtDesc] = useState("");
-  const [nrName, setNrName] = useState("");
-  const [nrDeadline, setNrDeadline] = useState("");
-  const [nrTopN, setNrTopN] = useState(3);
 
   // Confirmation dialog (complete / reopen / approve / reject)
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
@@ -178,26 +171,10 @@ export function AdminEventsPage() {
   }
 
   // ── Create-form helpers ───────────────────────────────────────────
-  function addDraftTrack() {
-    if (!ntName.trim()) return;
-    setDraftTracks(prev => [...prev, { name: ntName.trim(), description: ntDesc.trim() }]);
-    setNtName(""); setNtDesc("");
-  }
-  function removeDraftTrack(index: number) {
-    setDraftTracks(prev => prev.filter((_, i) => i !== index));
-  }
-  function addDraftRound() {
-    if (!nrName.trim()) return;
-    setDraftRounds(prev => [...prev, { name: nrName.trim(), submissionDeadline: nrDeadline, topNAdvance: nrTopN }]);
-    setNrName(""); setNrDeadline(""); setNrTopN(3);
-  }
-  function removeDraftRound(index: number) {
-    setDraftRounds(prev => prev.filter((_, i) => i !== index));
-  }
+  // Tracks & rounds are NOT configured here — the Event Coordinator sets them up
+  // during the event's SETUP phase. The Admin only creates the event shell.
   function resetCreateForm() {
     setEvName(""); setEvRegStart(""); setEvRegEnd(""); setEvStart(""); setEvEnd(""); setEvMode("SELF_SELECT");
-    setDraftTracks([]); setDraftRounds([]);
-    setNtName(""); setNtDesc(""); setNrName(""); setNrDeadline(""); setNrTopN(3);
   }
 
   async function addEvent(e: React.FormEvent) {
@@ -221,25 +198,6 @@ export function AdminEventsPage() {
         }),
       });
       const created = normalizeEvent(res.data);
-
-      for (const t of draftTracks) {
-        await apiFetch(`/api/events/${created.eventId}/tracks`, {
-          method: 'POST',
-          body: JSON.stringify({ name: t.name, description: t.description || undefined }),
-        });
-      }
-      for (let i = 0; i < draftRounds.length; i++) {
-        const r = draftRounds[i];
-        await apiFetch(`/api/events/${created.eventId}/rounds`, {
-          method: 'POST',
-          body: JSON.stringify({
-            name: r.name,
-            orderNumber: i + 1,
-            submissionDeadline: r.submissionDeadline || undefined,
-            topNAdvance: r.topNAdvance,
-          }),
-        });
-      }
 
       setEvents(prev => [...prev, created]);
       setSelectedEventId(created.eventId);
@@ -325,53 +283,10 @@ export function AdminEventsPage() {
               <PixelInput label="End Date" type="date" value={evEnd} onChange={(e) => setEvEnd(e.target.value)} />
             </div>
 
-            {/* Staged tracks */}
-            <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 14 }}>
-              <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 700, marginBottom: 10 }}>Tracks</div>
-              {draftTracks.length > 0 && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
-                  {draftTracks.map((t, i) => (
-                    <div key={i} style={{ padding: "8px 12px", background: C.surface2, border: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <div>
-                        <span style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, fontWeight: 600 }}>{t.name}</span>
-                        {t.description && <span style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginLeft: 8 }}>{t.description}</span>}
-                      </div>
-                      <button type="button" onClick={() => removeDraftTrack(i)} style={{ background: "none", border: "none", color: C.red, cursor: "pointer", fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}>REMOVE</button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr auto", gap: 10, alignItems: "end" }}>
-                <PixelInput label="Track Name" value={ntName} onChange={(e) => setNtName(e.target.value)} placeholder="Web App" />
-                <PixelInput label="Description" value={ntDesc} onChange={(e) => setNtDesc(e.target.value)} placeholder="Optional" />
-                <PixelButton type="button" variant="secondary" onClick={addDraftTrack}>ADD TRACK</PixelButton>
-              </div>
-            </div>
-
-            {/* Staged rounds */}
-            <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 14 }}>
-              <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 700, marginBottom: 10 }}>Rounds</div>
-              {draftRounds.length > 0 && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 10 }}>
-                  {draftRounds.map((r, i) => (
-                    <div key={i} style={{ padding: "8px 12px", background: C.surface2, border: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <div>
-                        <span style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, fontWeight: 600 }}>{i + 1}. {r.name}</span>
-                        <span style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginLeft: 8 }}>
-                          {r.submissionDeadline ? `Deadline: ${r.submissionDeadline}` : "No deadline"} · Top {r.topNAdvance}
-                        </span>
-                      </div>
-                      <button type="button" onClick={() => removeDraftRound(i)} style={{ background: "none", border: "none", color: C.red, cursor: "pointer", fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}>REMOVE</button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              <div style={{ display: "grid", gridTemplateColumns: "2fr 1.5fr 80px auto", gap: 10, alignItems: "end" }}>
-                <PixelInput label="Round Name" value={nrName} onChange={(e) => setNrName(e.target.value)} placeholder="Preliminary" />
-                <PixelInput label="Deadline" type="datetime-local" value={nrDeadline} onChange={(e) => setNrDeadline(e.target.value)} />
-                <PixelInput label="Top N" type="number" value={String(nrTopN)} onChange={(e) => setNrTopN(Number(e.target.value))} />
-                <PixelButton type="button" variant="secondary" onClick={addDraftRound}>ADD ROUND</PixelButton>
-              </div>
+            {/* Tracks & rounds are configured by the Event Coordinator during the
+                event's SETUP phase, not here. The Admin only creates the event shell. */}
+            <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 14, color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, lineHeight: 1.6 }}>
+              Tracks and rounds are set up by the Event Coordinator during the event's SETUP phase.
             </div>
 
             <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 14, display: "flex", gap: 10 }}>
