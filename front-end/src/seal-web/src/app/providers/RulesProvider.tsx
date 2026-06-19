@@ -2,10 +2,13 @@ import { createContext, useContext, useState, useEffect, useCallback, useRef, Re
 import { useAuth } from "@/app/providers/AuthProvider";
 import { useTour } from "@/app/providers/TourProvider";
 import { CompetitionRulesModal } from "@/shared/components/CompetitionRulesModal";
+import { RoleGuideModal } from "@/shared/components/RoleGuideModal";
 
 interface RulesContextType {
   openRules: () => void;
   closeRules: () => void;
+  // Label for the footer link — varies by role (rules vs role guide).
+  rulesLinkLabel: string;
 }
 
 const RulesContext = createContext<RulesContextType | null>(null);
@@ -16,8 +19,16 @@ export function useRules() {
   return ctx;
 }
 
-// Session flag → the rules popup auto-shows once per login session for participants.
-const SEEN_KEY = "sealRulesSeen";
+// Which roles get an auto-shown popup, and what the footer link is called.
+const ROLE_GUIDE_LABEL: Record<string, string> = {
+  PARTICIPANT: "Competition Rules",
+  MENTOR: "Mentor Guide",
+  JUDGE: "Judge Guide",
+};
+
+// Session flag → the popup auto-shows once per login session, keyed by role so a
+// multi-role staff member sees each role's guide once.
+const seenKey = (role: string) => `sealRulesSeen:${role}`;
 
 export function RulesProvider({ children }: { children: ReactNode }) {
   const { currentUser } = useAuth();
@@ -26,6 +37,9 @@ export function RulesProvider({ children }: { children: ReactNode }) {
   // True only while the currently-open popup was auto-shown on login (not the
   // footer link) — used to hand off to the onboarding tour on close.
   const autoShownRef = useRef(false);
+
+  const role = currentUser?.role ?? "";
+  const hasGuide = role in ROLE_GUIDE_LABEL;
 
   const openRules = useCallback(() => setOpen(true), []);
 
@@ -40,24 +54,26 @@ export function RulesProvider({ children }: { children: ReactNode }) {
     }
   }, [currentUser, maybeAutoStartTour]);
 
-  // Auto-open once per session for participants; reset the flag on logout so the
-  // next login shows it again.
+  // Auto-open once per session for any role that has a guide; reset the flags on
+  // logout so the next login shows them again.
   useEffect(() => {
     if (!currentUser) {
-      sessionStorage.removeItem(SEEN_KEY);
+      Object.keys(ROLE_GUIDE_LABEL).forEach(r => sessionStorage.removeItem(seenKey(r)));
       return;
     }
-    if (currentUser.role === "PARTICIPANT" && !sessionStorage.getItem(SEEN_KEY)) {
-      sessionStorage.setItem(SEEN_KEY, "1");
+    if (hasGuide && !sessionStorage.getItem(seenKey(role))) {
+      sessionStorage.setItem(seenKey(role), "1");
       autoShownRef.current = true;
       setOpen(true);
     }
-  }, [currentUser]);
+  }, [currentUser, role, hasGuide]);
 
   return (
-    <RulesContext.Provider value={{ openRules, closeRules }}>
+    <RulesContext.Provider value={{ openRules, closeRules, rulesLinkLabel: ROLE_GUIDE_LABEL[role] ?? "Competition Rules" }}>
       {children}
-      <CompetitionRulesModal open={open} onClose={closeRules} />
+      {role === "MENTOR" ? <RoleGuideModal role="MENTOR" open={open} onClose={closeRules} />
+        : role === "JUDGE" ? <RoleGuideModal role="JUDGE" open={open} onClose={closeRules} />
+        : <CompetitionRulesModal open={open} onClose={closeRules} />}
     </RulesContext.Provider>
   );
 }

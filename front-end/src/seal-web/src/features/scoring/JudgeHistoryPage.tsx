@@ -5,6 +5,7 @@ import {
 import {
   assignmentsApi, eventsApi, roundsApi, submissionsApi, scoringApi, ApiError,
 } from "@/shared/apiClient";
+import { buildTeamCodeMap } from "./anon";
 
 function fmtDateTime(iso?: string) {
   return iso ? new Date(iso).toLocaleString("en-US") : "—";
@@ -12,7 +13,7 @@ function fmtDateTime(iso?: string) {
 
 interface HistoryRow {
   submissionId: number;
-  teamName: string;
+  code: string;
   roundName: string;
   total: number;
   isDraft: boolean;
@@ -34,6 +35,7 @@ export function JudgeHistoryPage() {
       try {
         const assignment = (await assignmentsApi.getJudgeAssignments()).data;
         const roundIds = [...new Set((assignment?.teams ?? []).map(t => t.roundId))];
+        const teamCodes = buildTeamCodeMap(assignment?.teams ?? []);
         if (!cancelled) setEventName(assignment?.eventName ?? "");
 
         const events = await eventsApi.getAll().then(r => r.data ?? []).catch(() => []);
@@ -50,7 +52,7 @@ export function JudgeHistoryPage() {
             submissionsApi.getAllForRound(roundId).then(r => r.data ?? []).catch(() => []),
           ]);
           const weightByCrit = new Map(crit.map(c => [c.criteriaId, Number(c.weight)]));
-          const teamBySub = new Map(subs.map(s => [s.submissionId, s.teamName]));
+          const teamIdBySub = new Map(subs.map(s => [s.submissionId, s.teamId]));
           const roundName = rounds.find(r => r.roundId === roundId)?.name ?? `Round #${roundId}`;
 
           // Group my scores by submission.
@@ -61,7 +63,9 @@ export function JudgeHistoryPage() {
             const total = scs.reduce((acc, sc) => acc + Number(sc.value) * (weightByCrit.get(sc.criteriaId) ?? 0), 0);
             const isDraft = scs.some(s => s.isDraft);
             const scoredAt = scs.map(s => s.updatedAt ?? s.scoredAt).filter(Boolean).sort().pop();
-            return { submissionId, teamName: teamBySub.get(submissionId) ?? `#${submissionId}`, roundName, total, isDraft, scoredAt } as HistoryRow;
+            const teamId = teamIdBySub.get(submissionId);
+            const code = (teamId != null ? teamCodes.get(teamId) : undefined) ?? `#${submissionId}`;
+            return { submissionId, code, roundName, total, isDraft, scoredAt } as HistoryRow;
           });
         }));
 
@@ -103,7 +107,7 @@ export function JudgeHistoryPage() {
           <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'JetBrains Mono', monospace" }}>
             <thead>
               <tr style={{ background: C.surface2, borderBottom: `1px solid ${C.border}` }}>
-                {["Team", "Round", "Weighted Total", "Scored At", "Status"].map(h => (
+                {["Submission", "Round", "Weighted Total", "Scored At", "Status"].map(h => (
                   <th key={h} style={{ color: C.green, fontSize: 10, letterSpacing: "0.12em", textAlign: "left", padding: "12px 16px", fontWeight: 600, textTransform: "uppercase" }}>{h}</th>
                 ))}
               </tr>
@@ -117,7 +121,7 @@ export function JudgeHistoryPage() {
               )}
               {!loading && rows.map((r, i) => (
                 <tr key={`${r.submissionId}-${i}`} style={{ borderBottom: `1px solid rgba(34,197,94,0.06)`, background: i % 2 === 0 ? C.surface : C.surface2 }}>
-                  <td style={{ color: C.text, fontSize: 13, padding: "12px 16px" }}>{r.teamName}</td>
+                  <td style={{ color: C.text, fontSize: 13, padding: "12px 16px" }}>{r.code}</td>
                   <td style={{ color: C.textMuted, fontSize: 12, padding: "12px 16px" }}>{r.roundName}</td>
                   <td style={{ color: C.cyan, fontSize: 14, fontWeight: 700, padding: "12px 16px" }}>{r.total.toFixed(2)}</td>
                   <td style={{ color: C.textMuted, fontSize: 11, padding: "12px 16px" }}>{fmtDateTime(r.scoredAt)}</td>
