@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { C, GradientText, PixelButton } from "@/shared/components/PixelComponents";
-import { teamsApi, ApiError, ActiveEventWithTracks } from "@/shared/apiClient";
+import { teamsApi, ApiError, apiErrorMessage, ActiveEventWithTracks } from "@/shared/apiClient";
 import { useAuth } from "@/app/providers/AuthProvider";
+import { useNotifications } from "@/app/providers/NotificationProvider";
 
 export function CreateTeamScreen({
     initialEventId,
@@ -15,6 +16,7 @@ export function CreateTeamScreen({
     onSubmit: (teamName: string) => void;
 }) {
     const { refreshTeamContext } = useAuth();
+    const { addToast } = useNotifications();
 
     const [activeEvents, setActiveEvents] = useState<ActiveEventWithTracks[]>([]);
     const [loadError, setLoadError] = useState<string | null>(null);
@@ -76,6 +78,7 @@ export function CreateTeamScreen({
             onSubmit(teamName.trim());
         } catch (err) {
             setError(err instanceof ApiError ? err.message : "Failed to create team.");
+            addToast({ type: "warning", title: "Create failed", message: apiErrorMessage(err, "Failed to create team.") });
         } finally {
             setSubmitting(false);
         }
