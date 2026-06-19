@@ -2,7 +2,7 @@ import { useEffect, useState, ReactNode } from "react";
 import {
   C, GradientText, PixelCard, PixelButton, PixelInput,
 } from "@/shared/components/PixelComponents";
-import { apiFetch, ApiError, eventsApi, reopenRequestsApi, type ReopenRequest } from "@/shared/apiClient";
+import { apiFetch, ApiError, apiErrorMessage, eventsApi, reopenRequestsApi, type ReopenRequest } from "@/shared/apiClient";
 import { ConfirmDialog, type ConfirmVariant } from "@/shared/components/ConfirmDialog";
 import { usePermissions } from "@/shared/permissions";
 import { useNotifications } from "@/app/providers/NotificationProvider";
@@ -104,6 +104,7 @@ export function AdminEventsPage() {
       closeConfirm();
     } catch (err) {
       setDialogError(err instanceof ApiError ? err.message : "Action failed.");
+      addToast({ type: 'warning', title: 'ACTION FAILED', message: apiErrorMessage(err, 'Action failed.') });
     } finally {
       setActionWorking(false);
     }
@@ -179,7 +180,11 @@ export function AdminEventsPage() {
 
   async function addEvent(e: React.FormEvent) {
     e.preventDefault();
-    if (!evName || creating) return;
+    if (creating) return;
+    if (!evName.trim()) {
+      addToast({ type: 'warning', title: 'MISSING NAME', message: 'Please enter an event name.' });
+      return;
+    }
     setCreateError(null);
     setCreating(true);
     try {
@@ -206,6 +211,7 @@ export function AdminEventsPage() {
       addToast({ type: 'success', title: 'EVENT CREATED', message: `"${created.name}" has been created (DRAFT).` });
     } catch (err) {
       setCreateError(err instanceof ApiError ? err.message : "Failed to create event.");
+      addToast({ type: 'warning', title: 'CREATE FAILED', message: apiErrorMessage(err, 'Failed to create event.') });
     } finally {
       setCreating(false);
     }
