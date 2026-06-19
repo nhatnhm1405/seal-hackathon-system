@@ -160,6 +160,12 @@ body {
   to { width: var(--progress-width, 50%); }
 }
 
+/* Auto-dismiss countdown bar for the unified notification banner */
+@keyframes sealBannerShrink {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+
 .pixel-float { animation: pixelFloat 4s ease-in-out infinite; }
 .pixel-float-slow { animation: pixelFloat 6s ease-in-out infinite; }
 .pixel-float-fast { animation: pixelFloat 2.5s ease-in-out infinite; }
