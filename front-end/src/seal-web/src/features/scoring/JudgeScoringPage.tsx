@@ -3,9 +3,10 @@ import {
   C, GradientText, PixelCard, PixelButton, PixelBadge,
 } from "@/shared/components/PixelComponents";
 import {
-  assignmentsApi, eventsApi, roundsApi, submissionsApi, scoringApi, ApiError,
+  assignmentsApi, eventsApi, roundsApi, submissionsApi, scoringApi, ApiError, apiErrorMessage,
   Round, Submission, ScoringCriteria, ScoreRecord,
 } from "@/shared/apiClient";
+import { useNotifications } from "@/app/providers/NotificationProvider";
 import { buildTeamCodeMap } from "./anon";
 
 type SubStatus = "not_scored" | "draft" | "scored";
@@ -21,6 +22,7 @@ function roundIsOpen(status?: string): boolean {
 }
 
 export function JudgeScoringPage() {
+  const { addToast } = useNotifications();
   // Assignment / event context
   const [eventId, setEventId] = useState<number | null>(null);
   const [rounds, setRounds] = useState<Round[]>([]);
@@ -163,7 +165,9 @@ export function JudgeScoringPage() {
     for (const c of criteria) {
       const v = getVal(c.criteriaId);
       if (v < 0 || v > Number(c.maxScore)) {
-        setActionError(`"${c.name}": score must be between 0 and ${c.maxScore}.`);
+        const msg = `"${c.name}": score must be between 0 and ${c.maxScore}.`;
+        setActionError(msg);
+        addToast({ type: "warning", title: "INVALID SCORE", message: msg });
         return;
       }
     }
@@ -179,9 +183,15 @@ export function JudgeScoringPage() {
         })),
       });
       setNotice(draft ? "Draft saved." : "Scores submitted as final.");
+      addToast({
+        type: "success",
+        title: draft ? "DRAFT SAVED" : "SCORES SUBMITTED",
+        message: draft ? "Your draft scores were saved." : "Final scores submitted.",
+      });
       if (eventId != null && selectedRoundId != null) await loadRound(eventId, selectedRoundId);
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Failed to save scores.");
+      addToast({ type: "warning", title: "SAVE FAILED", message: apiErrorMessage(err, "Failed to save scores.") });
     } finally {
       setBusy(false);
     }

@@ -3,9 +3,10 @@ import {
   C, GradientText, PixelCard, PixelButton, PixelBadge,
 } from "@/shared/components/PixelComponents";
 import {
-  eventsApi, roundsApi, submissionsApi, scoringApi, resultsApi, coordinatorApi, ApiError,
+  eventsApi, roundsApi, submissionsApi, scoringApi, resultsApi, coordinatorApi, ApiError, apiErrorMessage,
   HackathonEvent, Round, Submission, RoundResult,
 } from "@/shared/apiClient";
+import { useNotifications } from "@/app/providers/NotificationProvider";
 
 const selectStyle: React.CSSProperties = {
   padding: "10px 12px", background: C.surface2, border: `1px solid ${C.border}`,
@@ -20,6 +21,7 @@ function pickDefaultEvent(events: HackathonEvent[]): number | null {
 }
 
 export function CoordScoringPage() {
+  const { addToast } = useNotifications();
   const [events, setEvents] = useState<HackathonEvent[]>([]);
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
   const [rounds, setRounds] = useState<Round[]>([]);
@@ -114,8 +116,10 @@ export function CoordScoringPage() {
       await resultsApi.finalize(selectedEventId, selectedRoundId);
       await loadResults(selectedEventId, selectedRoundId);
       setNotice("Rankings calculated.");
+      addToast({ type: 'success', title: 'RANKINGS CALCULATED', message: 'Round rankings have been calculated.' });
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Failed to finalize results.");
+      addToast({ type: 'warning', title: 'CALCULATE FAILED', message: apiErrorMessage(err, 'Failed to finalize results.') });
     } finally {
       setBusy(false);
     }
@@ -128,8 +132,10 @@ export function CoordScoringPage() {
       await resultsApi.publish(selectedEventId, selectedRoundId);
       await loadResults(selectedEventId, selectedRoundId);
       setNotice("Results published.");
+      addToast({ type: 'success', title: 'RESULTS PUBLISHED', message: 'Round results are now visible to participants.' });
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Failed to publish results.");
+      addToast({ type: 'warning', title: 'PUBLISH FAILED', message: apiErrorMessage(err, 'Failed to publish results.') });
     } finally {
       setBusy(false);
     }
