@@ -25,6 +25,15 @@ export class ApiError extends Error {
   }
 }
 
+// Pull a user-facing message out of any thrown value. Backend errors surface
+// as ApiError (message from the API body); anything else gets the fallback.
+// Used by CRUD handlers to feed the failure banner a meaningful message.
+export function apiErrorMessage(err: unknown, fallback = 'Something went wrong'): string {
+  if (err instanceof ApiError && err.message) return err.message;
+  if (err instanceof Error && err.message) return err.message;
+  return fallback;
+}
+
 // ── Core fetch wrapper ───────────────────────────────────────────────
 export async function apiFetch<T>(
   path: string,
