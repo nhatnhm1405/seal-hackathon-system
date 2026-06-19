@@ -2,7 +2,7 @@ import { useEffect, useState, ReactNode } from "react";
 import {
   C, GradientText, PixelCard, PixelButton, PixelBadge, PixelInput, PixelTabs,
 } from "@/shared/components/PixelComponents";
-import { apiFetch, ApiError, reopenRequestsApi, type ReopenRequest, auditLogsApi, type AuditLogEntry } from "@/shared/apiClient";
+import { apiFetch, ApiError, reopenRequestsApi, type ReopenRequest, auditLogsApi, type AuditLogEntry, teamsApi, type Team } from "@/shared/apiClient";
 import { ConfirmDialog, type ConfirmVariant } from "@/shared/components/ConfirmDialog";
 import { usePermissions } from "@/shared/permissions";
 import { useNotifications } from "@/app/providers/NotificationProvider";
@@ -10,6 +10,9 @@ import {
   EventStatus, TrackMode, EventRow, ApiEvent,
   normalizeEvent, eventStatusBadge, eventMeta, nextStatusActions, statusChangeCopy, pickDefaultEvent, EventsListCard,
 } from "@/features/events/eventUtils";
+import { maxTeamsPerTrack, countAssigned, countUnassigned, teamsForTrack, isTrackValid, wouldExceedMax, canCompleteSetup, MIN_TEAMS_PER_TRACK } from "@/features/events/trackStats";
+import { DndProvider, useDrag, useDrop } from "react-dnd";
+import { HTML5Backend } from "react-dnd-html5-backend";
 
 // Coordinator's event console. Coordinators run an event's forward lifecycle
 // (OPEN → SETUP → IN_PROGRESS → COMPLETED) and configure tracks/rounds/criteria,
@@ -104,6 +107,107 @@ function normalizeCriteria(item: ApiCriteria): CriteriaRow {
   };
 }
 
+// Leader's display name for a team, if present in its member list.
+function leaderName(team: Team): string | null {
+  return team.members?.find(m => m.role === 'LEADER')?.fullName ?? null;
+}
+
+// One compact stat in the Tracks-tab overview strip (track statistics — NV1).
+function StatCell({ label, value, accent }: { label: string; value: ReactNode; accent?: boolean }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 90 }}>
+      <span style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase" }}>{label}</span>
+      <span style={{ color: accent ? C.yellow : C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 22, fontWeight: 800, lineHeight: 1 }}>{value}</span>
+    </div>
+  );
+}
+
+// One team row rendered under a track (or in the Unassigned group) — NV2.
+function TeamRow({ team }: { team: Team }) {
+  const count = team.members?.length ?? 0;
+  const leader = leaderName(team);
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+      <span style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13 }}>{team.name}</span>
+      <span style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, whiteSpace: "nowrap" }}>
+        {count} {count === 1 ? "member" : "members"}{leader ? ` · ${leader}` : ""}
+      </span>
+    </div>
+  );
+}
+
+// react-dnd payload + type for dragging a team between tracks / the unassigned pool.
+const TEAM_DND_TYPE = "COORD_TEAM";
+interface TeamDragItem { teamId: number; fromTrackId: number | null; }
+
+// A TeamRow the coordinator can drag while `enabled` (SETUP). The drag connector
+// is only attached when enabled, so rows are static read-only outside SETUP.
+function DraggableTeamRow({ team, fromTrackId, enabled }: { team: Team; fromTrackId: number | null; enabled: boolean }) {
+  const [{ isDragging }, dragRef] = useDrag(() => ({
+    type: TEAM_DND_TYPE,
+    item: { teamId: team.teamId, fromTrackId } as TeamDragItem,
+    canDrag: enabled,
+    collect: (monitor) => ({ isDragging: monitor.isDragging() }),
+  }), [team.teamId, fromTrackId, enabled]);
+
+  return (
+    <div ref={(node) => { if (enabled) dragRef(node); }}
+      style={{ cursor: enabled ? "grab" : "default", opacity: isDragging ? 0.4 : 1 }}>
+      <TeamRow team={team} />
+    </div>
+  );
+}
+
+// A drop zone (a track body or the unassigned pool) that accepts dragged teams.
+// targetTrackId = null means the unassigned pool. Dropping onto the team's current
+// location is rejected so a no-op drag doesn't fire a request.
+function TeamDropZone({ enabled, targetTrackId, onDropTeam, children }: {
+  enabled: boolean;
+  targetTrackId: number | null;
+  onDropTeam: (item: TeamDragItem, targetTrackId: number | null) => void;
+  children: ReactNode;
+}) {
+  const [{ isOver, canDrop }, dropRef] = useDrop(() => ({
+    accept: TEAM_DND_TYPE,
+    canDrop: (item: TeamDragItem) => enabled && item.fromTrackId !== targetTrackId,
+    drop: (item: TeamDragItem) => onDropTeam(item, targetTrackId),
+    collect: (monitor) => ({ isOver: monitor.isOver(), canDrop: monitor.canDrop() }),
+  }), [enabled, targetTrackId, onDropTeam]);
+
+  const active = isOver && canDrop;
+  return (
+    <div ref={(node) => { if (enabled) dropRef(node); }}
+      style={{
+        borderTop: `1px solid ${C.border}`,
+        background: active ? "rgba(34,197,94,0.10)" : "transparent",
+        outline: active ? `1px dashed ${C.green}` : "none",
+        transition: "background 0.12s",
+      }}>
+      {children}
+    </div>
+  );
+}
+
+// A small framed chip used in the track header (team count + status). `tone` drives
+// the border / background / text colour. Text is NOT uppercased (unlike PixelBadge),
+// so labels read as "Ready" / "Needs 2 teams to run".
+function TrackChip({ tone, children }: { tone: "green" | "red" | "amber"; children: ReactNode }) {
+  const tones = {
+    green: { border: "rgba(34,197,94,0.45)", bg: "rgba(34,197,94,0.08)", color: "#4ade80" },
+    red:   { border: "rgba(239,68,68,0.45)", bg: "rgba(239,68,68,0.08)", color: "#f87171" },
+    amber: { border: "rgba(234,179,8,0.45)", bg: "rgba(234,179,8,0.08)", color: "#facc15" },
+  };
+  const t = tones[tone];
+  return (
+    <span style={{
+      display: "inline-flex", alignItems: "center", whiteSpace: "nowrap",
+      border: `1px solid ${t.border}`, background: t.bg, color: t.color,
+      borderRadius: 0, padding: "4px 10px",
+      fontFamily: "'JetBrains Mono', monospace", fontSize: 12, lineHeight: 1,
+    }}>{children}</span>
+  );
+}
+
 // A queued action awaiting confirmation in the dialog.
 interface PendingAction {
   title: string;
@@ -135,6 +239,13 @@ export function CoordEventsPage() {
   const [rounds, setRounds] = useState<RoundRow[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+
+  // Teams of the selected event — drives the track-statistics overview and the
+  // per-track team lists (NV1 & NV2). The roster basis for the stats is the
+  // event's APPROVED teams, matching the backend's SETUP capacity freeze.
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [teamsLoading, setTeamsLoading] = useState(false);
+  const [teamsError, setTeamsError] = useState<string | null>(null);
 
   // Criteria are per-round in the API — load them for the selected round.
   const [selectedRoundId, setSelectedRoundId] = useState<number | null>(null);
@@ -212,6 +323,24 @@ export function CoordEventsPage() {
       })
       .catch(err => setDetailError(err instanceof ApiError ? err.message : "Failed to load event details."))
       .finally(() => setDetailLoading(false));
+  }, [selectedEventId]);
+
+  // ── Load teams when the selected event changes ────────────────────
+  // Kept separate from the tracks/rounds fetch so a teams failure never blanks
+  // the tracks list (and vice-versa).
+  useEffect(() => {
+    if (selectedEventId == null) {
+      setTeams([]); setTeamsError(null);
+      return;
+    }
+    let cancelled = false;
+    setTeamsLoading(true);
+    setTeamsError(null);
+    teamsApi.getByEvent(selectedEventId)
+      .then(res => { if (!cancelled) setTeams(res.data ?? []); })
+      .catch(err => { if (!cancelled) setTeamsError(err instanceof ApiError ? err.message : "Failed to load teams."); })
+      .finally(() => { if (!cancelled) setTeamsLoading(false); });
+    return () => { cancelled = true; };
   }, [selectedEventId]);
 
   // ── Load latest reopen request for a COMPLETED event ──────────────
@@ -300,6 +429,35 @@ export function CoordEventsPage() {
   // Open the confirm dialog for a lifecycle status change.
   function requestStatusChange(next: EventStatus, label: string, variant: ConfirmVariant) {
     if (!selectedEvent) return;
+
+    // PHẦN 5 — gate leaving SETUP forward (START EVENT). Every track must have at
+    // least MIN_TEAMS_PER_TRACK teams and no team may be unassigned. The backend
+    // enforces this too; here we explain exactly what to fix before even asking.
+    if (selectedEvent.status === 'SETUP' && next === 'IN_PROGRESS') {
+      const approved = teams.filter(t => t.status === 'APPROVED');
+      const gate = canCompleteSetup({
+        tracks: tracks.map(t => ({ trackId: t.trackId, name: t.name, teamCount: teamsForTrack(approved, t.trackId).length })),
+        unassignedCount: countUnassigned(approved),
+      });
+      if (!gate.ok) {
+        openConfirm({
+          title: 'Cannot start the event yet',
+          message: (
+            <div>
+              Resolve the following before starting (each track needs at least {MIN_TEAMS_PER_TRACK} teams, with none left unassigned):
+              <ul style={{ margin: "10px 0 0", paddingLeft: 18, lineHeight: 1.7 }}>
+                {gate.reasons.map((r, i) => <li key={i}>{r}</li>)}
+              </ul>
+            </div>
+          ),
+          confirmLabel: 'OK',
+          variant: 'secondary',
+          run: async () => { /* informational only — nothing to commit */ },
+        });
+        return;
+      }
+    }
+
     const copy = statusChangeCopy(selectedEvent.status, { next, label, variant });
     openConfirm({
       title: copy.title,
@@ -325,6 +483,16 @@ export function CoordEventsPage() {
     });
   }
 
+  // Re-pull the roster after a draw/redraw so the overview counts and per-track
+  // lists reflect the new assignments (non-fatal if it fails — stats keep their
+  // last values).
+  function refreshTeams() {
+    if (selectedEventId == null) return;
+    teamsApi.getByEvent(selectedEventId)
+      .then(res => setTeams(res.data ?? []))
+      .catch(() => { /* non-fatal */ });
+  }
+
   // Random track draw — only meaningful while the event is in SETUP. includeAssigned
   // false → only teams without a track are drawn; true → re-shuffle every team.
   async function drawTracks(includeAssigned: boolean) {
@@ -339,6 +507,7 @@ export function CoordEventsPage() {
       );
       const count = (res.data ?? []).length;
       setSuccessMsg(`Track draw complete — ${count} team(s) assigned to tracks.`);
+      refreshTeams();
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Failed to draw tracks.");
     } finally {
@@ -369,6 +538,7 @@ export function CoordEventsPage() {
         const count = (res.data ?? []).length;
         setActionError(null);
         setSuccessMsg(`Redraw complete — ${count} team(s) reshuffled across tracks.`);
+        refreshTeams();
       },
     });
   }
@@ -400,6 +570,84 @@ export function CoordEventsPage() {
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Failed to add track.");
     }
+  }
+
+  // PHẦN 4 — commit a drag-drop assignment (or unassign when targetTrackId is null).
+  // Toasts the outcome and re-pulls the roster so all counts/lists stay in sync.
+  async function performAssign(teamId: number, targetTrackId: number | null) {
+    try {
+      await teamsApi.assignTrack(teamId, targetTrackId);
+      refreshTeams();
+      addToast({
+        type: 'success',
+        title: targetTrackId == null ? 'TEAM UNASSIGNED' : 'TEAM ASSIGNED',
+        message: targetTrackId == null ? 'Team moved to the unassigned pool.' : 'Team moved into the track.',
+      });
+    } catch (err) {
+      addToast({ type: 'warning', title: 'ASSIGN FAILED', message: err instanceof ApiError ? err.message : 'Failed to assign team.' });
+    }
+  }
+
+  // PHẦN 4 — handle a drop. Dropping a team where it already is, is ignored. If the
+  // drop would push a track past the recommended max we still allow it, but ask for
+  // confirmation first (soft cap); otherwise assign immediately.
+  function onDropTeam(item: TeamDragItem, targetTrackId: number | null) {
+    if (item.fromTrackId === targetTrackId) return;
+    if (targetTrackId != null) {
+      const approved = teams.filter(t => t.status === 'APPROVED');
+      const currentCount = teamsForTrack(approved, targetTrackId).length;
+      const max = maxTeamsPerTrack(approved.length, tracks.length);
+      if (wouldExceedMax(currentCount, max)) {
+        const track = tracks.find(t => t.trackId === targetTrackId);
+        openConfirm({
+          title: 'Track over recommended max',
+          message: `Assigning this team to "${track?.name ?? 'this track'}" makes ${currentCount + 1} teams — above the recommended maximum of ${max} per track.`,
+          warning: 'You can proceed; this track will simply exceed the recommended maximum.',
+          confirmLabel: 'ASSIGN ANYWAY',
+          variant: 'cyber',
+          run: async () => { await performAssign(item.teamId, targetTrackId); },
+        });
+        return;
+      }
+    }
+    performAssign(item.teamId, targetTrackId);
+  }
+
+  // PHẦN 3 — manual track cleanup. Confirms with a preview of which teams will move
+  // back to the unassigned pool, then deletes the track. Teams are NOT redistributed.
+  function requestDeleteTrack(track: TrackRow) {
+    if (!selectedEvent) return;
+    const eventId = selectedEvent.eventId;
+    const trackTeams = teamsForTrack(teams.filter(t => t.status === 'APPROVED'), track.trackId);
+    openConfirm({
+      title: 'Remove this track?',
+      message: (
+        <div>
+          Track <span style={{ color: C.text, fontWeight: 700 }}>"{track.name}"</span> will be deleted.
+          {trackTeams.length > 0 ? (
+            <div style={{ marginTop: 10 }}>
+              These {trackTeams.length} team{trackTeams.length === 1 ? "" : "s"} will move to the <b>Unassigned</b> pool:
+              <ul style={{ margin: "8px 0 0", paddingLeft: 18, lineHeight: 1.7 }}>
+                {trackTeams.map(t => <li key={t.teamId}>{t.name}</li>)}
+              </ul>
+            </div>
+          ) : (
+            <div style={{ marginTop: 10 }}>This track has no teams.</div>
+          )}
+        </div>
+      ),
+      warning: trackTeams.length > 0
+        ? 'Teams are NOT auto-distributed — drag them from the Unassigned pool into a valid track.'
+        : undefined,
+      confirmLabel: 'DELETE TRACK',
+      variant: 'danger',
+      run: async () => {
+        await apiFetch(`/api/events/${eventId}/tracks/${track.trackId}`, { method: 'DELETE' });
+        setTracks(prev => prev.filter(t => t.trackId !== track.trackId));
+        refreshTeams();
+        addToast({ type: 'success', title: 'TRACK REMOVED', message: `"${track.name}" deleted; its teams moved to Unassigned.` });
+      },
+    });
   }
 
   async function addRound() {
@@ -459,7 +707,30 @@ export function CoordEventsPage() {
     }
   }
 
+  // ── Track statistics (NV1) + per-track rosters (NV2) ──────────────
+  // Roster = APPROVED teams only (the set the backend freezes into track slots
+  // on SETUP entry). Stats are shown from SETUP onward, once the roster is locked
+  // and track assignment is under way.
+  const approvedTeams = teams.filter(t => t.status === 'APPROVED');
+  const trackCount = tracks.length;
+  const totalTeams = approvedTeams.length;
+  const maxPerTrack = maxTeamsPerTrack(totalTeams, trackCount);
+  const assignedCount = countAssigned(approvedTeams);
+  const unassignedCount = countUnassigned(approvedTeams);
+  const unassignedTeams = approvedTeams.filter(t => t.trackId == null);
+  const isSelfSelect = selectedEvent?.trackSelectionMode === 'SELF_SELECT';
+  const showTrackStats = !!selectedEvent
+    && (selectedEvent.status === 'SETUP' || selectedEvent.status === 'IN_PROGRESS' || selectedEvent.status === 'COMPLETED');
+  // Creating a track is locked once registration closes — DRAFT/OPEN only
+  // (mirrors TrackService.TRACK_CREATE_ALLOWED_EVENT_STATUSES on the backend).
+  const trackCreationAllowed = !!selectedEvent
+    && (selectedEvent.status === 'DRAFT' || selectedEvent.status === 'OPEN');
+  // SETUP is the only phase where the coordinator manually moves teams: drag-drop,
+  // track removal and the start-event gate all key off this.
+  const isSetup = selectedEvent?.status === 'SETUP';
+
   return (
+    <DndProvider backend={HTML5Backend}>
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
         <div>
@@ -581,24 +852,146 @@ export function CoordEventsPage() {
                     </div>
                   </div>
                 )}
+                {/* Track-statistics overview (NV1) — shown from SETUP onward, when
+                    the roster is frozen. Total + max/track for every mode; assigned
+                    + unassigned added for SELF_SELECT. */}
+                {showTrackStats && (
+                  <div style={{ padding: 16, background: C.surface, border: `1px solid ${C.border}` }}>
+                    {teamsError ? (
+                      <div style={{ color: C.red, fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}>{teamsError}</div>
+                    ) : (
+                      <div style={{ display: "flex", gap: 28, flexWrap: "wrap", alignItems: "center" }}>
+                        <StatCell label="Total teams" value={teamsLoading ? "…" : totalTeams} />
+                        <StatCell label="Max / track" value={teamsLoading ? "…" : maxPerTrack} />
+                        {isSelfSelect && <StatCell label="Assigned" value={teamsLoading ? "…" : assignedCount} />}
+                        {isSelfSelect && <StatCell label="Unassigned" value={teamsLoading ? "…" : unassignedCount} accent={unassignedCount > 0} />}
+                      </div>
+                    )}
+                  </div>
+                )}
                 {detailLoading && <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>Loading...</div>}
                 {!detailLoading && tracks.length === 0 && <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>No tracks yet</div>}
-                {tracks.map(t => (
-                  <div key={t.trackId} style={{ padding: 12, background: C.surface2, border: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-                    <div>
-                      <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 600 }}>{t.name}</div>
-                      <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginTop: 2 }}>{t.description || "—"}</div>
+                {tracks.map(t => {
+                  const trackTeams = teamsForTrack(approvedTeams, t.trackId);
+                  // PHẦN 2 — a track needs >= MIN_TEAMS_PER_TRACK teams to be valid.
+                  const invalid = showTrackStats && !isTrackValid(trackTeams.length);
+                  // Shared team list. In SETUP each row is draggable (PHẦN 4); the
+                  // empty state doubles as a drop hint.
+                  const teamList = (
+                    <div style={{ padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
+                      {teamsLoading ? (
+                        <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}>Loading teams…</div>
+                      ) : trackTeams.length === 0 ? (
+                        <div style={{ color: C.textDim, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontStyle: "italic" }}>
+                          {isSetup ? "No teams yet — drag a team here" : "No teams in this track yet"}
+                        </div>
+                      ) : (
+                        trackTeams.map(tm => <DraggableTeamRow key={tm.teamId} team={tm} fromTrackId={t.trackId} enabled={isSetup} />)
+                      )}
                     </div>
-                    {t.capacity != null && <PixelBadge color="cyan">{t.capacity} SLOTS</PixelBadge>}
+                  );
+                  return (
+                    <div key={t.trackId} style={{
+                      background: C.surface2,
+                      border: `1px solid ${C.border}`,
+                      // PHẦN 2 — track validity now reads as a left accent bar (green = ready,
+                      // red = under MIN_TEAMS_PER_TRACK) instead of a full red outline + badges.
+                      // Neutral before SETUP, when no team is assigned yet.
+                      borderLeft: `3px solid ${showTrackStats ? (invalid ? C.red : C.green) : C.border}`,
+                    }}>
+                      <div style={{ padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 14, fontWeight: 700 }}>{t.name}</div>
+                          <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, marginTop: 3 }}>{t.description || "—"}</div>
+                        </div>
+                        {/* Right column — framed chips, right-aligned. Row 1: the team-count
+                            chip + (in SETUP) the inline REMOVE button. Row 2: a one-line status
+                            chip dropped below. Each is its own box, coloured by validity
+                            (green = ready, red/amber = under MIN_TEAMS_PER_TRACK). Shown from
+                            SETUP onward, once the roster is frozen. */}
+                        {showTrackStats && (
+                          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                              <TrackChip tone={invalid ? "red" : "green"}>
+                                <b style={{ fontWeight: 800, fontSize: 13 }}>{trackTeams.length}</b>
+                                <span style={{ color: C.textMuted, marginLeft: 5 }}>{trackTeams.length === 1 ? "team" : "teams"}</span>
+                              </TrackChip>
+                              {/* PHẦN 3 — manual track cleanup, inline (always visible), SETUP only. */}
+                              {isSetup && (
+                                <button
+                                  type="button"
+                                  onClick={() => requestDeleteTrack(t)}
+                                  style={{
+                                    display: "inline-flex", alignItems: "center", borderRadius: 0, cursor: "pointer",
+                                    border: "1px solid rgba(239,68,68,0.45)", background: "rgba(239,68,68,0.08)", color: "#f87171",
+                                    padding: "4px 10px", fontFamily: "'JetBrains Mono', monospace", fontSize: 12, lineHeight: 1, letterSpacing: "0.04em",
+                                  }}
+                                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.18)"; }}
+                                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.08)"; }}
+                                >REMOVE</button>
+                              )}
+                            </div>
+                            <TrackChip tone={invalid ? "amber" : "green"}>
+                              {invalid ? `Needs ${MIN_TEAMS_PER_TRACK} teams to run` : "Ready"}
+                            </TrackChip>
+                          </div>
+                        )}
+                      </div>
+                      {/* Per-track team list (NV2). In SETUP it is also a drop target (PHẦN 4). */}
+                      {showTrackStats && (
+                        isSetup
+                          ? <TeamDropZone enabled targetTrackId={t.trackId} onDropTeam={onDropTeam}>{teamList}</TeamDropZone>
+                          : <div style={{ borderTop: `1px solid ${C.border}` }}>{teamList}</div>
+                      )}
+                    </div>
+                  );
+                })}
+                {/* Unassigned pool. In SETUP it is a drop target for BOTH modes (drag a
+                    team here to pull it off a track — PHẦN 4); outside SETUP it stays the
+                    read-only self-select view. */}
+                {isSetup && showTrackStats ? (
+                  <div style={{ background: C.surface, border: `1px solid ${unassignedTeams.length > 0 ? `${C.yellow}55` : C.border}` }}>
+                    <div style={{ padding: 12, color: unassignedTeams.length > 0 ? C.yellow : C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 700, letterSpacing: "0.05em" }}>
+                      Unassigned teams <span style={{ color: C.textMuted }}>· {unassignedTeams.length}</span>
+                    </div>
+                    <TeamDropZone enabled targetTrackId={null} onDropTeam={onDropTeam}>
+                      <div style={{ padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
+                        {teamsLoading ? (
+                          <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}>Loading teams…</div>
+                        ) : unassignedTeams.length === 0 ? (
+                          <div style={{ color: C.textDim, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontStyle: "italic" }}>No unassigned teams — drag a team here to remove it from its track</div>
+                        ) : (
+                          unassignedTeams.map(tm => <DraggableTeamRow key={tm.teamId} team={tm} fromTrackId={null} enabled />)
+                        )}
+                      </div>
+                    </TeamDropZone>
+                  </div>
+                ) : (showTrackStats && isSelfSelect && !teamsLoading && unassignedTeams.length > 0 && (
+                  <div style={{ padding: 12, background: C.surface, border: `1px solid ${C.yellow}55` }}>
+                    <div style={{ color: C.yellow, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 700, letterSpacing: "0.05em", marginBottom: 8 }}>
+                      Unassigned teams <span style={{ color: C.textMuted }}>· {unassignedTeams.length}</span>
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      {unassignedTeams.map(tm => <TeamRow key={tm.teamId} team={tm} />)}
+                    </div>
                   </div>
                 ))}
-                <div style={{ padding: 14, background: C.surface, border: `1px solid ${C.border}` }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr auto", gap: 10, alignItems: "end" }}>
-                    <PixelInput label="Name" value={trkName} onChange={(e) => setTrkName(e.target.value)} placeholder="Track name" />
-                    <PixelInput label="Description" value={trkDesc} onChange={(e) => setTrkDesc(e.target.value)} placeholder="What is this track about?" />
-                    <PixelButton variant="secondary" onClick={addTrack}>ADD</PixelButton>
+                {/* Create-track form — NV3: locked once registration closes. Shown only
+                    in DRAFT/OPEN. PHẦN 1: in SETUP we render nothing (no helper text);
+                    other locked phases keep a short explanation. */}
+                {trackCreationAllowed ? (
+                  <div style={{ padding: 14, background: C.surface, border: `1px solid ${C.border}` }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr auto", gap: 10, alignItems: "end" }}>
+                      <PixelInput label="Name" value={trkName} onChange={(e) => setTrkName(e.target.value)} placeholder="Track name" />
+                      <PixelInput label="Description" value={trkDesc} onChange={(e) => setTrkDesc(e.target.value)} placeholder="What is this track about?" />
+                      <PixelButton variant="secondary" onClick={addTrack}>ADD</PixelButton>
+                    </div>
                   </div>
-                </div>
+                ) : selectedEvent.status === 'SETUP' ? null : (
+                  <div style={{ padding: 12, background: C.surface, border: `1px dashed ${C.border}`, color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, lineHeight: 1.6 }}>
+                    {`Tracks can only be created while the event is in DRAFT or OPEN (current: ${selectedEvent.status}).`}
+                  </div>
+                )}
               </div>
             )}
 
@@ -769,5 +1162,6 @@ export function CoordEventsPage() {
         </ConfirmDialog>
       )}
     </div>
+    </DndProvider>
   );
 }

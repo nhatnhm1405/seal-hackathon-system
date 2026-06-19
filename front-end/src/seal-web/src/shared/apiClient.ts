@@ -661,6 +661,14 @@ export const teamsApi = {
     apiFetch<ApiResponse<Team[]>>(`/api/teams/event/${eventId}/draw-tracks?includeAssigned=${includeAssigned}`, {
       method: 'POST',
     }),
+
+  // SETUP only: coordinator drags a team into a track, or to the unassigned pool
+  // (trackId = null). Capacity is NOT hard-capped here (soft warning on the UI).
+  assignTrack: (teamId: number, trackId: number | null) =>
+    apiFetch<ApiResponse<Team>>(`/api/teams/${teamId}/track-assignment`, {
+      method: 'PUT',
+      body: JSON.stringify({ trackId }),
+    }),
 };
 
 // ── Team Invites ──────────────────────────────────────────────────
