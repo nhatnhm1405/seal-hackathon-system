@@ -4,6 +4,7 @@ import com.seal.hackathon.dto.request.CreateEventRequest;
 import com.seal.hackathon.dto.request.UpdateEventRequest;
 import com.seal.hackathon.dto.response.HackathonEventResponse;
 import com.seal.hackathon.entity.HackathonEvent;
+import com.seal.hackathon.entity.Team;
 import com.seal.hackathon.entity.Track;
 import com.seal.hackathon.exception.BadRequestException;
 import com.seal.hackathon.exception.ResourceNotFoundException;
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -35,6 +37,10 @@ public class HackathonEventService {
 
     private static final Set<String> VALID_TRACK_MODES =
             Set.of("SELF_SELECT", "RANDOM");
+
+    // A track needs at least this many approved teams to be a valid competition
+    // track. Mirrors the frontend MIN_TEAMS_PER_TRACK (trackStats.ts).
+    private static final int MIN_TEAMS_PER_TRACK = 2;
 
     // Allowed status transitions — backend is the source of truth (the FE buttons
     // only mirror this). The Coordinator-operable states DRAFT/OPEN/SETUP/IN_PROGRESS
@@ -166,6 +172,14 @@ public class HackathonEventService {
             requireValidStatus(newStatus);
             requireValidTransition(event.getStatus(), newStatus);
             boolean enteringSetup = "SETUP".equals(newStatus) && !"SETUP".equalsIgnoreCase(event.getStatus());
+            // Starting the event (SETUP -> IN_PROGRESS) is gated: every track must
+            // have at least MIN_TEAMS_PER_TRACK approved teams and no approved team
+            // may be left unassigned. Validate BEFORE mutating status so a failed
+            // gate changes nothing.
+            boolean startingEvent = "IN_PROGRESS".equals(newStatus) && "SETUP".equalsIgnoreCase(event.getStatus());
+            if (startingEvent) {
+                requireSetupComplete(event);
+            }
             event.setStatus(newStatus);
             // Closing registration freezes the team count and computes per-track slots.
             if (enteringSetup) {
@@ -255,6 +269,42 @@ public class HackathonEventService {
             tracks.get(i).setCapacity(i < remainder ? floor + 1 : floor);
         }
         trackRepository.saveAll(tracks);
+    }
+
+    /**
+     * Gate for leaving SETUP (SETUP -> IN_PROGRESS). The event can only start when
+     * every track has at least {@link #MIN_TEAMS_PER_TRACK} approved teams and no
+     * approved team is left unassigned. Throws a BadRequest listing every problem so
+     * the coordinator knows exactly what to fix (mirrors the FE canCompleteSetup).
+     */
+    private void requireSetupComplete(HackathonEvent event) {
+        List<Track> tracks = trackRepository.findAllByEvent_EventId(event.getEventId());
+        List<Team> approved = teamRepository
+                .findAllByEvent_EventIdAndStatus(event.getEventId(), "APPROVED");
+
+        Map<Integer, Long> perTrack = approved.stream()
+                .filter(t -> t.getTrack() != null)
+                .collect(Collectors.groupingBy(t -> t.getTrack().getTrackId(), Collectors.counting()));
+        long unassigned = approved.stream().filter(t -> t.getTrack() == null).count();
+
+        List<String> problems = new ArrayList<>();
+        if (tracks.isEmpty()) {
+            problems.add("the event has no tracks");
+        }
+        for (Track tr : tracks) {
+            long count = perTrack.getOrDefault(tr.getTrackId(), 0L);
+            if (count < MIN_TEAMS_PER_TRACK) {
+                problems.add("track \"" + tr.getName() + "\" has " + count
+                        + " team(s) (needs at least " + MIN_TEAMS_PER_TRACK + ")");
+            }
+        }
+        if (unassigned > 0) {
+            problems.add(unassigned + " team(s) still unassigned");
+        }
+
+        if (!problems.isEmpty()) {
+            throw new BadRequestException("Cannot start the event: " + String.join("; ", problems) + ".");
+        }
     }
 
     private void requireValidTransition(String from, String to) {

@@ -1,5 +1,6 @@
 package com.seal.hackathon.controller;
 
+import com.seal.hackathon.dto.request.AssignTeamTrackRequest;
 import com.seal.hackathon.dto.request.CreateTeamRequest;
 import com.seal.hackathon.dto.request.RejectTeamRequest;
 import com.seal.hackathon.dto.request.SelectTrackRequest;
@@ -145,6 +146,20 @@ public class TeamController {
         UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
         return ResponseEntity.ok(ApiResponse.success("Tracks drawn successfully.",
                 teamService.drawTracks(eventId, includeAssigned, principal.getUserId(), reason)));
+    }
+
+    // Coordinator drag-and-drop: (re)assign a team to a track, or unassign it
+    // (trackId = null). SETUP-only; capacity is intentionally NOT hard-capped here.
+    @PutMapping("/{teamId}/track-assignment")
+    @PreAuthorize("hasRole('EVENT_COORDINATOR')")
+    public ResponseEntity<ApiResponse<TeamDetailResponse>> assignTeamTrack(
+            @PathVariable Integer teamId,
+            @RequestBody(required = false) AssignTeamTrackRequest request,
+            Authentication authentication) {
+        UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
+        Integer trackId = request != null ? request.getTrackId() : null;
+        return ResponseEntity.ok(ApiResponse.success("Team assignment updated.",
+                teamService.assignTeamToTrack(principal.getUserId(), teamId, trackId)));
     }
 
     @PutMapping("/{teamId}/approve")

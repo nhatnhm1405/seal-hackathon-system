@@ -3,6 +3,7 @@ package com.seal.hackathon.service;
 import com.seal.hackathon.dto.request.CreateTrackRequest;
 import com.seal.hackathon.dto.response.TrackResponse;
 import com.seal.hackathon.entity.HackathonEvent;
+import com.seal.hackathon.entity.Team;
 import com.seal.hackathon.entity.Track;
 import com.seal.hackathon.exception.BadRequestException;
 import com.seal.hackathon.exception.ResourceNotFoundException;
@@ -23,10 +24,17 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class TrackService {
 
-    // Tracks can be defined while building the event (DRAFT), while registration
-    // is open (OPEN), or during the SETUP phase before competition starts —
-    // teams may still be drawn into newly added tracks during SETUP.
+    // Editing/removing tracks is allowed while building the event (DRAFT), while
+    // registration is open (OPEN), or during the SETUP phase before competition
+    // starts (a track can still be renamed or an empty one removed during SETUP).
     private static final Set<String> TRACK_MUTATION_ALLOWED_EVENT_STATUSES = Set.of("DRAFT", "OPEN", "SETUP");
+
+    // CREATING a track is intentionally stricter: DRAFT or OPEN only. Once
+    // registration closes (SETUP), the track set is locked so the per-track slot
+    // counts computed on SETUP entry (HackathonEventService.computeTrackCapacities)
+    // stay consistent — a track added mid-SETUP would carry no computed capacity
+    // and the random draw would treat it as unlimited.
+    private static final Set<String> TRACK_CREATE_ALLOWED_EVENT_STATUSES = Set.of("DRAFT", "OPEN");
     private static final int MAX_TRACK_NAME_LENGTH = 255;
     private static final int MAX_TRACK_DESCRIPTION_LENGTH = 2000;
 
@@ -62,7 +70,7 @@ public class TrackService {
         requireId(eventId, "Event ID");
         HackathonEvent event = requireEvent(eventId);
 
-        requireEventAllowsTrackMutation(event, "create tracks");
+        requireEventAllowsTrackCreation(event);
 
         String trackName = requiredTrackName(request);
         String description = normalizeDescription(request.getDescription());
@@ -127,8 +135,14 @@ public class TrackService {
         if (!track.getEvent().getEventId().equals(eventId)) {
             throw new BadRequestException("Track does not belong to event " + eventId);
         }
-        if (teamRepository.existsByTrack_TrackId(trackId)) {
-            throw new BadRequestException("Cannot delete track because it already has teams.");
+        // Removing a track moves its teams back to the unassigned pool (track = null)
+        // rather than blocking the delete; the coordinator re-assigns them by hand.
+        // In DRAFT/OPEN no team has a track yet, so this is a no-op there; during SETUP
+        // it powers the manual track cleanup. We never auto-distribute to other tracks.
+        List<Team> teamsOnTrack = teamRepository.findAllByTrack_TrackId(trackId);
+        if (!teamsOnTrack.isEmpty()) {
+            teamsOnTrack.forEach(t -> t.setTrack(null));
+            teamRepository.saveAll(teamsOnTrack);
         }
         trackRepository.delete(track);
     }
@@ -153,6 +167,15 @@ public class TrackService {
         if (!TRACK_MUTATION_ALLOWED_EVENT_STATUSES.contains(status)) {
             throw new BadRequestException("Cannot " + action + " when event status is " + status
                     + ". Event status must be DRAFT, OPEN or SETUP.");
+        }
+    }
+
+    private void requireEventAllowsTrackCreation(HackathonEvent event) {
+        String status = normalizeEventStatus(event.getStatus());
+        if (!TRACK_CREATE_ALLOWED_EVENT_STATUSES.contains(status)) {
+            throw new BadRequestException("Cannot create tracks when event status is " + status
+                    + ". Tracks can only be created while the event is DRAFT or OPEN"
+                    + " — track creation is locked once the event enters SETUP.");
         }
     }
 

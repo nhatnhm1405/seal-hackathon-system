@@ -478,6 +478,47 @@ public class TeamService {
         return getMyTeam(userId);
     }
 
+    // ── Coordinator: Manually (re)assign a team to a track (SETUP) ────
+
+    /**
+     * Coordinator drag-and-drop assignment: places {@code teamId} into {@code trackId},
+     * or moves it to the unassigned pool when trackId is null. SETUP-only. Unlike
+     * participant self-selection ({@link #selectTrack}), this deliberately does NOT
+     * enforce track capacity — the coordinator may knowingly exceed the recommended
+     * max while cleaning up tracks (the UI surfaces a soft warning). Only APPROVED
+     * teams are placeable.
+     */
+    @Transactional
+    public TeamDetailResponse assignTeamToTrack(Integer actorUserId, Integer teamId, Integer trackId) {
+        Team team = teamRepository.findById(teamId)
+                .orElseThrow(() -> new ResourceNotFoundException("Team not found: " + teamId));
+        HackathonEvent event = team.getEvent();
+
+        if (!"SETUP".equalsIgnoreCase(event.getStatus())) {
+            throw new BadRequestException("Teams can only be reassigned to tracks during the SETUP phase.");
+        }
+        if (!"APPROVED".equalsIgnoreCase(team.getStatus())) {
+            throw new BadRequestException("Only approved teams can be assigned to a track.");
+        }
+
+        Track track = null;
+        if (trackId != null) {
+            track = trackRepository.findById(trackId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Track not found: " + trackId));
+            if (!track.getEvent().getEventId().equals(event.getEventId())) {
+                throw new BadRequestException("The selected track does not belong to this event.");
+            }
+        }
+
+        team.setTrack(track);
+        teamRepository.save(team);
+
+        auditLogService.record(actorUserId, "ASSIGN_TEAM_TRACK", "TEAM", teamId, null,
+                Map.<String, Object>of("trackId", trackId == null ? "UNASSIGNED" : trackId));
+
+        return mapToDetailResponse(team);
+    }
+
     // ── Participant: Get active events with tracks ────────────────────
 
     @Transactional(readOnly = true)
