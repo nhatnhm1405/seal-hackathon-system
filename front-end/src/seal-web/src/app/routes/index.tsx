@@ -100,8 +100,10 @@ function RootLayout() {
 
 function LandingPageWrapper() {
   const navigate = useNavigate();
-  return (
+  const { isAuthenticated } = useAuth();
+  const landing = (
     <LandingPage
+      hideChrome={isAuthenticated}
       navigate={(page) => {
         if (page === "auth") navigate("/login");
         else if (page === "register") navigate("/register");
@@ -109,6 +111,9 @@ function LandingPageWrapper() {
       }}
     />
   );
+  // Logged-in users see Home inside the dashboard frame (sidebar + user menu);
+  // visitors get the standalone landing page with its own navbar.
+  return isAuthenticated ? <DashboardLayout>{landing}</DashboardLayout> : landing;
 }
 
 export const router = createBrowserRouter([
