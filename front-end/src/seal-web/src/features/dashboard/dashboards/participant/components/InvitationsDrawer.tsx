@@ -3,14 +3,16 @@ import { useAuth } from "@/app/providers/AuthProvider";
 import { C, PixelButton, PixelInput } from "@/shared/components/PixelComponents";
 import {
     invitesApi, joinRequestsApi,
-    TeamInvite, JoinableTeam, JoinRequest, ApiError,
+    TeamInvite, JoinableTeam, JoinRequest, ApiError, apiErrorMessage,
 } from "@/shared/apiClient";
+import { useNotifications } from "@/app/providers/NotificationProvider";
 import { fmtShort } from "../utils/formatters";
 
 const mono = "'JetBrains Mono', monospace";
 
 export function InvitationsDrawer({ onClose }: { onClose: () => void }) {
     const { refreshTeamContext } = useAuth();
+    const { addToast } = useNotifications();
 
     const [invites, setInvites] = useState<TeamInvite[]>([]);
     const [localStatus, setLocalStatus] = useState<Record<number, 'ACCEPTED' | 'DECLINED'>>({});
@@ -45,8 +47,10 @@ export function InvitationsDrawer({ onClose }: { onClose: () => void }) {
             await invitesApi.accept(inv.inviteId);
             setLocalStatus(s => ({ ...s, [inv.inviteId]: 'ACCEPTED' }));
             await refreshTeamContext();
+            addToast({ type: "success", title: "Invite accepted", message: `You've joined "${inv.teamName}".` });
         } catch (err) {
             setError(err instanceof ApiError ? err.message : "Failed to accept invite.");
+            addToast({ type: "warning", title: "Accept failed", message: apiErrorMessage(err, "Failed to accept invite.") });
         } finally { setBusy(null); }
     }
 
@@ -55,8 +59,10 @@ export function InvitationsDrawer({ onClose }: { onClose: () => void }) {
         try {
             await invitesApi.decline(inv.inviteId);
             setLocalStatus(s => ({ ...s, [inv.inviteId]: 'DECLINED' }));
+            addToast({ type: "info", title: "Invite declined", message: `You declined the invite from "${inv.teamName}".` });
         } catch (err) {
             setError(err instanceof ApiError ? err.message : "Failed to decline invite.");
+            addToast({ type: "warning", title: "Decline failed", message: apiErrorMessage(err, "Failed to decline invite.") });
         } finally { setBusy(null); }
     }
 
@@ -77,8 +83,10 @@ export function InvitationsDrawer({ onClose }: { onClose: () => void }) {
             await joinRequestsApi.send(team.teamId);
             setResults(prev => prev.map(t => t.teamId === team.teamId ? { ...t, alreadyRequested: true } : t));
             loadRequests();
+            addToast({ type: "success", title: "Request sent", message: `Your request to join "${team.name}" was sent.` });
         } catch (err) {
             setError(err instanceof ApiError ? err.message : "Failed to send join request.");
+            addToast({ type: "warning", title: "Request failed", message: apiErrorMessage(err, "Failed to send join request.") });
         } finally { setBusy(null); }
     }
 

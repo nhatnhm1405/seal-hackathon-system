@@ -2,7 +2,7 @@ import { useEffect, useState, ReactNode } from "react";
 import {
   C, GradientText, PixelCard, PixelButton, PixelBadge, PixelInput, PixelTabs,
 } from "@/shared/components/PixelComponents";
-import { apiFetch, ApiError, reopenRequestsApi, type ReopenRequest, auditLogsApi, type AuditLogEntry, teamsApi, type Team } from "@/shared/apiClient";
+import { apiFetch, ApiError, apiErrorMessage, reopenRequestsApi, type ReopenRequest, auditLogsApi, type AuditLogEntry, teamsApi, type Team } from "@/shared/apiClient";
 import { ConfirmDialog, type ConfirmVariant } from "@/shared/components/ConfirmDialog";
 import { usePermissions } from "@/shared/permissions";
 import { useNotifications } from "@/app/providers/NotificationProvider";
@@ -403,6 +403,7 @@ export function CoordEventsPage() {
       closeConfirm();
     } catch (err) {
       setDialogError(err instanceof ApiError ? err.message : "Action failed.");
+      addToast({ type: 'warning', title: 'ACTION FAILED', message: apiErrorMessage(err, 'Action failed.') });
     } finally {
       setActionWorking(false);
     }
@@ -510,6 +511,7 @@ export function CoordEventsPage() {
       refreshTeams();
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Failed to draw tracks.");
+      addToast({ type: 'warning', title: 'DRAW FAILED', message: apiErrorMessage(err, 'Failed to draw tracks.') });
     } finally {
       setDrawing(false);
     }
@@ -552,23 +554,32 @@ export function CoordEventsPage() {
         body: JSON.stringify({ trackSelectionMode: mode }),
       });
       setEvents(prev => prev.map(e => e.eventId === selectedEvent.eventId ? { ...e, trackSelectionMode: mode } : e));
+      addToast({ type: 'success', title: 'MODE UPDATED', message: `Track assignment set to ${mode === 'RANDOM' ? 'Random draw' : 'Self-select'}.` });
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Failed to update track mode.");
+      addToast({ type: 'warning', title: 'UPDATE FAILED', message: apiErrorMessage(err, 'Failed to update track mode.') });
     }
   }
 
   async function addTrack() {
-    if (!selectedEvent || !trkName) return;
+    if (!selectedEvent) return;
+    const name = trkName.trim();
+    if (!name) {
+      addToast({ type: 'warning', title: 'MISSING NAME', message: 'Please enter a track name.' });
+      return;
+    }
     setActionError(null);
     try {
       const res = await apiFetch<{ data: ApiTrack }>(`/api/events/${selectedEvent.eventId}/tracks`, {
         method: 'POST',
-        body: JSON.stringify({ name: trkName, description: trkDesc || undefined }),
+        body: JSON.stringify({ name, description: trkDesc || undefined }),
       });
       setTracks(prev => [...prev, normalizeTrack(res.data)]);
       setTrkName(""); setTrkDesc("");
+      addToast({ type: 'success', title: 'TRACK ADDED', message: `"${name}" created.` });
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Failed to add track.");
+      addToast({ type: 'warning', title: 'CREATE FAILED', message: apiErrorMessage(err, 'Failed to add track.') });
     }
   }
 
@@ -651,13 +662,18 @@ export function CoordEventsPage() {
   }
 
   async function addRound() {
-    if (!selectedEvent || !rdName) return;
+    if (!selectedEvent) return;
+    const name = rdName.trim();
+    if (!name) {
+      addToast({ type: 'warning', title: 'MISSING NAME', message: 'Please enter a round name.' });
+      return;
+    }
     setActionError(null);
     try {
       const res = await apiFetch<{ data: ApiRound }>(`/api/events/${selectedEvent.eventId}/rounds`, {
         method: 'POST',
         body: JSON.stringify({
-          name: rdName,
+          name,
           orderNumber: rdOrder,
           startTime: rdStart || undefined,
           endTime: rdEnd || undefined,
@@ -667,8 +683,10 @@ export function CoordEventsPage() {
       });
       setRounds(prev => [...prev, normalizeRound(res.data)].sort((a, b) => a.orderNumber - b.orderNumber));
       setRdName(""); setRdStart(""); setRdEnd(""); setRdDeadline("");
+      addToast({ type: 'success', title: 'ROUND ADDED', message: `"${name}" created.` });
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Failed to add round.");
+      addToast({ type: 'warning', title: 'CREATE FAILED', message: apiErrorMessage(err, 'Failed to add round.') });
     }
   }
 
@@ -681,19 +699,26 @@ export function CoordEventsPage() {
         body: JSON.stringify({ status }),
       });
       setRounds(prev => prev.map(r => r.roundId === roundId ? { ...r, status } : r));
+      addToast({ type: 'success', title: 'ROUND UPDATED', message: `Round set to ${status}.` });
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Failed to update round.");
+      addToast({ type: 'warning', title: 'UPDATE FAILED', message: apiErrorMessage(err, 'Failed to update round.') });
     }
   }
 
   async function addCriteria() {
-    if (!selectedEvent || selectedRoundId == null || !crName) return;
+    if (!selectedEvent || selectedRoundId == null) return;
+    const name = crName.trim();
+    if (!name) {
+      addToast({ type: 'warning', title: 'MISSING NAME', message: 'Please enter a criteria name.' });
+      return;
+    }
     setActionError(null);
     try {
       const res = await apiFetch<{ data: ApiCriteria }>(`/api/events/${selectedEvent.eventId}/rounds/${selectedRoundId}/criteria`, {
         method: 'POST',
         body: JSON.stringify({
-          name: crName,
+          name,
           description: crDesc || undefined,
           weight: crWeight,
           maxScore: crMax,
@@ -702,8 +727,10 @@ export function CoordEventsPage() {
       });
       setCriteria(prev => [...prev, normalizeCriteria(res.data)].sort((a, b) => a.orderNumber - b.orderNumber));
       setCrName(""); setCrDesc("");
+      addToast({ type: 'success', title: 'CRITERIA ADDED', message: `"${name}" added to this round.` });
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Failed to add criteria.");
+      addToast({ type: 'warning', title: 'CREATE FAILED', message: apiErrorMessage(err, 'Failed to add criteria.') });
     }
   }
 

@@ -3,9 +3,10 @@ import {
   C, GradientText, PixelCard, PixelButton, PixelBadge,
 } from "@/shared/components/PixelComponents";
 import {
-  adminApi, eventsApi, ApiError,
+  adminApi, eventsApi, ApiError, apiErrorMessage,
   RoleGrantItem, UserItem, HackathonEvent, GrantRolePayload,
 } from "@/shared/apiClient";
+import { useNotifications } from "@/app/providers/NotificationProvider";
 
 const GRANTABLE_ROLES: GrantRolePayload['roleName'][] = [
   'EVENT_COORDINATOR', 'MENTOR', 'JUDGE', 'SYSTEM_ADMIN',
@@ -59,6 +60,7 @@ function ModalShell({ accent, tag, title, children, onCancel }: {
 function GrantRoleModal({ users, events, onClose, onGranted }: {
   users: UserItem[]; events: HackathonEvent[]; onClose: () => void; onGranted: () => void;
 }) {
+  const { addToast } = useNotifications();
   const [userId, setUserId] = useState<number | "">("");
   const [roleName, setRoleName] = useState<GrantRolePayload['roleName']>('EVENT_COORDINATOR');
   const [eventId, setEventId] = useState<number | "">("");
@@ -70,8 +72,16 @@ function GrantRoleModal({ users, events, onClose, onGranted }: {
 
   async function submit() {
     setError(null);
-    if (userId === "") { setError("Please select a user."); return; }
-    if (!systemWide && eventId === "") { setError("This role requires an event scope."); return; }
+    if (userId === "") {
+      setError("Please select a user.");
+      addToast({ type: 'warning', title: 'SELECT USER', message: 'Please select a user.' });
+      return;
+    }
+    if (!systemWide && eventId === "") {
+      setError("This role requires an event scope.");
+      addToast({ type: 'warning', title: 'EVENT REQUIRED', message: 'This role requires an event scope.' });
+      return;
+    }
     setSaving(true);
     try {
       await adminApi.grantRole({
@@ -79,10 +89,12 @@ function GrantRoleModal({ users, events, onClose, onGranted }: {
         roleName,
         eventId: systemWide ? null : Number(eventId),
       });
+      addToast({ type: 'success', title: 'ROLE GRANTED', message: `${roleName} granted.` });
       onGranted();
       onClose();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to grant role.");
+      addToast({ type: 'warning', title: 'GRANT FAILED', message: apiErrorMessage(err, 'Failed to grant role.') });
     } finally {
       setSaving(false);
     }
@@ -134,6 +146,7 @@ function GrantRoleModal({ users, events, onClose, onGranted }: {
 
 // ── Revoke confirm modal ─────────────────────────────────────────────
 function RevokeModal({ grant, onClose, onDone }: { grant: RoleGrantItem; onClose: () => void; onDone: () => void }) {
+  const { addToast } = useNotifications();
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -146,10 +159,12 @@ function RevokeModal({ grant, onClose, onDone }: { grant: RoleGrantItem; onClose
         roleName: grant.roleName as GrantRolePayload['roleName'],
         eventId: grant.eventId ?? null,
       });
+      addToast({ type: 'info', title: 'ROLE REVOKED', message: `${grant.roleName} revoked from ${grant.userFullName}.` });
       onDone();
       onClose();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to revoke role.");
+      addToast({ type: 'warning', title: 'REVOKE FAILED', message: apiErrorMessage(err, 'Failed to revoke role.') });
     } finally {
       setSaving(false);
     }

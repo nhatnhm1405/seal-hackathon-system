@@ -3,12 +3,14 @@ import { useNavigate } from "react-router";
 import {
   C, GradientText, PixelCard, PixelButton, PixelInput,
 } from "@/shared/components/PixelComponents";
-import { teamsApi, ApiError, ActiveEventWithTracks } from "@/shared/apiClient";
+import { teamsApi, ApiError, apiErrorMessage, ActiveEventWithTracks } from "@/shared/apiClient";
 import { useAuth } from "@/app/providers/AuthProvider";
+import { useNotifications } from "@/app/providers/NotificationProvider";
 
 export function TeamCreatePage() {
   const navigate = useNavigate();
   const { currentUser, refreshTeamContext } = useAuth();
+  const { addToast } = useNotifications();
 
   const [activeEvents, setActiveEvents] = useState<ActiveEventWithTracks[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -50,6 +52,7 @@ export function TeamCreatePage() {
     setError(null);
     if (!teamName.trim() || !eventId) {
       setError("Team name and event are required.");
+      addToast({ type: "warning", title: "Missing fields", message: "Team name and event are required." });
       return;
     }
     setSubmitting(true);
@@ -61,8 +64,10 @@ export function TeamCreatePage() {
       });
       await refreshTeamContext();
       setCreated(true);
+      addToast({ type: "success", title: "Team created", message: `"${teamName.trim()}" is pending coordinator approval.` });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to create team.");
+      addToast({ type: "warning", title: "Create failed", message: apiErrorMessage(err, "Failed to create team.") });
     } finally {
       setSubmitting(false);
     }

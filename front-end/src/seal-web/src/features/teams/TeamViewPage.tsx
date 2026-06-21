@@ -5,7 +5,7 @@ import { useNotifications } from "@/app/providers/NotificationProvider";
 import {
   C, GradientText, PixelCard, PixelButton, PixelBadge, PixelInput,
 } from "@/shared/components/PixelComponents";
-import { teamsApi, invitesApi, joinRequestsApi, ApiError, MyTeam, MyTeamMember, UserItem, JoinRequest } from "@/shared/apiClient";
+import { teamsApi, invitesApi, joinRequestsApi, ApiError, apiErrorMessage, MyTeam, MyTeamMember, UserItem, JoinRequest } from "@/shared/apiClient";
 import { isTeamEditable, teamLockReason, MIN_TEAM_SIZE, MAX_TEAM_SIZE } from "@/shared/teamPhase";
 
 function statusBadgeColor(status?: string): "green" | "yellow" | "red" | "gray" {
@@ -97,6 +97,7 @@ export function TeamViewPage() {
       addToast({ type: "success", title: "Team renamed", message: `Your team is now "${res.data.name}".` });
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Failed to rename team.");
+      addToast({ type: "warning", title: "Rename failed", message: apiErrorMessage(err, "Failed to rename team.") });
     } finally { setBusy(false); }
   }
 
@@ -121,6 +122,7 @@ export function TeamViewPage() {
       setInviteQuery(""); setInviteResults([]); setShowInvite(false);
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Failed to send invite.");
+      addToast({ type: "warning", title: "Invite failed", message: apiErrorMessage(err, "Failed to send invite.") });
     }
   }
 
@@ -136,6 +138,7 @@ export function TeamViewPage() {
       addToast({ type: "success", title: "Member added", message: `${r.requesterName} has joined your team.` });
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Failed to accept request.");
+      addToast({ type: "warning", title: "Accept failed", message: apiErrorMessage(err, "Failed to accept request.") });
     } finally { setBusyReq(null); }
   }
 
@@ -147,6 +150,7 @@ export function TeamViewPage() {
       addToast({ type: "info", title: "Request declined", message: `${r.requesterName}'s join request was declined.` });
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Failed to decline request.");
+      addToast({ type: "warning", title: "Decline failed", message: apiErrorMessage(err, "Failed to decline request.") });
     } finally { setBusyReq(null); }
   }
 
@@ -160,6 +164,7 @@ export function TeamViewPage() {
       addToast({ type: "warning", title: "Member removed", message: `${m.memberName} was removed from the team.` });
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Failed to remove member.");
+      addToast({ type: "warning", title: "Remove failed", message: apiErrorMessage(err, "Failed to remove member.") });
     } finally { setBusy(false); }
   }
 
@@ -174,6 +179,7 @@ export function TeamViewPage() {
       setTransferTarget(null);
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Failed to transfer leadership.");
+      addToast({ type: "warning", title: "Transfer failed", message: apiErrorMessage(err, "Failed to transfer leadership.") });
     } finally { setBusy(false); }
   }
 
@@ -188,6 +194,7 @@ export function TeamViewPage() {
       navigate('/dashboard');
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Failed to leave team.");
+      addToast({ type: "warning", title: "Leave failed", message: apiErrorMessage(err, "Failed to leave team.") });
     } finally { setBusy(false); }
   }
 

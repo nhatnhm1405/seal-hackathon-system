@@ -2,13 +2,15 @@ import { useState, useEffect, useCallback } from "react";
 import {
   C, GradientText, PixelCard, PixelButton, PixelInput, PixelBadge,
 } from "@/shared/components/PixelComponents";
-import { teamsApi, roundsApi, submissionsApi, ApiError, MyTeam, Round, Submission } from "@/shared/apiClient";
+import { teamsApi, roundsApi, submissionsApi, ApiError, apiErrorMessage, MyTeam, Round, Submission } from "@/shared/apiClient";
+import { useNotifications } from "@/app/providers/NotificationProvider";
 
 function fmtDateTime(iso?: string) {
   return iso ? new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "—";
 }
 
 export function TeamSubmitPage() {
+  const { addToast } = useNotifications();
   const [team, setTeam] = useState<MyTeam | null>(null);
   const [rounds, setRounds] = useState<Round[]>([]);
   const [selectedRoundId, setSelectedRoundId] = useState<number | null>(null);
@@ -86,7 +88,11 @@ export function TeamSubmitPage() {
   async function submit() {
     if (!selectedRoundId) return;
     setActionError(null); setNotice(null);
-    if (!repoUrl.trim()) { setActionError("Repository URL is required."); return; }
+    if (!repoUrl.trim()) {
+      setActionError("Repository URL is required.");
+      addToast({ type: "warning", title: "MISSING REPO URL", message: "Repository URL is required." });
+      return;
+    }
     setBusy(true);
     try {
       await submissionsApi.submit({
@@ -97,9 +103,15 @@ export function TeamSubmitPage() {
         description: description.trim() || undefined,
       });
       setNotice(existing ? "Submission updated." : "Submission saved.");
+      addToast({
+        type: "success",
+        title: existing ? "SUBMISSION UPDATED" : "SUBMISSION SAVED",
+        message: existing ? "Your submission was updated." : "Your project was submitted.",
+      });
       loadSubmission(selectedRoundId);
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Failed to submit.");
+      addToast({ type: "warning", title: "SUBMIT FAILED", message: apiErrorMessage(err, "Failed to submit.") });
     } finally {
       setBusy(false);
     }

@@ -7,7 +7,7 @@ import {
 import { SealFooter } from "@/shared/components/SealFooter";
 import { SocialAuthButtons } from "@/features/auth/SocialAuthButtons";
 import sealLogo from "@/imports/image.png";
-import { apiFetch, ApiError } from "@/shared/apiClient";
+import { apiFetch, ApiError, apiErrorMessage } from "@/shared/apiClient";
 import { useNotifications } from "@/app/providers/NotificationProvider";
 
 type StudentType = 'FPT' | 'EXTERNAL';
@@ -31,10 +31,12 @@ export function RegisterPage() {
     setError(null);
     if (!fullName || !email || !password) {
       setError("Please fill in all required fields");
+      addAuthToast({ type: 'warning', title: 'MISSING FIELDS', message: 'Please fill in all required fields.' });
       return;
     }
     if (password !== confirmPassword) {
       setError("Passwords do not match");
+      addAuthToast({ type: 'warning', title: 'PASSWORD MISMATCH', message: 'Passwords do not match.' });
       return;
     }
     setSubmitting(true);
@@ -62,6 +64,13 @@ export function RegisterPage() {
       } else {
         setError("Network error. Please check your connection and try again.");
       }
+      addAuthToast({
+        type: 'warning',
+        title: 'REGISTRATION FAILED',
+        message: err instanceof ApiError && err.status === 409
+          ? 'An account with this email already exists.'
+          : apiErrorMessage(err, 'Registration failed. Please try again.'),
+      });
     } finally {
       setSubmitting(false);
     }
