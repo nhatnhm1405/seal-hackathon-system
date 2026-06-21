@@ -17,6 +17,11 @@ export interface UINotification {
   is_read: boolean;
   type: NotifKind;
   created_at: string;
+  // Announcement-only: source info for the email-style detail popup.
+  from?: string | null;
+  sender_role?: string | null;
+  scope_label?: string | null;
+  link_url?: string | null;
 }
 
 // Backend `type` is a free-form string (e.g. TEAM_APPROVED, ACCOUNT_REJECTED);
@@ -36,6 +41,10 @@ function mapNotification(n: ApiNotification): UINotification {
     is_read: Boolean(n.isRead),
     type: toKind(n.type),
     created_at: n.createdAt,
+    from: n.senderName ?? null,
+    sender_role: n.senderRole ?? null,
+    scope_label: n.scopeLabel ?? null,
+    link_url: n.linkUrl ?? null,
   };
 }
 
@@ -63,6 +72,7 @@ interface NotificationContextType {
   userNotifications: UINotification[];
   unreadCount: number;
   markAllRead: () => void;
+  markRead: (id: number) => void;
   refresh: () => void;
   addToast: (t: Omit<Toast, "id">) => void;
   addAuthToast: (t: Omit<AuthToast, "id">) => void;
@@ -382,15 +392,25 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
   }, []);
 
+  const markRead = useCallback((id: number) => {
+    setNotifications(prev => {
+      const target = prev.find(n => n.notification_id === id);
+      if (!target || target.is_read) return prev; // already read → no API call
+      notificationsApi.markAsRead(id).catch(() => {});
+      return prev.map(n => (n.notification_id === id ? { ...n, is_read: true } : n));
+    });
+  }, []);
+
   // Both legacy entry points now feed the single unified banner stack.
   const addToast = useCallback((t: Omit<Toast, "id">) => pushBanner(t), [pushBanner]);
   const addAuthToast = useCallback((t: Omit<AuthToast, "id">) => pushBanner(t), [pushBanner]);
 
   return (
     <NotificationContext.Provider value={{
-      userNotifications, unreadCount, markAllRead, refresh,
+      userNotifications, unreadCount, markAllRead, markRead, refresh,
       addToast, addAuthToast, bellOpenSignal, requestOpenBell,
     }}>
+
       {children}
       <BannerContainer banners={banners} onDismiss={dismissBanner} onActivate={activateBanner} />
     </NotificationContext.Provider>

@@ -56,6 +56,11 @@ export function MentorDashboard() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16 }}>
         <CyberStatCard value={byTrack.size} label="Assigned Tracks" accent="green" />
         <CyberStatCard value={teams.length} label="Teams" accent="blue" />
+        <CyberStatCard
+          value={`${teams.filter(t => t.submissionCount > 0).length}/${teams.length}`}
+          label="Teams Submitted"
+          accent="cyan"
+        />
       </div>
 
       <PixelCard style={{ padding: 20 }}>
