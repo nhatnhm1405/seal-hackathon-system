@@ -1,14 +1,23 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { usePendingAccounts } from "@/app/providers/PendingAccountsProvider";
 import {
   C, GradientText, PixelCard, PixelButton, PixelBadge, CyberStatCard, PixelProgress,
 } from "@/shared/components/PixelComponents";
+import { AnnouncementComposerModal } from "@/shared/components/AnnouncementComposerModal";
 import {
-  eventsApi, roundsApi, teamsApi, submissionsApi, ApiError,
-  HackathonEvent, Team,
+  eventsApi, roundsApi, teamsApi, submissionsApi, announcementsApi, ApiError,
+  HackathonEvent, Team, AnnouncementItem,
 } from "@/shared/apiClient";
+
+function audienceLabel(a?: string | null): string {
+  if (a === "JUDGE") return "Judges";
+  if (a === "MENTOR") return "Mentors";
+  if (a === "PARTICIPANT") return "Participants";
+  if (a === "ALL") return "Everyone";
+  return a ?? "—";
+}
 
 function pickDefaultEvent(events: HackathonEvent[]): HackathonEvent | null {
   if (events.length === 0) return null;
@@ -30,6 +39,18 @@ export function CoordinatorDashboard() {
   const [totalSubs, setTotalSubs] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
+  const [composerOpen, setComposerOpen] = useState(false);
+  const [annHistory, setAnnHistory] = useState<AnnouncementItem[]>([]);
+  const [audience, setAudience] = useState("PARTICIPANT");
+  // Which event the announcement targets (coordinator can change it in the composer).
+  const [announceEventId, setAnnounceEventId] = useState<number | null>(null);
+
+  const loadAnnHistory = useCallback(() => {
+    announcementsApi.listCoordinator()
+      .then(res => setAnnHistory(res.data ?? []))
+      .catch(() => { /* non-blocking */ });
+  }, []);
+
   useEffect(() => {
     eventsApi.getAll()
       .then(res => {
@@ -38,7 +59,8 @@ export function CoordinatorDashboard() {
         setEvent(pickDefaultEvent(evs));
       })
       .catch(err => setError(err instanceof ApiError ? err.message : "Failed to load events."));
-  }, []);
+    loadAnnHistory();
+  }, [loadAnnHistory]);
 
   useEffect(() => {
     if (!event) { setTeams([]); setRoundCount(0); setClosedRounds(0); setTotalSubs(0); return; }
@@ -64,6 +86,9 @@ export function CoordinatorDashboard() {
   const activeEvents = events.filter(e => e.status === 'OPEN' || e.status === 'IN_PROGRESS').length;
   const approvedTeams = teams.filter(t => t.status === 'APPROVED').length;
   const pendingTeams = teams.filter(t => t.status === 'PENDING');
+  // Event the announce composer targets — the dropdown choice, falling back to the
+  // overview event when the coordinator hasn't picked one yet.
+  const announceEvent = events.find(e => e.eventId === announceEventId) ?? event;
 
   return (
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
@@ -147,6 +172,70 @@ export function CoordinatorDashboard() {
           </div>
           <PixelProgress value={closedRounds} max={roundCount || 1} label="Round progress" gradient />
         </PixelCard>
+      )}
+
+      {/* Announcements */}
+      <PixelCard style={{ padding: 20 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 12, flexWrap: "wrap" }}>
+          <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.15em" }}>
+            ANNOUNCEMENTS
+          </div>
+          <PixelButton
+            variant="cyber"
+            onClick={() => setComposerOpen(true)}
+            disabled={!event}
+          >
+            ANNOUNCE TO EVENT
+          </PixelButton>
+        </div>
+        {!event ? (
+          <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>Select an event first.</div>
+        ) : annHistory.length === 0 ? (
+          <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>
+            No announcements sent yet. Broadcast updates to all participants of <span style={{ color: C.text }}>{event.name}</span>.
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {annHistory.map(a => (
+              <div key={a.announcementId} style={{ padding: "10px 12px", background: C.surface2, border: `1px solid ${C.border}` }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+                  <span style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, fontWeight: 700 }}>{a.title}</span>
+                  <span style={{ color: C.textDim, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, whiteSpace: "nowrap" }}>
+                    {new Date(a.createdAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                </div>
+                <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, lineHeight: 1.6, marginTop: 4, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{a.content}</div>
+                <div style={{ color: C.textDim, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, marginTop: 6 }}>
+                  {audienceLabel(a.audience)} · {a.scopeLabel} · sent to {a.recipientCount} recipient(s)
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </PixelCard>
+
+      {announceEvent && (
+        <AnnouncementComposerModal
+          open={composerOpen}
+          scopeLabel={announceEvent.name}
+          audienceHint="approved & active members of this event"
+          events={events.map(e => ({ value: e.eventId, label: `${e.name} (${e.status})` }))}
+          eventId={announceEvent.eventId}
+          onEventChange={setAnnounceEventId}
+          audiences={[
+            { value: "PARTICIPANT", label: "Participants" },
+            { value: "JUDGE", label: "Judges" },
+            { value: "MENTOR", label: "Mentors" },
+            { value: "ALL", label: "Everyone" },
+          ]}
+          audience={audience}
+          onAudienceChange={setAudience}
+          onSend={(title, content, linkUrl) =>
+            announcementsApi.createCoordinator({ eventId: announceEvent.eventId, audience, title, content, linkUrl })
+              .then(res => res.data?.recipientCount ?? 0)}
+          onSent={loadAnnHistory}
+          onClose={() => setComposerOpen(false)}
+        />
       )}
 
       {/* Quick nav */}

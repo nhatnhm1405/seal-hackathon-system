@@ -7,6 +7,7 @@ import { useNotifications, UINotification } from "@/app/providers/NotificationPr
 import { usePendingAccounts } from "@/app/providers/PendingAccountsProvider";
 import { API_BASE_URL } from "@/shared/apiClient";
 import { SealFooter } from "@/shared/components/SealFooter";
+import { NotificationDetailModal } from "@/shared/components/NotificationDetailModal";
 import sealLogo from "@/imports/image.png";
 
 const NAVBAR_H = 60;
@@ -132,9 +133,16 @@ function typeColor(type: UINotification["type"]) {
 }
 
 function NotificationBell() {
-  const { userNotifications, unreadCount, markAllRead } = useNotifications();
+  const { userNotifications, unreadCount, markAllRead, markRead } = useNotifications();
   const [open, setOpen] = useState(false);
+  const [selected, setSelected] = useState<UINotification | null>(null);
   const ref = useRef<HTMLDivElement>(null);
+
+  function openDetail(n: UINotification) {
+    setSelected(n);
+    markRead(n.notification_id);
+    setOpen(false);
+  }
 
   useEffect(() => {
     function handler(e: MouseEvent) {
@@ -149,6 +157,7 @@ function NotificationBell() {
   }
 
   return (
+    <>
     <div ref={ref} style={{ position: "relative" }}>
       <button
         onClick={() => setOpen(o => !o)}
@@ -238,6 +247,7 @@ function NotificationBell() {
               userNotifications.map((n) => (
                 <div
                   key={n.notification_id}
+                  onClick={() => openDetail(n)}
                   style={{
                     padding: "12px 16px",
                     borderBottom: `1px solid rgba(34,197,94,0.05)`,
@@ -245,7 +255,11 @@ function NotificationBell() {
                     display: "flex",
                     gap: 10,
                     alignItems: "flex-start",
+                    cursor: "pointer",
+                    transition: "background 0.12s",
                   }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(34,197,94,0.07)"; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = n.is_read ? "transparent" : "rgba(34,197,94,0.03)"; }}
                 >
                   {/* Unread dot */}
                   <div style={{
@@ -273,6 +287,8 @@ function NotificationBell() {
         </div>
       )}
     </div>
+    <NotificationDetailModal notification={selected} onClose={() => setSelected(null)} />
+    </>
   );
 }
 
