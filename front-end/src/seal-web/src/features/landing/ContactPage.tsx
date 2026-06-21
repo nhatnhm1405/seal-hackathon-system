@@ -8,6 +8,7 @@ import {
 } from "@/shared/components/PixelComponents";
 import { SealFooter } from "@/shared/components/SealFooter";
 import { useForceDark } from "@/app/providers/ThemeProvider";
+import { useAuth } from "@/app/providers/AuthProvider";
 import sealLogo from "@/imports/image.png";
 
 const mono = "'JetBrains Mono', monospace";
@@ -15,6 +16,9 @@ const EMAIL = "contact@sealhackathon.com";
 
 function PageHeader() {
   const navigate = useNavigate();
+  // Người đã đăng nhập: "Home" là dashboard của họ, không phải trang landing.
+  const { isAuthenticated } = useAuth();
+  const homePath = isAuthenticated ? "/dashboard" : "/";
   return (
     <nav style={{
       position: "fixed", top: 0, left: 0, right: 0, zIndex: 100, height: 60,
@@ -22,13 +26,13 @@ function PageHeader() {
       borderBottom: "1px solid rgba(34,197,94,0.12)",
     }}>
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 24px", display: "flex", alignItems: "center", justifyContent: "space-between", height: "100%" }}>
-        <button onClick={() => navigate("/")} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }}>
+        <button onClick={() => navigate(homePath)} style={{ background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 10 }}>
           <img src={sealLogo} alt="SEAL" style={{ height: 80, width: "auto", objectFit: "contain", filter: "drop-shadow(0 0 8px rgba(34,197,94,0.35))" }} />
           <span style={{ background: C.gradientPrimary, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", fontFamily: mono, fontWeight: 700, fontSize: 14, letterSpacing: "0.06em" }}>
             SEAL Hackathon
           </span>
         </button>
-        <PixelButton variant="ghost" size="sm" onClick={() => navigate("/")}>← Back Home</PixelButton>
+        <PixelButton variant="ghost" size="sm" onClick={() => navigate(homePath)}>← Back Home</PixelButton>
       </div>
     </nav>
   );
