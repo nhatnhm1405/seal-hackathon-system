@@ -3,8 +3,9 @@ import {
   C, GradientText, PixelCard, PixelButton, PixelBadge, PixelTabs,
 } from "@/shared/components/PixelComponents";
 import {
-  adminApi, ApiError, UserItem, CreateUserPayload, UpdateUserPayload,
+  adminApi, ApiError, apiErrorMessage, UserItem, CreateUserPayload, UpdateUserPayload,
 } from "@/shared/apiClient";
+import { useNotifications } from "@/app/providers/NotificationProvider";
 
 function fmtDate(iso?: string) {
   if (!iso) return "—";
@@ -75,6 +76,7 @@ function ModalShell({ accent, tag, title, children, onCancel }: {
 
 // ── Create account modal ─────────────────────────────────────────────
 function CreateAccountModal({ onClose, onCreated }: { onClose: () => void; onCreated: (u: UserItem) => void }) {
+  const { addToast } = useNotifications();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
@@ -87,6 +89,7 @@ function CreateAccountModal({ onClose, onCreated }: { onClose: () => void; onCre
     setError(null);
     if (!email.trim() || !password || !fullName.trim()) {
       setError("Email, password and full name are required.");
+      addToast({ type: "warning", title: "MISSING FIELDS", message: "Email, password and full name are required." });
       return;
     }
     setSaving(true);
@@ -96,10 +99,12 @@ function CreateAccountModal({ onClose, onCreated }: { onClose: () => void; onCre
         ...(judgeType ? { judgeType } : {}),
       };
       const res = await adminApi.createUser(payload);
+      addToast({ type: "success", title: "ACCOUNT CREATED", message: `"${res.data.fullName}" was created.` });
       onCreated(res.data);
       onClose();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to create account.");
+      addToast({ type: "warning", title: "CREATE FAILED", message: apiErrorMessage(err, "Failed to create account.") });
     } finally {
       setSaving(false);
     }
@@ -156,6 +161,7 @@ function CreateAccountModal({ onClose, onCreated }: { onClose: () => void; onCre
 
 // ── Edit account modal ───────────────────────────────────────────────
 function EditAccountModal({ user, onClose, onUpdated }: { user: UserItem; onClose: () => void; onUpdated: (u: UserItem) => void }) {
+  const { addToast } = useNotifications();
   const [fullName, setFullName] = useState(user.fullName);
   const [studentId, setStudentId] = useState(user.studentId ?? "");
   const [university, setUniversity] = useState(user.university ?? "");
@@ -174,10 +180,12 @@ function EditAccountModal({ user, onClose, onUpdated }: { user: UserItem; onClos
         judgeType,
       };
       const res = await adminApi.updateUser(user.userId, payload);
+      addToast({ type: "success", title: "ACCOUNT UPDATED", message: `"${res.data.fullName}" was updated.` });
       onUpdated(res.data);
       onClose();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to update account.");
+      addToast({ type: "warning", title: "UPDATE FAILED", message: apiErrorMessage(err, "Failed to update account.") });
     } finally {
       setSaving(false);
     }
@@ -231,6 +239,7 @@ function EditAccountModal({ user, onClose, onUpdated }: { user: UserItem; onClos
 function ToggleActiveModal({ user, deactivate, onClose, onDone }: {
   user: UserItem; deactivate: boolean; onClose: () => void; onDone: (u: UserItem) => void;
 }) {
+  const { addToast } = useNotifications();
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const accent = deactivate ? "#ef4444" : "#22c55e";
@@ -242,10 +251,16 @@ function ToggleActiveModal({ user, deactivate, onClose, onDone }: {
       const res = deactivate
         ? await adminApi.deactivateUser(user.userId)
         : await adminApi.activateUser(user.userId);
+      addToast({
+        type: deactivate ? "info" : "success",
+        title: deactivate ? "ACCOUNT DEACTIVATED" : "ACCOUNT ACTIVATED",
+        message: `"${user.fullName}" ${deactivate ? "can no longer log in." : "can log in again."}`,
+      });
       onDone(res.data);
       onClose();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Action failed.");
+      addToast({ type: "warning", title: "ACTION FAILED", message: apiErrorMessage(err, "Action failed.") });
     } finally {
       setSaving(false);
     }
