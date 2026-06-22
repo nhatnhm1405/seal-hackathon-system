@@ -3,8 +3,8 @@ import {
   C, GradientText, PixelCard, PixelButton, PixelBadge,
 } from "@/shared/components/PixelComponents";
 import {
-  assignmentsApi, eventsApi, roundsApi, submissionsApi, scoringApi, ApiError, apiErrorMessage,
-  Round, Submission, ScoringCriteria, ScoreRecord,
+  assignmentsApi, eventsApi, roundsApi, submissionsApi, scoringApi, aiApi, ApiError, apiErrorMessage,
+  Round, Submission, ScoringCriteria, ScoreRecord, AiInsight,
 } from "@/shared/apiClient";
 import { useNotifications } from "@/app/providers/NotificationProvider";
 import { buildTeamCodeMap } from "./anon";
@@ -48,6 +48,11 @@ export function JudgeScoringPage() {
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+
+  // AI Judge Assistant (advisory, per selected submission)
+  const [aiInsight, setAiInsight] = useState<AiInsight | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
 
   // ── Load assignment → event → rounds ────────────────────────────────
   useEffect(() => {
@@ -140,7 +145,26 @@ export function JudgeScoringPage() {
     setScoreInputs(map);
     setNotice(null);
     setActionError(null);
+    // AI insight is per-submission — drop it when switching submissions.
+    setAiInsight(null);
+    setAiError(null);
+    setAiLoading(false);
   }, [selectedSubId, selectedSub, myScores]);
+
+  async function askAi() {
+    if (!selectedSub) return;
+    setAiError(null);
+    setAiLoading(true);
+    try {
+      const res = await aiApi.getSubmissionInsights(selectedSub.submissionId);
+      setAiInsight(res.data);
+    } catch (err) {
+      setAiError(apiErrorMessage(err, "Failed to generate AI insights."));
+      addToast({ type: "warning", title: "AI ASSIST FAILED", message: apiErrorMessage(err, "Failed to generate AI insights.") });
+    } finally {
+      setAiLoading(false);
+    }
+  }
 
   function getVal(critId: number): number {
     return scoreInputs[critId]?.value ?? 0;
@@ -308,8 +332,79 @@ export function JudgeScoringPage() {
                     {selectedSub.repoUrl && <a href={selectedSub.repoUrl} target="_blank" rel="noreferrer"><PixelButton variant="secondary" size="sm">OPEN REPO</PixelButton></a>}
                     {selectedSub.demoUrl && <a href={selectedSub.demoUrl} target="_blank" rel="noreferrer"><PixelButton variant="secondary" size="sm">OPEN DEMO</PixelButton></a>}
                     {selectedSub.slideUrl && <a href={selectedSub.slideUrl} target="_blank" rel="noreferrer"><PixelButton variant="secondary" size="sm">OPEN SLIDES</PixelButton></a>}
+                    <PixelButton variant="cyber" size="sm" disabled={aiLoading} onClick={askAi}>
+                      {aiLoading ? "AI THINKING…" : aiInsight ? "↻ AI ASSIST" : "✨ AI ASSIST"}
+                    </PixelButton>
                   </div>
                 </PixelCard>
+
+                {(aiLoading || aiError || aiInsight) && (
+                  <PixelCard glow glowColor="cyan" style={{ padding: 20 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, gap: 10 }}>
+                      <div style={{ color: C.cyanBright, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 700, letterSpacing: "0.08em" }}>
+                        ✨ AI JUDGE ASSISTANT
+                      </div>
+                      {aiInsight?.model && <PixelBadge color="cyan">{aiInsight.model}</PixelBadge>}
+                    </div>
+
+                    {aiLoading && (
+                      <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>
+                        Đang phân tích bài nộp… (vài giây)
+                      </div>
+                    )}
+
+                    {aiError && !aiLoading && (
+                      <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.35)", color: C.red, padding: "10px 14px", fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}>
+                        {aiError}
+                      </div>
+                    )}
+
+                    {aiInsight && !aiLoading && (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                        <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, lineHeight: 1.6 }}>
+                          {aiInsight.summary}
+                        </div>
+
+                        {aiInsight.strengths?.length > 0 && (
+                          <div>
+                            <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700, marginBottom: 6 }}>STRENGTHS</div>
+                            <ul style={{ margin: 0, paddingLeft: 18, color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 11.5, lineHeight: 1.6 }}>
+                              {aiInsight.strengths.map((x, i) => <li key={i}>{x}</li>)}
+                            </ul>
+                          </div>
+                        )}
+
+                        {aiInsight.concerns?.length > 0 && (
+                          <div>
+                            <div style={{ color: "#eab308", fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700, marginBottom: 6 }}>POINTS TO PROBE</div>
+                            <ul style={{ margin: 0, paddingLeft: 18, color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 11.5, lineHeight: 1.6 }}>
+                              {aiInsight.concerns.map((x, i) => <li key={i}>{x}</li>)}
+                            </ul>
+                          </div>
+                        )}
+
+                        {aiInsight.criteriaInsights?.length > 0 && (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                            <div style={{ color: C.blueBright, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700 }}>PER-CRITERIA NOTES</div>
+                            {aiInsight.criteriaInsights.map((ci, i) => (
+                              <div key={i} style={{ padding: 10, background: C.surface2, border: `1px solid ${C.border}` }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                                  <span style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, fontWeight: 600 }}>{ci.criteriaName}</span>
+                                  {ci.suggestedScoreRange && <PixelBadge color="blue">~ {ci.suggestedScoreRange}</PixelBadge>}
+                                </div>
+                                <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, lineHeight: 1.5 }}>{ci.assessment}</div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, lineHeight: 1.5, borderTop: `1px solid ${C.border}`, paddingTop: 10 }}>
+                          ⚠ {aiInsight.disclaimer}
+                        </div>
+                      </div>
+                    )}
+                  </PixelCard>
+                )}
 
                 {!open && !isReadOnly && (
                   <div style={{ background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.35)", color: "#eab308", padding: "10px 14px", fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}>
