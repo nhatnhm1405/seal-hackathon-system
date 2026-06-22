@@ -1,6 +1,7 @@
 package com.seal.hackathon.service;
 
 import com.seal.hackathon.dto.response.NotificationResponse;
+import com.seal.hackathon.entity.Announcement;
 import com.seal.hackathon.entity.Notification;
 import com.seal.hackathon.entity.User;
 import com.seal.hackathon.exception.ForbiddenException;
@@ -67,6 +68,13 @@ public class NotificationService {
     @Transactional
     public void createNotification(Integer recipientUserId, String title, String content,
                                    String type) {
+        createNotification(recipientUserId, title, content, type, null);
+    }
+
+    /** Variant used by announcements: links the notification to its source Announcement. */
+    @Transactional
+    public void createNotification(Integer recipientUserId, String title, String content,
+                                   String type, Announcement announcement) {
         User recipient = userRepository.findById(recipientUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + recipientUserId));
 
@@ -76,6 +84,7 @@ public class NotificationService {
                 .content(content)
                 .type(type)
                 .isRead(false)
+                .announcement(announcement)
                 .build();
         notificationRepository.save(notification);
     }
@@ -83,6 +92,16 @@ public class NotificationService {
     // ── Helper ────────────────────────────────────────────────────────
 
     private NotificationResponse mapToResponse(Notification n) {
+        Announcement ann = n.getAnnouncement();
+        String senderName = null, senderRole = null, scopeLabel = null, linkUrl = null;
+        if (ann != null) {
+            senderName = ann.getSender() != null ? ann.getSender().getFullName() : null;
+            senderRole = ann.getSenderRole();
+            scopeLabel = ann.getTrack() != null
+                    ? ann.getTrack().getName()
+                    : (ann.getEvent() != null ? ann.getEvent().getName() : null);
+            linkUrl = ann.getLinkUrl();
+        }
         return NotificationResponse.builder()
                 .notificationId(n.getNotificationId())
                 .title(n.getTitle())
@@ -90,6 +109,10 @@ public class NotificationService {
                 .type(n.getType())
                 .isRead(n.getIsRead())
                 .createdAt(n.getCreatedAt())
+                .senderName(senderName)
+                .senderRole(senderRole)
+                .scopeLabel(scopeLabel)
+                .linkUrl(linkUrl)
                 .build();
     }
 }

@@ -41,4 +41,9 @@ public interface UserRepository extends JpaRepository<User, Integer> {
            "  OR LOWER(u.studentId) LIKE CONCAT('%', :q, '%') " +
            "  OR LOWER(u.fullName) LIKE CONCAT('%', :q, '%'))")
     List<User> searchInvitableStudents(@Param("q") String q);
+
+    /** All approved & active student accounts — recipients of "Participants" announcements. */
+    @Query("SELECT u FROM User u WHERE u.isApproved = true AND u.isActive = true " +
+           "AND u.userType IN ('FPT_STUDENT', 'EXTERNAL_STUDENT')")
+    List<User> findActiveApprovedStudents();
 }

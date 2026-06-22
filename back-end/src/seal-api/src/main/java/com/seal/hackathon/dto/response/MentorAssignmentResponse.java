@@ -5,6 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -34,8 +35,12 @@ public class MentorAssignmentResponse {
     public static class AssignedTeamInfo {
         private Integer teamId;
         private String teamName;
+        private Integer trackId;
         private String trackName;
         private List<TeamMemberInfo> members;
+        // Trạng thái nộp bài: số submission (không tính DRAFT) + thời điểm nộp gần nhất.
+        private long submissionCount;
+        private LocalDateTime lastSubmittedAt;
     }
 
     @Data

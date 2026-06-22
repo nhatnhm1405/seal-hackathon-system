@@ -11,6 +11,9 @@ public interface UserEventRoleRepository extends JpaRepository<UserEventRole, In
 
     List<UserEventRole> findAllByUser_UserId(Integer userId);
 
+    // Staff (JUDGE / MENTOR) holding a role for a specific event — used to address announcements.
+    List<UserEventRole> findByRole_RoleNameAndEventId(String roleName, Integer eventId);
+
     // Check if a user already has a specific role (globally, i.e. event_id is null)
     boolean existsByUser_UserIdAndRole_RoleNameAndEventIdIsNull(Integer userId, String roleName);
 

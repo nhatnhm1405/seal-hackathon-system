@@ -152,7 +152,7 @@ export function SealFooter() {
               </span>
               <span
                 style={{
-                  color: "rgba(134,239,172,0.65)",
+                  color: C.textMuted,
                   fontFamily: mono,
                   fontSize: "clamp(10px, 0.95vw, 12px)",
                   letterSpacing: "0.14em",
@@ -298,7 +298,7 @@ export function SealFooter() {
         >
           <span
             style={{
-              color: "rgba(134,239,172,0.35)",
+              color: C.copyright,
               fontFamily: mono,
               fontSize: 12,
               letterSpacing: "0.04em",

@@ -901,6 +901,33 @@ export const scoringApi = {
     apiFetch<ApiResponse<ScoreRecord[]>>(`/api/scores/my/round/${roundId}`),
 };
 
+// ── AI Judge Assistant ────────────────────────────────────────────
+// Advisory, anonymity-safe reading of a submission to help a judge orient
+// before scoring. Never writes scores — suggestions are reference-only.
+
+export interface AiCriteriaInsight {
+  criteriaName: string;
+  assessment: string;
+  suggestedScoreRange: string;
+}
+
+export interface AiInsight {
+  summary: string;
+  strengths: string[];
+  concerns: string[];
+  criteriaInsights: AiCriteriaInsight[];
+  disclaimer: string;
+  model: string;
+}
+
+export const aiApi = {
+  // JUDGE / EVENT_COORDINATOR only. May take a few seconds (calls Gemini).
+  getSubmissionInsights: (submissionId: number) =>
+    apiFetch<ApiResponse<AiInsight>>(`/api/ai/submissions/${submissionId}/insights`, {
+      method: 'POST',
+    }),
+};
+
 // ── Round Results ─────────────────────────────────────────────────
 
 export interface RoundResult {
@@ -944,6 +971,25 @@ export interface Notification {
   type?: string;
   isRead: boolean;
   createdAt: string;
+  // Set only for ANNOUNCEMENT notifications (resolved from the source Announcement).
+  senderName?: string | null;
+  senderRole?: string | null;   // MENTOR | COORDINATOR
+  scopeLabel?: string | null;   // track name (mentor) or event name (coordinator)
+  linkUrl?: string | null;      // optional attachment link
+}
+
+export interface AnnouncementItem {
+  announcementId: number;
+  title: string;
+  content: string;
+  senderName: string;
+  senderRole: string;   // MENTOR | COORDINATOR
+  scope: string;        // TRACK | EVENT
+  audience?: string | null;   // PARTICIPANT | JUDGE | MENTOR | ALL
+  scopeLabel: string;
+  linkUrl?: string | null;
+  recipientCount: number;
+  createdAt: string;
 }
 
 export const notificationsApi = {
@@ -974,8 +1020,11 @@ export interface AssignmentMember {
 export interface MentorAssignedTeam {
   teamId: number;
   teamName: string;
+  trackId: number;
   trackName: string;
   members: AssignmentMember[];
+  submissionCount: number;
+  lastSubmittedAt: string | null;
 }
 
 export interface JudgeAssignedTeam {
@@ -1006,6 +1055,27 @@ export const assignmentsApi = {
 
   getJudgeAssignments: () =>
     apiFetch<ApiResponse<JudgeAssignment>>('/api/judge/assignments'),
+};
+
+// ── Announcements (Mentor: track-scoped · Coordinator: event-scoped) ──
+export const announcementsApi = {
+  // Mentor → all participants of one of their tracks.
+  createMentor: (payload: { trackId: number; title: string; content: string; linkUrl?: string }) =>
+    apiFetch<ApiResponse<AnnouncementItem>>('/api/mentor/announcements', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  listMentor: () =>
+    apiFetch<ApiResponse<AnnouncementItem[]>>('/api/mentor/announcements'),
+
+  // Coordinator → an audience (PARTICIPANT | JUDGE | MENTOR | ALL) across an event.
+  createCoordinator: (payload: { eventId: number; audience: string; title: string; content: string; linkUrl?: string }) =>
+    apiFetch<ApiResponse<AnnouncementItem>>('/api/coordinator/announcements', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  listCoordinator: () =>
+    apiFetch<ApiResponse<AnnouncementItem[]>>('/api/coordinator/announcements'),
 };
 
 // ── Coordinator lookups & assignments ─────────────────────────────
