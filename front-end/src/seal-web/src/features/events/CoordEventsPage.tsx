@@ -35,8 +35,11 @@ interface ApiRound {
   eventId?: number; event_id?: number;
   name?: string;
   orderNumber?: number; order_number?: number;
+  startTime?: string; start_time?: string;
+  endTime?: string; end_time?: string;
   submissionDeadline?: string; submission_deadline?: string;
   topNAdvance?: number | null; top_n_advance?: number | null;
+  isFinal?: boolean; is_final?: boolean;
   status?: string;
 }
 
@@ -61,8 +64,11 @@ interface RoundRow {
   roundId: number;
   name: string;
   orderNumber: number;
+  startTime: string;
+  endTime: string;
   submissionDeadline: string;
   topNAdvance: number | null;
+  isFinal: boolean;
   status: string;
 }
 
@@ -90,8 +96,11 @@ function normalizeRound(item: ApiRound): RoundRow {
     roundId:            item.id ?? item.roundId ?? item.round_id ?? 0,
     name:               item.name ?? '',
     orderNumber:        item.orderNumber ?? item.order_number ?? 0,
+    startTime:          item.startTime ?? item.start_time ?? '',
+    endTime:            item.endTime ?? item.end_time ?? '',
     submissionDeadline: item.submissionDeadline ?? item.submission_deadline ?? '',
     topNAdvance:        item.topNAdvance ?? item.top_n_advance ?? null,
+    isFinal:            item.isFinal ?? item.is_final ?? false,
     status:             (item.status ?? 'PENDING').toUpperCase(),
   };
 }
@@ -267,10 +276,15 @@ export function CoordEventsPage() {
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditError, setAuditError] = useState<string | null>(null);
+  const [expandedAudit, setExpandedAudit] = useState<Record<number, boolean>>({});
 
   // Track form
   const [trkName, setTrkName] = useState("");
   const [trkDesc, setTrkDesc] = useState("");
+  // Inline track edit (separate from the create form so the two never clash)
+  const [editingTrackId, setEditingTrackId] = useState<number | null>(null);
+  const [etName, setEtName] = useState("");
+  const [etDesc, setEtDesc] = useState("");
 
   // Round form
   const [rdName, setRdName] = useState("");
@@ -279,12 +293,19 @@ export function CoordEventsPage() {
   const [rdEnd, setRdEnd] = useState("");
   const [rdDeadline, setRdDeadline] = useState("");
   const [rdTopN, setRdTopN] = useState(3);
+  const [editingRoundId, setEditingRoundId] = useState<number | null>(null);
 
   // Criteria form
   const [crName, setCrName] = useState("");
   const [crDesc, setCrDesc] = useState("");
   const [crMax, setCrMax] = useState(10);
   const [crWeight, setCrWeight] = useState(1.0);
+  // Inline criteria edit (separate from the create form so the two never clash)
+  const [editingCriteriaId, setEditingCriteriaId] = useState<number | null>(null);
+  const [ecName, setEcName] = useState("");
+  const [ecDesc, setEcDesc] = useState("");
+  const [ecMax, setEcMax] = useState(10);
+  const [ecWeight, setEcWeight] = useState(1.0);
 
   const selectedEvent = selectedEventId ? events.find(e => e.eventId === selectedEventId) ?? null : null;
 
@@ -584,6 +605,40 @@ export function CoordEventsPage() {
     }
   }
 
+  function startEditTrack(track: TrackRow) {
+    setEditingTrackId(track.trackId);
+    setEtName(track.name);
+    setEtDesc(track.description ?? "");
+  }
+
+  function cancelTrackEdit() {
+    setEditingTrackId(null);
+    setEtName(""); setEtDesc("");
+  }
+
+  async function saveTrackEdit() {
+    if (!selectedEvent || editingTrackId == null) return;
+    const name = etName.trim();
+    if (!name) {
+      addToast({ type: 'warning', title: 'MISSING NAME', message: 'Please enter a track name.' });
+      return;
+    }
+    setActionError(null);
+    try {
+      const res = await apiFetch<{ data: ApiTrack }>(`/api/events/${selectedEvent.eventId}/tracks/${editingTrackId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ name, description: etDesc || undefined }),
+      });
+      const updated = normalizeTrack(res.data);
+      setTracks(prev => prev.map(t => t.trackId === editingTrackId ? updated : t));
+      cancelTrackEdit();
+      addToast({ type: 'success', title: 'TRACK UPDATED', message: `"${name}" saved.` });
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : "Failed to update track.");
+      addToast({ type: 'warning', title: 'UPDATE FAILED', message: apiErrorMessage(err, 'Failed to update track.') });
+    }
+  }
+
   // PHẦN 4 — commit a drag-drop assignment (or unassign when targetTrackId is null).
   // Toasts the outcome and re-pulls the roster so all counts/lists stay in sync.
   async function performAssign(teamId: number, targetTrackId: number | null) {
@@ -691,6 +746,75 @@ export function CoordEventsPage() {
     }
   }
 
+  function startEditRound(r: RoundRow) {
+    setEditingRoundId(r.roundId);
+    setRdName(r.name);
+    setRdOrder(r.orderNumber);
+    setRdStart(r.startTime ? r.startTime.slice(0, 16) : "");
+    setRdEnd(r.endTime ? r.endTime.slice(0, 16) : "");
+    setRdDeadline(r.submissionDeadline ? r.submissionDeadline.slice(0, 16) : "");
+    setRdTopN(r.topNAdvance ?? 0);
+  }
+
+  function cancelRoundEdit() {
+    setEditingRoundId(null);
+    setRdName(""); setRdOrder(1); setRdStart(""); setRdEnd(""); setRdDeadline(""); setRdTopN(3);
+  }
+
+  async function saveRoundEdit() {
+    if (!selectedEvent || editingRoundId == null) return;
+    const name = rdName.trim();
+    if (!name) {
+      addToast({ type: 'warning', title: 'MISSING NAME', message: 'Please enter a round name.' });
+      return;
+    }
+    setActionError(null);
+    try {
+      const res = await apiFetch<{ data: ApiRound }>(`/api/events/${selectedEvent.eventId}/rounds/${editingRoundId}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          name,
+          orderNumber: rdOrder,
+          startTime: rdStart || undefined,
+          endTime: rdEnd || undefined,
+          submissionDeadline: rdDeadline || undefined,
+          topNAdvance: rdTopN,
+        }),
+      });
+      const updated = normalizeRound(res.data);
+      setRounds(prev => prev.map(r => r.roundId === editingRoundId ? updated : r)
+        .sort((a, b) => a.orderNumber - b.orderNumber));
+      cancelRoundEdit();
+      addToast({ type: 'success', title: 'ROUND UPDATED', message: `"${name}" saved.` });
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : "Failed to update round.");
+      addToast({ type: 'warning', title: 'UPDATE FAILED', message: apiErrorMessage(err, 'Failed to update round.') });
+    }
+  }
+
+  function requestDeleteRound(r: RoundRow) {
+    if (!selectedEvent) return;
+    const eventId = selectedEvent.eventId;
+    openConfirm({
+      title: 'Delete this round?',
+      message: (
+        <div>
+          Round <span style={{ color: C.text, fontWeight: 700 }}>"{r.name}"</span> will be deleted, along with its scoring criteria.
+        </div>
+      ),
+      warning: 'Blocked if the round is finalized or any team has already submitted to it.',
+      confirmLabel: 'DELETE ROUND',
+      variant: 'danger',
+      run: async () => {
+        await apiFetch(`/api/events/${eventId}/rounds/${r.roundId}`, { method: 'DELETE' });
+        setRounds(prev => prev.filter(x => x.roundId !== r.roundId));
+        if (editingRoundId === r.roundId) cancelRoundEdit();
+        if (selectedRoundId === r.roundId) setSelectedRoundId(null);
+        addToast({ type: 'success', title: 'ROUND DELETED', message: `"${r.name}" removed.` });
+      },
+    });
+  }
+
   async function changeRoundStatus(roundId: number, status: string) {
     if (!selectedEvent) return;
     setActionError(null);
@@ -735,6 +859,71 @@ export function CoordEventsPage() {
     }
   }
 
+  function startEditCriteria(c: CriteriaRow) {
+    setEditingCriteriaId(c.criteriaId);
+    setEcName(c.name);
+    setEcDesc(c.description ?? "");
+    setEcMax(c.maxScore);
+    setEcWeight(c.weight);
+  }
+
+  function cancelCriteriaEdit() {
+    setEditingCriteriaId(null);
+    setEcName(""); setEcDesc(""); setEcMax(10); setEcWeight(1.0);
+  }
+
+  async function saveCriteriaEdit(original: CriteriaRow) {
+    if (!selectedEvent || selectedRoundId == null || editingCriteriaId == null) return;
+    const name = ecName.trim();
+    if (!name) {
+      addToast({ type: 'warning', title: 'MISSING NAME', message: 'Please enter a criteria name.' });
+      return;
+    }
+    setActionError(null);
+    try {
+      const res = await apiFetch<{ data: ApiCriteria }>(`/api/events/${selectedEvent.eventId}/rounds/${selectedRoundId}/criteria/${editingCriteriaId}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          name,
+          description: ecDesc || undefined,
+          weight: ecWeight,
+          maxScore: ecMax,
+          orderNumber: original.orderNumber,
+        }),
+      });
+      const updated = normalizeCriteria(res.data);
+      setCriteria(prev => prev.map(c => c.criteriaId === editingCriteriaId ? updated : c)
+        .sort((a, b) => a.orderNumber - b.orderNumber));
+      cancelCriteriaEdit();
+      addToast({ type: 'success', title: 'CRITERIA UPDATED', message: `"${name}" saved.` });
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : "Failed to update criteria.");
+      addToast({ type: 'warning', title: 'UPDATE FAILED', message: apiErrorMessage(err, 'Failed to update criteria.') });
+    }
+  }
+
+  function requestDeleteCriteria(c: CriteriaRow) {
+    if (!selectedEvent || selectedRoundId == null) return;
+    const eventId = selectedEvent.eventId;
+    const roundId = selectedRoundId;
+    openConfirm({
+      title: 'Remove this criteria?',
+      message: (
+        <div>
+          Criteria <span style={{ color: C.text, fontWeight: 700 }}>"{c.name}"</span> will be deleted from this round.
+        </div>
+      ),
+      warning: 'If judges have already scored this criteria, the delete is blocked — remove the scores first.',
+      confirmLabel: 'DELETE CRITERIA',
+      variant: 'danger',
+      run: async () => {
+        await apiFetch(`/api/events/${eventId}/rounds/${roundId}/criteria/${c.criteriaId}`, { method: 'DELETE' });
+        setCriteria(prev => prev.filter(x => x.criteriaId !== c.criteriaId));
+        addToast({ type: 'success', title: 'CRITERIA DELETED', message: `"${c.name}" removed.` });
+      },
+    });
+  }
+
   // ── Track statistics (NV1) + per-track rosters (NV2) ──────────────
   // Roster = APPROVED teams only (the set the backend freezes into track slots
   // on SETUP entry). Stats are shown from SETUP onward, once the roster is locked
@@ -754,13 +943,18 @@ export function CoordEventsPage() {
   const trackCreationAllowed = !!selectedEvent
     && (selectedEvent.status === 'DRAFT' || selectedEvent.status === 'OPEN');
   // SETUP is the only phase where the coordinator manually moves teams: drag-drop,
-  // track removal and the start-event gate all key off this.
+  // team-shuffle and the start-event gate all key off this.
   const isSetup = selectedEvent?.status === 'SETUP';
-  // "Đề thi" per track: visible from SETUP onward; upload/release/remove only while
+  // "Problems" per track: visible from SETUP onward; upload/release/remove only while
   // the event is being set up or run (mirrors TrackProblemService on the backend).
   const showProblems = showTrackStats;
   const canManageProblems = !!selectedEvent
     && (selectedEvent.status === 'SETUP' || selectedEvent.status === 'IN_PROGRESS');
+  // Editing OR removing a track is allowed in DRAFT/OPEN/SETUP — mirrors
+  // TrackService.TRACK_MUTATION_ALLOWED_EVENT_STATUSES. Locked once the event runs
+  // (IN_PROGRESS/COMPLETED) so the EDIT/DELETE buttons hide there instead of 400-ing.
+  const trackMutationAllowed = !!selectedEvent
+    && (selectedEvent.status === 'DRAFT' || selectedEvent.status === 'OPEN' || selectedEvent.status === 'SETUP');
 
   return (
     <DndProvider backend={HTML5Backend}>
@@ -934,40 +1128,46 @@ export function CoordEventsPage() {
                       borderLeft: `3px solid ${showTrackStats ? (invalid ? C.red : C.green) : C.border}`,
                     }}>
                       <div style={{ padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
-                        <div style={{ minWidth: 0 }}>
-                          <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 14, fontWeight: 700 }}>{t.name}</div>
-                          <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, marginTop: 3 }}>{t.description || "—"}</div>
-                        </div>
-                        {/* Right column — framed chips, right-aligned. Row 1: the team-count
-                            chip + (in SETUP) the inline REMOVE button. Row 2: a one-line status
-                            chip dropped below. Each is its own box, coloured by validity
-                            (green = ready, red/amber = under MIN_TEAMS_PER_TRACK). Shown from
-                            SETUP onward, once the roster is frozen. */}
-                        {showTrackStats && (
-                          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                              <TrackChip tone={invalid ? "red" : "green"}>
-                                <b style={{ fontWeight: 800, fontSize: 13 }}>{trackTeams.length}</b>
-                                <span style={{ color: C.textMuted, marginLeft: 5 }}>{trackTeams.length === 1 ? "team" : "teams"}</span>
-                              </TrackChip>
-                              {/* PHẦN 3 — manual track cleanup, inline (always visible), SETUP only. */}
-                              {isSetup && (
-                                <button
-                                  type="button"
-                                  onClick={() => requestDeleteTrack(t)}
-                                  style={{
-                                    display: "inline-flex", alignItems: "center", borderRadius: 0, cursor: "pointer",
-                                    border: "1px solid rgba(239,68,68,0.45)", background: "rgba(239,68,68,0.08)", color: "#f87171",
-                                    padding: "4px 10px", fontFamily: "'JetBrains Mono', monospace", fontSize: 12, lineHeight: 1, letterSpacing: "0.04em",
-                                  }}
-                                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.18)"; }}
-                                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.08)"; }}
-                                >REMOVE</button>
-                              )}
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          {editingTrackId === t.trackId ? (
+                            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                              <PixelInput label="Name" value={etName} onChange={(e) => setEtName(e.target.value)} placeholder="Track name" />
+                              <PixelInput label="Description" value={etDesc} onChange={(e) => setEtDesc(e.target.value)} placeholder="What is this track about?" />
+                              <div style={{ display: "flex", gap: 8 }}>
+                                <PixelButton size="sm" variant="cyber" onClick={saveTrackEdit}>SAVE</PixelButton>
+                                <PixelButton size="sm" variant="ghost" onClick={cancelTrackEdit}>CANCEL</PixelButton>
+                              </div>
                             </div>
-                            <TrackChip tone={invalid ? "amber" : "green"}>
-                              {invalid ? `Needs ${MIN_TEAMS_PER_TRACK} teams to run` : "Ready"}
-                            </TrackChip>
+                          ) : (
+                            <>
+                              <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 14, fontWeight: 700 }}>{t.name}</div>
+                              <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, marginTop: 3 }}>{t.description || "—"}</div>
+                            </>
+                          )}
+                        </div>
+                        {/* Right column — team-count + status chips (from SETUP onward, once the
+                            roster is frozen) stacked above a unified EDIT / DELETE action group.
+                            The actions show in DRAFT/OPEN/SETUP (trackMutationAllowed) and hide
+                            while this card is in edit mode (SAVE/CANCEL live in the left form). */}
+                        {(showTrackStats || (trackMutationAllowed && editingTrackId !== t.trackId)) && (
+                          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
+                            {showTrackStats && (
+                              <>
+                                <TrackChip tone={invalid ? "red" : "green"}>
+                                  <b style={{ fontWeight: 800, fontSize: 13 }}>{trackTeams.length}</b>
+                                  <span style={{ color: C.textMuted, marginLeft: 5 }}>{trackTeams.length === 1 ? "team" : "teams"}</span>
+                                </TrackChip>
+                                <TrackChip tone={invalid ? "amber" : "green"}>
+                                  {invalid ? `Needs ${MIN_TEAMS_PER_TRACK} teams to run` : "Ready"}
+                                </TrackChip>
+                              </>
+                            )}
+                            {trackMutationAllowed && editingTrackId !== t.trackId && (
+                              <div style={{ display: "flex", gap: 8 }}>
+                                <PixelButton size="sm" variant="ghost" onClick={() => startEditTrack(t)}>EDIT</PixelButton>
+                                <PixelButton size="sm" variant="danger" onClick={() => requestDeleteTrack(t)}>DELETE</PixelButton>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
@@ -1047,20 +1247,46 @@ export function CoordEventsPage() {
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 {detailLoading && <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>Loading...</div>}
                 {!detailLoading && rounds.length === 0 && <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>No rounds yet</div>}
-                {rounds.map(r => (
-                  <div key={r.roundId} style={{ padding: 12, background: C.surface2, border: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-                    <div>
-                      <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 600 }}>{r.orderNumber}. {r.name}</div>
-                      <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginTop: 2 }}>Deadline: {r.submissionDeadline || "—"}{r.topNAdvance != null ? ` · Top ${r.topNAdvance} advance` : ""}</div>
+                {rounds.map(r => {
+                  const noCutoff = r.topNAdvance == null;
+                  const isEditing = editingRoundId === r.roundId;
+                  const topNLabel = r.topNAdvance != null
+                    ? (r.isFinal ? ` · Top ${r.topNAdvance} overall (winners)` : ` · Top ${r.topNAdvance} per track advance`)
+                    : "";
+                  return (
+                  <div key={r.roundId} style={{ padding: 12, background: C.surface2, border: `1px solid ${isEditing ? C.green : C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 600 }}>{r.orderNumber}. {r.name}{r.isFinal ? " · FINAL" : ""}</div>
+                      <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginTop: 2 }}>Deadline: {r.submissionDeadline || "—"}{topNLabel}</div>
+                      {noCutoff && (
+                        <div style={{ color: C.yellow, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginTop: 4 }}>⚠ No cut-off set — no team is marked. Click EDIT to set Top N.</div>
+                      )}
                     </div>
-                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                      <PixelBadge color={r.status === 'ACTIVE' ? 'green' : r.status === 'PENDING' ? 'yellow' : r.status === 'FINALIZED' ? 'blue' : 'red'}>{r.status}</PixelBadge>
-                      {r.status === 'PENDING' && <PixelButton size="sm" variant="secondary" onClick={() => changeRoundStatus(r.roundId, 'ACTIVE')}>ACTIVATE</PixelButton>}
-                      {r.status === 'ACTIVE' && <PixelButton size="sm" variant="danger" onClick={() => changeRoundStatus(r.roundId, 'CLOSED')}>CLOSE</PixelButton>}
+                    {/* Action group — fixed-width slots so every row's buttons line up:
+                        [ EDIT ][ DELETE ][ transition ][ status badge ] */}
+                    <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
+                      <PixelButton size="sm" variant="ghost" onClick={() => isEditing ? cancelRoundEdit() : startEditRound(r)}>{isEditing ? 'EDITING…' : 'EDIT'}</PixelButton>
+                      <div style={{ width: 72, display: "flex", justifyContent: "center" }}>
+                        {r.status !== 'FINALIZED' && !isEditing && (
+                          <PixelButton size="sm" variant="danger" onClick={() => requestDeleteRound(r)}>DELETE</PixelButton>
+                        )}
+                      </div>
+                      <div style={{ width: 84, display: "flex", justifyContent: "center" }}>
+                        {r.status === 'PENDING' && <PixelButton size="sm" variant="secondary" onClick={() => changeRoundStatus(r.roundId, 'ACTIVE')}>ACTIVATE</PixelButton>}
+                        {r.status === 'ACTIVE' && <PixelButton size="sm" variant="danger" onClick={() => changeRoundStatus(r.roundId, 'CLOSED')}>CLOSE</PixelButton>}
+                        {r.status === 'CLOSED' && <PixelButton size="sm" variant="secondary" onClick={() => changeRoundStatus(r.roundId, 'ACTIVE')}>REOPEN</PixelButton>}
+                      </div>
+                      <div style={{ width: 86, display: "flex", justifyContent: "flex-end" }}>
+                        <PixelBadge color={r.status === 'ACTIVE' ? 'green' : r.status === 'PENDING' ? 'yellow' : r.status === 'FINALIZED' ? 'blue' : 'red'}>{r.status}</PixelBadge>
+                      </div>
                     </div>
                   </div>
-                ))}
-                <div style={{ padding: 14, background: C.surface, border: `1px solid ${C.border}` }}>
+                  );
+                })}
+                <div style={{ padding: 14, background: C.surface, border: `1px solid ${editingRoundId != null ? C.green : C.border}` }}>
+                  <div style={{ color: editingRoundId != null ? C.green : C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600, marginBottom: 10 }}>
+                    {editingRoundId != null ? "EDIT ROUND" : "ADD ROUND"}
+                  </div>
                   <div style={{ display: "grid", gridTemplateColumns: "2fr 70px 1fr 1fr 1fr 70px auto", gap: 10, alignItems: "end" }}>
                     <PixelInput label="Name" value={rdName} onChange={(e) => setRdName(e.target.value)} />
                     <PixelInput label="Order" type="number" value={String(rdOrder)} onChange={(e) => setRdOrder(Number(e.target.value))} />
@@ -1068,7 +1294,17 @@ export function CoordEventsPage() {
                     <PixelInput label="End" type="datetime-local" value={rdEnd} onChange={(e) => setRdEnd(e.target.value)} />
                     <PixelInput label="Deadline" type="datetime-local" value={rdDeadline} onChange={(e) => setRdDeadline(e.target.value)} />
                     <PixelInput label="Top N" type="number" value={String(rdTopN)} onChange={(e) => setRdTopN(Number(e.target.value))} />
-                    <PixelButton variant="secondary" onClick={addRound}>ADD</PixelButton>
+                    {editingRoundId != null ? (
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <PixelButton variant="cyber" onClick={saveRoundEdit}>SAVE</PixelButton>
+                        <PixelButton variant="ghost" onClick={cancelRoundEdit}>CANCEL</PixelButton>
+                      </div>
+                    ) : (
+                      <PixelButton variant="secondary" onClick={addRound}>ADD</PixelButton>
+                    )}
+                  </div>
+                  <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, marginTop: 8, lineHeight: 1.5 }}>
+                    Top N = teams advancing <b>per track</b> for normal rounds (each track ranked separately), or <b>overall winners</b> for the Final round (all tracks combined into one ranking).
                   </div>
                 </div>
               </div>
@@ -1105,17 +1341,32 @@ export function CoordEventsPage() {
                       <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>No criteria for this round yet</div>
                     )}
                     {criteria.map(c => (
-                      <div key={c.criteriaId} style={{ padding: 12, background: C.surface2, border: `1px solid ${C.border}` }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                          <div>
-                            <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 600 }}>{c.name}</div>
-                            <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginTop: 2 }}>{c.description || "—"}</div>
+                      <div key={c.criteriaId} style={{ padding: 12, background: C.surface2, border: `1px solid ${editingCriteriaId === c.criteriaId ? C.green : C.border}` }}>
+                        {editingCriteriaId === c.criteriaId ? (
+                          <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr 80px 80px auto", gap: 10, alignItems: "end" }}>
+                            <PixelInput label="Name" value={ecName} onChange={(e) => setEcName(e.target.value)} />
+                            <PixelInput label="Description" value={ecDesc} onChange={(e) => setEcDesc(e.target.value)} />
+                            <PixelInput label="Max" type="number" value={String(ecMax)} onChange={(e) => setEcMax(Number(e.target.value))} />
+                            <PixelInput label="Weight" type="number" value={String(ecWeight)} onChange={(e) => setEcWeight(Number(e.target.value))} />
+                            <div style={{ display: "flex", gap: 8 }}>
+                              <PixelButton size="sm" variant="cyber" onClick={() => saveCriteriaEdit(c)}>SAVE</PixelButton>
+                              <PixelButton size="sm" variant="ghost" onClick={cancelCriteriaEdit}>CANCEL</PixelButton>
+                            </div>
                           </div>
-                          <div style={{ display: "flex", gap: 6 }}>
-                            <PixelBadge color="cyan">MAX {c.maxScore}</PixelBadge>
-                            <PixelBadge color="blue">W {c.weight}</PixelBadge>
+                        ) : (
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 600 }}>{c.name}</div>
+                              <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginTop: 2 }}>{c.description || "—"}</div>
+                            </div>
+                            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                              <PixelBadge color="cyan">MAX {c.maxScore}</PixelBadge>
+                              <PixelBadge color="blue">W {c.weight}</PixelBadge>
+                              <PixelButton size="sm" variant="ghost" onClick={() => startEditCriteria(c)}>EDIT</PixelButton>
+                              <PixelButton size="sm" variant="danger" onClick={() => requestDeleteCriteria(c)}>DELETE</PixelButton>
+                            </div>
                           </div>
-                        </div>
+                        )}
                       </div>
                     ))}
                     <div style={{ padding: 14, background: C.surface, border: `1px solid ${C.border}` }}>
@@ -1139,28 +1390,48 @@ export function CoordEventsPage() {
                 {!auditLoading && !auditError && auditLogs.length === 0 && (
                   <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>No audit entries for this event yet.</div>
                 )}
-                {auditLogs.map(log => (
+                {auditLogs.length > 0 && (
+                  <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+                    <PixelButton size="sm" variant="ghost" onClick={() => setExpandedAudit(Object.fromEntries(auditLogs.map(l => [l.logId, true])))}>EXPAND ALL</PixelButton>
+                    <PixelButton size="sm" variant="ghost" onClick={() => setExpandedAudit({})}>COLLAPSE ALL</PixelButton>
+                  </div>
+                )}
+                {auditLogs.map(log => {
+                  const hasDetail = Boolean(log.reason || log.metadataJson);
+                  const open = !!expandedAudit[log.logId];
+                  return (
                   <div key={log.logId} style={{ padding: 12, background: C.surface2, border: `1px solid ${C.border}` }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                      <PixelBadge color="cyan">{log.action}</PixelBadge>
-                      <span style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}>
+                    <div
+                      onClick={() => hasDetail && setExpandedAudit(p => ({ ...p, [log.logId]: !open }))}
+                      style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", cursor: hasDetail ? "pointer" : "default" }}
+                    >
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+                        <span style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, width: 10, display: "inline-block", flexShrink: 0 }}>{hasDetail ? (open ? "▾" : "▸") : ""}</span>
+                        <PixelBadge color="cyan">{log.action}</PixelBadge>
+                        <span style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>
+                          {log.actorName ?? `User#${log.actorUserId}`}
+                          {log.targetType && (
+                            <span style={{ color: C.textMuted }}> · {log.targetType}{log.targetId != null ? `#${log.targetId}` : ""}</span>
+                          )}
+                        </span>
+                      </div>
+                      <span style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, flexShrink: 0 }}>
                         {new Date(log.createdAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
                       </span>
                     </div>
-                    <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, marginTop: 6 }}>
-                      {log.actorName ?? `User#${log.actorUserId}`}
-                      {log.targetType && (
-                        <span style={{ color: C.textMuted }}> · {log.targetType}{log.targetId != null ? `#${log.targetId}` : ""}</span>
-                      )}
-                    </div>
-                    {log.reason && (
-                      <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginTop: 4, fontStyle: "italic" }}>"{log.reason}"</div>
-                    )}
-                    {log.metadataJson && (
-                      <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, marginTop: 4, opacity: 0.8, wordBreak: "break-all" }}>{log.metadataJson}</div>
+                    {open && hasDetail && (
+                      <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${C.border}` }}>
+                        {log.reason && (
+                          <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontStyle: "italic" }}>"{log.reason}"</div>
+                        )}
+                        {log.metadataJson && (
+                          <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, marginTop: 4, opacity: 0.8, wordBreak: "break-all" }}>{log.metadataJson}</div>
+                        )}
+                      </div>
                     )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

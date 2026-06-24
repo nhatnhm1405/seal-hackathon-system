@@ -6,6 +6,7 @@ import { CheckCircle2, AlertTriangle, Info, LucideIcon } from "lucide-react";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { notificationsApi, Notification as ApiNotification } from "@/shared/apiClient";
 import { C } from "@/shared/components/PixelComponents";
+import { AnnouncementSplash } from "@/shared/components/AnnouncementSplash";
 
 // ── UI notification (mapped from the API NotificationResponse) ───────
 export type NotifKind = "info" | "success" | "warning";
@@ -298,6 +299,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const { currentUser } = useAuth();
   const [notifications, setNotifications] = useState<UINotification[]>([]);
   const [banners, setBanners] = useState<Banner[]>([]);
+  // Welcome-style splash for freshly-arrived announcement messages.
+  const [announceSplash, setAnnounceSplash] = useState<{ count: number; from: string } | null>(null);
   const [bellOpenSignal, setBellOpenSignal] = useState(0);
   const counterRef = useRef(0);
   // IDs already accounted for, so polling only banners genuinely new arrivals.
@@ -349,18 +352,32 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           return;
         }
 
-        // Surface every NEW arrival as a banner BEFORE it just sits in the bell.
+        // Surface every NEW arrival. Announcements (carry a sender) are aggregated
+        // into ONE welcome-style splash; everything else slides in as a banner.
         // Iterate oldest-first so the newest ends up on top of the stack.
         const fresh = list.filter(n => !seenIdsRef.current.has(n.notification_id));
+        const freshAnnouncements: UINotification[] = [];
         [...fresh].reverse().forEach(n => {
           seenIdsRef.current.add(n.notification_id);
-          if (!n.is_read) {
+          if (n.is_read) return;
+          if (n.from) {
+            freshAnnouncements.push(n);
+          } else {
             pushBanner({
               type: n.type, title: n.title, message: n.message,
               notificationId: n.notification_id,
             });
           }
         });
+        if (freshAnnouncements.length > 0) {
+          const senders = [...new Set(freshAnnouncements.map(a => a.from).filter(Boolean))] as string[];
+          const from = senders.length <= 1
+            ? (senders[0] ?? "a coordinator")
+            : senders.length === 2
+              ? `${senders[0]} and ${senders[1]}`
+              : `${senders[0]} and ${senders.length - 1} others`;
+          setAnnounceSplash({ count: freshAnnouncements.length, from });
+        }
       })
       .catch(() => { /* keep last known list on failure */ });
   }, [pushBanner]);
@@ -413,6 +430,13 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
       {children}
       <BannerContainer banners={banners} onDismiss={dismissBanner} onActivate={activateBanner} />
+      <AnnouncementSplash
+        open={announceSplash != null}
+        count={announceSplash?.count ?? 0}
+        from={announceSplash?.from ?? ""}
+        onView={() => { requestOpenBell(); setAnnounceSplash(null); }}
+        onClose={() => setAnnounceSplash(null)}
+      />
     </NotificationContext.Provider>
   );
 }

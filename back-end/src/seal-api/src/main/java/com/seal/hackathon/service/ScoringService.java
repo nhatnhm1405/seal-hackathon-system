@@ -58,6 +58,63 @@ public class ScoringService {
         return mapCriteriaToResponse(criteria);
     }
 
+    // ── Coordinator: update a criteria (partial) ─────────────────────
+
+    @Transactional
+    public ScoringCriteriaResponse updateCriteria(Integer eventId, Integer roundId,
+                                                  Integer criteriaId, CreateCriteriaRequest request) {
+        ScoringCriteria criteria = findCriteriaInRound(eventId, roundId, criteriaId);
+
+        if (request.getName() != null && !request.getName().isBlank()) {
+            criteria.setName(request.getName().trim());
+        }
+        if (request.getDescription() != null) {
+            criteria.setDescription(request.getDescription());
+        }
+        if (request.getWeight() != null) {
+            criteria.setWeight(request.getWeight());
+        }
+        if (request.getMaxScore() != null) {
+            criteria.setMaxScore(request.getMaxScore());
+        }
+        if (request.getOrderNumber() != null) {
+            criteria.setOrderNumber(request.getOrderNumber());
+        }
+
+        criteria = criteriaRepository.save(criteria);
+        return mapCriteriaToResponse(criteria);
+    }
+
+    // ── Coordinator: delete a criteria ───────────────────────────────
+
+    @Transactional
+    public void deleteCriteria(Integer eventId, Integer roundId, Integer criteriaId) {
+        ScoringCriteria criteria = findCriteriaInRound(eventId, roundId, criteriaId);
+
+        if (scoreRepository.existsByCriteria_CriteriaId(criteriaId)) {
+            throw new BadRequestException(
+                    "Cannot delete this criteria — judges have already scored it. "
+                            + "Remove the scores first or keep the criteria.");
+        }
+
+        criteriaRepository.delete(criteria);
+    }
+
+    // Loads a criteria and asserts it belongs to the given round + event.
+    private ScoringCriteria findCriteriaInRound(Integer eventId, Integer roundId, Integer criteriaId) {
+        ScoringCriteria criteria = criteriaRepository.findById(criteriaId)
+                .orElseThrow(() -> new ResourceNotFoundException("Criteria not found: " + criteriaId));
+        boolean roundMatches = criteria.getRound() != null
+                && roundId.equals(criteria.getRound().getRoundId());
+        boolean eventMatches = criteria.getEvent() != null
+                && eventId.equals(criteria.getEvent().getEventId());
+        if (!roundMatches || !eventMatches) {
+            throw new ResourceNotFoundException(
+                    "Criteria " + criteriaId + " not found in round " + roundId + " of event " + eventId);
+        }
+        return criteria;
+    }
+
     // ── Judge: submit scores (batch) ──────────────────────────────────
 
     @Transactional

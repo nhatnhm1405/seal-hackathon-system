@@ -101,30 +101,35 @@ public class RoundResultService {
             teamScores.put(submission.getTeam().getTeamId(), avg);
         }
 
-        // Sort teams by score descending
-        List<Map.Entry<Integer, BigDecimal>> ranked = new ArrayList<>(teamScores.entrySet());
-        ranked.sort((a, b) -> b.getValue().compareTo(a.getValue()));
-
         List<RoundResult> results = new ArrayList<>();
         Map<Integer, Submission> subByTeam = submissions.stream()
                 .collect(Collectors.toMap(s -> s.getTeam().getTeamId(), s -> s));
 
-        for (int i = 0; i < ranked.size(); i++) {
-            Integer teamId = ranked.get(i).getKey();
-            BigDecimal score = ranked.get(i).getValue();
-            int rank = i + 1;
-
-            Submission sub = subByTeam.get(teamId);
-            RoundResult result = RoundResult.builder()
-                    .team(sub.getTeam())
-                    .round(round)
-                    .totalScore(score)
-                    .rankPosition(rank)
-                    .isPublished(false)
-                    .finalizedAt(LocalDateTime.now())
-                    .finalizedBy(coordinator)
-                    .build();
-            results.add(resultRepository.save(result));
+        if (Boolean.TRUE.equals(round.getIsFinal())) {
+            // Final round — one global ranking across all teams (no per-track split).
+            List<Map.Entry<Integer, BigDecimal>> ranked = new ArrayList<>(teamScores.entrySet());
+            ranked.sort((a, b) -> b.getValue().compareTo(a.getValue()));
+            for (int i = 0; i < ranked.size(); i++) {
+                Map.Entry<Integer, BigDecimal> e = ranked.get(i);
+                results.add(saveResult(round, coordinator, subByTeam.get(e.getKey()), e.getValue(), i + 1));
+            }
+        } else {
+            // Per-track round — rank teams within each track separately so the cut-off
+            // (rank_position <= top_n_advance) means "top N of THIS track advance". Teams
+            // with no track fall into a single null bucket. Preserves track encounter order.
+            Map<Integer, List<Map.Entry<Integer, BigDecimal>>> byTrack = new LinkedHashMap<>();
+            for (Map.Entry<Integer, BigDecimal> entry : teamScores.entrySet()) {
+                Track track = subByTeam.get(entry.getKey()).getTeam().getTrack();
+                Integer trackId = track != null ? track.getTrackId() : null;
+                byTrack.computeIfAbsent(trackId, k -> new ArrayList<>()).add(entry);
+            }
+            for (List<Map.Entry<Integer, BigDecimal>> group : byTrack.values()) {
+                group.sort((a, b) -> b.getValue().compareTo(a.getValue()));
+                for (int i = 0; i < group.size(); i++) {
+                    Map.Entry<Integer, BigDecimal> e = group.get(i);
+                    results.add(saveResult(round, coordinator, subByTeam.get(e.getKey()), e.getValue(), i + 1));
+                }
+            }
         }
 
         // Update round status to FINALIZED
@@ -167,6 +172,20 @@ public class RoundResultService {
     }
 
     // ── Helper ────────────────────────────────────────────────────────
+
+    private RoundResult saveResult(Round round, User coordinator, Submission sub,
+                                   BigDecimal score, int rank) {
+        RoundResult result = RoundResult.builder()
+                .team(sub.getTeam())
+                .round(round)
+                .totalScore(score)
+                .rankPosition(rank)
+                .isPublished(false)
+                .finalizedAt(LocalDateTime.now())
+                .finalizedBy(coordinator)
+                .build();
+        return resultRepository.save(result);
+    }
 
     private RoundResultResponse mapToResponse(RoundResult r) {
         return RoundResultResponse.builder()
