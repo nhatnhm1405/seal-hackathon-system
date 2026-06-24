@@ -11,6 +11,7 @@ import {
   normalizeEvent, eventStatusBadge, eventMeta, nextStatusActions, statusChangeCopy, pickDefaultEvent, EventsListCard,
 } from "@/features/events/eventUtils";
 import { maxTeamsPerTrack, countAssigned, countUnassigned, teamsForTrack, isTrackValid, wouldExceedMax, canCompleteSetup, MIN_TEAMS_PER_TRACK } from "@/features/events/trackStats";
+import { TrackProblemsTab } from "@/features/events/TrackProblemPanel";
 import { DndProvider, useDrag, useDrop } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 
@@ -755,6 +756,11 @@ export function CoordEventsPage() {
   // SETUP is the only phase where the coordinator manually moves teams: drag-drop,
   // track removal and the start-event gate all key off this.
   const isSetup = selectedEvent?.status === 'SETUP';
+  // "Đề thi" per track: visible from SETUP onward; upload/release/remove only while
+  // the event is being set up or run (mirrors TrackProblemService on the backend).
+  const showProblems = showTrackStats;
+  const canManageProblems = !!selectedEvent
+    && (selectedEvent.status === 'SETUP' || selectedEvent.status === 'IN_PROGRESS');
 
   return (
     <DndProvider backend={HTML5Backend}>
@@ -837,6 +843,7 @@ export function CoordEventsPage() {
             tabs={[
               { id: "tracks", label: "Tracks" },
               { id: "rounds", label: "Rounds" },
+              { id: "problems", label: "Problems" },
               { id: "criteria", label: "Criteria" },
               { id: "audit", label: "Audit" },
             ]}
@@ -1018,6 +1025,20 @@ export function CoordEventsPage() {
                   <div style={{ padding: 12, background: C.surface, border: `1px dashed ${C.border}`, color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, lineHeight: 1.6 }}>
                     {`Tracks can only be created while the event is in DRAFT or OPEN (current: ${selectedEvent.status}).`}
                   </div>
+                )}
+              </div>
+            )}
+
+            {/* Problems tab — dedicated "đề thi" import per track, kept out of the
+                Tracks tab so that view stays focused on team assignment. */}
+            {detailTab === "problems" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {!showProblems ? (
+                  <div style={{ padding: 12, background: C.surface, border: `1px dashed ${C.border}`, color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, lineHeight: 1.6 }}>
+                    {`Problem import unlocks once registration closes (event in SETUP). Current: ${selectedEvent.status}.`}
+                  </div>
+                ) : (
+                  <TrackProblemsTab eventId={selectedEvent.eventId} canManage={canManageProblems} />
                 )}
               </div>
             )}
