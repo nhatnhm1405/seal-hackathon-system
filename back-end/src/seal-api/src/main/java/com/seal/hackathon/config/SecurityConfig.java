@@ -130,6 +130,8 @@ public class SecurityConfig {
 
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
+        // Let the browser read the file name from downloads (track "đề thi", exports).
+        config.setExposedHeaders(List.of("Content-Disposition"));
 
         // Required if frontend sends cookies (not needed for JWT but good practice)
         config.setAllowCredentials(true);
