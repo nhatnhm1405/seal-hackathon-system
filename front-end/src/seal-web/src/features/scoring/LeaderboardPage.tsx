@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, Fragment } from "react";
 import { useAuth } from "@/app/providers/AuthProvider";
 import {
   C, GradientText, PixelCard, PixelBadge,
@@ -83,6 +83,24 @@ export function LeaderboardPage() {
   const rows = (trackFilter ? results.filter(r => r.trackName === trackFilter) : results)
     .slice().sort((a, b) => a.rankPosition - b.rankPosition);
 
+  const selectedRound = rounds.find(r => r.roundId === selectedRoundId);
+  const isFinalRound = selectedRound?.isFinal ?? false;
+  const topN = selectedRound?.topNAdvance ?? null;
+
+  // Per-track rounds advance Top N within each track (backend ranks per track), so
+  // group the rows by track. The final round stays a single global table.
+  const rankGroups: { key: string; trackName: string | null; rows: RoundResult[] }[] = isFinalRound
+    ? [{ key: "all", trackName: null, rows }]
+    : (() => {
+        const m = new Map<string, RoundResult[]>();
+        for (const r of rows) {
+          const k = r.trackName ?? "—";
+          if (!m.has(k)) m.set(k, []);
+          m.get(k)!.push(r);
+        }
+        return [...m.entries()].map(([k, gr]) => ({ key: k, trackName: k === "—" ? null : k, rows: gr }));
+      })();
+
   return (
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
       <div>
@@ -135,40 +153,71 @@ export function LeaderboardPage() {
         </PixelCard>
       ) : (
         <PixelCard glow gradient style={{ padding: 0, overflow: "hidden" }}>
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'JetBrains Mono', monospace" }}>
-              <thead>
-                <tr style={{ background: C.surface2, borderBottom: `1px solid ${C.border}` }}>
-                  {["Rank", "Team", "Track", "Total Score", "Status"].map(h => (
-                    <th key={h} style={{ color: C.green, fontSize: 10, letterSpacing: "0.12em", textAlign: "left", padding: "14px 16px", fontWeight: 600, textTransform: "uppercase" }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r, i) => {
-                  const isMyTeam = currentUser?.team_id === r.teamId;
-                  return (
-                    <tr key={r.resultId} style={{
-                      borderBottom: `1px solid rgba(34,197,94,0.06)`,
-                      background: isMyTeam ? "rgba(34,197,94,0.12)" : i % 2 === 0 ? C.surface : C.surface2,
-                      boxShadow: isMyTeam ? `inset 3px 0 0 ${C.green}` : "none",
-                    }}>
-                      <td style={{ color: C.cyan, fontSize: 16, fontWeight: 700, padding: "14px 16px" }}>#{r.rankPosition}</td>
-                      <td style={{ color: C.text, fontSize: 13, padding: "14px 16px", fontWeight: 600 }}>
-                        {r.teamName}
-                        {isMyTeam && <span style={{ marginLeft: 8 }}><PixelBadge color="green">YOU</PixelBadge></span>}
-                      </td>
-                      <td style={{ color: C.textMuted, fontSize: 12, padding: "14px 16px" }}>{r.trackName ?? "—"}</td>
-                      <td style={{ color: C.green, fontSize: 14, fontWeight: 700, padding: "14px 16px" }}>{Number(r.totalScore).toFixed(1)}</td>
-                      <td style={{ padding: "14px 16px" }}>
-                        <PixelBadge color={r.advanced ? "green" : "gray"}>{r.advanced ? "Advanced" : "—"}</PixelBadge>
-                      </td>
+          {rankGroups.map((g) => {
+            const gAdvancing = g.rows.filter(r => r.advanced).length;
+            return (
+            <div key={g.key}>
+              {!isFinalRound && g.trackName && (
+                <div style={{ padding: "10px 16px", borderBottom: `1px solid ${C.border}`, background: "rgba(34,197,94,0.05)", fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 700, color: C.green, letterSpacing: "0.04em" }}>
+                  ▸ {g.trackName}
+                </div>
+              )}
+              {topN != null && (
+                <div style={{ padding: "10px 16px", borderBottom: `1px solid ${C.border}`, background: "rgba(13,17,23,0.4)", fontFamily: "'JetBrains Mono', monospace", fontSize: 12, color: C.text }}>
+                  {isFinalRound ? "Winners: " : "Cut-off: "}<span style={{ color: C.green, fontWeight: 700 }}>Top {topN}</span>
+                  {" · "}<span style={{ color: C.green, fontWeight: 700 }}>{gAdvancing}</span> of {g.rows.length} {isFinalRound ? "win (overall)" : `advance${g.trackName ? " in this track" : ""}`}
+                </div>
+              )}
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'JetBrains Mono', monospace" }}>
+                  <thead>
+                    <tr style={{ background: C.surface2, borderBottom: `1px solid ${C.border}` }}>
+                      {["Rank", "Team", "Track", "Total Score", "Status"].map(h => (
+                        <th key={h} style={{ color: C.green, fontSize: 10, letterSpacing: "0.12em", textAlign: "left", padding: "14px 16px", fontWeight: 600, textTransform: "uppercase" }}>{h}</th>
+                      ))}
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                  </thead>
+                  <tbody>
+                    {g.rows.map((r, i) => {
+                      const isMyTeam = currentUser?.team_id === r.teamId;
+                      const next = g.rows[i + 1];
+                      const showCutLine = r.advanced && next != null && !next.advanced;
+                      return (
+                        <Fragment key={r.resultId}>
+                        <tr style={{
+                          borderBottom: `1px solid rgba(34,197,94,0.06)`,
+                          background: isMyTeam ? "rgba(34,197,94,0.12)" : r.advanced ? "rgba(34,197,94,0.06)" : i % 2 === 0 ? C.surface : C.surface2,
+                          boxShadow: isMyTeam ? `inset 3px 0 0 ${C.green}` : "none",
+                        }}>
+                          <td style={{ color: C.cyan, fontSize: 16, fontWeight: 700, padding: "14px 16px" }}>#{r.rankPosition}</td>
+                          <td style={{ color: C.text, fontSize: 13, padding: "14px 16px", fontWeight: 600 }}>
+                            {r.teamName}
+                            {isMyTeam && <span style={{ marginLeft: 8 }}><PixelBadge color="green">YOU</PixelBadge></span>}
+                          </td>
+                          <td style={{ color: C.textMuted, fontSize: 12, padding: "14px 16px" }}>{r.trackName ?? "—"}</td>
+                          <td style={{ color: C.green, fontSize: 14, fontWeight: 700, padding: "14px 16px" }}>{Number(r.totalScore).toFixed(1)}</td>
+                          <td style={{ padding: "14px 16px" }}>
+                            <PixelBadge color={r.advanced ? "green" : "gray"}>{r.advanced ? (isFinalRound ? "Winner" : "Advanced") : "—"}</PixelBadge>
+                          </td>
+                        </tr>
+                        {showCutLine && (
+                          <tr>
+                            <td colSpan={5} style={{ padding: 0 }}>
+                              <div style={{ borderTop: `2px dashed ${C.green}`, padding: "3px 16px", color: C.green, fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", background: "rgba(34,197,94,0.05)" }}>
+                                ▲ Top {topN} {isFinalRound ? "win" : "advance"} · cut-off line ▼
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                        </Fragment>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            );
+          })}
         </PixelCard>
       )}
     </div>
