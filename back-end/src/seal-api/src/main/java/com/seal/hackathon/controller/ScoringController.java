@@ -44,6 +44,27 @@ public class ScoringController {
                 scoringService.createCriteria(eventId, roundId, request)));
     }
 
+    @PutMapping("/events/{eventId}/rounds/{roundId}/criteria/{criteriaId}")
+    @PreAuthorize("hasRole('EVENT_COORDINATOR')")
+    public ResponseEntity<ApiResponse<ScoringCriteriaResponse>> updateCriteria(
+            @PathVariable Integer eventId,
+            @PathVariable Integer roundId,
+            @PathVariable Integer criteriaId,
+            @RequestBody CreateCriteriaRequest request) {
+        return ResponseEntity.ok(ApiResponse.success("Criteria updated successfully.",
+                scoringService.updateCriteria(eventId, roundId, criteriaId, request)));
+    }
+
+    @DeleteMapping("/events/{eventId}/rounds/{roundId}/criteria/{criteriaId}")
+    @PreAuthorize("hasRole('EVENT_COORDINATOR')")
+    public ResponseEntity<ApiResponse<Void>> deleteCriteria(
+            @PathVariable Integer eventId,
+            @PathVariable Integer roundId,
+            @PathVariable Integer criteriaId) {
+        scoringService.deleteCriteria(eventId, roundId, criteriaId);
+        return ResponseEntity.ok(ApiResponse.success("Criteria deleted successfully."));
+    }
+
     // ── Scores ────────────────────────────────────────────────────────
 
     @PostMapping("/scores")
