@@ -82,3 +82,7 @@ UPDATE Submission SET description =
 WHERE submission_id = 12;
 
 -- Done. 12 Spring submissions now carry descriptions for the AI Judge Assistant.
+--
+-- NOTE: to demo the REPOSITORY ANALYSIS block (AI reading a real GitHub repo),
+-- run seal_demo_ai_repo.sql AFTER this file — it points a few submissions at real
+-- public repos. See that file's header for the demo script.

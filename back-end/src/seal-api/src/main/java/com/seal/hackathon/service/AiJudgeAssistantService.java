@@ -2,6 +2,7 @@ package com.seal.hackathon.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.seal.hackathon.dto.RepoDigest;
 import com.seal.hackathon.dto.response.AiInsightResponse;
 import com.seal.hackathon.entity.ScoringCriteria;
 import com.seal.hackathon.entity.Submission;
@@ -17,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -41,6 +43,7 @@ public class AiJudgeAssistantService {
 
     private final SubmissionRepository submissionRepository;
     private final ScoringCriteriaRepository scoringCriteriaRepository;
+    private final GitHubRepoService gitHubRepoService;
     // Constructed directly (not injected): Spring Boot 4's webmvc starter does not
     // expose an ObjectMapper bean by default, and a plain mapper is all we need
     // for parsing Gemini's JSON. The initializer also excludes it from the
@@ -83,12 +86,94 @@ public class AiJudgeAssistantService {
         List<ScoringCriteria> criteria = scoringCriteriaRepository
                 .findAllByRound_RoundIdOrderByOrderNumber(submission.getRound().getRoundId());
 
-        String prompt = buildPrompt(submission, criteria);
+        // Read the participant's GitHub repo (anonymized). Never throws: on any
+        // problem the digest reports analyzed=false and we fall back to text-only.
+        RepoDigest digest = gitHubRepoService.analyze(submission.getRepoUrl());
+
+        String prompt = buildPrompt(submission, criteria, digest);
         String rawJson = callGemini(prompt);
         AiInsightResponse insight = parseInsight(rawJson);
+        insight.setRepo(buildRepoAnalysis(digest));
         insight.setDisclaimer(DISCLAIMER);
         insight.setModel(model);
         return insight;
+    }
+
+    // ── Repo analysis block (deterministic, built from real GitHub data) ──
+
+    /**
+     * Turn the GitHub digest into the response's {@code repo} block. These are
+     * facts read straight from GitHub (not the model), so a judge can trust the
+     * tech stack / signals / red flags without worrying about hallucination.
+     */
+    // Static + package-private: pure mapping from digest → response block, unit-tested directly.
+    static AiInsightResponse.RepoAnalysis buildRepoAnalysis(RepoDigest d) {
+        if (d == null || !d.isAnalyzed()) {
+            return AiInsightResponse.RepoAnalysis.builder()
+                    .analyzed(false)
+                    .note(d == null ? "Không phân tích được repository." : d.getNote())
+                    .techStack(List.of())
+                    .signals(List.of())
+                    .redFlags(List.of())
+                    .build();
+        }
+
+        List<String> signals = new ArrayList<>();
+        if (d.isHasReadme()) signals.add("Có README");
+        if (d.isHasTests()) signals.add("Có bộ test tự động");
+        if (d.isHasCi()) signals.add("Có CI/CD (tự động build/kiểm thử)");
+        if (d.isHasDocs()) signals.add("Có tài liệu (thư mục docs hoặc nhiều file .md)");
+        if (d.getManifests() != null && !d.getManifests().isEmpty()) {
+            signals.add("Quản lý dependency: " + String.join(", ", d.getManifests()));
+        }
+        if (d.getLicense() != null) signals.add("Giấy phép: " + d.getLicense());
+        if (d.getCommitCount() != null) {
+            signals.add(commitSignal(d));
+        }
+        if (d.getFileCount() > 0) signals.add(d.getFileCount() + " file trong repo");
+
+        List<String> redFlags = new ArrayList<>();
+        if (d.isFork()) {
+            redFlags.add("Repo là một bản FORK — cần xác minh phần code do đội tự viết.");
+        }
+        if (d.isArchived()) {
+            redFlags.add("Repo đã được ARCHIVE (đóng băng).");
+        }
+        if (d.getFileCount() <= 2 || d.getSizeKb() == 0) {
+            redFlags.add("Repo gần như TRỐNG — rất ít nội dung mã nguồn.");
+        }
+        if (!d.isHasReadme()) {
+            redFlags.add("Không có README mô tả dự án.");
+        }
+        if (d.getCommitCount() != null && d.getCommitCount() <= 2) {
+            redFlags.add("Toàn bộ code dồn trong " + d.getCommitCount()
+                    + " commit — có thể là upload một lần, không phản ánh quá trình làm việc.");
+        } else if (d.getCommitCount() != null && d.getCommitCount() > 2
+                && d.getFirstCommitDate() != null
+                && d.getFirstCommitDate().equals(d.getLastCommitDate())) {
+            redFlags.add("Tất cả commit nằm trong cùng một ngày (" + d.getLastCommitDate() + ").");
+        }
+
+        return AiInsightResponse.RepoAnalysis.builder()
+                .analyzed(true)
+                .note(null)
+                .techStack(d.getLanguages() == null ? List.of() : d.getLanguages())
+                .signals(signals)
+                .redFlags(redFlags)
+                .build();
+    }
+
+    private static String commitSignal(RepoDigest d) {
+        StringBuilder sb = new StringBuilder(d.getCommitCount() + " commit");
+        if (d.getFirstCommitDate() != null && d.getLastCommitDate() != null) {
+            if (d.getFirstCommitDate().equals(d.getLastCommitDate())) {
+                sb.append(" (").append(d.getLastCommitDate()).append(")");
+            } else {
+                sb.append(" (").append(d.getFirstCommitDate())
+                  .append(" → ").append(d.getLastCommitDate()).append(")");
+            }
+        }
+        return sb.toString();
     }
 
     private Submission findReadableSubmission(Integer requesterId, Set<String> authorities, Integer submissionId) {
@@ -109,15 +194,18 @@ public class AiJudgeAssistantService {
 
     // ── Prompt ──────────────────────────────────────────────────────────
 
-    private String buildPrompt(Submission s, List<ScoringCriteria> criteria) {
+    private String buildPrompt(Submission s, List<ScoringCriteria> criteria, RepoDigest digest) {
         StringBuilder sb = new StringBuilder();
         sb.append("Bạn là trợ lý chấm điểm cho một cuộc thi hackathon kỹ thuật phần mềm. ")
-          .append("Hãy đọc bài nộp dưới đây và đưa ra nhận định khách quan, ngắn gọn, bằng tiếng Việt, ")
-          .append("giúp giám khảo định hướng trước khi tự chấm điểm.\n\n")
+          .append("Hãy đọc bài nộp dưới đây — GỒM CẢ DỮ LIỆU MÃ NGUỒN TỪ REPOSITORY — và đưa ra nhận định ")
+          .append("khách quan, ngắn gọn, bằng tiếng Việt, giúp giám khảo định hướng trước khi tự chấm điểm.\n\n")
           .append("QUAN TRỌNG:\n")
-          .append("- Việc chấm điểm là ẩn danh: KHÔNG suy đoán hay bịa ra tên đội, tên thành viên, trường học.\n")
+          .append("- Việc chấm điểm là ẩn danh: KHÔNG suy đoán hay bịa ra tên đội, tên thành viên, trường học. ")
+          .append("Nếu README hay code có chứa tên người, TUYỆT ĐỐI không nhắc lại trong câu trả lời.\n")
           .append("- KHÔNG tự quyết định điểm cuối cùng; chỉ gợi ý khoảng điểm tham khảo.\n")
-          .append("- Nếu thông tin thiếu, hãy nói rõ là chưa đủ dữ liệu thay vì bịa đặt.\n\n");
+          .append("- Hãy bám vào DỮ LIỆU REPOSITORY thật được cung cấp (cấu trúc thư mục, tech stack, README). ")
+          .append("Nếu mã nguồn có vẻ KHÔNG khớp với mô tả dự án, hãy nêu trong phần 'concerns'.\n")
+          .append("- Nếu thông tin thiếu hoặc không đọc được repo, hãy nói rõ là chưa đủ dữ liệu thay vì bịa đặt.\n\n");
 
         sb.append("THÔNG TIN BÀI NỘP\n");
         sb.append("Vòng thi: ").append(safe(s.getRound().getName())).append("\n");
@@ -125,6 +213,8 @@ public class AiJudgeAssistantService {
         sb.append("Repository: ").append(isBlank(s.getRepoUrl()) ? "(không có)" : s.getRepoUrl()).append("\n");
         sb.append("Demo: ").append(isBlank(s.getDemoUrl()) ? "(không có)" : s.getDemoUrl()).append("\n");
         sb.append("Slide/Báo cáo: ").append(isBlank(s.getSlideUrl()) ? "(không có)" : s.getSlideUrl()).append("\n\n");
+
+        appendRepoSection(sb, digest);
 
         sb.append("TIÊU CHÍ CHẤM ĐIỂM CỦA VÒNG NÀY\n");
         if (criteria.isEmpty()) {
@@ -152,6 +242,48 @@ public class AiJudgeAssistantService {
           .append("suggestedScoreRange phải nằm trong khoảng từ 0 đến điểm tối đa của tiêu chí đó.");
 
         return sb.toString();
+    }
+
+    /** Append the anonymized GitHub repo digest so the model grounds its reading in real code. */
+    private void appendRepoSection(StringBuilder sb, RepoDigest d) {
+        sb.append("DỮ LIỆU MÃ NGUỒN TỪ REPOSITORY (đã ẩn danh — không chứa tên tác giả)\n");
+        if (d == null || !d.isAnalyzed()) {
+            sb.append("(Không đọc được mã nguồn: ")
+              .append(d == null || isBlank(d.getNote()) ? "không rõ lý do" : d.getNote())
+              .append(". Chỉ phân tích dựa trên mô tả và liên kết.)\n\n");
+            return;
+        }
+
+        if (!isBlank(d.getDescription())) {
+            sb.append("Mô tả trên GitHub: ").append(d.getDescription().trim()).append("\n");
+        }
+        if (d.getLanguages() != null && !d.getLanguages().isEmpty()) {
+            sb.append("Ngôn ngữ/tech stack: ").append(String.join(", ", d.getLanguages())).append("\n");
+        }
+        if (d.getManifests() != null && !d.getManifests().isEmpty()) {
+            sb.append("Manifest dependency: ").append(String.join(", ", d.getManifests())).append("\n");
+        }
+        sb.append("Cấu trúc: ")
+          .append(d.isHasTests() ? "có test, " : "không thấy test, ")
+          .append(d.isHasCi() ? "có CI/CD, " : "không có CI/CD, ")
+          .append(d.isHasDocs() ? "có docs, " : "ít/không có docs, ")
+          .append(d.isHasReadme() ? "có README" : "không có README").append("\n");
+        if (d.isFork()) sb.append("LƯU Ý: repo này là một bản FORK.\n");
+        if (d.getCommitCount() != null) {
+            sb.append("Số commit: ").append(d.getCommitCount());
+            if (d.getFirstCommitDate() != null && d.getLastCommitDate() != null) {
+                sb.append(" (từ ").append(d.getFirstCommitDate())
+                  .append(" đến ").append(d.getLastCommitDate()).append(")");
+            }
+            sb.append("\n");
+        }
+        if (d.getTopLevelEntries() != null && !d.getTopLevelEntries().isEmpty()) {
+            sb.append("Thư mục/file gốc: ").append(String.join(", ", d.getTopLevelEntries())).append("\n");
+        }
+        if (!isBlank(d.getReadmeExcerpt())) {
+            sb.append("\n--- TRÍCH README ---\n").append(d.getReadmeExcerpt()).append("\n--- HẾT README ---\n");
+        }
+        sb.append("\n");
     }
 
     // ── Gemini call ─────────────────────────────────────────────────────
@@ -183,7 +315,10 @@ public class AiJudgeAssistantService {
                 break; // success
             } catch (RestClientResponseException e) {
                 int status = e.getStatusCode().value();
-                if ((status == 503 || status == 429) && attempt < MAX_ATTEMPTS) {
+                // Only retry on 503 (transient overload). A 429 means the quota is
+                // exhausted — retrying would just burn more quota without helping, so
+                // fail fast and let the caller switch model / wait / enable billing.
+                if (status == 503 && attempt < MAX_ATTEMPTS) {
                     sleepQuietly(attempt * 1500L);
                     lastError = e;
                     continue;
