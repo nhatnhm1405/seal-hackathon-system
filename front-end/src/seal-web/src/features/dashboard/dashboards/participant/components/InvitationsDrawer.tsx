@@ -83,7 +83,7 @@ export function InvitationsDrawer({ onClose }: { onClose: () => void }) {
             await joinRequestsApi.send(team.teamId);
             setResults(prev => prev.map(t => t.teamId === team.teamId ? { ...t, alreadyRequested: true } : t));
             loadRequests();
-            addToast({ type: "success", title: "Request sent", message: `Your request to join "${team.name}" was sent.` });
+            addToast({ type: "success", title: "Request sent", message: `Your request to join "${team.teamName}" was sent.` });
         } catch (err) {
             setError(err instanceof ApiError ? err.message : "Failed to send join request.");
             addToast({ type: "warning", title: "Request failed", message: apiErrorMessage(err, "Failed to send join request.") });
