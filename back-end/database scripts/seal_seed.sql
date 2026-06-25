@@ -54,7 +54,7 @@ INSERT IGNORE INTO Role (role_id, role_name, description) VALUES
 
 
 -- =====================================================
--- 2. USER  (user_id 1-27)
+-- 2. USER  (user_id 1-43)
 -- user_type : 'FPT_STUDENT' | 'EXTERNAL_STUDENT' | 'STAFF'
 -- judge_type: 'INTERNAL' | 'GUEST' | NULL   (only set for users who judge)
 -- =====================================================
@@ -194,7 +194,92 @@ INSERT INTO `User` (user_id, email, password_hash, full_name, user_type, judge_t
   -- user_id 27: STAFF — Mentor for event 2
   (27, 'mentor.hung@fpt.edu.vn',
    '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
-   'Nguyen Minh Hung', 'STAFF', NULL, NULL, NULL, TRUE, TRUE);
+   'Nguyen Minh Hung', 'STAFF', NULL, NULL, NULL, TRUE, TRUE),
+
+  -- ── Event 2 extra teams (14-17) participants ──
+  -- Team Aurora (team 14)
+  -- user_id 28: FPT_STUDENT leader
+  (28, 'leader9@fpt.edu.vn',
+   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   'Tran Van Son', 'FPT_STUDENT', NULL, 'SE211020', NULL, TRUE, TRUE),
+
+  -- user_id 29: FPT_STUDENT member
+  (29, 'member11@fpt.edu.vn',
+   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   'Nguyen Thi Hang', 'FPT_STUDENT', NULL, 'HE211021', NULL, TRUE, TRUE),
+
+  -- user_id 30: EXTERNAL_STUDENT member (HCMUT)
+  (30, 'member12@hcmut.edu.vn',
+   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   'Le Van Khoa', 'EXTERNAL_STUDENT', NULL, 'BK2100222', 'HCMUT', TRUE, TRUE),
+
+  -- user_id 31: FPT_STUDENT member
+  (31, 'member13@fpt.edu.vn',
+   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   'Pham Thi Yen', 'FPT_STUDENT', NULL, 'DE211022', NULL, TRUE, TRUE),
+
+  -- user_id 32: EXTERNAL_STUDENT member (UIT)
+  (32, 'member14@uit.edu.vn',
+   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   'Vo Van Tai', 'EXTERNAL_STUDENT', NULL, 'UIT2100302', 'UIT', TRUE, TRUE),
+
+  -- Team Specter (team 15)
+  -- user_id 33: FPT_STUDENT leader
+  (33, 'leader10@fpt.edu.vn',
+   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   'Hoang Van Tan', 'FPT_STUDENT', NULL, 'SE211023', NULL, TRUE, TRUE),
+
+  -- user_id 34: FPT_STUDENT member
+  (34, 'member15@fpt.edu.vn',
+   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   'Do Thi Mai', 'FPT_STUDENT', NULL, 'HE211024', NULL, TRUE, TRUE),
+
+  -- user_id 35: EXTERNAL_STUDENT member (HCMUT)
+  (35, 'member16@hcmut.edu.vn',
+   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   'Ngo Van Hai', 'EXTERNAL_STUDENT', NULL, 'BK2100223', 'HCMUT', TRUE, TRUE),
+
+  -- user_id 36: FPT_STUDENT member
+  (36, 'member17@fpt.edu.vn',
+   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   'Bui Van Long', 'FPT_STUDENT', NULL, 'CE211025', NULL, TRUE, TRUE),
+
+  -- Team Quantum (team 16)
+  -- user_id 37: EXTERNAL_STUDENT leader (HCMUT)
+  (37, 'leader11@hcmut.edu.vn',
+   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   'Tran Van Phu', 'EXTERNAL_STUDENT', NULL, 'BK2100224', 'HCMUT', TRUE, TRUE),
+
+  -- user_id 38: EXTERNAL_STUDENT member (HCMUT)
+  (38, 'member18@hcmut.edu.vn',
+   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   'Le Thi Thao', 'EXTERNAL_STUDENT', NULL, 'BK2100225', 'HCMUT', TRUE, TRUE),
+
+  -- user_id 39: FPT_STUDENT member
+  (39, 'member19@fpt.edu.vn',
+   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   'Nguyen Van Vu', 'FPT_STUDENT', NULL, 'SE211026', NULL, TRUE, TRUE),
+
+  -- Team Zephyr (team 17)
+  -- user_id 40: FPT_STUDENT leader
+  (40, 'leader12@fpt.edu.vn',
+   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   'Dang Van Hieu', 'FPT_STUDENT', NULL, 'SE211027', NULL, TRUE, TRUE),
+
+  -- user_id 41: FPT_STUDENT member
+  (41, 'member20@fpt.edu.vn',
+   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   'Pham Thi Linh', 'FPT_STUDENT', NULL, 'HE211028', NULL, TRUE, TRUE),
+
+  -- user_id 42: EXTERNAL_STUDENT member (UIT)
+  (42, 'member21@uit.edu.vn',
+   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   'Vo Thi Ngoc', 'EXTERNAL_STUDENT', NULL, 'UIT2100303', 'UIT', TRUE, TRUE),
+
+  -- user_id 43: FPT_STUDENT member
+  (43, 'member22@fpt.edu.vn',
+   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   'Nguyen Van Dung', 'FPT_STUDENT', NULL, 'CE211029', NULL, TRUE, TRUE);
 
 
 -- =====================================================
@@ -348,7 +433,7 @@ INSERT INTO MentorAssignment (mentor_user_id, track_id) VALUES
 
 
 -- =====================================================
--- 7. TEAM  (team_id 1-13)
+-- 7. TEAM  (team_id 1-17)
 -- =====================================================
 -- Event 1 — Spring (team 1-5). track 1=Web, 2=Mobile, 3=AI
 INSERT INTO Team (event_id, track_id, name, description, status) VALUES
@@ -358,7 +443,7 @@ INSERT INTO Team (event_id, track_id, name, description, status) VALUES
   (1, 3, 'Team Eagle',   'AI cham diem bai tap tu dong',          'APPROVED'),  -- team 4
   (1, 1, 'Team Falcon',  'Web marketplace trao doi sach cu',      'APPROVED');  -- team 5
 
--- Event 2 — Summer (team 6-13): ALL register WITHOUT a track (track_id = NULL).
+-- Event 2 — Summer (team 6-17): ALL register WITHOUT a track (track_id = NULL).
 -- Track is assigned during SETUP: leaders self-select (SELF_SELECT mode) or the
 -- coordinator draws (RANDOM mode) via POST /api/teams/event/2/draw-tracks.
 -- Mix of APPROVED/PENDING so the approval step can be demoed — only APPROVED teams
@@ -371,7 +456,11 @@ INSERT INTO Team (event_id, track_id, name, description, status) VALUES
   (2, NULL, 'Team Pixel',    'Platform thiet ke portfolio sinh vien', 'PENDING'),   -- team 10
   (2, NULL, 'Team Comet',    'Web app cong dong sinh vien',           'APPROVED'),  -- team 11
   (2, NULL, 'Team Vortex',   'Nen tang AI ho tro hoc tap',            'APPROVED'),  -- team 12
-  (2, NULL, 'Team Lumen',    'Giai phap cong nghe xanh',              'PENDING');   -- team 13
+  (2, NULL, 'Team Lumen',    'Giai phap cong nghe xanh',              'PENDING'),   -- team 13
+  (2, NULL, 'Team Aurora',   'Web app ho tro on tap thi cu',          'APPROVED'),  -- team 14
+  (2, NULL, 'Team Specter',  'AI phat hien dao van bai nop',          'APPROVED'),  -- team 15
+  (2, NULL, 'Team Quantum',  'Nen tang quan ly du an nhom sinh vien', 'PENDING'),   -- team 16
+  (2, NULL, 'Team Zephyr',   'Giai phap IoT tiet kiem nang luong',    'APPROVED');  -- team 17
 
 
 -- =====================================================
@@ -412,12 +501,38 @@ INSERT INTO TeamMember (team_id, user_id, member_role) VALUES
   (12, 15, 'MEMBER'), -- Ngo Van Hieu
   (13, 10, 'LEADER'); -- Vo Thi Hoa
 
+-- Event 2 extra teams 14-17 (NULL-track). Brand-new users 28-43.
+INSERT INTO TeamMember (team_id, user_id, member_role) VALUES
+  -- Team Aurora (5)
+  (14, 28, 'LEADER'), -- Tran Van Son
+  (14, 29, 'MEMBER'), -- Nguyen Thi Hang
+  (14, 30, 'MEMBER'), -- Le Van Khoa
+  (14, 31, 'MEMBER'), -- Pham Thi Yen
+  (14, 32, 'MEMBER'), -- Vo Van Tai
+  -- Team Specter (4)
+  (15, 33, 'LEADER'), -- Hoang Van Tan
+  (15, 34, 'MEMBER'), -- Do Thi Mai
+  (15, 35, 'MEMBER'), -- Ngo Van Hai
+  (15, 36, 'MEMBER'), -- Bui Van Long
+  -- Team Quantum (3)
+  (16, 37, 'LEADER'), -- Tran Van Phu
+  (16, 38, 'MEMBER'), -- Le Thi Thao
+  (16, 39, 'MEMBER'), -- Nguyen Van Vu
+  -- Team Zephyr (4)
+  (17, 40, 'LEADER'), -- Dang Van Hieu
+  (17, 41, 'MEMBER'), -- Pham Thi Linh
+  (17, 42, 'MEMBER'), -- Vo Thi Ngoc
+  (17, 43, 'MEMBER'); -- Nguyen Van Dung
+
 
 -- =====================================================
--- 9. SCORING CRITERIA TEMPLATE  (template_id 1)
+-- 9. SCORING CRITERIA TEMPLATE  (template_id 1-2)
+-- Reusable criteria sets a coordinator can apply to any round. Their items
+-- live in section 10b (template-only ScoringCriteria rows).
 -- =====================================================
-INSERT INTO ScoringCriteriaTemplate (name, description, is_default) VALUES
-  ('Standard Hackathon Criteria', 'Bo tieu chi mac dinh cho su kien SEAL', TRUE);
+INSERT INTO ScoringCriteriaTemplate (template_id, name, description, is_default) VALUES
+  (1, 'Standard Hackathon Criteria', 'Default SEAL set: innovation, technical, UI/UX, presentation, completeness', TRUE),
+  (2, 'Pitch & Demo Day',            'Lightweight set for pitch / demo-day rounds',                                FALSE);
 
 
 -- =====================================================
@@ -443,6 +558,25 @@ INSERT INTO ScoringCriteria (event_id, round_id, template_id, name, description,
   (1, 3, 1, 'UI/UX',        'Giao dien va trai nghiem nguoi dung',    1.0, 10.0, 3),
   (1, 3, 1, 'Presentation', 'Ky nang thuyet trinh va demo',           1.5, 10.0, 4),
   (1, 3, 1, 'Market',       'Tiem nang thi truong va kha nang scale', 1.0, 10.0, 5);
+
+
+-- =====================================================
+-- 10b. SCORING CRITERIA TEMPLATE ITEMS  (template-only: event_id/round_id NULL)
+-- The reusable items a coordinator applies to a round via "Apply template".
+-- New criteria_ids continue after the 15 event-1 rows above.
+-- =====================================================
+INSERT INTO ScoringCriteria (event_id, round_id, template_id, name, description, weight, max_score, order_number) VALUES
+  -- Template 1 — Standard Hackathon Criteria
+  (NULL, NULL, 1, 'Innovation',   'Originality and creativity of the idea',  1.5, 10.0, 1),
+  (NULL, NULL, 1, 'Technical',    'Engineering quality and implementation',  2.0, 10.0, 2),
+  (NULL, NULL, 1, 'UI/UX',        'Interface design and user experience',    1.0, 10.0, 3),
+  (NULL, NULL, 1, 'Presentation', 'Pitching and demo skills',                1.0, 10.0, 4),
+  (NULL, NULL, 1, 'Completeness', 'How finished and usable the product is',  1.5, 10.0, 5),
+  -- Template 2 — Pitch & Demo Day
+  (NULL, NULL, 2, 'Problem & Solution', 'Clarity of the problem and the proposed solution', 1.5, 10.0, 1),
+  (NULL, NULL, 2, 'Demo',               'Quality and impact of the live demo',              2.0, 10.0, 2),
+  (NULL, NULL, 2, 'Market Potential',   'Market viability and ability to scale',            1.0, 10.0, 3),
+  (NULL, NULL, 2, 'Teamwork',           'Team collaboration and role clarity',              1.0, 10.0, 4);
 
 
 -- =====================================================
