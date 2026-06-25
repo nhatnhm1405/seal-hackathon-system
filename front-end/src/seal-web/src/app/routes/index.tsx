@@ -77,6 +77,16 @@ function RequireAuth({
   return <Outlet />;
 }
 
+// Keeps already-authenticated users off the public auth screens (/login,
+// /register, /forgot-password). Without this, an active session could open
+// /login by URL and sign into a second account on top of the first.
+function RedirectIfAuthenticated() {
+  const { isAuthenticated, isLoading } = useAuth();
+  if (isLoading) return null;
+  if (isAuthenticated) return <Navigate to="/dashboard" replace />;
+  return <Outlet />;
+}
+
 // Guards staff-only routes: if a multi-role user hasn't selected yet, send to /select-role
 function RoleGate() {
   const { availableRoles, activeRole } = useAuth();
@@ -122,15 +132,20 @@ export const router = createBrowserRouter([
       { path: "/about", Component: AboutPage },
       { path: "/team", Component: TeamPage },
       { path: "/contact", Component: ContactPage },
-      { path: "/login", Component: LoginPage },
-      { path: "/register", Component: RegisterPage },
+      {
+        element: <RedirectIfAuthenticated />,
+        children: [
+          { path: "/login", Component: LoginPage },
+          { path: "/register", Component: RegisterPage },
+          {
+            path: "/forgot-password",
+            Component: ForgotPasswordPage,
+          },
+        ],
+      },
       {
         path: "/pending-approval",
         Component: PendingApprovalPage,
-      },
-      {
-        path: "/forgot-password",
-        Component: ForgotPasswordPage,
       },
       {
         path: "/oauth2/redirect",

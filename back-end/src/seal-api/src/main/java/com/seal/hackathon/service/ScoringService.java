@@ -5,17 +5,34 @@ import com.seal.hackathon.dto.request.CreateTemplateRequest;
 import com.seal.hackathon.dto.request.SubmitScoresRequest;
 import com.seal.hackathon.dto.response.ScoreResponse;
 import com.seal.hackathon.dto.response.ScoringCriteriaResponse;
+
 import com.seal.hackathon.dto.response.ScoringCriteriaTemplateResponse;
-import com.seal.hackathon.entity.*;
+import com.seal.hackathon.entity.HackathonEvent;
+import com.seal.hackathon.entity.Round;
+import com.seal.hackathon.entity.Score;
+import com.seal.hackathon.entity.ScoringCriteria;
+import com.seal.hackathon.entity.ScoringCriteriaTemplate;
+import com.seal.hackathon.entity.Submission;
+import com.seal.hackathon.entity.User;
+
 import com.seal.hackathon.exception.BadRequestException;
+import com.seal.hackathon.exception.ForbiddenException;
 import com.seal.hackathon.exception.ResourceNotFoundException;
-import com.seal.hackathon.repository.*;
+import com.seal.hackathon.repository.HackathonEventRepository;
+import com.seal.hackathon.repository.RoundRepository;
+import com.seal.hackathon.repository.ScoreRepository;
+import com.seal.hackathon.repository.ScoringCriteriaRepository;
+import com.seal.hackathon.repository.SubmissionRepository;
+import com.seal.hackathon.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+
 import java.util.ArrayList;
 import java.util.List;
+import java.math.BigDecimal;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -23,15 +40,17 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ScoringService {
 
+    private static final String ROLE_EVENT_COORDINATOR = "ROLE_EVENT_COORDINATOR";
+    private static final String ROLE_JUDGE = "ROLE_JUDGE";
+    private static final String SUBMISSION_NOT_ASSIGNED_MESSAGE =
+            "Submission not found or not assigned to this judge.";
+
     private final ScoringCriteriaRepository criteriaRepository;
-    private final ScoringCriteriaTemplateRepository templateRepository;
     private final ScoreRepository scoreRepository;
     private final SubmissionRepository submissionRepository;
     private final UserRepository userRepository;
     private final HackathonEventRepository eventRepository;
     private final RoundRepository roundRepository;
-
-    // ── Criteria: list by round ───────────────────────────────────────
 
     @Transactional(readOnly = true)
     public List<ScoringCriteriaResponse> getCriteriaByRound(Integer roundId) {
@@ -39,8 +58,6 @@ public class ScoringService {
                 .map(this::mapCriteriaToResponse)
                 .collect(Collectors.toList());
     }
-
-    // ── Coordinator: add criteria to a round ─────────────────────────
 
     @Transactional
     public ScoringCriteriaResponse createCriteria(Integer eventId, Integer roundId, CreateCriteriaRequest request) {
@@ -227,17 +244,31 @@ public class ScoringService {
 
     @Transactional
     public List<ScoreResponse> submitScores(Integer judgeId, SubmitScoresRequest request) {
+        validateSubmitScoresRequest(request);
+
         User judge = userRepository.findById(judgeId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + judgeId));
 
-        Submission submission = submissionRepository.findById(request.getSubmissionId())
-                .orElseThrow(() -> new ResourceNotFoundException("Submission not found: " + request.getSubmissionId()));
-
+        Submission submission = findSubmissionAssignedToJudge(judgeId, request.getSubmissionId());
         boolean isDraft = request.isDraft();
 
         List<Score> saved = request.getScores().stream().map(entry -> {
+            if (entry == null || entry.getCriteriaId() == null || entry.getValue() == null) {
+                throw new BadRequestException("Each score entry must include criteriaId and value.");
+            }
+
             ScoringCriteria criteria = criteriaRepository.findById(entry.getCriteriaId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Criteria not found: " + entry.getCriteriaId()));
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Criteria not found: " + entry.getCriteriaId()));
+
+            if (criteria.getRound() == null || !Objects.equals(
+                    criteria.getRound().getRoundId(), submission.getRound().getRoundId())) {
+                throw new BadRequestException("Criteria does not belong to this submission's round.");
+            }
+
+            if (entry.getValue().compareTo(BigDecimal.ZERO) < 0) {
+                throw new BadRequestException("Score must be greater than or equal to 0.");
+            }
 
             if (entry.getValue().compareTo(criteria.getMaxScore()) > 0) {
                 throw new BadRequestException("Score " + entry.getValue()
@@ -245,8 +276,9 @@ public class ScoringService {
                         + " for criteria: " + criteria.getName());
             }
 
-            Score score = scoreRepository.findBySubmission_SubmissionIdAndJudge_UserIdAndCriteria_CriteriaId(
-                    submission.getSubmissionId(), judgeId, criteria.getCriteriaId())
+            Score score = scoreRepository
+                    .findBySubmission_SubmissionIdAndJudge_UserIdAndCriteria_CriteriaId(
+                            submission.getSubmissionId(), judgeId, criteria.getCriteriaId())
                     .orElse(Score.builder()
                             .submission(submission)
                             .judge(judge)
@@ -262,18 +294,21 @@ public class ScoringService {
         return saved.stream().map(this::mapScoreToResponse).collect(Collectors.toList());
     }
 
-    // ── Get all scores for a submission ───────────────────────────────
-
     @Transactional(readOnly = true)
-    public List<ScoreResponse> getScoresBySubmission(Integer submissionId) {
-        submissionRepository.findById(submissionId)
-                .orElseThrow(() -> new ResourceNotFoundException("Submission not found: " + submissionId));
+    public List<ScoreResponse> getScoresBySubmission(Integer requesterId, Set<String> authorities, Integer submissionId) {
+        if (hasAuthority(authorities, ROLE_EVENT_COORDINATOR)) {
+            submissionRepository.findById(submissionId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Submission not found: " + submissionId));
+        } else if (hasAuthority(authorities, ROLE_JUDGE)) {
+            findSubmissionAssignedToJudge(requesterId, submissionId);
+        } else {
+            throw new ForbiddenException("You do not have permission to view scores for this submission.");
+        }
+
         return scoreRepository.findAllBySubmission_SubmissionId(submissionId).stream()
                 .map(this::mapScoreToResponse)
                 .collect(Collectors.toList());
     }
-
-    // ── Judge: get my scores for a round ─────────────────────────────
 
     @Transactional(readOnly = true)
     public List<ScoreResponse> getMyScoresByRound(Integer judgeId, Integer roundId) {
@@ -281,8 +316,6 @@ public class ScoringService {
                 .map(this::mapScoreToResponse)
                 .collect(Collectors.toList());
     }
-
-    // ── Helpers ───────────────────────────────────────────────────────
 
     private ScoringCriteriaResponse mapCriteriaToResponse(ScoringCriteria c) {
         return ScoringCriteriaResponse.builder()
@@ -324,5 +357,26 @@ public class ScoringService {
                 .scoredAt(s.getScoredAt())
                 .updatedAt(s.getUpdatedAt())
                 .build();
+    }
+
+    private Submission findSubmissionAssignedToJudge(Integer judgeId, Integer submissionId) {
+        return submissionRepository.findBySubmissionIdAndJudgeId(submissionId, judgeId)
+                .orElseThrow(() -> new ResourceNotFoundException(SUBMISSION_NOT_ASSIGNED_MESSAGE));
+    }
+
+    private void validateSubmitScoresRequest(SubmitScoresRequest request) {
+        if (request == null) {
+            throw new BadRequestException("Scores request is required.");
+        }
+        if (request.getSubmissionId() == null) {
+            throw new BadRequestException("submissionId is required.");
+        }
+        if (request.getScores() == null || request.getScores().isEmpty()) {
+            throw new BadRequestException("At least one score entry is required.");
+        }
+    }
+
+    private boolean hasAuthority(Set<String> authorities, String authority) {
+        return authorities != null && authorities.contains(authority);
     }
 }

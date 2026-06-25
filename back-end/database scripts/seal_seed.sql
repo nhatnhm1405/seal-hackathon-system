@@ -849,10 +849,10 @@ INSERT INTO AuditLog (actor_user_id, action, target_type, target_id, reason, met
 -- =====================================================
 -- 19. SYSTEM LOG  (admin/platform actions)
 -- =====================================================
-INSERT INTO SystemLog (actor_user_id, action, detail, ip_address) VALUES
-  (1, 'CREATE_USER',  'Created coordinator account user#2 (coordinator@fpt.edu.vn)', '10.0.0.1'),
-  (1, 'GRANT_ROLE',   'Granted EVENT_COORDINATOR to user#2',                          '10.0.0.1'),
-  (1, 'CREATE_USER',  'Created guest judge account user#5 (guest.judge@gmail.com)',   '10.0.0.1'),
-  (2, 'LOGIN_FAILED', 'Failed login attempt for coordinator@fpt.edu.vn (bad password)', '192.168.1.1');
+INSERT INTO SystemLog (actor_user_id, action, detail) VALUES
+  (1, 'CREATE_USER',  'Created coordinator account user#2 (coordinator@fpt.edu.vn)'),
+  (1, 'GRANT_ROLE',   'Granted EVENT_COORDINATOR to user#2'),
+  (1, 'CREATE_USER',  'Created guest judge account user#5 (guest.judge@gmail.com)'),
+  (2, 'LOGIN_FAILED', 'Failed login attempt for coordinator@fpt.edu.vn (bad password)');
 
 

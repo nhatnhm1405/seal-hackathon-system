@@ -1,13 +1,19 @@
 package com.seal.hackathon.dto.request;
 
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 import java.time.LocalDateTime;
 
 @Data
 public class UpdateEventRequest {
+    @Size(max = 255, message = "Event name must not exceed 255 characters")
     private String name;
     private String season;
+    @Min(value = 2026, message = "Year must be 2026 or later")
+    @Max(value = 3000, message = "Year must not exceed 3000")
     private Integer year;
     private String description;
     private LocalDateTime registrationStart;

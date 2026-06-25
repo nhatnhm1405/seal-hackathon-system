@@ -370,6 +370,45 @@ export function JudgeScoringPage() {
                           {aiInsight.summary}
                         </div>
 
+                        {aiInsight.repo && (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: 12, background: C.surface2, border: `1px solid ${C.border}` }}>
+                            <div style={{ color: C.cyanBright, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700, letterSpacing: "0.06em" }}>
+                              ⟨ / ⟩ REPOSITORY ANALYSIS
+                            </div>
+
+                            {!aiInsight.repo.analyzed && (
+                              <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, lineHeight: 1.5 }}>
+                                {aiInsight.repo.note || "Không phân tích được mã nguồn."}
+                              </div>
+                            )}
+
+                            {aiInsight.repo.analyzed && (
+                              <>
+                                {aiInsight.repo.techStack?.length > 0 && (
+                                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+                                    {aiInsight.repo.techStack.map((t, i) => <PixelBadge key={i} color="purple">{t}</PixelBadge>)}
+                                  </div>
+                                )}
+
+                                {aiInsight.repo.signals?.length > 0 && (
+                                  <ul style={{ margin: 0, paddingLeft: 18, color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, lineHeight: 1.6 }}>
+                                    {aiInsight.repo.signals.map((x, i) => <li key={i}>{x}</li>)}
+                                  </ul>
+                                )}
+
+                                {aiInsight.repo.redFlags?.length > 0 && (
+                                  <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.35)", padding: "8px 12px" }}>
+                                    <div style={{ color: C.red, fontFamily: "'JetBrains Mono', monospace", fontSize: 10.5, fontWeight: 700, marginBottom: 4 }}>⚑ RED FLAGS</div>
+                                    <ul style={{ margin: 0, paddingLeft: 18, color: C.red, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, lineHeight: 1.6 }}>
+                                      {aiInsight.repo.redFlags.map((x, i) => <li key={i}>{x}</li>)}
+                                    </ul>
+                                  </div>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        )}
+
                         {aiInsight.strengths?.length > 0 && (
                           <div>
                             <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700, marginBottom: 6 }}>STRENGTHS</div>

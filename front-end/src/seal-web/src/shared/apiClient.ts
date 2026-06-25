@@ -7,9 +7,15 @@ export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY) ?? sessionStorage.getItem(TOKEN_KEY);
 }
 export function setToken(token: string, remember = true): void {
+  // Clear the *other* store first. getToken() reads localStorage before
+  // sessionStorage, so a leftover token in localStorage (e.g. a previous
+  // "remember me" session) would otherwise shadow a new sessionStorage token
+  // and make every request carry the wrong identity.
   if (remember) {
+    sessionStorage.removeItem(TOKEN_KEY);
     localStorage.setItem(TOKEN_KEY, token);
   } else {
+    localStorage.removeItem(TOKEN_KEY);
     sessionStorage.setItem(TOKEN_KEY, token);
   }
 }
@@ -233,7 +239,6 @@ export interface SystemLogItem {
   actorName?: string;
   action: string;
   detail?: string;
-  ipAddress?: string;
   createdAt: string;
 }
 
@@ -1023,11 +1028,22 @@ export interface AiCriteriaInsight {
   suggestedScoreRange: string;
 }
 
+// Anonymized analysis of the submission's GitHub repository. Facts here are read
+// straight from GitHub (not the model), so techStack/signals/redFlags are reliable.
+export interface AiRepoAnalysis {
+  analyzed: boolean;
+  note: string | null;
+  techStack: string[];
+  signals: string[];
+  redFlags: string[];
+}
+
 export interface AiInsight {
   summary: string;
   strengths: string[];
   concerns: string[];
   criteriaInsights: AiCriteriaInsight[];
+  repo?: AiRepoAnalysis | null;
   disclaimer: string;
   model: string;
 }
