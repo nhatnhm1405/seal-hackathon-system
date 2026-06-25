@@ -289,13 +289,3 @@ body {
 .orbit-spin       { animation: orbitSpin 8s linear infinite; }
 .fade-slide-up    { animation: fadeSlideUp 0.5s ease-out forwards; }
 .flicker          { animation: flicker 6s ease-in-out infinite; }
-
-/* Glitch — animated RGB-split + jitter for event cards */
-@keyframes glitchText {
-  0%, 100% { text-shadow: 2px 0 rgba(6,182,212,0.8), -2px 0 rgba(239,68,68,0.8); transform: translate(0, 0); }
-  20%      { text-shadow: -2px 0 rgba(6,182,212,0.8), 2px 0 rgba(239,68,68,0.8); transform: translate(1px, -1px); }
-  40%      { text-shadow: 2px 0 rgba(139,92,246,0.8), -2px 0 rgba(6,182,212,0.8); transform: translate(-1px, 1px); }
-  60%      { text-shadow: -1px 0 rgba(239,68,68,0.8), 1px 0 rgba(139,92,246,0.8); transform: translate(1px, 0); }
-  80%      { text-shadow: 1px 0 rgba(6,182,212,0.8), -1px 0 rgba(239,68,68,0.8); transform: translate(0, 1px); }
-}
-.glitch-text { animation: glitchText 2.2s steps(2, end) infinite; will-change: transform, text-shadow; }

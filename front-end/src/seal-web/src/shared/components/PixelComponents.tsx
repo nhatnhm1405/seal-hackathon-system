@@ -395,8 +395,8 @@ export function PixelBadge({ children, color = "green" }: PixelBadgeProps) {
     <span
       style={{
         background: c.bg, border: `1px solid ${c.border}`, color: c.text,
-        fontFamily: "'JetBrains Mono', monospace", fontSize: 11,
-        padding: "3px 9px", letterSpacing: "0.06em", borderRadius: 0,
+        fontFamily: "'JetBrains Mono', monospace", fontSize: 10,
+        padding: "2px 8px", letterSpacing: "0.08em", borderRadius: 0,
       }}
       className={`pixel-badge pixel-badge--${color} uppercase inline-flex items-center gap-1`}
     >

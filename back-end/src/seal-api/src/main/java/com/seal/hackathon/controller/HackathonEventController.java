@@ -54,7 +54,7 @@ public class HackathonEventController {
     @PreAuthorize("hasAnyRole('EVENT_COORDINATOR','SYSTEM_ADMIN')")
     public ResponseEntity<ApiResponse<HackathonEventResponse>> updateEvent(
             @PathVariable Integer eventId,
-            @RequestBody UpdateEventRequest request) {
+            @Valid @RequestBody UpdateEventRequest request) {
         return ResponseEntity.ok(ApiResponse.success("Event updated successfully.",
                 hackathonEventService.updateEvent(eventId, request)));
     }

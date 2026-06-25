@@ -3,8 +3,10 @@ package com.seal.hackathon.config;
 import com.seal.hackathon.security.JwtAuthenticationEntryPoint;
 import com.seal.hackathon.security.JwtAuthenticationFilter;
 import com.seal.hackathon.security.oauth2.CustomOAuth2UserService;
+import com.seal.hackathon.security.oauth2.OAuth2LoginFailureHandler;
 import com.seal.hackathon.security.oauth2.OAuth2LoginSuccessHandler;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -25,7 +27,9 @@ import java.util.List;
  *
  * Key decisions:
  * - CSRF disabled: REST API uses JWT, not session cookies.
- * - Stateless sessions: JWT carries state, no server-side session needed.
+ * - Sessions are created only when needed. OAuth2 needs a short-lived session
+ *   to store the authorization state between provider redirects; API auth still
+ *   uses JWT.
  * - JWT filter runs before UsernamePasswordAuthenticationFilter.
  * - OAuth2 login redirects to frontend with token on success.
  */
@@ -39,6 +43,10 @@ public class SecurityConfig {
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
     private final CustomOAuth2UserService customOAuth2UserService;
     private final OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
+    private final OAuth2LoginFailureHandler oAuth2LoginFailureHandler;
+
+    @Value("${app.frontend.url:http://localhost:5173}")
+    private String frontendUrl;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -49,9 +57,11 @@ public class SecurityConfig {
             // Enable CORS with the configuration below
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
 
-            // No HTTP session — all auth state lives in the JWT
+            // OAuth2 needs a transient session to preserve state across the
+            // Google/GitHub redirect. Normal API requests still authenticate
+            // with JWT and do not require a server-side session.
             .sessionManagement(session ->
-                session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
 
             // Return JSON 401 instead of redirect to /login
             .exceptionHandling(ex ->
@@ -113,6 +123,8 @@ public class SecurityConfig {
                 .userInfoEndpoint(u -> u.userService(customOAuth2UserService))
                 // On success: generate JWT and redirect to frontend
                 .successHandler(oAuth2LoginSuccessHandler)
+                // On failure: log the real cause and return the user to the SPA
+                .failureHandler(oAuth2LoginFailureHandler)
             )
 
             // JWT validation runs before Spring Security's default auth filter
@@ -125,8 +137,8 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
 
-        // Allow requests from React dev server
-        config.setAllowedOrigins(List.of("http://localhost:5173"));
+        // Allow requests from the local dev server and the deployed frontend.
+        config.setAllowedOrigins(List.of("http://localhost:5173", frontendUrl));
 
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));

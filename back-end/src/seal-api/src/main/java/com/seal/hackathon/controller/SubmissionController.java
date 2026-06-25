@@ -9,10 +9,13 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/submissions")
@@ -43,15 +46,27 @@ public class SubmissionController {
 
     @GetMapping("/round/{roundId}")
     @PreAuthorize("hasAnyRole('JUDGE', 'EVENT_COORDINATOR')")
-    public ResponseEntity<ApiResponse<List<SubmissionResponse>>> getByRound(@PathVariable Integer roundId) {
+    public ResponseEntity<ApiResponse<List<SubmissionResponse>>> getByRound(
+            @PathVariable Integer roundId,
+            Authentication authentication) {
+        UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
         return ResponseEntity.ok(ApiResponse.success("Submissions retrieved successfully.",
-                submissionService.getSubmissionsByRound(roundId)));
+                submissionService.getSubmissionsByRound(principal.getUserId(), authorities(authentication), roundId)));
     }
 
     @GetMapping("/{submissionId}")
     @PreAuthorize("hasAnyRole('PARTICIPANT', 'JUDGE', 'EVENT_COORDINATOR')")
-    public ResponseEntity<ApiResponse<SubmissionResponse>> getById(@PathVariable Integer submissionId) {
+    public ResponseEntity<ApiResponse<SubmissionResponse>> getById(
+            @PathVariable Integer submissionId,
+            Authentication authentication) {
+        UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
         return ResponseEntity.ok(ApiResponse.success("Submission retrieved successfully.",
-                submissionService.getSubmissionById(submissionId)));
+                submissionService.getSubmissionById(principal.getUserId(), authorities(authentication), submissionId)));
+    }
+
+    private Set<String> authorities(Authentication authentication) {
+        return authentication.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .collect(Collectors.toSet());
     }
 }

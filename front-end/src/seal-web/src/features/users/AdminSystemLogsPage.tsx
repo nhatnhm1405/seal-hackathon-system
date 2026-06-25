@@ -71,7 +71,7 @@ export function AdminSystemLogsPage() {
           <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'JetBrains Mono', monospace" }}>
             <thead>
               <tr style={{ background: C.surface2, borderBottom: `1px solid ${C.border}` }}>
-                {["", "Time", "Actor", "Action", "Detail", "IP"].map((h, idx) => (
+                {["", "Time", "Actor", "Action", "Detail"].map((h, idx) => (
                   <th key={idx} style={{ color: C.green, fontSize: 10, letterSpacing: "0.12em", textAlign: "left", padding: "12px 14px", fontWeight: 600, textTransform: "uppercase" }}>
                     {h}
                   </th>
@@ -80,13 +80,13 @@ export function AdminSystemLogsPage() {
             </thead>
             <tbody>
               {loading && (
-                <tr><td colSpan={6} style={{ padding: 20, color: C.textMuted, fontSize: 12, textAlign: "center" }}>Loading...</td></tr>
+                <tr><td colSpan={5} style={{ padding: 20, color: C.textMuted, fontSize: 12, textAlign: "center" }}>Loading...</td></tr>
               )}
               {!loading && fetchError && (
-                <tr><td colSpan={6} style={{ padding: 20, color: C.red, fontSize: 12, textAlign: "center" }}>{fetchError}</td></tr>
+                <tr><td colSpan={5} style={{ padding: 20, color: C.red, fontSize: 12, textAlign: "center" }}>{fetchError}</td></tr>
               )}
               {!loading && !fetchError && rows.length === 0 && (
-                <tr><td colSpan={6} style={{ padding: 20, color: C.textMuted, fontSize: 12, textAlign: "center" }}>No log entries</td></tr>
+                <tr><td colSpan={5} style={{ padding: 20, color: C.textMuted, fontSize: 12, textAlign: "center" }}>No log entries</td></tr>
               )}
               {!loading && rows.map((l, i) => {
                 const open = !!expanded[l.logId];
@@ -102,12 +102,11 @@ export function AdminSystemLogsPage() {
                   <td style={{ color: C.text, fontSize: 11, padding: "12px 14px" }}>{l.actorName ?? (l.actorUserId ? `user#${l.actorUserId}` : "—")}</td>
                   <td style={{ fontSize: 11, padding: "12px 14px", fontWeight: 700, color: actionColor(l.action), whiteSpace: "nowrap" }}>{l.action}</td>
                   <td style={{ color: C.textMuted, fontSize: 11, padding: "12px 14px", maxWidth: 360, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: open ? "normal" : "nowrap" }}>{l.detail ?? "—"}</td>
-                  <td style={{ color: C.textDim, fontSize: 11, padding: "12px 14px" }}>{l.ipAddress ?? "—"}</td>
                 </tr>
                 {open && hasDetail && (
                   <tr style={{ background: i % 2 === 0 ? C.surface : C.surface2 }}>
                     <td />
-                    <td colSpan={5} style={{ color: C.textMuted, fontSize: 11, padding: "0 14px 12px", wordBreak: "break-all", lineHeight: 1.6 }}>{l.detail}</td>
+                    <td colSpan={4} style={{ color: C.textMuted, fontSize: 11, padding: "0 14px 12px", wordBreak: "break-all", lineHeight: 1.6 }}>{l.detail}</td>
                   </tr>
                 )}
                 </Fragment>

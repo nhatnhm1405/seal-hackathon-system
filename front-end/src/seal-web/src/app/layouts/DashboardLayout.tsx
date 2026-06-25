@@ -1,6 +1,6 @@
 import { ReactNode, useState, useRef, useEffect } from "react";
 import { useTheme } from "@/app/providers/ThemeProvider";
-import { useNavigate, useLocation } from "react-router";
+import { useNavigate, useLocation, Link } from "react-router";
 import { C, PixelBadge } from "@/shared/components/PixelComponents";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { useNotifications, UINotification } from "@/app/providers/NotificationProvider";
@@ -83,7 +83,6 @@ function buildNav(role: string, isLeader: boolean, teamId: number | null, pendin
 
 function getPageTitle(pathname: string): string {
   const map: Record<string, string> = {
-    "/": "Home",
     "/dashboard": "Dashboard",
     "/admin/dashboard": "Dashboard",
     "/admin/events": "Events",
@@ -219,8 +218,8 @@ function NotificationBell() {
             borderBottom: `1px solid ${C.border}`,
             flexShrink: 0,
           }}>
-            <span style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 700, letterSpacing: "0.05em" }}>
-              Notifications
+            <span style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em" }}>
+              // notifications
               {unreadCount > 0 && (
                 <span style={{ color: C.textMuted }}> · {unreadCount} unread</span>
               )}
@@ -585,6 +584,31 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
           }}
         >
           <nav style={{ flex: 1, overflowY: "auto", padding: collapsed ? "12px 6px" : "16px 10px", display: "flex", flexDirection: "column", gap: 2 }}>
+            {/* Home — never active, uses Link for no-reload */}
+            <Link
+              to="/"
+              title={collapsed ? "Home" : undefined}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: collapsed ? "center" : "flex-start",
+                gap: 8,
+                padding: collapsed ? "10px 6px" : "10px 12px",
+                color: C.textMuted,
+                textDecoration: "none",
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: 13,
+                letterSpacing: "0.01em",
+                transition: "all 0.15s ease",
+                border: "1px solid transparent",
+                borderLeft: "2px solid transparent",
+              }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = C.green; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = C.textMuted; }}
+            >
+              {!collapsed && <span>Home</span>}
+            </Link>
+
             {nav.map((item) => {
               const active = isDashboardRoute && location.pathname === item.path;
               return (

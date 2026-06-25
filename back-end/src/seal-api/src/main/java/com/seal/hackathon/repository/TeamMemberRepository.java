@@ -10,6 +10,8 @@ import java.util.List;
 public interface TeamMemberRepository extends JpaRepository<TeamMember, Integer> {
     boolean existsByUser_UserIdAndTeam_Event_EventId(Integer userId, Integer eventId);
 
+    boolean existsByUser_UserIdAndTeam_TeamId(Integer userId, Integer teamId);
+
     /** Find all teams that a user belongs to, filtered by event status (e.g. OPEN, IN_PROGRESS) */
     List<TeamMember> findByUser_UserIdAndTeam_Event_StatusIn(Integer userId, List<String> statuses);
 
