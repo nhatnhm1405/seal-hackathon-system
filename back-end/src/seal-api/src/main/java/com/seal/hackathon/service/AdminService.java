@@ -199,6 +199,12 @@ public class AdminService {
             throw new ResourceNotFoundException("User does not have role " + roleName + " at this scope.");
         }
 
+        // User.userEventRoles is @OneToMany(cascade = ALL); the rows were fetched
+        // into that managed collection by findByIdWithRoles above. Removing them
+        // from the collection too keeps it in sync — otherwise the cascade
+        // re-persists the rows on flush and the delete is silently undone
+        // (request returns 200 but the role stays). See SEAL revoke-role bug.
+        user.getUserEventRoles().removeAll(matches);
         userEventRoleRepository.deleteAll(matches);
 
         systemLogService.record(adminId, "REVOKE_ROLE",

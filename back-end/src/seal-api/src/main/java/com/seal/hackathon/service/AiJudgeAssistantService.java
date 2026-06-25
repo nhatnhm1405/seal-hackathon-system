@@ -63,14 +63,14 @@ public class AiJudgeAssistantService {
     private static final int MAX_ATTEMPTS = 3;
 
     private static final String DISCLAIMER =
-            "Nội dung do AI (Gemini) tạo ra dựa trên mô tả và liên kết của bài nộp. "
-            + "Chỉ mang tính tham khảo, không thay thế đánh giá của giám khảo và không tự động chấm điểm.";
+            "AI (Gemini)-generated from the submission's description and links. "
+            + "For reference only — it does not replace the judge's evaluation and does not auto-score.";
 
     @Transactional(readOnly = true)
     public AiInsightResponse analyzeSubmission(Integer requesterId, Set<String> authorities, Integer submissionId) {
         if (apiKey == null || apiKey.isBlank() || apiKey.startsWith("your-")) {
             throw new BadRequestException(
-                    "AI Judge Assistant chưa được cấu hình. Hãy đặt GEMINI_API_KEY trong file .env của backend.");
+                    "AI Judge Assistant is not configured. Set GEMINI_API_KEY in the backend's .env file.");
         }
 
         Submission submission = findReadableSubmission(requesterId, authorities, submissionId);
@@ -80,7 +80,7 @@ public class AiJudgeAssistantService {
                 && isBlank(submission.getDemoUrl())
                 && isBlank(submission.getSlideUrl())) {
             throw new BadRequestException(
-                    "Bài nộp này không có mô tả hoặc liên kết nào để AI phân tích.");
+                    "This submission has no description or links for the AI to analyze.");
         }
 
         List<ScoringCriteria> criteria = scoringCriteriaRepository
@@ -218,28 +218,29 @@ public class AiJudgeAssistantService {
 
         sb.append("TIÊU CHÍ CHẤM ĐIỂM CỦA VÒNG NÀY\n");
         if (criteria.isEmpty()) {
-            sb.append("(Vòng này chưa cấu hình tiêu chí — bỏ qua phần gợi ý theo tiêu chí.)\n");
+            sb.append("(No criteria configured for this round — skip the per-criteria suggestions.)\n");
         } else {
             for (ScoringCriteria c : criteria) {
                 sb.append("- ").append(c.getName())
-                  .append(" (điểm tối đa ").append(c.getMaxScore())
-                  .append(", trọng số ").append(c.getWeight()).append("): ")
+                  .append(" (max score ").append(c.getMaxScore())
+                  .append(", weight ").append(c.getWeight()).append("): ")
                   .append(isBlank(c.getDescription()) ? "" : c.getDescription().trim())
                   .append("\n");
             }
         }
 
-        sb.append("\nTRẢ VỀ DUY NHẤT một đối tượng JSON theo đúng cấu trúc sau (không kèm văn bản ngoài JSON):\n")
+        sb.append("\nRETURN ONLY a single JSON object with exactly this structure (no text outside the JSON):\n")
           .append("{\n")
-          .append("  \"summary\": \"2-3 câu tóm tắt trung lập về dự án\",\n")
-          .append("  \"strengths\": [\"điểm mạnh 1\", \"điểm mạnh 2\"],\n")
-          .append("  \"concerns\": [\"điểm cần lưu ý hoặc câu hỏi nên hỏi đội 1\", \"...\"],\n")
+          .append("  \"summary\": \"2-3 neutral sentences summarizing the project\",\n")
+          .append("  \"strengths\": [\"strength 1\", \"strength 2\"],\n")
+          .append("  \"concerns\": [\"a concern or a question to ask the team 1\", \"...\"],\n")
           .append("  \"criteriaInsights\": [\n")
-          .append("    {\"criteriaName\": \"tên tiêu chí\", \"assessment\": \"nhận định ngắn theo tiêu chí\", \"suggestedScoreRange\": \"vd: 7-8 / 10\"}\n")
+          .append("    {\"criteriaName\": \"criteria name\", \"assessment\": \"short assessment for this criteria\", \"suggestedScoreRange\": \"e.g. 7-8 / 10\"}\n")
           .append("  ]\n")
           .append("}\n")
-          .append("Mỗi tiêu chí ở trên phải có đúng một mục trong criteriaInsights. ")
-          .append("suggestedScoreRange phải nằm trong khoảng từ 0 đến điểm tối đa của tiêu chí đó.");
+          .append("Each criteria above must have exactly one entry in criteriaInsights. ")
+          .append("suggestedScoreRange must be within 0 to that criteria's max score. ")
+          .append("Write all text values in English.");
 
         return sb.toString();
     }
@@ -326,7 +327,7 @@ public class AiJudgeAssistantService {
                 // Non-retryable, or out of attempts: surface a short, clear message.
                 throw new BadRequestException(describeGeminiError(e));
             } catch (Exception e) {
-                throw new BadRequestException("Không gọi được dịch vụ AI (Gemini): " + e.getMessage());
+                throw new BadRequestException("Could not reach the AI service (Gemini): " + e.getMessage());
             }
         }
         if (response == null) {
@@ -339,13 +340,13 @@ public class AiJudgeAssistantService {
             JsonNode text = root.path("candidates").path(0)
                     .path("content").path("parts").path(0).path("text");
             if (text.isMissingNode() || text.asText().isBlank()) {
-                throw new BadRequestException("AI không trả về nội dung. Vui lòng thử lại.");
+                throw new BadRequestException("The AI returned no content. Please try again.");
             }
             return text.asText();
         } catch (BadRequestException e) {
             throw e;
         } catch (Exception e) {
-            throw new BadRequestException("AI trả về phản hồi không đọc được. Vui lòng thử lại.");
+            throw new BadRequestException("The AI returned an unreadable response. Please try again.");
         }
     }
 
@@ -363,21 +364,21 @@ public class AiJudgeAssistantService {
         }
 
         return switch (status) {
-            case 503 -> "Model \"" + model + "\" đang quá tải (503). Vui lòng bấm AI ASSIST lại sau ít giây, "
-                    + "hoặc đổi GEMINI_MODEL trong .env (vd: gemini-flash-latest).";
-            case 429 -> "Gemini đã hết hạn mức (429) cho model \"" + model + "\". "
-                    + "Hãy đổi GEMINI_MODEL trong .env (vd: gemini-2.5-flash) hoặc bật billing cho project.";
-            case 404 -> "Model \"" + model + "\" không khả dụng với key này (404). "
-                    + "Đổi GEMINI_MODEL trong .env sang model khác (vd: gemini-2.5-flash).";
+            case 503 -> "Model \"" + model + "\" is overloaded (503). Please click AI ASSIST again in a few seconds, "
+                    + "or change GEMINI_MODEL in .env (e.g. gemini-flash-latest).";
+            case 429 -> "Gemini quota exceeded (429) for model \"" + model + "\". "
+                    + "Change GEMINI_MODEL in .env (e.g. gemini-2.5-flash) or enable billing for the project.";
+            case 404 -> "Model \"" + model + "\" is not available for this key (404). "
+                    + "Change GEMINI_MODEL in .env to another model (e.g. gemini-2.5-flash).";
             case 400, 401, 403 -> (apiMsg != null && apiMsg.toLowerCase().contains("api key"))
-                    ? "Gemini API key không hợp lệ. Kiểm tra lại GEMINI_API_KEY trong .env."
-                    : "Gemini từ chối yêu cầu (" + status + "): " + shorten(apiMsg, 200);
-            default -> "Gemini lỗi (" + status + "): " + shorten(apiMsg, 200);
+                    ? "Invalid Gemini API key. Check GEMINI_API_KEY in .env."
+                    : "Gemini rejected the request (" + status + "): " + shorten(apiMsg, 200);
+            default -> "Gemini error (" + status + "): " + shorten(apiMsg, 200);
         };
     }
 
     private static String shorten(String s, int max) {
-        if (s == null || s.isBlank()) return "không rõ chi tiết";
+        if (s == null || s.isBlank()) return "no details";
         String oneLine = s.replaceAll("\\s+", " ").trim();
         return oneLine.length() <= max ? oneLine : oneLine.substring(0, max) + "…";
     }
@@ -386,7 +387,7 @@ public class AiJudgeAssistantService {
         try {
             return objectMapper.readValue(json, AiInsightResponse.class);
         } catch (Exception e) {
-            throw new BadRequestException("AI trả về dữ liệu không hợp lệ. Vui lòng thử lại.");
+            throw new BadRequestException("The AI returned invalid data. Please try again.");
         }
     }
 

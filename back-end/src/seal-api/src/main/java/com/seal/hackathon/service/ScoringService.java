@@ -1,15 +1,20 @@
 package com.seal.hackathon.service;
 
 import com.seal.hackathon.dto.request.CreateCriteriaRequest;
+import com.seal.hackathon.dto.request.CreateTemplateRequest;
 import com.seal.hackathon.dto.request.SubmitScoresRequest;
 import com.seal.hackathon.dto.response.ScoreResponse;
 import com.seal.hackathon.dto.response.ScoringCriteriaResponse;
+
+import com.seal.hackathon.dto.response.ScoringCriteriaTemplateResponse;
 import com.seal.hackathon.entity.HackathonEvent;
 import com.seal.hackathon.entity.Round;
 import com.seal.hackathon.entity.Score;
 import com.seal.hackathon.entity.ScoringCriteria;
+import com.seal.hackathon.entity.ScoringCriteriaTemplate;
 import com.seal.hackathon.entity.Submission;
 import com.seal.hackathon.entity.User;
+
 import com.seal.hackathon.exception.BadRequestException;
 import com.seal.hackathon.exception.ForbiddenException;
 import com.seal.hackathon.exception.ResourceNotFoundException;
@@ -23,8 +28,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
+
+import java.util.ArrayList;
 import java.util.List;
+import java.math.BigDecimal;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -129,6 +136,110 @@ public class ScoringService {
         return criteria;
     }
 
+    // ── Criteria templates: list with their items ────────────────────
+
+    @Transactional(readOnly = true)
+    public List<ScoringCriteriaTemplateResponse> listTemplates() {
+        return templateRepository.findAll().stream()
+                .map(this::mapTemplateToResponse)
+                .collect(Collectors.toList());
+    }
+
+    // ── Coordinator: apply a template's criteria to a round ───────────
+    // REPLACES the round's criteria with the template's, so picking another
+    // template swaps the set instead of stacking on top. Criteria that judges
+    // have already scored cannot be removed (that would lose scores), so they
+    // are kept and any template item with the same name is skipped.
+
+    @Transactional
+    public List<ScoringCriteriaResponse> applyTemplate(Integer eventId, Integer roundId, Integer templateId) {
+        HackathonEvent event = eventRepository.findById(eventId)
+                .orElseThrow(() -> new ResourceNotFoundException("Event not found: " + eventId));
+        Round round = roundRepository.findByIdAndEventId(roundId, eventId)
+                .orElseThrow(() -> new ResourceNotFoundException("Round not found: " + roundId));
+        ScoringCriteriaTemplate template = templateRepository.findById(templateId)
+                .orElseThrow(() -> new ResourceNotFoundException("Template not found: " + templateId));
+
+        List<ScoringCriteria> templateItems = criteriaRepository
+                .findAllByTemplate_TemplateIdAndEventIsNullAndRoundIsNullOrderByOrderNumber(templateId);
+        if (templateItems.isEmpty()) {
+            throw new BadRequestException("Template \"" + template.getName() + "\" has no criteria to apply.");
+        }
+
+        // Drop the round's current criteria, keeping only ones already scored.
+        List<ScoringCriteria> existing = criteriaRepository.findAllByRound_RoundIdOrderByOrderNumber(roundId);
+        List<ScoringCriteria> kept = new ArrayList<>();
+        List<ScoringCriteria> removable = new ArrayList<>();
+        for (ScoringCriteria c : existing) {
+            if (scoreRepository.existsByCriteria_CriteriaId(c.getCriteriaId())) {
+                kept.add(c);
+            } else {
+                removable.add(c);
+            }
+        }
+        criteriaRepository.deleteAll(removable);
+
+        Set<String> keptNames = kept.stream()
+                .map(c -> c.getName().trim().toLowerCase())
+                .collect(Collectors.toSet());
+        int nextOrder = kept.stream()
+                .map(ScoringCriteria::getOrderNumber)
+                .filter(java.util.Objects::nonNull)
+                .max(Integer::compareTo)
+                .orElse(0) + 1;
+
+        for (ScoringCriteria item : templateItems) {
+            if (keptNames.contains(item.getName().trim().toLowerCase())) {
+                continue; // a scored criteria with this name already exists
+            }
+            criteriaRepository.save(ScoringCriteria.builder()
+                    .event(event)
+                    .round(round)
+                    .template(template)
+                    .name(item.getName())
+                    .description(item.getDescription())
+                    .weight(item.getWeight())
+                    .maxScore(item.getMaxScore())
+                    .orderNumber(nextOrder++)
+                    .build());
+        }
+
+        return getCriteriaByRound(roundId);
+    }
+
+    // ── Coordinator: save a round's criteria as a new template ────────
+
+    @Transactional
+    public ScoringCriteriaTemplateResponse createTemplateFromRound(Integer eventId, Integer roundId,
+                                                                   CreateTemplateRequest request) {
+        roundRepository.findByIdAndEventId(roundId, eventId)
+                .orElseThrow(() -> new ResourceNotFoundException("Round not found: " + roundId));
+
+        List<ScoringCriteria> roundCriteria = criteriaRepository.findAllByRound_RoundIdOrderByOrderNumber(roundId);
+        if (roundCriteria.isEmpty()) {
+            throw new BadRequestException("This round has no criteria to save as a template.");
+        }
+
+        ScoringCriteriaTemplate template = templateRepository.save(ScoringCriteriaTemplate.builder()
+                .name(request.getName().trim())
+                .description(request.getDescription())
+                .isDefault(false)
+                .build());
+
+        for (ScoringCriteria c : roundCriteria) {
+            criteriaRepository.save(ScoringCriteria.builder()
+                    .template(template) // template-only item: no event / round
+                    .name(c.getName())
+                    .description(c.getDescription())
+                    .weight(c.getWeight())
+                    .maxScore(c.getMaxScore())
+                    .orderNumber(c.getOrderNumber())
+                    .build());
+        }
+
+        return mapTemplateToResponse(template);
+    }
+
     // ── Judge: submit scores (batch) ──────────────────────────────────
 
     @Transactional
@@ -214,6 +325,21 @@ public class ScoringService {
                 .weight(c.getWeight())
                 .maxScore(c.getMaxScore())
                 .orderNumber(c.getOrderNumber())
+                .build();
+    }
+
+    private ScoringCriteriaTemplateResponse mapTemplateToResponse(ScoringCriteriaTemplate t) {
+        List<ScoringCriteriaResponse> items = criteriaRepository
+                .findAllByTemplate_TemplateIdAndEventIsNullAndRoundIsNullOrderByOrderNumber(t.getTemplateId())
+                .stream()
+                .map(this::mapCriteriaToResponse)
+                .collect(Collectors.toList());
+        return ScoringCriteriaTemplateResponse.builder()
+                .templateId(t.getTemplateId())
+                .name(t.getName())
+                .description(t.getDescription())
+                .isDefault(t.getIsDefault())
+                .items(items)
                 .build();
     }
 

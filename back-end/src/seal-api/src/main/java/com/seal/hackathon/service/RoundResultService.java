@@ -67,14 +67,11 @@ public class RoundResultService {
             throw new BadRequestException("No submissions found for this round.");
         }
 
-        List<ScoringCriteria> criteriaList = criteriaRepository
-                .findAllByRound_RoundIdOrderByOrderNumber(roundId);
-
         // Delete existing results for this round before re-computing
         List<RoundResult> existing = resultRepository.findAllByRound_RoundIdOrderByRankPosition(roundId);
         resultRepository.deleteAll(existing);
 
-        // Compute average weighted score per team
+        // Compute the normalized 0–100 weighted-average score per team.
         Map<Integer, BigDecimal> teamScores = new LinkedHashMap<>();
         for (Submission submission : submissions) {
             List<Score> scores = scoreRepository.findAllBySubmission_SubmissionId(
@@ -87,16 +84,43 @@ public class RoundResultService {
                 continue;
             }
 
-            // Group by judge and compute weighted sum per judge, then average
-            Map<Integer, BigDecimal> judgeTotals = new HashMap<>();
+            // Per judge, normalize to a 0–100 score:
+            //   100 × Σ(weight × value/maxScore) / Σ(weight)
+            // Dividing by Σ(weight) and each criteria's maxScore makes the result
+            // independent of HOW MANY criteria the round has (and of their individual
+            // max scores), so a 5-criteria round and a 10-criteria round stay on the
+            // same 0–100 scale. Then average across judges.
+            Map<Integer, BigDecimal> judgeWeightedFraction = new HashMap<>();
+            Map<Integer, BigDecimal> judgeWeightSum = new HashMap<>();
             for (Score score : scores) {
-                BigDecimal weighted = score.getValue().multiply(score.getCriteria().getWeight());
-                judgeTotals.merge(score.getJudge().getUserId(), weighted, BigDecimal::add);
+                ScoringCriteria criteria = score.getCriteria();
+                BigDecimal weight = criteria.getWeight();
+                BigDecimal maxScore = criteria.getMaxScore();
+                if (weight == null || maxScore == null || maxScore.signum() == 0) {
+                    continue; // skip mis-configured criteria
+                }
+                BigDecimal fraction = score.getValue().divide(maxScore, 6, RoundingMode.HALF_UP); // 0..1
+                Integer judgeId = score.getJudge().getUserId();
+                judgeWeightedFraction.merge(judgeId, fraction.multiply(weight), BigDecimal::add);
+                judgeWeightSum.merge(judgeId, weight, BigDecimal::add);
             }
 
-            BigDecimal avg = judgeTotals.values().stream()
+            List<BigDecimal> judgePercents = new ArrayList<>();
+            for (Map.Entry<Integer, BigDecimal> e : judgeWeightSum.entrySet()) {
+                if (e.getValue().signum() == 0) continue;
+                judgePercents.add(judgeWeightedFraction.get(e.getKey())
+                        .divide(e.getValue(), 6, RoundingMode.HALF_UP)
+                        .multiply(BigDecimal.valueOf(100)));
+            }
+
+            if (judgePercents.isEmpty()) {
+                teamScores.put(submission.getTeam().getTeamId(), BigDecimal.ZERO);
+                continue;
+            }
+
+            BigDecimal avg = judgePercents.stream()
                     .reduce(BigDecimal.ZERO, BigDecimal::add)
-                    .divide(BigDecimal.valueOf(judgeTotals.size()), 2, RoundingMode.HALF_UP);
+                    .divide(BigDecimal.valueOf(judgePercents.size()), 2, RoundingMode.HALF_UP);
 
             teamScores.put(submission.getTeam().getTeamId(), avg);
         }
