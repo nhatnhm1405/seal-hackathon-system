@@ -582,23 +582,55 @@ INSERT INTO ScoringCriteria (event_id, round_id, template_id, name, description,
 -- =====================================================
 -- 11. SUBMISSION  (submission_id 1-12) — event 1
 -- Prelim (r1): all 5 teams | Semi (r2): Phoenix,Dragon,Tiger,Eagle | Final (r3): Phoenix,Tiger,Eagle
+--
+-- Descriptions feed the AI Judge Assistant (it reads description + repo to give
+-- advisory notes). Sub 1/2/4 point at REAL public GitHub repos so the
+-- "Repository Analysis" block has live data in round 1 (Web + AI tracks):
+--   • sub 1 (MATCH)    — spring-petclinic: description + repo agree.
+--   • sub 2 (MISMATCH) — desc says Node.js, repo is Flask (Python) → AI flags it.
+--   • sub 4 (BONUS)    — AutoGrade pitched as FastAPI → FastAPI template repo.
+-- The other subs keep placeholder repos; their descriptions still drive AI text.
 -- =====================================================
-INSERT INTO Submission (team_id, round_id, repo_url, demo_url, slide_url, submitted_by, status) VALUES
+INSERT INTO Submission (team_id, round_id, repo_url, demo_url, slide_url, description, submitted_by, status) VALUES
   -- Preliminary (round 1)
-  (1, 1, 'https://github.com/team-phoenix/seal', 'https://demo.teamphoenix.io', 'https://slides.com/phoenix', 6,  'SUBMITTED'),  -- sub 1
-  (2, 1, 'https://github.com/team-dragon/seal',  'https://demo.teamdragon.io',  'https://slides.com/dragon',  16, 'SUBMITTED'),  -- sub 2
-  (3, 1, 'https://github.com/team-tiger/seal',   'https://demo.teamtiger.io',   'https://slides.com/tiger',   12, 'SUBMITTED'),  -- sub 3
-  (4, 1, 'https://github.com/team-eagle/seal',   'https://demo.teameagle.io',   'https://slides.com/eagle',   18, 'SUBMITTED'),  -- sub 4
-  (5, 1, 'https://github.com/team-falcon/seal',  'https://demo.teamfalcon.io',  'https://slides.com/falcon',  9,  'SUBMITTED'),  -- sub 5
+  (1, 1, 'https://github.com/spring-projects/spring-petclinic', 'https://demo.teamphoenix.io', 'https://slides.com/phoenix',
+   'PetClinic Manager là hệ thống web quản lý phòng khám thú y. Chức năng gồm quản lý hồ sơ chủ nuôi và thú cưng, đặt và theo dõi lịch hẹn khám, quản lý thông tin bác sĩ thú y theo chuyên khoa, và ghi nhận lịch sử khám chữa của từng thú cưng. Backend Spring Boot (Java) với cơ sở dữ liệu quan hệ, giao diện web theo mô hình MVC. Bản nộp vòng sơ khảo đã chạy được CRUD chủ nuôi/thú cưng và luồng đặt lịch khám; phần thống kê báo cáo còn đang phát triển.',
+   6,  'SUBMITTED'),  -- sub 1 · MATCH (real repo)
+  (2, 1, 'https://github.com/pallets/flask',  'https://demo.teamdragon.io',  'https://slides.com/dragon',
+   'EduDragon là nền tảng học tập trực tuyến cho phép giảng viên tạo khoá học, tải video bài giảng và ra quiz tự chấm. Sinh viên theo dõi tiến độ học và nhận gợi ý bài tiếp theo. Stack Node.js + PostgreSQL + React, đã có xác thực JWT và phân quyền giảng viên/sinh viên. Vòng sơ khảo demo được tạo khoá học và làm quiz; tính năng thanh toán khoá học trả phí chưa hoàn thiện.',
+   16, 'SUBMITTED'),  -- sub 2 · MISMATCH (repo is Flask)
+  (3, 1, 'https://github.com/team-tiger/seal',   'https://demo.teamtiger.io',   'https://slides.com/tiger',
+   'HealthTiger là ứng dụng di động theo dõi sức khoẻ sinh viên: ghi nhận số bước chân, giấc ngủ, nhịp tim và nhắc nhở uống nước. App native (Kotlin/Swift) kết nối cảm biến điện thoại, hiển thị biểu đồ tuần/tháng và đặt mục tiêu cá nhân. Vòng sơ khảo chạy mượt phần thu thập dữ liệu và biểu đồ; chưa có đồng bộ dữ liệu lên cloud nên đổi máy sẽ mất lịch sử.',
+   12, 'SUBMITTED'),  -- sub 3
+  (4, 1, 'https://github.com/fastapi/full-stack-fastapi-template',   'https://demo.teameagle.io',   'https://slides.com/eagle',
+   'AutoGrade dùng AI để chấm điểm bài tập lập trình và bài luận ngắn tự động. Hệ thống chạy test case cho bài code và dùng mô hình NLP đánh giá bài luận theo rubric, sinh nhận xét gợi ý cho sinh viên. Backend Python FastAPI + mô hình fine-tune, dashboard cho giảng viên xem phân bố điểm. Vòng sơ khảo demo chấm code khá tốt; phần NLP chấm luận đôi khi lệch với giảng viên và chưa có báo cáo tổng hợp.',
+   18, 'SUBMITTED'),  -- sub 4 · BONUS (FastAPI template repo)
+  (5, 1, 'https://github.com/team-falcon/seal',  'https://demo.teamfalcon.io',  'https://slides.com/falcon',
+   'BookFalcon là sàn trao đổi và mua bán sách cũ giữa sinh viên trong trường. Người dùng đăng sách, tìm theo môn học, nhắn tin thoả thuận và đánh giá người bán. Web full-stack React + Express + MongoDB, có tìm kiếm và lọc theo danh mục. Vòng sơ khảo mới hoàn thiện đăng tin và tìm kiếm; phần chat và đánh giá còn dở dang, UI cần trau chuốt thêm.',
+   9,  'SUBMITTED'),  -- sub 5
   -- Semi-final (round 2)
-  (1, 2, 'https://github.com/team-phoenix/seal', 'https://demo.teamphoenix.io/v2', 'https://slides.com/phoenix-semi', 6,  'SUBMITTED'),  -- sub 6
-  (2, 2, 'https://github.com/team-dragon/seal',  'https://demo.teamdragon.io/v2',  'https://slides.com/dragon-semi',  16, 'SUBMITTED'),  -- sub 7
-  (3, 2, 'https://github.com/team-tiger/seal',   'https://demo.teamtiger.io/v2',   'https://slides.com/tiger-semi',   12, 'SUBMITTED'),  -- sub 8
-  (4, 2, 'https://github.com/team-eagle/seal',   'https://demo.teameagle.io/v2',   'https://slides.com/eagle-semi',   18, 'SUBMITTED'),  -- sub 9
+  (1, 2, 'https://github.com/team-phoenix/seal', 'https://demo.teamphoenix.io/v2', 'https://slides.com/phoenix-semi',
+   'SmartDorm bản vòng bán kết: bổ sung thanh toán phí KTX qua cổng giả lập, dashboard thống kê tỉ lệ lấp đầy phòng cho ban quản lý, và thông báo realtime khi yêu cầu báo hỏng được xử lý. Đã viết unit test cho module phòng và tích hợp CI. Trải nghiệm người dùng được làm lại gọn gàng hơn so với vòng sơ khảo.',
+   6,  'SUBMITTED'),  -- sub 6
+  (2, 2, 'https://github.com/team-dragon/seal',  'https://demo.teamdragon.io/v2',  'https://slides.com/dragon-semi',
+   'EduDragon bản vòng bán kết: thêm lộ trình học cá nhân hoá gợi ý bài tiếp theo dựa trên kết quả quiz, diễn đàn hỏi đáp theo khoá học và xuất chứng chỉ hoàn thành. Tối ưu truy vấn báo cáo tiến độ và bổ sung phân trang. Pitch deck trình bày rõ mô hình doanh thu freemium.',
+   16, 'SUBMITTED'),  -- sub 7
+  (3, 2, 'https://github.com/team-tiger/seal',   'https://demo.teamtiger.io/v2',   'https://slides.com/tiger-semi',
+   'HealthTiger bản vòng bán kết: đã thêm đồng bộ dữ liệu lên cloud (Firebase), đăng nhập đa thiết bị và tính năng thử thách nhóm để bạn bè cùng vận động. Cải thiện hiệu năng vẽ biểu đồ và giảm hao pin khi chạy nền. Giao diện mobile được đánh giá tự nhiên, mượt.',
+   12, 'SUBMITTED'),  -- sub 8
+  (4, 2, 'https://github.com/team-eagle/seal',   'https://demo.teameagle.io/v2',   'https://slides.com/eagle-semi',
+   'AutoGrade bản vòng bán kết: bổ sung dashboard phân tích cho giảng viên (phân bố điểm, câu sai nhiều nhất), cho phép giảng viên ghi đè điểm AI và lưu lại lịch sử chỉnh sửa. Mô hình NLP được hiệu chỉnh lại rubric nên bám sát giảng viên hơn. Vẫn cần thêm dữ liệu huấn luyện cho môn tự luận dài.',
+   18, 'SUBMITTED'),  -- sub 9
   -- Final (round 3)
-  (1, 3, 'https://github.com/team-phoenix/seal', 'https://demo.teamphoenix.io/final', 'https://slides.com/phoenix-final', 6,  'SUBMITTED'),  -- sub 10
-  (3, 3, 'https://github.com/team-tiger/seal',   'https://demo.teamtiger.io/final',   'https://slides.com/tiger-final',   12, 'SUBMITTED'),  -- sub 11
-  (4, 3, 'https://github.com/team-eagle/seal',   'https://demo.teameagle.io/final',   'https://slides.com/eagle-final',   18, 'SUBMITTED');  -- sub 12
+  (1, 3, 'https://github.com/team-phoenix/seal', 'https://demo.teamphoenix.io/final', 'https://slides.com/phoenix-final',
+   'SmartDorm bản chung kết: sản phẩm gần như hoàn chỉnh — quản lý phòng, báo hỏng, thanh toán, điểm danh QR và báo cáo cho ban quản lý đều hoạt động ổn định. Đã triển khai thử nghiệm cho một toà KTX với dữ liệu thật, có tài liệu hướng dẫn và phân tích khả năng nhân rộng ra nhiều cơ sở.',
+   6,  'SUBMITTED'),  -- sub 10
+  (3, 3, 'https://github.com/team-tiger/seal',   'https://demo.teamtiger.io/final',   'https://slides.com/tiger-final',
+   'HealthTiger bản chung kết: hoàn thiện đồng bộ cloud, thử thách nhóm và tích hợp nhắc nhở sức khoẻ thông minh theo thói quen người dùng. Có khảo sát người dùng thật cho thấy mức độ giữ chân tốt. Định hướng mở rộng sang hợp tác với phòng y tế trường để theo dõi sức khoẻ tổng thể.',
+   12, 'SUBMITTED'),  -- sub 11
+  (4, 3, 'https://github.com/team-eagle/seal',   'https://demo.teameagle.io/final',   'https://slides.com/eagle-final',
+   'AutoGrade bản chung kết: nền tảng chấm tự động cho cả code và tự luận, kèm dashboard phân tích và cơ chế giám sát của giảng viên để đảm bảo công bằng. Đã đo độ đồng thuận giữa AI và giảng viên trên tập bài thật và trình bày hướng cải thiện. Tiềm năng áp dụng cho các môn lập trình quy mô lớn.',
+   18, 'SUBMITTED');  -- sub 12
 
 
 -- =====================================================
