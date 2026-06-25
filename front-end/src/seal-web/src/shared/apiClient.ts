@@ -1023,11 +1023,22 @@ export interface AiCriteriaInsight {
   suggestedScoreRange: string;
 }
 
+// Anonymized analysis of the submission's GitHub repository. Facts here are read
+// straight from GitHub (not the model), so techStack/signals/redFlags are reliable.
+export interface AiRepoAnalysis {
+  analyzed: boolean;
+  note: string | null;
+  techStack: string[];
+  signals: string[];
+  redFlags: string[];
+}
+
 export interface AiInsight {
   summary: string;
   strengths: string[];
   concerns: string[];
   criteriaInsights: AiCriteriaInsight[];
+  repo?: AiRepoAnalysis | null;
   disclaimer: string;
   model: string;
 }
