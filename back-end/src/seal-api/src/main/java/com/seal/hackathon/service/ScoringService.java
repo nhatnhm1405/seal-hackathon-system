@@ -22,6 +22,7 @@ import com.seal.hackathon.repository.HackathonEventRepository;
 import com.seal.hackathon.repository.RoundRepository;
 import com.seal.hackathon.repository.ScoreRepository;
 import com.seal.hackathon.repository.ScoringCriteriaRepository;
+import com.seal.hackathon.repository.ScoringCriteriaTemplateRepository;
 import com.seal.hackathon.repository.SubmissionRepository;
 import com.seal.hackathon.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -46,6 +47,7 @@ public class ScoringService {
             "Submission not found or not assigned to this judge.";
 
     private final ScoringCriteriaRepository criteriaRepository;
+    private final ScoringCriteriaTemplateRepository templateRepository;
     private final ScoreRepository scoreRepository;
     private final SubmissionRepository submissionRepository;
     private final UserRepository userRepository;
