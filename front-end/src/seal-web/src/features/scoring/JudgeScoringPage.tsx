@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { Bot, RefreshCw } from "lucide-react";
 import {
   C, GradientText, PixelCard, PixelButton, PixelBadge,
 } from "@/shared/components/PixelComponents";
@@ -333,7 +334,11 @@ export function JudgeScoringPage() {
                     {selectedSub.demoUrl && <a href={selectedSub.demoUrl} target="_blank" rel="noreferrer"><PixelButton variant="secondary" size="sm">OPEN DEMO</PixelButton></a>}
                     {selectedSub.slideUrl && <a href={selectedSub.slideUrl} target="_blank" rel="noreferrer"><PixelButton variant="secondary" size="sm">OPEN SLIDES</PixelButton></a>}
                     <PixelButton variant="cyber" size="sm" disabled={aiLoading} onClick={askAi}>
-                      {aiLoading ? "AI THINKING…" : aiInsight ? "↻ AI ASSIST" : "✨ AI ASSIST"}
+                      {aiLoading
+                        ? "AI THINKING…"
+                        : aiInsight
+                          ? (<><RefreshCw size={14} strokeWidth={2.5} /><span>AI ASSIST</span></>)
+                          : (<><Bot size={14} strokeWidth={2.5} /><span>AI ASSIST</span></>)}
                     </PixelButton>
                   </div>
                 </PixelCard>
@@ -342,14 +347,14 @@ export function JudgeScoringPage() {
                   <PixelCard glow glowColor="cyan" style={{ padding: 20 }}>
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, gap: 10 }}>
                       <div style={{ color: C.cyanBright, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 700, letterSpacing: "0.08em" }}>
-                        ✨ AI JUDGE ASSISTANT
+                        AI JUDGE ASSISTANT
                       </div>
                       {aiInsight?.model && <PixelBadge color="cyan">{aiInsight.model}</PixelBadge>}
                     </div>
 
                     {aiLoading && (
                       <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>
-                        Đang phân tích bài nộp… (vài giây)
+                        Analyzing submission… (a few seconds)
                       </div>
                     )}
 
