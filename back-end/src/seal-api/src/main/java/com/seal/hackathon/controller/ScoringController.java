@@ -1,10 +1,12 @@
 package com.seal.hackathon.controller;
 
 import com.seal.hackathon.dto.request.CreateCriteriaRequest;
+import com.seal.hackathon.dto.request.CreateTemplateRequest;
 import com.seal.hackathon.dto.request.SubmitScoresRequest;
 import com.seal.hackathon.dto.response.ApiResponse;
 import com.seal.hackathon.dto.response.ScoreResponse;
 import com.seal.hackathon.dto.response.ScoringCriteriaResponse;
+import com.seal.hackathon.dto.response.ScoringCriteriaTemplateResponse;
 import com.seal.hackathon.security.UserPrincipal;
 import com.seal.hackathon.service.ScoringService;
 import jakarta.validation.Valid;
@@ -63,6 +65,35 @@ public class ScoringController {
             @PathVariable Integer criteriaId) {
         scoringService.deleteCriteria(eventId, roundId, criteriaId);
         return ResponseEntity.ok(ApiResponse.success("Criteria deleted successfully."));
+    }
+
+    // ── Criteria templates ────────────────────────────────────────────
+
+    @GetMapping("/criteria-templates")
+    @PreAuthorize("hasRole('EVENT_COORDINATOR')")
+    public ResponseEntity<ApiResponse<List<ScoringCriteriaTemplateResponse>>> listTemplates() {
+        return ResponseEntity.ok(ApiResponse.success("Templates retrieved successfully.",
+                scoringService.listTemplates()));
+    }
+
+    @PostMapping("/events/{eventId}/rounds/{roundId}/criteria/apply-template/{templateId}")
+    @PreAuthorize("hasRole('EVENT_COORDINATOR')")
+    public ResponseEntity<ApiResponse<List<ScoringCriteriaResponse>>> applyTemplate(
+            @PathVariable Integer eventId,
+            @PathVariable Integer roundId,
+            @PathVariable Integer templateId) {
+        return ResponseEntity.ok(ApiResponse.success("Template applied successfully.",
+                scoringService.applyTemplate(eventId, roundId, templateId)));
+    }
+
+    @PostMapping("/events/{eventId}/rounds/{roundId}/criteria/save-as-template")
+    @PreAuthorize("hasRole('EVENT_COORDINATOR')")
+    public ResponseEntity<ApiResponse<ScoringCriteriaTemplateResponse>> saveAsTemplate(
+            @PathVariable Integer eventId,
+            @PathVariable Integer roundId,
+            @Valid @RequestBody CreateTemplateRequest request) {
+        return ResponseEntity.ok(ApiResponse.success("Template saved successfully.",
+                scoringService.createTemplateFromRound(eventId, roundId, request)));
     }
 
     // ── Scores ────────────────────────────────────────────────────────

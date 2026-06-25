@@ -82,6 +82,15 @@ interface CriteriaRow {
   orderNumber: number;
 }
 
+// A reusable scoring-criteria template (GET /api/criteria-templates).
+interface CriteriaTemplate {
+  templateId: number;
+  name: string;
+  description?: string;
+  isDefault?: boolean;
+  items: { name: string }[];
+}
+
 function normalizeTrack(item: ApiTrack): TrackRow {
   return {
     trackId:     item.id ?? item.trackId ?? item.track_id ?? 0,
@@ -263,6 +272,13 @@ export function CoordEventsPage() {
   const [criteriaLoading, setCriteriaLoading] = useState(false);
   const [criteriaError, setCriteriaError] = useState<string | null>(null);
 
+  // Reusable criteria templates (global, not per-event) for the apply/save UI.
+  const [templates, setTemplates] = useState<CriteriaTemplate[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null);
+  const [templateBusy, setTemplateBusy] = useState(false);
+  const [savingTemplate, setSavingTemplate] = useState(false);
+  const [newTemplateName, setNewTemplateName] = useState("");
+
   // Confirmation dialog state (shared by every status change + reopen request).
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [actionWorking, setActionWorking] = useState(false);
@@ -389,6 +405,13 @@ export function CoordEventsPage() {
       .catch(err => setCriteriaError(err instanceof ApiError ? err.message : "Failed to load criteria."))
       .finally(() => setCriteriaLoading(false));
   }, [selectedEventId, selectedRoundId]);
+
+  // ── Load reusable criteria templates once (global list) ───────────
+  useEffect(() => {
+    apiFetch<{ data: CriteriaTemplate[] }>('/api/criteria-templates')
+      .then(res => setTemplates(res.data ?? []))
+      .catch(() => { /* non-fatal — the template picker just stays empty */ });
+  }, []);
 
   // ── Load audit trail when the Audit tab is open ───────────────────
   // Re-runs whenever the tab is (re)opened, so a draw/redraw done on the Tracks
@@ -856,6 +879,58 @@ export function CoordEventsPage() {
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Failed to add criteria.");
       addToast({ type: 'warning', title: 'CREATE FAILED', message: apiErrorMessage(err, 'Failed to add criteria.') });
+    }
+  }
+
+  // Apply a saved template's criteria to the current round (appends; the backend
+  // skips items whose name already exists, so re-applying never duplicates).
+  async function applyTemplate() {
+    if (!selectedEvent || selectedRoundId == null || selectedTemplateId == null) {
+      addToast({ type: 'warning', title: 'NO TEMPLATE', message: 'Pick a template to apply.' });
+      return;
+    }
+    setTemplateBusy(true);
+    setActionError(null);
+    try {
+      const res = await apiFetch<{ data: ApiCriteria[] }>(
+        `/api/events/${selectedEvent.eventId}/rounds/${selectedRoundId}/criteria/apply-template/${selectedTemplateId}`,
+        { method: 'POST' },
+      );
+      setCriteria((res.data ?? []).map(normalizeCriteria).sort((a, b) => a.orderNumber - b.orderNumber));
+      const tpl = templates.find(t => t.templateId === selectedTemplateId);
+      addToast({ type: 'success', title: 'TEMPLATE APPLIED', message: `"${tpl?.name ?? 'Template'}" applied to this round.` });
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : "Failed to apply template.");
+      addToast({ type: 'warning', title: 'APPLY FAILED', message: apiErrorMessage(err, 'Failed to apply template.') });
+    } finally {
+      setTemplateBusy(false);
+    }
+  }
+
+  // Save the current round's criteria as a new reusable template.
+  async function saveAsTemplate() {
+    if (!selectedEvent || selectedRoundId == null) return;
+    const name = newTemplateName.trim();
+    if (!name) {
+      addToast({ type: 'warning', title: 'MISSING NAME', message: 'Enter a name for the template.' });
+      return;
+    }
+    setTemplateBusy(true);
+    setActionError(null);
+    try {
+      const res = await apiFetch<{ data: CriteriaTemplate }>(
+        `/api/events/${selectedEvent.eventId}/rounds/${selectedRoundId}/criteria/save-as-template`,
+        { method: 'POST', body: JSON.stringify({ name }) },
+      );
+      setTemplates(prev => [...prev, res.data]);
+      setSavingTemplate(false);
+      setNewTemplateName("");
+      addToast({ type: 'success', title: 'TEMPLATE SAVED', message: `"${name}" saved from this round's criteria.` });
+    } catch (err) {
+      setActionError(err instanceof ApiError ? err.message : "Failed to save template.");
+      addToast({ type: 'warning', title: 'SAVE FAILED', message: apiErrorMessage(err, 'Failed to save template.') });
+    } finally {
+      setTemplateBusy(false);
     }
   }
 
@@ -1335,6 +1410,32 @@ export function CoordEventsPage() {
                       })}
                     </div>
 
+                    {/* Criteria template: apply a saved set, or save this round's criteria as a new one */}
+                    <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", padding: 10, background: C.surface, border: `1px solid ${C.border}` }}>
+                      <span style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.05em" }}>TEMPLATE:</span>
+                      <select
+                        value={selectedTemplateId ?? ""}
+                        onChange={(e) => setSelectedTemplateId(e.target.value ? Number(e.target.value) : null)}
+                        style={{ padding: "4px 8px", background: C.surface2, border: `1px solid ${C.border}`, color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, borderRadius: 0, outline: "none" }}
+                      >
+                        <option value="">Select a template…</option>
+                        {templates.map(t => (
+                          <option key={t.templateId} value={t.templateId}>{t.name} ({t.items?.length ?? 0})</option>
+                        ))}
+                      </select>
+                      <PixelButton size="sm" variant="cyber" onClick={applyTemplate} disabled={templateBusy || selectedTemplateId == null}>APPLY</PixelButton>
+                      <div style={{ flex: 1 }} />
+                      {savingTemplate ? (
+                        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                          <PixelInput placeholder="Template name" value={newTemplateName} onChange={(e) => setNewTemplateName(e.target.value)} />
+                          <PixelButton size="sm" variant="secondary" onClick={saveAsTemplate} disabled={templateBusy}>SAVE</PixelButton>
+                          <PixelButton size="sm" variant="ghost" onClick={() => { setSavingTemplate(false); setNewTemplateName(""); }}>CANCEL</PixelButton>
+                        </div>
+                      ) : (
+                        <PixelButton size="sm" variant="ghost" onClick={() => setSavingTemplate(true)} disabled={criteria.length === 0}>SAVE AS TEMPLATE</PixelButton>
+                      )}
+                    </div>
+
                     {criteriaLoading && <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>Loading...</div>}
                     {criteriaError && <div style={{ color: C.red, fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}>{criteriaError}</div>}
                     {!criteriaLoading && !criteriaError && criteria.length === 0 && (
@@ -1354,16 +1455,17 @@ export function CoordEventsPage() {
                             </div>
                           </div>
                         ) : (
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
-                            <div style={{ minWidth: 0 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                            <div style={{ minWidth: 0, flex: 1 }}>
                               <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 600 }}>{c.name}</div>
                               <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginTop: 2 }}>{c.description || "—"}</div>
                             </div>
-                            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                              <PixelBadge color="cyan">MAX {c.maxScore}</PixelBadge>
-                              <PixelBadge color="blue">W {c.weight}</PixelBadge>
-                              <PixelButton size="sm" variant="ghost" onClick={() => startEditCriteria(c)}>EDIT</PixelButton>
-                              <PixelButton size="sm" variant="danger" onClick={() => requestDeleteCriteria(c)}>DELETE</PixelButton>
+                            {/* Fixed-width cells so MAX / W / EDIT / DELETE line up across every row */}
+                            <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
+                              <div style={{ width: 84, display: "flex", justifyContent: "center" }}><PixelBadge color="cyan">MAX {c.maxScore}</PixelBadge></div>
+                              <div style={{ width: 64, display: "flex", justifyContent: "center" }}><PixelBadge color="blue">W {c.weight}</PixelBadge></div>
+                              <div style={{ width: 64, display: "flex", justifyContent: "flex-end" }}><PixelButton size="sm" variant="ghost" onClick={() => startEditCriteria(c)}>EDIT</PixelButton></div>
+                              <div style={{ width: 88, display: "flex", justifyContent: "flex-end" }}><PixelButton size="sm" variant="danger" onClick={() => requestDeleteCriteria(c)}>DELETE</PixelButton></div>
                             </div>
                           </div>
                         )}
