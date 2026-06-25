@@ -231,6 +231,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     rememberMe = false,
   ): Promise<'ok' | 'ok:select-role' | 'invalid_credentials' | 'pending_approval' | 'inactive'> {
     try {
+      // Wipe any prior session before authenticating a new one — otherwise a
+      // leftover token / activeRole / user from the previous account can bleed
+      // into the new login and make subsequent requests carry the wrong identity.
+      clearToken();
+      localStorage.removeItem(ACTIVE_ROLE_KEY);
+      setCurrentUser(null);
+      setAvailableRoles([]);
+      setActiveRoleState(null);
+
       // Step 1: authenticate and receive token
       const loginRes = await apiFetch<{ data: { token: string; userId?: number } }>(
         '/api/auth/login',
