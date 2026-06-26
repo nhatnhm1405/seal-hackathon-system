@@ -27,7 +27,9 @@ import java.util.List;
  *
  * Key decisions:
  * - CSRF disabled: REST API uses JWT, not session cookies.
- * - Stateless sessions: JWT carries state, no server-side session needed.
+ * - Sessions are created only when needed. OAuth2 needs a short-lived session
+ *   to store the authorization state between provider redirects; API auth still
+ *   uses JWT.
  * - JWT filter runs before UsernamePasswordAuthenticationFilter.
  * - OAuth2 login redirects to frontend with token on success.
  */
@@ -55,7 +57,9 @@ public class SecurityConfig {
             // Enable CORS with the configuration below
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
 
-            // No HTTP session — all auth state lives in the JWT
+            // OAuth2 needs a transient session to preserve state across the
+            // Google/GitHub redirect. Normal API requests still authenticate
+            // with JWT and do not require a server-side session.
             .sessionManagement(session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
 
@@ -119,6 +123,7 @@ public class SecurityConfig {
                 .userInfoEndpoint(u -> u.userService(customOAuth2UserService))
                 // On success: generate JWT and redirect to frontend
                 .successHandler(oAuth2LoginSuccessHandler)
+                // On failure: log the real cause and return the user to the SPA
                 .failureHandler(oAuth2LoginFailureHandler)
             )
 
@@ -132,7 +137,7 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
 
-        // Allow requests from React dev server
+        // Allow requests from the local dev server and the deployed frontend.
         config.setAllowedOrigins(List.of("http://localhost:5173", frontendUrl));
 
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
