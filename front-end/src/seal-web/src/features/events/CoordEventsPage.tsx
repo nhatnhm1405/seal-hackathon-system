@@ -308,7 +308,7 @@ export function CoordEventsPage() {
   const [rdStart, setRdStart] = useState("");
   const [rdEnd, setRdEnd] = useState("");
   const [rdDeadline, setRdDeadline] = useState("");
-  const [rdTopN, setRdTopN] = useState(3);
+  const [rdTopN, setRdTopN] = useState<number | null>(3); // null = no cut-off (no elimination)
   const [editingRoundId, setEditingRoundId] = useState<number | null>(null);
 
   // Criteria form
@@ -757,7 +757,7 @@ export function CoordEventsPage() {
           startTime: rdStart || undefined,
           endTime: rdEnd || undefined,
           submissionDeadline: rdDeadline || undefined,
-          topNAdvance: rdTopN,
+          topNAdvance: rdTopN ?? undefined, // omit → round created with no cut-off
         }),
       });
       setRounds(prev => [...prev, normalizeRound(res.data)].sort((a, b) => a.orderNumber - b.orderNumber));
@@ -776,7 +776,7 @@ export function CoordEventsPage() {
     setRdStart(r.startTime ? r.startTime.slice(0, 16) : "");
     setRdEnd(r.endTime ? r.endTime.slice(0, 16) : "");
     setRdDeadline(r.submissionDeadline ? r.submissionDeadline.slice(0, 16) : "");
-    setRdTopN(r.topNAdvance ?? 0);
+    setRdTopN(r.topNAdvance ?? null);
   }
 
   function cancelRoundEdit() {
@@ -801,7 +801,8 @@ export function CoordEventsPage() {
           startTime: rdStart || undefined,
           endTime: rdEnd || undefined,
           submissionDeadline: rdDeadline || undefined,
-          topNAdvance: rdTopN,
+          // null → explicitly clear the cut-off; a number → set it.
+          ...(rdTopN == null ? { clearTopNAdvance: true } : { topNAdvance: rdTopN }),
         }),
       });
       const updated = normalizeRound(res.data);
@@ -1368,7 +1369,7 @@ export function CoordEventsPage() {
                     <PixelInput label="Start" type="datetime-local" value={rdStart} onChange={(e) => setRdStart(e.target.value)} />
                     <PixelInput label="End" type="datetime-local" value={rdEnd} onChange={(e) => setRdEnd(e.target.value)} />
                     <PixelInput label="Deadline" type="datetime-local" value={rdDeadline} onChange={(e) => setRdDeadline(e.target.value)} />
-                    <PixelInput label="Top N" type="number" value={String(rdTopN)} onChange={(e) => setRdTopN(Number(e.target.value))} />
+                    <PixelInput label="Top N" type="number" placeholder="Empty = no cut-off" value={rdTopN == null ? "" : String(rdTopN)} onChange={(e) => setRdTopN(e.target.value === "" ? null : Number(e.target.value))} />
                     {editingRoundId != null ? (
                       <div style={{ display: "flex", gap: 8 }}>
                         <PixelButton variant="cyber" onClick={saveRoundEdit}>SAVE</PixelButton>
