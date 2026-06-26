@@ -63,6 +63,10 @@
     {
       "key": "notificationId",
       "value": "1"
+    },
+    {
+      "key": "prizeId",
+      "value": "1"
     }
   ],
   "item": [
@@ -2527,6 +2531,231 @@
               "script": {
                 "exec": [
                   "pm.test('status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "17. PRIZES (EVENT-WIDE AWARDS)",
+      "item": [
+        {
+          "name": "GET prizes (Public = announced only)",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/api/events/{{eventId}}/prizes"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET prizes (Coordinator = all incl. drafts)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{coordinatorToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/events/{{eventId}}/prizes"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST auto-generate from final ranking (topN)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                  "var res = pm.response.json();",
+                  "if (res.data && res.data.length > 0) {",
+                  "  pm.collectionVariables.set('prizeId', String(res.data[0].prizeId));",
+                  "  console.log('prizeId saved: ' + res.data[0].prizeId);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{coordinatorToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/events/{{eventId}}/prizes/auto-generate",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"topN\": 3\n}"
+            }
+          }
+        },
+        {
+          "name": "POST create prize slot (manual)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 201', function () { pm.response.to.have.status(201); });",
+                  "var res = pm.response.json();",
+                  "if (res.data && res.data.prizeId) {",
+                  "  pm.collectionVariables.set('prizeId', String(res.data.prizeId));",
+                  "  console.log('prizeId saved: ' + res.data.prizeId);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{coordinatorToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/events/{{eventId}}/prizes",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Best Overall\",\n  \"description\": \"Doi xuat sac nhat su kien\",\n  \"rankPosition\": 1,\n  \"teamId\": {{teamId}}\n}"
+            }
+          }
+        },
+        {
+          "name": "PUT update prize (assign/override team)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{coordinatorToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/events/{{eventId}}/prizes/{{prizeId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Champion\",\n  \"teamId\": {{teamId}}\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST announce prizes (notify winners)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{coordinatorToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/events/{{eventId}}/prizes/announce"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DELETE prize slot (draft only)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{coordinatorToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/events/{{eventId}}/prizes/{{prizeId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Participant auto-generate prizes -> expect 403",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{participantToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/events/{{eventId}}/prizes/auto-generate",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"topN\": 3\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 403', function () { pm.response.to.have.status(403); });"
                 ]
               }
             }
