@@ -47,6 +47,7 @@ public class ScoringService {
     private final UserRepository userRepository;
     private final HackathonEventRepository eventRepository;
     private final RoundRepository roundRepository;
+    private final RoundTimerService roundTimerService;
 
     // ── Criteria: list by round ───────────────────────────────────────
 
@@ -249,6 +250,11 @@ public class ScoringService {
 
         Submission submission = submissionRepository.findById(request.getSubmissionId())
                 .orElseThrow(() -> new ResourceNotFoundException("Submission not found: " + request.getSubmissionId()));
+
+        // Hard gate: if a JUDGING countdown is configured for this round, it must be
+        // running — closed/paused blocks BOTH draft and final score writes. Rounds
+        // without a judging timer keep the legacy behavior (scoring always open).
+        roundTimerService.assertJudgingOpen(submission.getRound().getRoundId());
 
         boolean isDraft = request.isDraft();
 
