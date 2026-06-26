@@ -13,13 +13,10 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api")
@@ -114,11 +111,9 @@ public class ScoringController {
     @GetMapping("/scores/submission/{submissionId}")
     @PreAuthorize("hasAnyRole('JUDGE', 'EVENT_COORDINATOR')")
     public ResponseEntity<ApiResponse<List<ScoreResponse>>> getScoresBySubmission(
-            @PathVariable Integer submissionId,
-            Authentication authentication) {
-        UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
+            @PathVariable Integer submissionId) {
         return ResponseEntity.ok(ApiResponse.success("Scores retrieved successfully.",
-                scoringService.getScoresBySubmission(principal.getUserId(), authorities(authentication), submissionId)));
+                scoringService.getScoresBySubmission(submissionId)));
     }
 
     @GetMapping("/scores/my/round/{roundId}")
@@ -129,11 +124,5 @@ public class ScoringController {
         UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
         return ResponseEntity.ok(ApiResponse.success("My scores retrieved successfully.",
                 scoringService.getMyScoresByRound(principal.getUserId(), roundId)));
-    }
-
-    private Set<String> authorities(Authentication authentication) {
-        return authentication.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority)
-                .collect(Collectors.toSet());
     }
 }

@@ -2,13 +2,15 @@ import { useState, useEffect } from "react";
 import { useForceDark } from "@/app/providers/ThemeProvider";
 import { useNavigate } from "react-router";
 import {
-  C, GradientText, PixelButton, PixelCard, PixelBadge,
+  C, GradientText, PixelButton, PixelBadge,
   FloatingParticles, TerminalWindow, TypingText, SectionHeader, CircuitLines,
 } from "@/shared/components/PixelComponents";
 import { useAuth } from "@/app/providers/AuthProvider";
+import { eventsApi, roundsApi, resultsApi, HackathonEvent, Round, RoundResult } from "@/shared/apiClient";
 import { SealFooter } from "@/shared/components/SealFooter";
 import sealLogo from "@/imports/image.png";
 import Hero from "@/imports/Hero.jpg"
+import fptLogo from "@/imports/fpt-logo.png";
 import G1 from "@/imports/Hackathon.jpg";
 import G2 from "@/imports/Hackathon2.jpg";
 import G3 from "@/imports/Hackathon3.jpg";
@@ -19,6 +21,157 @@ import G7 from "@/imports/Hackathon7.jpg";
 
 type Page = "landing" | "auth" | "register" | "dashboard" | "events" | "teams" | "submissions" | "leaderboard" | "judge" | "admin" | "profile";
 
+type Phase = "completed" | "active" | "upcoming";
+
+// ── Live landing data (public endpoints) ──────────────────────────
+interface LandingData {
+  loading: boolean;
+  events: HackathonEvent[];
+  current?: HackathonEvent;   // ongoing event (Summer 2026 / OPEN)
+  past?: HackathonEvent;      // finished event for leaderboard (Spring 2026 / COMPLETED)
+  upcoming?: HackathonEvent;  // mystery event (Fall 2026 / DRAFT)
+  currentRounds: Round[];
+  pastTop3: RoundResult[];
+}
+
+function useLandingData(): LandingData {
+  const [data, setData] = useState<LandingData>({
+    loading: true, events: [], currentRounds: [], pastTop3: [],
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const events = (await eventsApi.getAll()).data ?? [];
+        const bySeason = (s: string) => events.find(e => e.season?.toUpperCase() === s);
+        const byStatus = (s: string) => events.find(e => e.status === s);
+        const current = bySeason("SUMMER") ?? byStatus("OPEN");
+        const past = bySeason("SPRING") ?? byStatus("COMPLETED");
+        const upcoming = bySeason("FALL") ?? byStatus("DRAFT");
+
+        let currentRounds: Round[] = [];
+        let pastTop3: RoundResult[] = [];
+
+        if (current) {
+          try {
+            currentRounds = ((await roundsApi.getAll(current.eventId)).data ?? [])
+              .sort((a, b) => a.orderNumber - b.orderNumber);
+          } catch { /* keep empty */ }
+        }
+        if (past) {
+          try {
+            const rounds = (await roundsApi.getAll(past.eventId)).data ?? [];
+            const finalRound = rounds.find(r => r.isFinal) ?? rounds[rounds.length - 1];
+            if (finalRound) {
+              const results = (await resultsApi.getPublished(past.eventId, finalRound.roundId)).data ?? [];
+              pastTop3 = [...results].sort((a, b) => a.rankPosition - b.rankPosition).slice(0, 3);
+            }
+          } catch { /* keep empty */ }
+        }
+
+        if (!cancelled) setData({ loading: false, events, current, past, upcoming, currentRounds, pastTop3 });
+      } catch {
+        if (!cancelled) setData(d => ({ ...d, loading: false }));
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  return data;
+}
+
+// Map a backend event status to a terminal badge {color,label}.
+// Reflects whatever the coordinator sets the event status to, live.
+function eventStatusBadge(status?: string): { color: "green" | "blue" | "cyan" | "yellow" | "gray" | "red"; label: string } {
+  switch (status) {
+    case "OPEN": return { color: "green", label: "open" };
+    case "SETUP": return { color: "cyan", label: "setup" };
+    case "IN_PROGRESS": return { color: "blue", label: "in progress" };
+    case "COMPLETED": return { color: "yellow", label: "completed" };
+    case "DRAFT": return { color: "gray", label: "draft" };
+    case "CANCELLED": return { color: "red", label: "cancelled" };
+    default: return { color: "gray", label: (status ?? "—").toLowerCase() };
+  }
+}
+
+// Map a backend round status to a timeline phase.
+function roundPhase(status?: string): Phase {
+  switch (status) {
+    case "FINALIZED": return "completed";
+    case "ACTIVE": return "active";
+    default: return "upcoming"; // PENDING / unknown
+  }
+}
+
+function fmtDate(iso?: string): string {
+  if (!iso) return "TBA";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "TBA";
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mi = String(d.getMinutes()).padStart(2, "0");
+  return `${dd}.${mm}.${d.getFullYear()} — ${hh}:${mi}`;
+}
+
+// Gallery-style neon frame around an image (corner brackets, scanlines, glow).
+function NeonImageFrame({ src, label, height, borderColor = C.green }: {
+  src: string; label?: string; height: number | string; borderColor?: string;
+}) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        position: "relative", width: "100%", height, overflow: "hidden", flexShrink: 0,
+        border: `1px solid ${hovered ? `${borderColor}88` : `${borderColor}33`}`,
+        boxShadow: hovered
+          ? `0 0 0 1px ${borderColor}22, 0 0 28px ${borderColor}44, 0 0 60px ${borderColor}18, inset 0 0 30px rgba(0,0,0,0.4)`
+          : `0 0 16px ${borderColor}12, inset 0 0 20px rgba(0,0,0,0.35)`,
+        transition: "border-color 0.3s, box-shadow 0.3s",
+      }}
+    >
+      <img src={src} alt={label ?? "SEAL"} style={{
+        width: "100%", height: "100%", objectFit: "cover", display: "block",
+        transition: "transform 0.5s ease, filter 0.3s ease",
+        transform: hovered ? "scale(1.05)" : "scale(1)",
+        filter: hovered ? "brightness(1.06) contrast(1.04)" : "brightness(0.9) contrast(1)",
+      }} />
+      {/* Scanline overlay */}
+      <div style={{ position: "absolute", inset: 0, background: "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.05) 2px, rgba(0,0,0,0.05) 3px)", pointerEvents: "none", zIndex: 1 }} />
+      {/* Gradient vignette */}
+      <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(0,0,0,0.5) 0%, transparent 50%)", pointerEvents: "none", zIndex: 2 }} />
+      {/* Top neon line */}
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, zIndex: 4, background: `linear-gradient(90deg, transparent, ${borderColor}, transparent)`, opacity: hovered ? 1 : 0.4, boxShadow: hovered ? `0 0 10px ${borderColor}, 0 0 20px ${borderColor}88` : "none", transition: "opacity 0.3s, box-shadow 0.3s" }} />
+      {/* Corner brackets */}
+      {[
+        { top: 7, left: 7, bt: true, bl: true },
+        { top: 7, right: 7, bt: true, br: true },
+        { bottom: 7, left: 7, bb: true, bl: true },
+        { bottom: 7, right: 7, bb: true, br: true },
+      ].map((c, i) => (
+        <div key={i} style={{
+          position: "absolute", width: 16, height: 16, zIndex: 5,
+          top: c.top, left: c.left, right: c.right, bottom: c.bottom,
+          borderTop: c.bt ? `2px solid ${hovered ? borderColor : `${borderColor}55`}` : undefined,
+          borderBottom: c.bb ? `2px solid ${hovered ? borderColor : `${borderColor}55`}` : undefined,
+          borderLeft: c.bl ? `2px solid ${hovered ? borderColor : `${borderColor}55`}` : undefined,
+          borderRight: c.br ? `2px solid ${hovered ? borderColor : `${borderColor}55`}` : undefined,
+          transition: "border-color 0.3s",
+        }} />
+      ))}
+      {/* Label tag */}
+      {label ? (
+        <div style={{ position: "absolute", bottom: 10, left: 12, zIndex: 6, color: hovered ? borderColor : "rgba(255,255,255,0.5)", fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: "0.12em", textShadow: hovered ? `0 0 8px ${borderColor}` : "none", transition: "color 0.3s, text-shadow 0.3s" }}>
+          {label}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 const sponsors = [
   { name: "TechCorp", tier: "platinum" },
   { name: "DevHub", tier: "platinum" },
@@ -27,51 +180,6 @@ const sponsors = [
   { name: "SyncIO", tier: "silver" },
   { name: "NullPtr", tier: "silver" },
   { name: "OpenSrc", tier: "silver" },
-];
-
-const ongoingEvents = [
-  {
-    name: "SEAL Hack 2026",
-    season: "SUMMER",
-    track: "Open Track · AI/Web",
-    deadline: "Submission deadline: Jun 17, 23:59 UTC",
-    teams: 120,
-    status: "active" as const,
-    banner: "",
-  },
-  {
-    name: "Spring Sprint",
-    season: "SPRING",
-    track: "Mobile & Embedded",
-    deadline: "Judging in progress",
-    teams: 54,
-    status: "judging" as const,
-    banner: ","
-  },
-];
-
-const upcomingEvents = [
-  {
-    name: "DevChallenge Q3",
-    season: "FALL",
-    track: "DevOps & Cloud",
-    opens: "Opens Jul 15, 2026",
-    description: "48-hour sprint focused on cloud-native tooling and developer productivity.",
-  },
-  {
-    name: "Crypto Clash",
-    season: "FALL",
-    track: "Web3 & Security",
-    opens: "Opens Aug 01, 2026",
-    description: "Build decentralised apps and security tooling in an intensive 36-hour window.",
-  },
-  {
-    name: "Winter Code Jam",
-    season: "FALL",
-    track: "Open Track",
-    opens: "Opens Dec 01, 2026",
-    description: "End-of-year open-theme hackathon. Any stack, any idea, any team size.",
-  },
 ];
 
 const faqs = [
@@ -84,76 +192,22 @@ const faqs = [
 ];
 
 const features = [
-  {
-    title: "Team Registration",
-    desc: "Form a team of up to 5, pick a track, and register in minutes. Invite members by email or share a join link.",
-    accent: C.green,
-  },
-  {
-    title: "Project Submission",
-    desc: "Submit your GitHub repo, live demo URL, and slide deck before the deadline. Every submission is timestamped.",
-    accent: C.blue,
-  },
-  {
-    title: "Multi-Round Judging",
-    desc: "Judges score on configurable criteria. Blind review prevents bias. Scores tally automatically — no spreadsheets.",
-    accent: C.cyan,
-  },
-  {
-    title: "Live Leaderboard",
-    desc: "See where your team stands in real time. Rankings update the moment scores are submitted by judges.",
-    accent: C.purple,
-  },
-  {
-    title: "Event Management",
-    desc: "Coordinators create events, define rounds and tracks, set deadlines, and manage participants from one dashboard.",
-    accent: C.blue,
-  },
-  {
-    title: "Announcements & Alerts",
-    desc: "Receive real-time updates from coordinators. Deadline reminders, rule changes, and results — delivered instantly.",
-    accent: C.green,
-  },
+  { title: "Team Registration", desc: "Build a team, pick a track, go — in minutes.", accent: C.green },
+  { title: "Project Submission", desc: "Repo, demo, deck. Submitted and timestamped.", accent: C.blue },
+  { title: "Multi-Round Judging", desc: "Blind, multi-round scoring. Zero spreadsheets.", accent: C.cyan },
+  { title: "Live Leaderboard", desc: "Rankings that move the instant scores land.", accent: C.purple },
+  { title: "Event Management", desc: "Rounds, tracks, deadlines — one console.", accent: C.blue },
+  { title: "Announcements & Alerts", desc: "Instant alerts the moment anything changes.", accent: C.green },
 ];
 
 const NAV_LINKS = [
   { label: "Home", href: "#hero" },
+  { label: "About", href: "#features" },
   { label: "Events", href: "#events" },
   { label: "Timeline", href: "#timeline" },
   { label: "Gallery", href: "#gallery" },
-  { label: "About", href: "#features" },
   { label: "FAQ", href: "#faq" },
 ];
-
-function ImagePlaceholder({ label, dataPlaceholder, width, height, src = "" }: {
-  label: string;
-  dataPlaceholder: string;
-  width?: string | number;
-  height: string | number;
-  src?: string;
-}) {
-  return (
-    <div style={{ width: width ?? "100%", height, position: "relative", flexShrink: 0 }}>
-      <img
-        src={src}
-        data-placeholder={dataPlaceholder}
-        alt={label}
-        style={{ display: src ? "block" : "none", width: "100%", height: "100%", objectFit: "cover" }}
-      />
-      {!src && (
-        <div style={{
-          position: "absolute", inset: 0,
-          background: C.surface,
-          border: "2px dashed rgba(34,197,94,0.35)",
-          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8,
-        }}>
-          <span style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.12em", textAlign: "center", padding: "0 8px" }}>{label}</span>
-          <span style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, textAlign: "center" }}>→ replace src="" with your image path</span>
-        </div>
-      )}
-    </div>
-  );
-}
 
 function NavBar({ navigate }: { navigate: (p: Page) => void }) {
   const [open, setOpen] = useState(false);
@@ -280,7 +334,8 @@ function NavBar({ navigate }: { navigate: (p: Page) => void }) {
   );
 }
 
-function HeroSection({ navigate }: { navigate: (p: Page) => void }) {
+function HeroSection({ navigate, data }: { navigate: (p: Page) => void; data: LandingData }) {
+  const leaderColors = [C.green, C.blue, C.cyan];
   return (
     <section
       id="hero"
@@ -310,15 +365,10 @@ function HeroSection({ navigate }: { navigate: (p: Page) => void }) {
 
         <div className="flex flex-col gap-7">
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{
-              display: "inline-flex", alignItems: "center", gap: 8,
-              background: "rgba(34,197,94,0.06)",
-              border: "1px solid rgba(34,197,94,0.25)",
-              padding: "5px 14px",
-              borderRadius: 0,
-            }}>
-              <span style={{ width: 7, height: 7, borderRadius: "50%", background: C.green, display: "inline-block", boxShadow: `0 0 8px ${C.green}` }} className="cyber-pulse" />
-              <span style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: "0.15em" }}>LIVE · 2026 SEASON OPEN</span>
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
+              {/* FPT logo */}
+              <img src={fptLogo} alt="FPT" style={{ height: 50, width: "auto", display: "block" }} />
+              <span style={{ color: "#ffffff", fontFamily: "'JetBrains Mono', monospace", fontSize: 26, fontWeight: 700, letterSpacing: "0.04em" }}>University</span>
             </div>
           </div>
 
@@ -340,52 +390,55 @@ function HeroSection({ navigate }: { navigate: (p: Page) => void }) {
             />
           </div>
 
-          <p style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, lineHeight: 1.8, maxWidth: 460 }}>
-            The complete hackathon management platform. Register teams, submit projects, score entries, and track live leaderboards — all in one place.
-          </p>
-
           <div className="flex flex-wrap gap-3">
             <PixelButton variant="cyber" size="lg" onClick={() => navigate("auth")}>GET STARTED FREE</PixelButton>
             <PixelButton variant="secondary" size="lg" onClick={() => navigate("register")}>EVENT REGISTRATION</PixelButton>
-          </div>
-
-          <div style={{ display: "flex", gap: 28, flexWrap: "wrap", marginTop: 4 }}>
-            {[
-              { v: "2,400+", l: "Hackers", c: C.green },
-              { v: "320+", l: "Teams", c: C.blue },
-              { v: "$50K", l: "Prizes", c: C.cyan },
-              { v: "48h", l: "Sprint", c: C.green },
-            ].map((s) => (
-              <div key={s.l} style={{ fontFamily: "'JetBrains Mono', monospace" }}>
-                <div style={{ color: s.c, fontSize: 22, fontWeight: 800, textShadow: `0 0 14px ${s.c}` }}>{s.v}</div>
-                <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.1em", marginTop: 2 }}>{s.l}</div>
-              </div>
-            ))}
           </div>
         </div>
 
         <div className="hidden md:flex flex-col gap-4 relative">
           <CircuitLines className="absolute -top-8 -right-8 w-full max-w-sm" />
 
-          <ImagePlaceholder label="[ HERO BANNER IMAGE ]" dataPlaceholder="hero-banner" height={220} src={Hero} />
+          <NeonImageFrame src={Hero} height={220} borderColor={C.green} />
 
           <TerminalWindow title="seal-hms — live-dashboard" className="pixel-float-slow relative z-10">
             <div style={{ display: "flex", flexDirection: "column", gap: 7, fontSize: 12, color: C.text }}>
               <div><span style={{ color: C.green }}>→</span> <span style={{ color: C.textMuted }}>auth</span> <span style={{ color: C.green }}>--login seal_admin</span></div>
               <div style={{ color: C.textMuted }}>  Authenticating... <span style={{ color: C.green }}>OK</span></div>
 
-              <div className="mt-1"><span style={{ color: C.green }}>→</span> <span style={{ color: C.textMuted }}>events</span> <span style={{ color: C.blue }}>--list --active</span></div>
+              <div className="mt-1"><span style={{ color: C.green }}>→</span> <span style={{ color: C.textMuted }}>events</span> <span style={{ color: C.blue }}>--list</span></div>
               <div style={{ color: C.textMuted, paddingLeft: 8 }}>
-                <div>[1] SEAL Hack 2026 &nbsp;<PixelBadge color="green">active</PixelBadge></div>
-                <div>[2] DevChallenge Q3 &nbsp;<PixelBadge color="yellow">upcoming</PixelBadge></div>
-                <div>[3] Crypto Clash &nbsp;&nbsp;&nbsp;<PixelBadge color="gray">draft</PixelBadge></div>
+                {data.loading ? (
+                  <div>  loading events...</div>
+                ) : data.events.length === 0 ? (
+                  <div>  no events found</div>
+                ) : (
+                  data.events.map((ev, i) => {
+                    const b = eventStatusBadge(ev.status);
+                    return (
+                      <div key={ev.eventId} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <span>[{i + 1}] {ev.name}</span>
+                        <PixelBadge color={b.color}>{b.label}</PixelBadge>
+                      </div>
+                    );
+                  })
+                )}
               </div>
 
-              <div className="mt-1"><span style={{ color: C.green }}>→</span> <span style={{ color: C.textMuted }}>leaderboard</span> <span style={{ color: C.cyan }}>--top 3</span></div>
+              <div className="mt-1"><span style={{ color: C.green }}>→</span> <span style={{ color: C.textMuted }}>leaderboard</span> <span style={{ color: C.cyan }}>--top 3 {data.past ? `--event "${data.past.name}"` : ""}</span></div>
               <div style={{ color: C.textMuted, paddingLeft: 8 }}>
-                <div>#1 Team Cipher &nbsp;&nbsp;&nbsp;&nbsp;<span style={{ color: C.green }}>9,240 pts</span></div>
-                <div>#2 NullPntr &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style={{ color: C.blue }}>8,815 pts</span></div>
-                <div>#3 Segfault Heroes <span style={{ color: C.cyan }}>8,440 pts</span></div>
+                {data.loading ? (
+                  <div>  loading results...</div>
+                ) : data.pastTop3.length === 0 ? (
+                  <div>  no published results</div>
+                ) : (
+                  data.pastTop3.map((r, i) => (
+                    <div key={r.resultId} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span>#{r.rankPosition} {r.teamName}</span>
+                      <span style={{ color: leaderColors[i] ?? C.green }}>{r.totalScore} pts</span>
+                    </div>
+                  ))
+                )}
               </div>
 
               <div className="mt-1">
@@ -394,31 +447,6 @@ function HeroSection({ navigate }: { navigate: (p: Page) => void }) {
               </div>
             </div>
           </TerminalWindow>
-
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              { label: "Uptime", value: "99.97%", color: C.green },
-              { label: "Active Teams", value: "120", color: C.blue },
-              { label: "Submissions", value: "98", color: C.cyan },
-              { label: "Avg Score", value: "88.4", color: C.purple },
-            ].map((m) => (
-              <div
-                key={m.label}
-                style={{
-                  background: C.surface,
-                  border: `1px solid ${m.color}22`,
-                  padding: "10px 14px",
-                  position: "relative",
-                  overflow: "hidden",
-                  boxShadow: `0 0 12px ${m.color}18`,
-                }}
-              >
-                <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 1, background: `linear-gradient(90deg, ${m.color}, transparent)`, opacity: 0.5 }} />
-                <div style={{ color: m.color, fontFamily: "'JetBrains Mono', monospace", fontSize: 18, fontWeight: 800 }}>{m.value}</div>
-                <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.1em" }}>{m.label}</div>
-              </div>
-            ))}
-          </div>
         </div>
       </div>
     </section>
@@ -430,7 +458,7 @@ function FeaturesSection() {
     <section id="features" style={{ background: C.bg, padding: "100px 0" }} className="cyber-grid-bg">
       <div style={{ maxWidth: 1160, margin: "0 auto", padding: "0 24px" }}>
         <SectionHeader title="Everything You Need" gradient
-          subtitle="A full-stack hackathon management platform. From team registration to final judging, SEAL handles every phase."
+          subtitle="From signup to results — one platform."
         />
 
         <div style={{ height: 1, background: "linear-gradient(90deg, transparent, rgba(34,197,94,0.4), rgba(59,130,246,0.4), transparent)", margin: "40px 0" }} />
@@ -479,9 +507,11 @@ function FeaturesSection() {
   );
 }
 
-function EventsSection() {
-  const statusColors: Record<string, string> = { active: C.green, judging: C.cyan };
-  const statusLabels: Record<string, string> = { active: "Active", judging: "Judging" };
+function EventsSection({ data }: { data: LandingData }) {
+  const { current, upcoming, currentRounds, loading } = data;
+  const accent = C.green;
+  const activeRound = currentRounds.find(r => r.status === "ACTIVE");
+  const cur = eventStatusBadge(current?.status);
 
   return (
     <section id="events" style={{ background: "#070b12", padding: "100px 0", borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}` }}>
@@ -491,72 +521,52 @@ function EventsSection() {
         />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 mt-16">
-          {/* Ongoing Events */}
+          {/* Ongoing — real current event */}
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
               <span style={{ width: 8, height: 8, borderRadius: "50%", background: C.green, display: "inline-block", boxShadow: `0 0 10px ${C.green}` }} className="cyber-pulse" />
               <span style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" }}>Ongoing</span>
             </div>
             <div className="flex flex-col gap-4">
-              {ongoingEvents.map((ev) => (
+              {loading ? (
+                <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, padding: "20px 24px", border: `1px solid ${C.border}`, background: C.surface }}>Loading current event…</div>
+              ) : !current ? (
+                <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, padding: "20px 24px", border: `1px solid ${C.border}`, background: C.surface }}>No ongoing event right now.</div>
+              ) : (
                 <div
-                  key={ev.name}
                   style={{
                     background: C.surface,
-                    border: `1px solid ${statusColors[ev.status]}33`,
+                    border: `1px solid ${accent}33`,
                     padding: "20px 24px",
                     position: "relative",
                     overflow: "hidden",
-                    boxShadow: `0 0 20px ${statusColors[ev.status]}10`,
+                    boxShadow: `0 0 20px ${accent}10`,
                   }}
                 >
-                  <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${statusColors[ev.status]}, transparent)` }} />
-                  <div style={{ position: "absolute", top: 0, left: 0, width: 10, height: 10, borderTop: `2px solid ${statusColors[ev.status]}`, borderLeft: `2px solid ${statusColors[ev.status]}` }} />
+                  <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${accent}, transparent)` }} />
+                  <div style={{ position: "absolute", top: 0, left: 0, width: 10, height: 10, borderTop: `2px solid ${accent}`, borderLeft: `2px solid ${accent}`, zIndex: 7 }} />
                   <div style={{ marginBottom: 16 }}>
-                    <ImagePlaceholder label="[ EVENT BANNER IMAGE ]" dataPlaceholder={`event-banner-${ev.name.toLowerCase().replace(/\s+/g, '-')}`} height={120} src={G7} />
+                    <NeonImageFrame src={G7} height={120} borderColor={accent} />
                   </div>
                   <div className="flex items-start justify-between gap-4 mb-3">
-                    <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 700 }}>{ev.name}</div>
-                    <PixelBadge color={ev.status === "active" ? "green" : "cyan"}>{statusLabels[ev.status]}</PixelBadge>
+                    <div className="glitch-text" style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 700 }}>{current.name}</div>
+                    <PixelBadge color={cur.color}>{cur.label}</PixelBadge>
                   </div>
-                  <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, marginBottom: 8 }}>{ev.track}</div>
-                  <div style={{ color: statusColors[ev.status], fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>{ev.deadline}</div>
-                  <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, marginTop: 4 }}>{ev.teams} teams registered</div>
+                  <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 13 }}>
+                    {current.season} · {current.year}{activeRound ? ` · Current round: ${activeRound.name}` : ""}
+                  </div>
                 </div>
-              ))}
+              )}
             </div>
           </div>
 
-          {/* Coming Soon */}
+          {/* Coming Soon — mystery event */}
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
-              <span style={{ width: 8, height: 8, borderRadius: 0, background: C.blue, display: "inline-block", boxShadow: `0 0 10px ${C.blue}` }} />
-              <span style={{ color: C.blue, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" }}>Coming Soon</span>
+              <span style={{ width: 8, height: 8, borderRadius: 0, background: C.purple, display: "inline-block", boxShadow: `0 0 10px ${C.purple}` }} className="cyber-pulse" />
+              <span style={{ color: C.purple, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" }}>Coming Soon</span>
             </div>
-            <div className="flex flex-col gap-4">
-              {upcomingEvents.map((ev) => (
-                <div
-                  key={ev.name}
-                  style={{
-                    background: C.surface,
-                    border: `1px solid ${C.border}`,
-                    padding: "20px 24px",
-                    position: "relative",
-                    overflow: "hidden",
-                    opacity: 0.85,
-                  }}
-                >
-                  <div style={{ position: "absolute", top: 0, left: 0, width: 10, height: 10, borderTop: `2px solid ${C.blue}55`, borderLeft: `2px solid ${C.blue}55` }} />
-                  <div className="flex items-start justify-between gap-4 mb-2">
-                    <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 14, fontWeight: 700 }}>{ev.name}</div>
-                    <PixelBadge color="blue">Upcoming</PixelBadge>
-                  </div>
-                  <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, marginBottom: 6 }}>{ev.track}</div>
-                  <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, lineHeight: 1.6, marginBottom: 8 }}>{ev.description}</div>
-                  <div style={{ color: C.blue, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>{ev.opens}</div>
-                </div>
-              ))}
-            </div>
+            <MysteryEventCard hasEvent={!loading && !!upcoming} />
           </div>
         </div>
       </div>
@@ -564,52 +574,139 @@ function EventsSection() {
   );
 }
 
-const timelineMilestones = [
-  {
-    label: "Registration Opens",
-    date: "15.01.2026 — 09:00",
-    desc: "Participant sign-ups and team formation portal goes live.",
-    icon: "📅",
-    status: "completed" as const,
-  },
-  {
-    label: "Registration Closes",
-    date: "28.02.2026 — 23:59",
-    desc: "Final deadline to register your team and confirm track selection.",
-    icon: "✏️",
-    status: "completed" as const,
-  },
-  {
-    label: "Preliminary Round",
-    date: "15.03.2026 — 10:00",
-    desc: "48-hour build sprint begins. All submissions timestamped on close.",
-    icon: "⭐",
-    status: "active" as const,
-  },
-  {
-    label: "Scoring & Judging",
-    date: "01.04.2026 — 09:00",
-    desc: "Expert panel conducts blind review across all scoring criteria.",
-    icon: "⚖️",
-    status: "upcoming" as const,
-  },
-  {
-    label: "Results Announced",
-    date: "10.04.2026 — 18:00",
-    desc: "Finalists and winners published on the live leaderboard.",
-    icon: "📢",
-    status: "upcoming" as const,
-  },
-  {
-    label: "Award Ceremony",
-    date: "20.04.2026 — 14:00",
-    desc: "Live awards stream with prize distribution and sponsor spotlights.",
-    icon: "🏆",
-    status: "upcoming" as const,
-  },
-];
+// A fully-obscured "mystery" card for an undisclosed upcoming event.
+function MysteryEventCard({ hasEvent }: { hasEvent: boolean }) {
+  const [hovered, setHovered] = useState(false);
+  const purple = C.purple;
+  const block = (w: number) => (
+    <span style={{
+      display: "inline-block", width: w, height: 11, verticalAlign: "middle",
+      background: `repeating-linear-gradient(90deg, ${purple}55 0px, ${purple}55 6px, transparent 6px, transparent 10px)`,
+      filter: "blur(0.4px)",
+    }} />
+  );
 
-function TimelineSection() {
+  return (
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        background: "linear-gradient(160deg, rgba(139,92,246,0.08), rgba(59,130,246,0.04))",
+        border: `1px solid ${hovered ? `${purple}66` : `${purple}33`}`,
+        padding: "28px 24px",
+        position: "relative",
+        overflow: "hidden",
+        minHeight: 220,
+        display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", gap: 14,
+        boxShadow: hovered ? `0 0 30px ${purple}22, inset 0 0 40px rgba(0,0,0,0.4)` : `0 0 16px ${purple}10, inset 0 0 30px rgba(0,0,0,0.35)`,
+        transition: "border-color 0.3s, box-shadow 0.3s",
+      }}
+    >
+      {/* scanline veil */}
+      <div style={{ position: "absolute", inset: 0, background: "repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.06) 3px, rgba(0,0,0,0.06) 4px)", pointerEvents: "none", zIndex: 1 }} />
+      {/* top neon line */}
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, transparent, ${purple}, transparent)`, opacity: hovered ? 1 : 0.5, boxShadow: hovered ? `0 0 12px ${purple}` : "none", transition: "opacity 0.3s" }} />
+      <div style={{ position: "absolute", top: 0, left: 0, width: 10, height: 10, borderTop: `2px solid ${purple}66`, borderLeft: `2px solid ${purple}66`, zIndex: 2 }} />
+
+      {/* Glitch ? */}
+      <div className="glitch-text" style={{
+        position: "relative", zIndex: 2,
+        fontFamily: "'JetBrains Mono', monospace", fontSize: 64, fontWeight: 900, lineHeight: 1,
+        color: purple,
+        letterSpacing: "-0.02em",
+      }}>
+        ?
+      </div>
+
+      {/* Masked title */}
+      <div className="glitch-text" style={{ position: "relative", zIndex: 2, color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 16, fontWeight: 700, letterSpacing: "0.06em" }}>
+        SEAL <span style={{ color: purple }}>███</span> 20<span style={{ color: purple }}>██</span>
+      </div>
+
+      {/* Masked meta */}
+      <div style={{ position: "relative", zIndex: 2, display: "flex", flexDirection: "column", gap: 8, alignItems: "center" }}>
+        <div>{block(140)}</div>
+        <div>{block(180)}</div>
+      </div>
+
+      <div style={{ position: "relative", zIndex: 2, marginTop: 4 }}>
+        <span style={{
+          background: `${purple}14`, border: `1px solid ${purple}44`, color: purple,
+          fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: "0.14em", padding: "4px 14px",
+        }}>
+          {hasEvent ? "COMING SOON" : "TBA"}
+        </span>
+      </div>
+    </div>
+  );
+}
+
+interface Milestone { label: string; date: string; desc: string; icon: string; status: Phase; }
+
+// Build the timeline from the real current event's lifecycle + rounds.
+function buildMilestones(data: LandingData): Milestone[] {
+  const ev = data.current;
+  const now = Date.now();
+  const ms: Milestone[] = [];
+
+  // 1) Registration — from event status + registration window.
+  let regStatus: Phase = "upcoming";
+  if (ev) {
+    if (ev.status === "COMPLETED") {
+      regStatus = "completed";
+    } else {
+      const rs = new Date(ev.registrationStart).getTime();
+      const re = new Date(ev.registrationEnd).getTime();
+      if (!isNaN(re) && now > re) regStatus = "completed";
+      else if (!isNaN(rs) && now >= rs) regStatus = "active";
+      else regStatus = "upcoming";
+    }
+  }
+  ms.push({
+    label: "Registration",
+    date: ev ? fmtDate(ev.registrationStart) : "TBA",
+    desc: "Team sign-ups and registration window for the event.",
+    icon: "📅",
+    status: regStatus,
+  });
+
+  // 2) One milestone per real round, ticked by round status.
+  const roundIcons = ["⭐", "⚔️", "🏁", "🎯", "🚀"];
+  data.currentRounds.forEach((r, i) => {
+    ms.push({
+      label: r.name,
+      date: fmtDate(r.startTime),
+      desc: r.isFinal
+        ? "Final round — top teams compete for the title."
+        : "Build & submit, then judges score this round.",
+      icon: roundIcons[i] ?? "⭐",
+      status: roundPhase(r.status),
+    });
+  });
+
+  // 3) Results & Awards — completed only when the event itself is done.
+  ms.push({
+    label: "Results & Awards",
+    date: ev ? fmtDate(ev.endDate) : "TBA",
+    desc: "Winners announced on the live leaderboard and prizes awarded.",
+    icon: "🏆",
+    status: ev?.status === "COMPLETED" ? "completed" : "upcoming",
+  });
+
+  return ms;
+}
+
+function TimelineSection({ data }: { data: LandingData }) {
+  const timelineMilestones = buildMilestones(data);
+  const N = timelineMilestones.length;
+  // Fill the track up to the last completed/active node.
+  const lastDone = timelineMilestones.reduce((acc, m, i) => (m.status !== "upcoming" ? i : acc), -1);
+  const fillPct = lastDone >= 0 ? (lastDone / N) * 100 : 0;
+  const trackLeftPct = 50 / N;
+  const trackWidthPct = 100 - 100 / N;
+  const scheduleSubtitle = data.current
+    ? `Live schedule for ${data.current.name}`
+    : "Key dates and milestones for the season";
   const neon = "#00ff88";
   const neonDim = "rgba(0,255,136,0.18)";
   const neonGlow = "0 0 8px rgba(0,255,136,0.55), 0 0 20px rgba(0,255,136,0.25)";
@@ -636,7 +733,7 @@ function TimelineSection() {
             Hackathon Schedule
           </h2>
           <p style={{ color: "rgba(255,255,255,0.35)", fontFamily: "'JetBrains Mono', monospace", fontSize: 13, letterSpacing: "0.04em" }}>
-            Key dates and milestones for the 2026 season
+            {scheduleSubtitle}
           </p>
         </div>
 
@@ -644,12 +741,12 @@ function TimelineSection() {
         <div className="hidden lg:block">
           {/* Track line */}
           <div style={{ position: "relative", marginBottom: 0 }}>
-            <div style={{ position: "absolute", top: 28, left: "8.33%", right: "8.33%", height: 2, background: trackDim, zIndex: 0 }} />
+            <div style={{ position: "absolute", top: 28, left: `${trackLeftPct}%`, right: `${trackLeftPct}%`, height: 2, background: trackDim, zIndex: 0 }} />
             {/* Filled track up to active node */}
-            <div style={{ position: "absolute", top: 28, left: "8.33%", width: "33.33%", height: 2, background: `linear-gradient(90deg, ${neon}, rgba(0,255,136,0.6))`, boxShadow: `0 0 8px rgba(0,255,136,0.5)`, zIndex: 1 }} />
+            <div style={{ position: "absolute", top: 28, left: `${trackLeftPct}%`, width: `${fillPct}%`, height: 2, background: `linear-gradient(90deg, ${neon}, rgba(0,255,136,0.6))`, boxShadow: `0 0 8px rgba(0,255,136,0.5)`, zIndex: 1 }} />
 
             {/* Nodes */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(6,1fr)", gap: 0 }}>
+            <div style={{ display: "grid", gridTemplateColumns: `repeat(${N},1fr)`, gap: 0 }}>
               {timelineMilestones.map((m, i) => {
                 const isCompleted = m.status === "completed";
                 const isActive = m.status === "active";
@@ -717,7 +814,7 @@ function TimelineSection() {
           {/* Vertical track */}
           <div style={{ position: "absolute", left: 20, top: 28, bottom: 28, width: 2, background: trackDim }} />
           {/* Filled portion */}
-          <div style={{ position: "absolute", left: 20, top: 28, height: "33.33%", width: 2, background: `linear-gradient(180deg, ${neon}, rgba(0,255,136,0.5))`, boxShadow: `0 0 8px rgba(0,255,136,0.5)` }} />
+          <div style={{ position: "absolute", left: 20, top: 28, height: `${N > 1 && lastDone >= 0 ? (lastDone / (N - 1)) * 100 : 0}%`, width: 2, background: `linear-gradient(180deg, ${neon}, rgba(0,255,136,0.5))`, boxShadow: `0 0 8px rgba(0,255,136,0.5)` }} />
 
           <div style={{ display: "flex", flexDirection: "column", gap: 36 }}>
             {timelineMilestones.map((m, i) => {
@@ -1208,21 +1305,24 @@ function CTASection({ navigate }: { navigate: (p: Page) => void }) {
   );
 }
 
-export function LandingPage({ navigate }: { navigate: (p: Page) => void }) {
+export function LandingPage({ navigate, hideChrome = false }: { navigate: (p: Page) => void; hideChrome?: boolean }) {
   useForceDark();
+  const data = useLandingData();
   return (
     <div style={{ background: C.bg, minHeight: "100vh" }}>
-      <NavBar navigate={navigate} />
-      <HeroSection navigate={navigate} />
+      {/* When embedded in the dashboard frame, DashboardLayout already provides
+          the top navbar + footer, so we skip the landing's own chrome. */}
+      {!hideChrome && <NavBar navigate={navigate} />}
+      <HeroSection navigate={navigate} data={data} />
       <InnovationStrip />
       <FeaturesSection />
-      <EventsSection />
-      <TimelineSection />
+      <EventsSection data={data} />
+      <TimelineSection data={data} />
       <GallerySection />
       <SponsorsSection />
       <FAQSection />
       <CTASection navigate={navigate} />
-      <SealFooter />
+      {!hideChrome && <SealFooter />}
     </div>
   );
 }

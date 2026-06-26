@@ -7,10 +7,6 @@ target/
 # Local secrets (OAuth2 client id/secret, DB password, mail) — share via chat, never commit.
 .env
 
-# Runtime / crash logs
-*.log
-hs_err_pid*.log
-
 # Runtime upload dirs — user files stored on disk, never source.
 # uploads/   = public files served at /uploads/** (avatars, ...)
 # protected/ = access-controlled files streamed via API (track "đề thi", ...)
