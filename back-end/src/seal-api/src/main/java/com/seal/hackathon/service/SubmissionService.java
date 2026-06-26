@@ -14,32 +14,51 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class SubmissionService {
 
+    private static final Set<String> STUDENT_TYPES = Set.of("FPT_STUDENT", "EXTERNAL_STUDENT");
+    private static final String ROLE_EVENT_COORDINATOR = "ROLE_EVENT_COORDINATOR";
+    private static final String ROLE_JUDGE = "ROLE_JUDGE";
+    private static final int MAX_URL_LENGTH = 500;
+    private static final int MAX_DESCRIPTION_LENGTH = 5000;
+    private static final Pattern HTTP_URL_PATTERN = Pattern.compile("^https?://\\S+$", Pattern.CASE_INSENSITIVE);
+
     private final SubmissionRepository submissionRepository;
-    private final TeamRepository teamRepository;
     private final TeamMemberRepository teamMemberRepository;
     private final RoundRepository roundRepository;
     private final RoundResultRepository resultRepository;
     private final UserRepository userRepository;
+    private final RoundTimerService roundTimerService;
 
     // ── Participant: submit or update submission ──────────────────────
 
     @Transactional
     public SubmissionResponse submit(Integer userId, SubmitRequest request) {
+        validateSubmitRequest(request);
+
         User submitter = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
+        if (!isStudent(submitter)) {
+            throw new ForbiddenException("Only student participants can submit or update a submission.");
+        }
 
         Round round = roundRepository.findById(request.getRoundId())
                 .orElseThrow(() -> new ResourceNotFoundException("Round not found: " + request.getRoundId()));
 
-        if (!"ACTIVE".equalsIgnoreCase(round.getStatus())) {
-            throw new BadRequestException("Submissions are only accepted for ACTIVE rounds.");
+        if (!isOpenRound(round.getStatus())) {
+            throw new BadRequestException("Submissions are only accepted for ACTIVE or OPEN rounds.");
         }
+
+        // Hard gate: if a CONTEST countdown is configured for this round, it must be
+        // running (not paused/stopped/expired). Rounds without a timer keep the
+        // legacy behavior (late = allowed but flagged LATE below).
+        roundTimerService.assertContestOpen(round.getRoundId());
 
         // Find the user's team in this event
         List<TeamMember> memberships = teamMemberRepository
@@ -55,6 +74,9 @@ public class SubmissionService {
         Team team = membership.getTeam();
         if (!"APPROVED".equalsIgnoreCase(team.getStatus())) {
             throw new BadRequestException("Your team must be approved before submitting.");
+        }
+        if (!"LEADER".equalsIgnoreCase(membership.getMemberRole())) {
+            throw new ForbiddenException("Only the team leader can submit or update a submission.");
         }
 
         // Advancement gate: a team eliminated in the preceding round (outside its
@@ -78,7 +100,9 @@ public class SubmissionService {
                 });
 
         LocalDateTime now = LocalDateTime.now();
-        String status = now.isAfter(round.getSubmissionDeadline()) ? "LATE" : "SUBMITTED";
+        if (round.getSubmissionDeadline() != null && now.isAfter(round.getSubmissionDeadline())) {
+            throw new BadRequestException("The submission deadline has passed for this round.");
+        }
 
         Submission submission = submissionRepository
                 .findByTeam_TeamIdAndRound_RoundId(team.getTeamId(), round.getRoundId())
@@ -91,12 +115,12 @@ public class SubmissionService {
                     .submittedBy(submitter)
                     .build();
         }
-        submission.setRepoUrl(request.getRepoUrl());
-        submission.setDemoUrl(request.getDemoUrl());
-        submission.setSlideUrl(request.getSlideUrl());
-        submission.setDescription(request.getDescription());
+        submission.setRepoUrl(normalizeRequiredUrl(request.getRepoUrl(), "Repository URL"));
+        submission.setDemoUrl(normalizeOptionalUrl(request.getDemoUrl(), "Demo URL"));
+        submission.setSlideUrl(normalizeOptionalUrl(request.getSlideUrl(), "Slide URL"));
+        submission.setDescription(normalizeDescription(request.getDescription()));
         submission.setSubmittedAt(now);
-        submission.setStatus(status);
+        submission.setStatus("SUBMITTED");
         submission.setSubmittedBy(submitter);
 
         submission = submissionRepository.save(submission);
@@ -131,10 +155,20 @@ public class SubmissionService {
     // ── Judge/Coordinator: list all submissions for a round ───────────
 
     @Transactional(readOnly = true)
-    public List<SubmissionResponse> getSubmissionsByRound(Integer roundId) {
+    public List<SubmissionResponse> getSubmissionsByRound(Integer requesterId, Set<String> authorities, Integer roundId) {
         roundRepository.findById(roundId)
                 .orElseThrow(() -> new ResourceNotFoundException("Round not found: " + roundId));
-        return submissionRepository.findAllByRound_RoundId(roundId).stream()
+
+        List<Submission> submissions;
+        if (hasAuthority(authorities, ROLE_EVENT_COORDINATOR)) {
+            submissions = submissionRepository.findAllByRound_RoundId(roundId);
+        } else if (hasAuthority(authorities, ROLE_JUDGE)) {
+            submissions = submissionRepository.findAllByRoundIdAndJudgeId(roundId, requesterId);
+        } else {
+            throw new ForbiddenException("You do not have permission to view submissions for this round.");
+        }
+
+        return submissions.stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
@@ -142,9 +176,30 @@ public class SubmissionService {
     // ── Get single submission by ID ───────────────────────────────────
 
     @Transactional(readOnly = true)
-    public SubmissionResponse getSubmissionById(Integer submissionId) {
-        Submission submission = submissionRepository.findById(submissionId)
-                .orElseThrow(() -> new ResourceNotFoundException("Submission not found: " + submissionId));
+    public SubmissionResponse getSubmissionById(Integer requesterId, Set<String> authorities, Integer submissionId) {
+        User requester = userRepository.findById(requesterId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + requesterId));
+
+        Submission submission;
+        if (hasAuthority(authorities, ROLE_EVENT_COORDINATOR)) {
+            submission = submissionRepository.findById(submissionId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Submission not found: " + submissionId));
+        } else if (isStudent(requester)) {
+            submission = submissionRepository.findById(submissionId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Submission not found: " + submissionId));
+            boolean ownsTeam = teamMemberRepository.existsByUser_UserIdAndTeam_TeamId(
+                    requesterId, submission.getTeam().getTeamId());
+            if (!ownsTeam) {
+                throw new ForbiddenException("You can only view submissions from your own team.");
+            }
+        } else if (hasAuthority(authorities, ROLE_JUDGE)) {
+            submission = submissionRepository.findBySubmissionIdAndJudgeId(submissionId, requesterId)
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Submission not found or not assigned to this judge."));
+        } else {
+            throw new ForbiddenException("You do not have permission to view this submission.");
+        }
+
         return mapToResponse(submission);
     }
 
@@ -166,5 +221,76 @@ public class SubmissionService {
                 .submittedByName(s.getSubmittedBy().getFullName())
                 .status(s.getStatus())
                 .build();
+    }
+
+    private boolean isOpenRound(String status) {
+        return "ACTIVE".equalsIgnoreCase(status) || "OPEN".equalsIgnoreCase(status);
+    }
+
+    private boolean isStudent(User user) {
+        return user.getUserType() != null && STUDENT_TYPES.contains(user.getUserType().toUpperCase());
+    }
+
+    private boolean hasAuthority(Set<String> authorities, String authority) {
+        return authorities != null && authorities.contains(authority);
+    }
+
+    private void validateSubmitRequest(SubmitRequest request) {
+        if (request == null) {
+            throw new BadRequestException("Submission request is required.");
+        }
+        if (request.getRoundId() == null) {
+            throw new BadRequestException("Round ID is required.");
+        }
+        normalizeRequiredUrl(request.getRepoUrl(), "Repository URL");
+        normalizeOptionalUrl(request.getDemoUrl(), "Demo URL");
+        normalizeOptionalUrl(request.getSlideUrl(), "Slide URL");
+        normalizeDescription(request.getDescription());
+    }
+
+    private String normalizeRequiredUrl(String value, String fieldName) {
+        String normalized = normalizeBlankToNull(value);
+        if (normalized == null) {
+            throw new BadRequestException(fieldName + " is required.");
+        }
+        validateUrl(normalized, fieldName);
+        return normalized;
+    }
+
+    private String normalizeOptionalUrl(String value, String fieldName) {
+        String normalized = normalizeBlankToNull(value);
+        if (normalized == null) {
+            return null;
+        }
+        validateUrl(normalized, fieldName);
+        return normalized;
+    }
+
+    private void validateUrl(String value, String fieldName) {
+        if (value.length() > MAX_URL_LENGTH) {
+            throw new BadRequestException(fieldName + " must be at most " + MAX_URL_LENGTH + " characters.");
+        }
+        if (!HTTP_URL_PATTERN.matcher(value).matches()) {
+            throw new BadRequestException(fieldName + " must start with http:// or https://.");
+        }
+    }
+
+    private String normalizeDescription(String value) {
+        String normalized = normalizeBlankToNull(value);
+        if (normalized == null) {
+            return null;
+        }
+        if (normalized.length() > MAX_DESCRIPTION_LENGTH) {
+            throw new BadRequestException("Description must be at most " + MAX_DESCRIPTION_LENGTH + " characters.");
+        }
+        return normalized;
+    }
+
+    private String normalizeBlankToNull(String value) {
+        if (value == null) {
+            return null;
+        }
+        String trimmed = value.trim();
+        return trimmed.isBlank() ? null : trimmed;
     }
 }

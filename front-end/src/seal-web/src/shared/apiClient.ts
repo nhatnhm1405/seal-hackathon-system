@@ -659,6 +659,59 @@ export const roundsApi = {
     }),
 };
 
+// ── Round Timers (live countdown per round phase) ───────────────────
+// CONTEST gates team submission; JUDGING gates judge scoring. Time is
+// server-authoritative: compute remaining from endsAt vs serverNow (correct for
+// client clock skew) — never trust the local clock. See useRoundTimer.
+
+export type TimerPhase = 'CONTEST' | 'JUDGING';
+export type TimerStatus = 'IDLE' | 'RUNNING' | 'PAUSED' | 'STOPPED' | 'EXPIRED';
+
+export interface RoundTimerState {
+  roundId: number;
+  phase: TimerPhase;
+  status: TimerStatus;
+  durationSeconds?: number | null;
+  startedAt?: string | null;
+  endsAt?: string | null;
+  remainingSeconds: number;
+  serverNow: string;
+  milestoneMinutes?: number[] | null;
+  notifyAtHalf?: boolean | null;
+}
+
+export interface StartTimerPayload {
+  durationSeconds: number;
+  milestoneMinutes?: number[];
+  notifyAtHalf?: boolean;
+}
+
+export const timersApi = {
+  get: (eventId: number, roundId: number, phase: TimerPhase) =>
+    apiFetch<ApiResponse<RoundTimerState>>(`/api/events/${eventId}/rounds/${roundId}/timer/${phase}`),
+
+  start: (eventId: number, roundId: number, phase: TimerPhase, payload: StartTimerPayload) =>
+    apiFetch<ApiResponse<RoundTimerState>>(`/api/events/${eventId}/rounds/${roundId}/timer/${phase}/start`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  pause: (eventId: number, roundId: number, phase: TimerPhase) =>
+    apiFetch<ApiResponse<RoundTimerState>>(`/api/events/${eventId}/rounds/${roundId}/timer/${phase}/pause`, { method: 'POST' }),
+
+  resume: (eventId: number, roundId: number, phase: TimerPhase) =>
+    apiFetch<ApiResponse<RoundTimerState>>(`/api/events/${eventId}/rounds/${roundId}/timer/${phase}/resume`, { method: 'POST' }),
+
+  stop: (eventId: number, roundId: number, phase: TimerPhase) =>
+    apiFetch<ApiResponse<RoundTimerState>>(`/api/events/${eventId}/rounds/${roundId}/timer/${phase}/stop`, { method: 'POST' }),
+
+  extend: (eventId: number, roundId: number, phase: TimerPhase, seconds: number) =>
+    apiFetch<ApiResponse<RoundTimerState>>(`/api/events/${eventId}/rounds/${roundId}/timer/${phase}/extend`, {
+      method: 'POST',
+      body: JSON.stringify({ seconds }),
+    }),
+};
+
 // ── Teams ─────────────────────────────────────────────────────────
 
 export interface Team {

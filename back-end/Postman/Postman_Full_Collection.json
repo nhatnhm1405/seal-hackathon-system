@@ -2539,7 +2539,172 @@
       ]
     },
     {
-      "name": "17. PRIZES (EVENT-WIDE AWARDS)",
+      "name": "17. ROUND TIMERS",
+      "item": [
+        {
+          "name": "START – Contest timer (Coordinator, 30 min)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{coordinatorToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/events/{{eventId}}/rounds/{{roundId}}/timer/CONTEST/start",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"durationSeconds\": 1800,\n  \"milestoneMinutes\": [30, 15, 5, 1],\n  \"notifyAtHalf\": true\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": { "exec": [
+                "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                "var d = pm.response.json().data; if (d) { console.log('CONTEST status', d.status, 'endsAt', d.endsAt, 'remaining', d.remainingSeconds); }"
+              ] }
+            }
+          ]
+        },
+        {
+          "name": "GET – Contest state (Participant)",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "Authorization", "value": "Bearer {{participantToken}}" } ],
+            "url": "{{baseUrl}}/api/events/{{eventId}}/rounds/{{roundId}}/timer/CONTEST"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": { "exec": [
+                "pm.test('status 200', function () { pm.response.to.have.status(200); });",
+                "var d = pm.response.json().data; if (d) { console.log('serverNow', d.serverNow, 'remaining', d.remainingSeconds); }"
+              ] }
+            }
+          ]
+        },
+        {
+          "name": "EXTEND – Contest +5 min (Coordinator)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{coordinatorToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/events/{{eventId}}/rounds/{{roundId}}/timer/CONTEST/extend",
+            "body": { "mode": "raw", "raw": "{\n  \"seconds\": 300\n}" }
+          },
+          "event": [
+            { "listen": "test", "script": { "exec": [ "pm.test('status 200', function () { pm.response.to.have.status(200); });" ] } }
+          ]
+        },
+        {
+          "name": "PAUSE – Contest (Coordinator)",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Authorization", "value": "Bearer {{coordinatorToken}}" } ],
+            "url": "{{baseUrl}}/api/events/{{eventId}}/rounds/{{roundId}}/timer/CONTEST/pause"
+          },
+          "event": [
+            { "listen": "test", "script": { "exec": [ "pm.test('status 200', function () { pm.response.to.have.status(200); });" ] } }
+          ]
+        },
+        {
+          "name": "RESUME – Contest (Coordinator)",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Authorization", "value": "Bearer {{coordinatorToken}}" } ],
+            "url": "{{baseUrl}}/api/events/{{eventId}}/rounds/{{roundId}}/timer/CONTEST/resume"
+          },
+          "event": [
+            { "listen": "test", "script": { "exec": [ "pm.test('status 200', function () { pm.response.to.have.status(200); });" ] } }
+          ]
+        },
+        {
+          "name": "STOP – Contest (Coordinator, ends now)",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Authorization", "value": "Bearer {{coordinatorToken}}" } ],
+            "url": "{{baseUrl}}/api/events/{{eventId}}/rounds/{{roundId}}/timer/CONTEST/stop"
+          },
+          "event": [
+            { "listen": "test", "script": { "exec": [ "pm.test('status 200', function () { pm.response.to.have.status(200); });" ] } }
+          ]
+        },
+        {
+          "name": "START – Judging timer (Coordinator, 60 min)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{coordinatorToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/events/{{eventId}}/rounds/{{roundId}}/timer/JUDGING/start",
+            "body": { "mode": "raw", "raw": "{\n  \"durationSeconds\": 3600\n}" }
+          },
+          "event": [
+            { "listen": "test", "script": { "exec": [ "pm.test('status 200', function () { pm.response.to.have.status(200); });" ] } }
+          ]
+        },
+        {
+          "name": "GET – Judging state (Judge)",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "Authorization", "value": "Bearer {{judgeToken}}" } ],
+            "url": "{{baseUrl}}/api/events/{{eventId}}/rounds/{{roundId}}/timer/JUDGING"
+          },
+          "event": [
+            { "listen": "test", "script": { "exec": [ "pm.test('status 200', function () { pm.response.to.have.status(200); });" ] } }
+          ]
+        },
+        {
+          "name": "Participant starts timer → expect 403",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{participantToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/events/{{eventId}}/rounds/{{roundId}}/timer/CONTEST/start",
+            "body": { "mode": "raw", "raw": "{\n  \"durationSeconds\": 600\n}" }
+          },
+          "event": [
+            { "listen": "test", "script": { "exec": [ "pm.test('status 403', function () { pm.response.to.have.status(403); });" ] } }
+          ]
+        },
+        {
+          "name": "Start with duration < 30s → expect 400",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{coordinatorToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/events/{{eventId}}/rounds/{{roundId}}/timer/CONTEST/start",
+            "body": { "mode": "raw", "raw": "{\n  \"durationSeconds\": 10\n}" }
+          },
+          "event": [
+            { "listen": "test", "script": { "exec": [ "pm.test('status 400', function () { pm.response.to.have.status(400); });" ] } }
+          ]
+        },
+        {
+          "name": "Submit after CONTEST stopped → expect 400 (run STOP first)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{participantToken}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/submissions",
+            "body": { "mode": "raw", "raw": "{\n  \"roundId\": {{roundId}},\n  \"repoUrl\": \"https://github.com/team-alpha/after-deadline\"\n}" }
+          },
+          "event": [
+            { "listen": "test", "script": { "exec": [ "pm.test('status 400 (time is up)', function () { pm.response.to.have.status(400); });" ] } }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "18. PRIZES (EVENT-WIDE AWARDS)",
       "item": [
         {
           "name": "GET prizes (Public = announced only)",

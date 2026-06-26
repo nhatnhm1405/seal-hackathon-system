@@ -12,6 +12,7 @@ import {
 } from "@/features/events/eventUtils";
 import { maxTeamsPerTrack, countAssigned, countUnassigned, teamsForTrack, isTrackValid, wouldExceedMax, canCompleteSetup, MIN_TEAMS_PER_TRACK } from "@/features/events/trackStats";
 import { TrackProblemsTab } from "@/features/events/TrackProblemPanel";
+import { ContestTimerPanel } from "@/features/events/ContestTimerPanel";
 import { DndProvider, useDrag, useDrop } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 
@@ -1115,6 +1116,7 @@ export function CoordEventsPage() {
               { id: "rounds", label: "Rounds" },
               { id: "problems", label: "Problems" },
               { id: "criteria", label: "Criteria" },
+              { id: "timers", label: "Timers" },
               { id: "audit", label: "Audit" },
             ]}
             active={detailTab}
@@ -1383,6 +1385,36 @@ export function CoordEventsPage() {
                     Top N = teams advancing <b>per track</b> for normal rounds (each track ranked separately), or <b>overall winners</b> for the Final round (all tracks combined into one ranking).
                   </div>
                 </div>
+              </div>
+            )}
+
+            {detailTab === "timers" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {rounds.length === 0 ? (
+                  <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>Add a round first — timers are configured per round.</div>
+                ) : (
+                  <>
+                    {/* Round selector (same pattern as Criteria) */}
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      {rounds.map(r => {
+                        const active = selectedRoundId === r.roundId;
+                        return (
+                          <button key={r.roundId} onClick={() => setSelectedRoundId(r.roundId)}
+                            style={{
+                              padding: "6px 12px",
+                              background: active ? "rgba(34,197,94,0.12)" : C.surface2,
+                              border: active ? `1px solid ${C.green}` : `1px solid ${C.border}`,
+                              color: active ? C.green : C.textMuted,
+                              fontFamily: "'JetBrains Mono', monospace", fontSize: 11, cursor: "pointer", borderRadius: 0,
+                            }}>
+                            {r.orderNumber}. {r.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <ContestTimerPanel eventId={selectedEvent.eventId} roundId={selectedRoundId} />
+                  </>
+                )}
               </div>
             )}
 
