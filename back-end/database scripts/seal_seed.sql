@@ -342,10 +342,10 @@ INSERT INTO Round
 VALUES
   (1, 'Preliminary', 1,
    '2026-02-01 08:00:00', '2026-02-28 23:59:59', '2026-02-28 23:59:59',
-   5, FALSE, 'FINALIZED'),
+   2, FALSE, 'FINALIZED'),   -- Top 2 PER TRACK advance (Web: Phoenix,Dragon; Mobile: Tiger; AI: Eagle)
   (1, 'Semi-final', 2,
    '2026-03-10 08:00:00', '2026-03-31 23:59:59', '2026-03-31 23:59:59',
-   2, FALSE, 'FINALIZED'),
+   1, FALSE, 'FINALIZED'),   -- Top 1 PER TRACK advance (Phoenix, Tiger, Eagle → Final)
   (1, 'Final', 3,
    '2026-04-10 08:00:00', '2026-04-30 23:59:59', '2026-04-30 23:59:59',
    NULL, TRUE, 'FINALIZED');
@@ -729,19 +729,21 @@ INSERT INTO Score (submission_id, judge_user_id, criteria_id, value, comment, is
 -- "advanced" is NOT stored; derive it as rank_position <= Round.top_n_advance
 -- (per track for preliminary rounds).
 -- =====================================================
+-- NOTE: preliminary/semi rank_position is PER TRACK (rank restarts at 1 within each
+-- track), matching how the backend finalizes non-final rounds. Final (round 3) is global.
 INSERT INTO RoundResult (team_id, round_id, total_score, rank_position, is_published, finalized_at, finalized_by) VALUES
-  -- Preliminary (round 1)
-  (1, 1, 63.50, 1, TRUE, '2026-02-28 22:00:00', 2),  -- Phoenix
-  (3, 1, 57.25, 2, TRUE, '2026-02-28 22:00:00', 2),  -- Tiger
-  (4, 1, 55.50, 3, TRUE, '2026-02-28 22:00:00', 2),  -- Eagle
-  (2, 1, 54.50, 4, TRUE, '2026-02-28 22:00:00', 2),  -- Dragon
-  (5, 1, 49.75, 5, TRUE, '2026-02-28 22:00:00', 2),  -- Falcon
-  -- Semi-final (round 2)
-  (1, 2, 63.50, 1, TRUE, '2026-03-31 22:00:00', 2),  -- Phoenix
-  (3, 2, 59.75, 2, TRUE, '2026-03-31 22:00:00', 2),  -- Tiger
-  (4, 2, 59.25, 3, TRUE, '2026-03-31 22:00:00', 2),  -- Eagle
-  (2, 2, 57.00, 4, TRUE, '2026-03-31 22:00:00', 2),  -- Dragon
-  -- Final (round 3)
+  -- Preliminary (round 1) — per track. Web(t1): Phoenix,Dragon,Falcon | Mobile(t2): Tiger | AI(t3): Eagle
+  (1, 1, 63.50, 1, TRUE, '2026-02-28 22:00:00', 2),  -- Phoenix  Web   #1  (advance)
+  (2, 1, 54.50, 2, TRUE, '2026-02-28 22:00:00', 2),  -- Dragon   Web   #2  (advance)
+  (5, 1, 49.75, 3, TRUE, '2026-02-28 22:00:00', 2),  -- Falcon   Web   #3  (eliminated, topN=2)
+  (3, 1, 57.25, 1, TRUE, '2026-02-28 22:00:00', 2),  -- Tiger    Mobile #1 (advance)
+  (4, 1, 55.50, 1, TRUE, '2026-02-28 22:00:00', 2),  -- Eagle    AI    #1  (advance)
+  -- Semi-final (round 2) — per track. Web(t1): Phoenix,Dragon | Mobile(t2): Tiger | AI(t3): Eagle
+  (1, 2, 63.50, 1, TRUE, '2026-03-31 22:00:00', 2),  -- Phoenix  Web   #1  (advance)
+  (2, 2, 57.00, 2, TRUE, '2026-03-31 22:00:00', 2),  -- Dragon   Web   #2  (eliminated, topN=1)
+  (3, 2, 59.75, 1, TRUE, '2026-03-31 22:00:00', 2),  -- Tiger    Mobile #1 (advance)
+  (4, 2, 59.25, 1, TRUE, '2026-03-31 22:00:00', 2),  -- Eagle    AI    #1  (advance)
+  -- Final (round 3) — GLOBAL ranking, no track
   (1, 3, 65.50, 1, TRUE, '2026-04-30 20:00:00', 2),  -- Phoenix — Web Champion
   (4, 3, 62.00, 2, TRUE, '2026-04-30 20:00:00', 2),  -- Eagle — AI Champion
   (3, 3, 61.00, 3, TRUE, '2026-04-30 20:00:00', 2);  -- Tiger — Mobile Champion
@@ -749,24 +751,16 @@ INSERT INTO RoundResult (team_id, round_id, total_score, rank_position, is_publi
 
 -- =====================================================
 -- 14. PRIZE
--- Event 1 (COMPLETED): awarded. Event 2 (running): team_id/awarded_at NULL.
+-- Prizes are EVENT-WIDE: top N of the FINAL round's GLOBAL ranking (all tracks
+-- combined), so track_id is always NULL. See Final (round 3) RoundResult above.
+-- Event 1 (COMPLETED): announced top 3. Event 2 (running): no prizes yet — they
+-- get generated live via POST /api/events/2/prizes/auto-generate in the demo.
 -- =====================================================
--- Event 1 — awarded. track 1=Web, 2=Mobile, 3=AI
+-- Event 1 — Final ranking: Phoenix(1)=65.50, Eagle(4)=62.00, Tiger(3)=61.00
 INSERT INTO Prize (event_id, track_id, name, description, rank_position, team_id, awarded_at) VALUES
-  (1, 1,    'Champion',      'Web Application — Quan quan',   1, 1, '2026-04-30 20:00:00'),  -- Phoenix
-  (1, 1,    '1st Runner-up', 'Web Application — A quan',      2, 2, '2026-04-30 20:00:00'),  -- Dragon
-  (1, 2,    'Champion',      'Mobile App — Quan quan',        1, 3, '2026-04-30 20:00:00'),  -- Tiger
-  (1, 3,    'Champion',      'AI Solution — Quan quan',       1, 4, '2026-04-30 20:00:00'),  -- Eagle
-  (1, NULL, 'Best Overall',  'Doi xuat sac nhat Spring 2026', 1, 1, '2026-04-30 20:00:00');  -- Phoenix
-
--- Event 2 — not yet awarded. track 4=Web, 5=AI, 6=Social, 7=Green
-INSERT INTO Prize (event_id, track_id, name, description, rank_position, team_id, awarded_at) VALUES
-  (2, 4,    'Champion',      'Web Application — Quan quan',   1, NULL, NULL),
-  (2, 4,    '1st Runner-up', 'Web Application — A quan',      2, NULL, NULL),
-  (2, 5,    'Champion',      'AI Solution — Quan quan',       1, NULL, NULL),
-  (2, 6,    'Champion',      'Social Impact — Quan quan',     1, NULL, NULL),
-  (2, 7,    'Champion',      'Green Tech — Quan quan',        1, NULL, NULL),
-  (2, NULL, 'Best Overall',  'Doi xuat sac nhat Summer 2026', 1, NULL, NULL);
+  (1, NULL, 'Champion',      'Top 1 — Spring 2026', 1, 1, '2026-04-30 20:00:00'),  -- Phoenix
+  (1, NULL, '1st Runner-up', 'Top 2 — Spring 2026', 2, 4, '2026-04-30 20:00:00'),  -- Eagle
+  (1, NULL, '2nd Runner-up', 'Top 3 — Spring 2026', 3, 3, '2026-04-30 20:00:00');  -- Tiger
 
 
 -- =====================================================
@@ -865,8 +859,8 @@ INSERT INTO AuditLog (actor_user_id, action, target_type, target_id, reason, met
    '{"round_name":"Semi-final","event_id":1,"published_at":"2026-03-31T22:00:00"}', '192.168.1.1'),
   (2, 'PUBLISH_RESULT', 'ROUND', 3, NULL,
    '{"round_name":"Final","event_id":1,"published_at":"2026-04-30T20:00:00"}', '192.168.1.1'),
-  (2, 'AWARD_PRIZE', 'PRIZE', NULL, NULL,
-   '{"event_id":1,"team":"Team Phoenix","prize":"Champion Web + Best Overall"}', '192.168.1.1'),
+  (2, 'AWARD_PRIZE', 'PRIZE', 1, NULL,
+   '{"eventId":1,"winners":["#1 Champion -> Team Phoenix","#2 1st Runner-up -> Team Eagle","#3 2nd Runner-up -> Team Tiger"]}', '192.168.1.1'),
   (4, 'UPDATE_SCORE', 'SCORE', 1, 'Xem lai demo, dieu chinh diem Innovation',
    '{"before":7.5,"after":9.0,"criteria":"Innovation","submission_id":1}', '192.168.1.2'),
   -- Event 2 team approvals
