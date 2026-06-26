@@ -8,6 +8,8 @@ import {
   Round, Submission, ScoringCriteria, ScoreRecord, AiInsight,
 } from "@/shared/apiClient";
 import { useNotifications } from "@/app/providers/NotificationProvider";
+import { useRoundTimer } from "@/shared/hooks/useRoundTimer";
+import { CountdownDisplay } from "@/shared/components/CountdownDisplay";
 import { buildTeamCodeMap } from "./anon";
 
 type SubStatus = "not_scored" | "draft" | "scored";
@@ -133,7 +135,9 @@ export function JudgeScoringPage() {
   const selectedRound = rounds.find(r => r.roundId === selectedRoundId) ?? null;
   const selectedSub = submissions.find(s => s.submissionId === selectedSubId) ?? null;
   const isReadOnly = selectedSub ? statusOf(selectedSub.submissionId) === "scored" : false;
-  const open = roundIsOpen(selectedRound?.status);
+  // Live JUDGING countdown; a configured-but-not-running timer hard-blocks scoring.
+  const judgingTimer = useRoundTimer(eventId, selectedRoundId, "JUDGING", { fireBanners: true });
+  const open = roundIsOpen(selectedRound?.status) && (!judgingTimer.isConfigured || judgingTimer.isRunning);
 
   const filteredSubs = submissions.filter(s => filter === "all" || statusOf(s.submissionId) === filter);
 
@@ -327,7 +331,10 @@ export function JudgeScoringPage() {
                         {selectedRound?.name} · Submitted {fmtDateTime(selectedSub.submittedAt)}
                       </div>
                     </div>
-                    {isReadOnly && <PixelBadge color="green">SCORES SUBMITTED</PixelBadge>}
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
+                      {judgingTimer.isConfigured && <CountdownDisplay remainingSeconds={judgingTimer.remainingSeconds} status={judgingTimer.status} size="sm" icon />}
+                      {isReadOnly && <PixelBadge color="green">SCORES SUBMITTED</PixelBadge>}
+                    </div>
                   </div>
                   <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
                     {selectedSub.repoUrl && <a href={selectedSub.repoUrl} target="_blank" rel="noreferrer"><PixelButton variant="secondary" size="sm">OPEN REPO</PixelButton></a>}
@@ -452,7 +459,11 @@ export function JudgeScoringPage() {
 
                 {!open && !isReadOnly && (
                   <div style={{ background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.35)", color: "#eab308", padding: "10px 14px", fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}>
-                    Round is not open for scoring — saving is disabled.
+                    {judgingTimer.isConfigured && !judgingTimer.isRunning
+                      ? (judgingTimer.isPaused
+                          ? "Scoring is paused — saving is temporarily disabled."
+                          : "TIME'S UP — scoring is closed for this round.")
+                      : "Round is not open for scoring — saving is disabled."}
                   </div>
                 )}
 
