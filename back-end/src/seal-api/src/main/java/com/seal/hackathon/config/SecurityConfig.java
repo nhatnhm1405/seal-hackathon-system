@@ -3,8 +3,10 @@ package com.seal.hackathon.config;
 import com.seal.hackathon.security.JwtAuthenticationEntryPoint;
 import com.seal.hackathon.security.JwtAuthenticationFilter;
 import com.seal.hackathon.security.oauth2.CustomOAuth2UserService;
+import com.seal.hackathon.security.oauth2.OAuth2LoginFailureHandler;
 import com.seal.hackathon.security.oauth2.OAuth2LoginSuccessHandler;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -39,6 +41,10 @@ public class SecurityConfig {
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
     private final CustomOAuth2UserService customOAuth2UserService;
     private final OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
+    private final OAuth2LoginFailureHandler oAuth2LoginFailureHandler;
+
+    @Value("${app.frontend.url:http://localhost:5173}")
+    private String frontendUrl;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -51,7 +57,7 @@ public class SecurityConfig {
 
             // No HTTP session — all auth state lives in the JWT
             .sessionManagement(session ->
-                session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
 
             // Return JSON 401 instead of redirect to /login
             .exceptionHandling(ex ->
@@ -113,6 +119,7 @@ public class SecurityConfig {
                 .userInfoEndpoint(u -> u.userService(customOAuth2UserService))
                 // On success: generate JWT and redirect to frontend
                 .successHandler(oAuth2LoginSuccessHandler)
+                .failureHandler(oAuth2LoginFailureHandler)
             )
 
             // JWT validation runs before Spring Security's default auth filter
@@ -126,7 +133,7 @@ public class SecurityConfig {
         CorsConfiguration config = new CorsConfiguration();
 
         // Allow requests from React dev server
-        config.setAllowedOrigins(List.of("http://localhost:5173"));
+        config.setAllowedOrigins(List.of("http://localhost:5173", frontendUrl));
 
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
