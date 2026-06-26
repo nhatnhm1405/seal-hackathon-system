@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -23,6 +24,7 @@ public class SubmissionService {
     private final TeamRepository teamRepository;
     private final TeamMemberRepository teamMemberRepository;
     private final RoundRepository roundRepository;
+    private final RoundResultRepository resultRepository;
     private final UserRepository userRepository;
 
     // ── Participant: submit or update submission ──────────────────────
@@ -54,6 +56,26 @@ public class SubmissionService {
         if (!"APPROVED".equalsIgnoreCase(team.getStatus())) {
             throw new BadRequestException("Your team must be approved before submitting.");
         }
+
+        // Advancement gate: a team eliminated in the preceding round (outside its
+        // track's Top N) cannot submit to this one. Only enforced once the previous
+        // round is FINALIZED and has a cut-off; no cut-off (null) means no elimination.
+        roundRepository.findAllByEvent_EventIdOrderByOrderNumber(round.getEvent().getEventId()).stream()
+                .filter(r -> r.getOrderNumber() < round.getOrderNumber())
+                .max(Comparator.comparingInt(Round::getOrderNumber))
+                .ifPresent(prev -> {
+                    Integer cutoff = prev.getTopNAdvance();
+                    if ("FINALIZED".equalsIgnoreCase(prev.getStatus()) && cutoff != null) {
+                        boolean advanced = resultRepository
+                                .findByTeam_TeamIdAndRound_RoundId(team.getTeamId(), prev.getRoundId())
+                                .map(rr -> rr.getRankPosition() <= cutoff)
+                                .orElse(false);
+                        if (!advanced) {
+                            throw new BadRequestException("Your team did not advance from \""
+                                    + prev.getName() + "\" and cannot submit to this round.");
+                        }
+                    }
+                });
 
         LocalDateTime now = LocalDateTime.now();
         String status = now.isAfter(round.getSubmissionDeadline()) ? "LATE" : "SUBMITTED";
