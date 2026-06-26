@@ -1,7 +1,7 @@
 -- =====================================================
 -- SEAL Hackathon Management System
 -- MySQL DDL Script  (idempotent — safe to re-run)
--- 23 tables
+-- 24 tables
 --
 -- CHANGELOG (assignment redesign):
 --   - Removed TeamAssignment (duplicate + wrong business unit).
@@ -25,6 +25,13 @@
 --     events — kept separate from AuditLog, which stays for competition
 --     business actions (scoring, disqualify, publish).
 --   - Seeded one bootstrap SYSTEM_ADMIN and one EVENT_COORDINATOR account.
+--
+-- CHANGELOG (announcements — folds in migration_announcement.sql):
+--   - Added Announcement table: a Mentor (scoped to a track) or a Coordinator
+--     (scoped to the whole event) broadcasts a message; it is the source of
+--     truth for "sent history" and the email-style popup.
+--   - Added Notification.announcement_id back-link (NULL for non-announcement
+--     notifications) so the popup can resolve sender + scope.
 -- =====================================================
 
 -- Drop and recreate so this script is always safe to re-run.
@@ -424,17 +431,46 @@ CREATE TABLE ReopenRequest (
 -- COMMUNICATION & AUDIT
 -- =====================================================
 
+-- Announcements composed by a Mentor (scoped to a track) or a Coordinator
+-- (scoped to the whole event). Source of truth for the "sent history" views
+-- and for the "From / subject / date" shown in the email-style popup.
+-- Must be defined before Notification, which back-links to it.
+CREATE TABLE Announcement (
+  announcement_id INT          NOT NULL AUTO_INCREMENT,
+  sender_user_id  INT          NOT NULL,
+  sender_role     VARCHAR(20)  NOT NULL COMMENT 'MENTOR, COORDINATOR',
+  scope           VARCHAR(20)  NOT NULL COMMENT 'TRACK, EVENT',
+  audience        VARCHAR(20)           COMMENT 'PARTICIPANT, JUDGE, MENTOR (who the coordinator targeted)',
+  event_id        INT          NOT NULL,
+  track_id        INT                   COMMENT 'NULL when scope = EVENT',
+  title           VARCHAR(255) NOT NULL,
+  content         TEXT,
+  link_url        VARCHAR(1000)         COMMENT 'Optional attachment link (Drive/Form/Repo...)',
+  recipient_count INT          NOT NULL DEFAULT 0,
+  created_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (announcement_id),
+  KEY idx_ann_sender (sender_user_id),
+  KEY idx_ann_event  (event_id),
+  KEY idx_ann_track  (track_id),
+  CONSTRAINT fk_ann_sender FOREIGN KEY (sender_user_id) REFERENCES `User` (user_id),
+  CONSTRAINT fk_ann_event  FOREIGN KEY (event_id)       REFERENCES HackathonEvent (event_id),
+  CONSTRAINT fk_ann_track  FOREIGN KEY (track_id)       REFERENCES Track (track_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE Notification (
   notification_id   INT          NOT NULL AUTO_INCREMENT,
   recipient_user_id INT          NOT NULL,
   title             VARCHAR(255) NOT NULL,
   content           TEXT,
   type              VARCHAR(50)           COMMENT 'ANNOUNCEMENT, RESULT, REMINDER, ASSIGNMENT, APPROVAL',
+  announcement_id   INT                   COMMENT 'Set only for ANNOUNCEMENT notifications; links back to the source Announcement. NULL otherwise',
   is_read           BOOLEAN      NOT NULL DEFAULT FALSE,
   created_at        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (notification_id),
   KEY idx_notif_recipient_read (recipient_user_id, is_read),
-  CONSTRAINT fk_notif_recipient FOREIGN KEY (recipient_user_id) REFERENCES `User` (user_id)
+  KEY idx_notif_announcement (announcement_id),
+  CONSTRAINT fk_notif_recipient     FOREIGN KEY (recipient_user_id) REFERENCES `User` (user_id),
+  CONSTRAINT fk_notif_announcement  FOREIGN KEY (announcement_id)   REFERENCES Announcement (announcement_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE AuditLog (
@@ -467,6 +503,7 @@ CREATE TABLE SystemLog (
   actor_user_id INT         NOT NULL,
   action        VARCHAR(50) NOT NULL COMMENT 'CREATE_USER, LOCK_USER, RESET_PASSWORD, GRANT_ROLE, REVOKE_ROLE, UPDATE_TEMPLATE, LOGIN_FAILED...',
   detail        TEXT                 COMMENT 'Human-readable context, e.g. "granted EVENT_COORDINATOR to user#5"',
+  ip_address    VARCHAR(45),
   created_at    DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (log_id),
   KEY idx_syslog_actor   (actor_user_id),
