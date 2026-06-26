@@ -37,6 +37,33 @@ public class Track {
     @Column(name = "capacity")
     private Integer capacity;
 
+    // ── "Đề thi" (problem statement): ONE file per track ──────────────────────
+    // Coordinator uploads (SETUP/IN_PROGRESS) then explicitly releases it. The file
+    // is stored OUTSIDE the public /uploads dir and streamed via an access-controlled
+    // endpoint, so we keep only the internal storage key here (never a public URL).
+
+    @Column(name = "problem_storage_key", length = 500)
+    private String problemStorageKey;
+
+    @Column(name = "problem_file_name", length = 255)
+    private String problemFileName;
+
+    @Column(name = "problem_file_size")
+    private Long problemFileSize;
+
+    @Column(name = "problem_content_type", length = 100)
+    private String problemContentType;
+
+    @Column(name = "problem_released", nullable = false)
+    @Builder.Default
+    private Boolean problemReleased = false;
+
+    @Column(name = "problem_uploaded_at")
+    private LocalDateTime problemUploadedAt;
+
+    @Column(name = "problem_released_at")
+    private LocalDateTime problemReleasedAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

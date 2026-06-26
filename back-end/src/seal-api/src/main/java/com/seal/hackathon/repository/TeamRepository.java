@@ -33,5 +33,6 @@ public interface TeamRepository extends JpaRepository<Team, Integer> {
     List<Team> findAllByEvent_Status(String status);
     List<Team> findAllByEvent_EventIdAndStatus(Integer eventId, String status);
     List<Team> findAllByTrack_TrackIdAndStatus(Integer trackId, String status);
+    List<Team> findAllByTrack_TrackId(Integer trackId);
     boolean existsByTrack_TrackId(Integer trackId);
 }

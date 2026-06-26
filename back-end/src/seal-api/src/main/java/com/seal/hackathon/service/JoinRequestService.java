@@ -278,7 +278,8 @@ public class JoinRequestService {
             return true;
         }
         String teamName = team.getName() == null ? "" : team.getName().toLowerCase(Locale.ROOT);
-        String trackName = team.getTrack().getName() == null ? "" : team.getTrack().getName().toLowerCase(Locale.ROOT);
+        String trackName = (team.getTrack() == null || team.getTrack().getName() == null)
+                ? "" : team.getTrack().getName().toLowerCase(Locale.ROOT);
         return teamName.contains(query) || trackName.contains(query);
     }
 
@@ -300,8 +301,8 @@ public class JoinRequestService {
                 .description(team.getDescription())
                 .eventId(team.getEvent().getEventId())
                 .eventName(team.getEvent().getName())
-                .trackId(team.getTrack().getTrackId())
-                .trackName(team.getTrack().getName())
+                .trackId(team.getTrack() != null ? team.getTrack().getTrackId() : null)
+                .trackName(team.getTrack() != null ? team.getTrack().getName() : null)
                 .teamStatus(team.getStatus())
                 .memberCount((int) teamMemberRepository.countByTeam_TeamId(team.getTeamId()))
                 .maxMembers(MAX_TEAM_MEMBERS)
@@ -321,8 +322,8 @@ public class JoinRequestService {
                 .teamName(team.getName())
                 .eventId(team.getEvent().getEventId())
                 .eventName(team.getEvent().getName())
-                .trackId(team.getTrack().getTrackId())
-                .trackName(team.getTrack().getName())
+                .trackId(team.getTrack() != null ? team.getTrack().getTrackId() : null)
+                .trackName(team.getTrack() != null ? team.getTrack().getName() : null)
                 .teamStatus(team.getStatus())
                 .requesterUserId(requester.getUserId())
                 .requesterName(requester.getFullName())

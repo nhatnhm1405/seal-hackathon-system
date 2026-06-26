@@ -14,4 +14,5 @@ public interface ScoreRepository extends JpaRepository<Score, Integer> {
     Optional<Score> findBySubmission_SubmissionIdAndJudge_UserIdAndCriteria_CriteriaId(
             Integer submissionId, Integer judgeUserId, Integer criteriaId);
     boolean existsBySubmission_SubmissionIdAndJudge_UserId(Integer submissionId, Integer judgeId);
+    boolean existsByCriteria_CriteriaId(Integer criteriaId);
 }

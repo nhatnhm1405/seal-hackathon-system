@@ -4,7 +4,7 @@
 -- Chạy sau khi đã có schema + seed (seal_schema.sql, seal_seed.sql).
 --
 -- Cấu trúc:
---   PHẦN A — SELECT * cho toàn bộ 20 bảng (quick inspect).
+--   PHẦN A — SELECT * cho toàn bộ 23 bảng (quick inspect).
 --   PHẦN B — Queries nghiệp vụ hữu ích (ranking, scoring, phân công, RBL...).
 --
 -- Mỗi query nghiệp vụ độc lập — chạy riêng từng cái để xem kết quả.
@@ -48,11 +48,13 @@ SELECT 'Prize' AS tbl;                    SELECT * FROM Prize;
 -- 7. Approval & invite
 SELECT 'AccountApproval' AS tbl;         SELECT * FROM AccountApproval;
 SELECT 'TeamInvite' AS tbl;              SELECT * FROM TeamInvite;
+SELECT 'JoinRequest' AS tbl;             SELECT * FROM JoinRequest;
 SELECT 'ReopenRequest' AS tbl;           SELECT * FROM ReopenRequest;
 
 -- 8. Communication & audit
 SELECT 'Notification' AS tbl;            SELECT * FROM Notification;
 SELECT 'AuditLog' AS tbl;                 SELECT * FROM AuditLog;
+SELECT 'SystemLog' AS tbl;               SELECT * FROM SystemLog;
 
 
 -- #####################################################

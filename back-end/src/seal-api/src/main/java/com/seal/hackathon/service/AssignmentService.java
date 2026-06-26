@@ -12,6 +12,7 @@ import com.seal.hackathon.entity.JudgeAssignment;
 import com.seal.hackathon.entity.MentorAssignment;
 import com.seal.hackathon.entity.Role;
 import com.seal.hackathon.entity.Round;
+import com.seal.hackathon.entity.Submission;
 import com.seal.hackathon.entity.Team;
 import com.seal.hackathon.entity.TeamMember;
 import com.seal.hackathon.entity.Track;
@@ -23,6 +24,7 @@ import com.seal.hackathon.repository.JudgeAssignmentRepository;
 import com.seal.hackathon.repository.MentorAssignmentRepository;
 import com.seal.hackathon.repository.RoleRepository;
 import com.seal.hackathon.repository.RoundRepository;
+import com.seal.hackathon.repository.SubmissionRepository;
 import com.seal.hackathon.repository.TeamMemberRepository;
 import com.seal.hackathon.repository.TeamRepository;
 import com.seal.hackathon.repository.TrackRepository;
@@ -33,9 +35,12 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -63,6 +68,7 @@ public class AssignmentService {
     private final TrackRepository trackRepository;
     private final RoleRepository roleRepository;
     private final UserEventRoleRepository userEventRoleRepository;
+    private final SubmissionRepository submissionRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuditLogService auditLogService;
 
@@ -105,12 +111,27 @@ public class AssignmentService {
         List<MentorAssignmentResponse.AssignedTeamInfo> teamInfos = assignments.stream()
                 .flatMap(ma -> teamRepository
                         .findAllByTrack_TrackIdAndStatus(ma.getTrack().getTrackId(), "APPROVED").stream()
-                        .map(team -> MentorAssignmentResponse.AssignedTeamInfo.builder()
-                                .teamId(team.getTeamId())
-                                .teamName(team.getName())
-                                .trackName(ma.getTrack().getName())
-                                .members(mapMentorMembers(team))
-                                .build()))
+                        .map(team -> {
+                            // Submissions thực sự đã nộp (bỏ DRAFT) để biết team nộp chưa.
+                            List<Submission> submitted = submissionRepository
+                                    .findAllByTeam_TeamId(team.getTeamId()).stream()
+                                    .filter(s -> !"DRAFT".equalsIgnoreCase(s.getStatus()))
+                                    .collect(Collectors.toList());
+                            LocalDateTime lastAt = submitted.stream()
+                                    .map(Submission::getSubmittedAt)
+                                    .filter(Objects::nonNull)
+                                    .max(Comparator.naturalOrder())
+                                    .orElse(null);
+                            return MentorAssignmentResponse.AssignedTeamInfo.builder()
+                                    .teamId(team.getTeamId())
+                                    .teamName(team.getName())
+                                    .trackId(ma.getTrack().getTrackId())
+                                    .trackName(ma.getTrack().getName())
+                                    .members(mapMentorMembers(team))
+                                    .submissionCount(submitted.size())
+                                    .lastSubmittedAt(lastAt)
+                                    .build();
+                        }))
                 .collect(Collectors.toList());
 
         return MentorAssignmentResponse.builder()

@@ -87,6 +87,8 @@ public class SecurityConfig {
                     .hasAnyRole("PARTICIPANT", "EVENT_COORDINATOR", "JUDGE")
                 // Judges access scoring endpoints
                 .requestMatchers("/api/scores/**", "/api/judge/**").hasAnyRole("JUDGE", "EVENT_COORDINATOR")
+                // AI Judge Assistant — advisory submission insights for scoring staff
+                .requestMatchers("/api/ai/**").hasAnyRole("JUDGE", "EVENT_COORDINATOR")
                 // Mentors access mentor endpoints
                 .requestMatchers("/api/mentor/**").hasAnyRole("MENTOR", "EVENT_COORDINATOR")
                 // Notifications — any authenticated user
@@ -128,6 +130,8 @@ public class SecurityConfig {
 
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
+        // Let the browser read the file name from downloads (track "đề thi", exports).
+        config.setExposedHeaders(List.of("Content-Disposition"));
 
         // Required if frontend sends cookies (not needed for JWT but good practice)
         config.setAllowCredentials(true);

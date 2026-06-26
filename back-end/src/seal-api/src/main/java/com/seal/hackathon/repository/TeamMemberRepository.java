@@ -20,4 +20,10 @@ public interface TeamMemberRepository extends JpaRepository<TeamMember, Integer>
     List<TeamMember> findByTeam_TeamId(Integer teamId);
 
     long countByTeam_TeamId(Integer teamId);
+
+    /** True if the user belongs to a team with the given status that is assigned to
+     *  the given track. Used to gate "đề thi" downloads to members of an APPROVED
+     *  team in the track. */
+    boolean existsByUser_UserIdAndTeam_Track_TrackIdAndTeam_StatusIgnoreCase(
+            Integer userId, Integer trackId, String status);
 }

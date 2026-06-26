@@ -1,12 +1,13 @@
 import { ReactNode, useState, useRef, useEffect } from "react";
 import { useTheme } from "@/app/providers/ThemeProvider";
-import { useNavigate, useLocation, Link } from "react-router";
+import { useNavigate, useLocation } from "react-router";
 import { C, PixelBadge } from "@/shared/components/PixelComponents";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { useNotifications, UINotification } from "@/app/providers/NotificationProvider";
 import { usePendingAccounts } from "@/app/providers/PendingAccountsProvider";
 import { API_BASE_URL } from "@/shared/apiClient";
 import { SealFooter } from "@/shared/components/SealFooter";
+import { NotificationDetailModal } from "@/shared/components/NotificationDetailModal";
 import sealLogo from "@/imports/image.png";
 
 const NAVBAR_H = 60;
@@ -82,6 +83,7 @@ function buildNav(role: string, isLeader: boolean, teamId: number | null, pendin
 
 function getPageTitle(pathname: string): string {
   const map: Record<string, string> = {
+    "/": "Home",
     "/dashboard": "Dashboard",
     "/admin/dashboard": "Dashboard",
     "/admin/events": "Events",
@@ -131,9 +133,16 @@ function typeColor(type: UINotification["type"]) {
 }
 
 function NotificationBell() {
-  const { userNotifications, unreadCount, markAllRead } = useNotifications();
+  const { userNotifications, unreadCount, markAllRead, markRead, bellOpenSignal } = useNotifications();
   const [open, setOpen] = useState(false);
+  const [selected, setSelected] = useState<UINotification | null>(null);
   const ref = useRef<HTMLDivElement>(null);
+
+  function openDetail(n: UINotification) {
+    setSelected(n);
+    markRead(n.notification_id);
+    setOpen(false);
+  }
 
   useEffect(() => {
     function handler(e: MouseEvent) {
@@ -143,11 +152,17 @@ function NotificationBell() {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  // A banner click asks us to reveal the full notification history.
+  useEffect(() => {
+    if (bellOpenSignal > 0) setOpen(true);
+  }, [bellOpenSignal]);
+
   function fmtTime(iso: string) {
     return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
   }
 
   return (
+    <>
     <div ref={ref} style={{ position: "relative" }}>
       <button
         onClick={() => setOpen(o => !o)}
@@ -204,8 +219,8 @@ function NotificationBell() {
             borderBottom: `1px solid ${C.border}`,
             flexShrink: 0,
           }}>
-            <span style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em" }}>
-              // notifications
+            <span style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 700, letterSpacing: "0.05em" }}>
+              Notifications
               {unreadCount > 0 && (
                 <span style={{ color: C.textMuted }}> · {unreadCount} unread</span>
               )}
@@ -237,6 +252,7 @@ function NotificationBell() {
               userNotifications.map((n) => (
                 <div
                   key={n.notification_id}
+                  onClick={() => openDetail(n)}
                   style={{
                     padding: "12px 16px",
                     borderBottom: `1px solid rgba(34,197,94,0.05)`,
@@ -244,7 +260,11 @@ function NotificationBell() {
                     display: "flex",
                     gap: 10,
                     alignItems: "flex-start",
+                    cursor: "pointer",
+                    transition: "background 0.12s",
                   }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(34,197,94,0.07)"; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = n.is_read ? "transparent" : "rgba(34,197,94,0.03)"; }}
                 >
                   {/* Unread dot */}
                   <div style={{
@@ -272,6 +292,8 @@ function NotificationBell() {
         </div>
       )}
     </div>
+    <NotificationDetailModal notification={selected} onClose={() => setSelected(null)} />
+    </>
   );
 }
 
@@ -361,12 +383,20 @@ function TopNavbar({ pageTitle, collapsed, onToggleCollapse, currentUser, onLogo
             </svg>
           )}
         </button>
-        <div style={{ height: 72, overflow: "visible", flexShrink: 0, display: "flex", alignItems: "center" }}>
-          <img src={sealLogo} alt="SEAL" style={{ height: 144, width: "auto", objectFit: "contain", filter: "drop-shadow(0 0 6px rgba(34,197,94,0.4))" }} />
-        </div>
-        <span style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 13, letterSpacing: "0.06em", background: "linear-gradient(135deg, #22c55e 0%, #3b82f6 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>
-          SEAL Hackathon
-        </span>
+        {/* Logo + brand — clicking returns to the landing page ('/') */}
+        <button
+          type="button"
+          onClick={() => onNavigate("/")}
+          title="Về trang chủ"
+          style={{ display: "flex", alignItems: "center", gap: 10, background: "transparent", border: "none", padding: 0, cursor: "pointer" }}
+        >
+          <div style={{ height: 72, overflow: "visible", flexShrink: 0, display: "flex", alignItems: "center" }}>
+            <img src={sealLogo} alt="SEAL" style={{ height: 144, width: "auto", objectFit: "contain", filter: "drop-shadow(0 0 6px rgba(34,197,94,0.4))" }} />
+          </div>
+          <span style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 13, letterSpacing: "0.06em", background: "linear-gradient(135deg, #22c55e 0%, #3b82f6 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", whiteSpace: "nowrap" }}>
+            SEAL Hackathon
+          </span>
+        </button>
         <span style={{ color: C.border, fontFamily: "'JetBrains Mono', monospace", fontSize: 16, margin: "0 4px" }}>|</span>
         <span style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 14, fontWeight: 600 }}>{pageTitle}</span>
       </div>
@@ -555,31 +585,6 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
           }}
         >
           <nav style={{ flex: 1, overflowY: "auto", padding: collapsed ? "12px 6px" : "16px 10px", display: "flex", flexDirection: "column", gap: 2 }}>
-            {/* Home — never active, uses Link for no-reload */}
-            <Link
-              to="/"
-              title={collapsed ? "Home" : undefined}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: collapsed ? "center" : "flex-start",
-                gap: 8,
-                padding: collapsed ? "10px 6px" : "10px 12px",
-                color: C.textMuted,
-                textDecoration: "none",
-                fontFamily: "'JetBrains Mono', monospace",
-                fontSize: 13,
-                letterSpacing: "0.01em",
-                transition: "all 0.15s ease",
-                border: "1px solid transparent",
-                borderLeft: "2px solid transparent",
-              }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = C.green; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = C.textMuted; }}
-            >
-              {!collapsed && <span>Home</span>}
-            </Link>
-
             {nav.map((item) => {
               const active = isDashboardRoute && location.pathname === item.path;
               return (
