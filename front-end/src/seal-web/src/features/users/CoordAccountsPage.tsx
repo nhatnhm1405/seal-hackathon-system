@@ -134,9 +134,6 @@ export function CoordAccountsPage() {
         <h1 style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 28, fontWeight: 800 }}>
           <GradientText>Account Approvals</GradientText>
         </h1>
-        <p style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, marginTop: 6 }}>
-          Review and approve accounts awaiting access. Full account management lives in the System Admin console.
-        </p>
       </div>
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "center", justifyContent: "space-between" }}>

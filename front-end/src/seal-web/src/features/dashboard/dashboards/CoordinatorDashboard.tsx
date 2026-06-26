@@ -99,9 +99,6 @@ export function CoordinatorDashboard() {
         <h1 style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 26, fontWeight: 800, lineHeight: 1.2 }}>
           <GradientText>Good day, {currentUser.full_name}</GradientText>
         </h1>
-        <p style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, marginTop: 6 }}>
-          System overview for hackathon coordination.
-        </p>
       </PixelCard>
 
       {error && (

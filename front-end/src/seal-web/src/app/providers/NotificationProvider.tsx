@@ -17,6 +17,9 @@ export interface UINotification {
   message: string;
   is_read: boolean;
   type: NotifKind;
+  // Raw backend type (e.g. TIMER, ANNOUNCEMENT) — kept so the poll can decide
+  // whether to auto-banner. type (above) is only the 3 visual kinds.
+  rawType?: string;
   created_at: string;
   // Announcement-only: source info for the email-style detail popup.
   from?: string | null;
@@ -41,6 +44,7 @@ function mapNotification(n: ApiNotification): UINotification {
     message: n.content,
     is_read: Boolean(n.isRead),
     type: toKind(n.type),
+    rawType: n.type,
     created_at: n.createdAt,
     from: n.senderName ?? null,
     sender_role: n.senderRole ?? null,
@@ -362,6 +366,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           if (n.is_read) return;
           if (n.from) {
             freshAnnouncements.push(n);
+          } else if (n.rawType === "TIMER") {
+            // Timer milestones are bannered instantly client-side by useRoundTimer;
+            // keep them in the bell history but don't double-banner from the poll.
           } else {
             pushBanner({
               type: n.type, title: n.title, message: n.message,

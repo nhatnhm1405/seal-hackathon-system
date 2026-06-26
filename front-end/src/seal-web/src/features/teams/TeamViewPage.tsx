@@ -6,7 +6,7 @@ import {
   C, GradientText, PixelCard, PixelButton, PixelBadge, PixelInput,
 } from "@/shared/components/PixelComponents";
 import { teamsApi, invitesApi, joinRequestsApi, ApiError, apiErrorMessage, MyTeam, MyTeamMember, UserItem, JoinRequest } from "@/shared/apiClient";
-import { isTeamEditable, teamLockReason, MIN_TEAM_SIZE, MAX_TEAM_SIZE } from "@/shared/teamPhase";
+import { isTeamEditable, MIN_TEAM_SIZE, MAX_TEAM_SIZE } from "@/shared/teamPhase";
 
 function statusBadgeColor(status?: string): "green" | "yellow" | "red" | "gray" {
   const s = (status ?? "").toUpperCase();
@@ -66,7 +66,6 @@ export function TeamViewPage() {
 
   const isLeader = team?.myRole === 'LEADER';
   const editable = isTeamEditable(team?.eventStatus);
-  const lockReason = teamLockReason(team?.eventStatus);
 
   if (loading) {
     return <div style={{ padding: 24 }}><PixelCard style={{ padding: 32, textAlign: "center" }}>
@@ -231,13 +230,6 @@ export function TeamViewPage() {
       {team.status === 'PENDING' && (
         <div style={{ background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.4)", color: "#eab308", fontFamily: "'JetBrains Mono', monospace", fontSize: 12, padding: "12px 16px" }}>
           Your team is awaiting coordinator approval. You cannot submit until approved.
-        </div>
-      )}
-
-      {lockReason && (
-        <div style={{ background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.4)", color: "#3b82f6", fontFamily: "'JetBrains Mono', monospace", fontSize: 12, padding: "12px 16px", display: "flex", gap: 8 }}>
-          <span aria-hidden style={{ flexShrink: 0 }}>🔒</span>
-          <span>{lockReason}</span>
         </div>
       )}
 

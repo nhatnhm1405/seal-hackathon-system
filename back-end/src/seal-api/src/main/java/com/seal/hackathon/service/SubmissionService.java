@@ -32,6 +32,7 @@ public class SubmissionService {
     private final TeamMemberRepository teamMemberRepository;
     private final RoundRepository roundRepository;
     private final UserRepository userRepository;
+    private final RoundTimerService roundTimerService;
 
     // ── Participant: submit or update submission ──────────────────────
 
@@ -51,6 +52,11 @@ public class SubmissionService {
         if (!isOpenRound(round.getStatus())) {
             throw new BadRequestException("Submissions are only accepted for ACTIVE or OPEN rounds.");
         }
+
+        // Hard gate: if a CONTEST countdown is configured for this round, it must be
+        // running (not paused/stopped/expired). Rounds without a timer keep the
+        // legacy behavior (late = allowed but flagged LATE below).
+        roundTimerService.assertContestOpen(round.getRoundId());
 
         // Find the user's team in this event
         List<TeamMember> memberships = teamMemberRepository
