@@ -35,8 +35,8 @@ interface NavItem {
 function buildNav(role: string, isLeader: boolean, teamId: number | null, pendingCount: number): NavItem[] {
   if (role === "PARTICIPANT") {
     if (teamId === null) {
-      const base: NavItem[] = [{ path: "/dashboard", label: "Dashboard" }, { path: "/leaderboard", label: "Leaderboard" }, { path: "/profile", label: "Profile" }];
-      if (isLeader) return [{ path: "/dashboard", label: "Dashboard" }, { path: "/team/create", label: "Create Team" }, { path: "/leaderboard", label: "Leaderboard" }, { path: "/profile", label: "Profile" }];
+      const base: NavItem[] = [{ path: "/dashboard", label: "Dashboard" }, { path: "/leaderboard", label: "Leaderboard" }, { path: "/history", label: "History" }, { path: "/profile", label: "Profile" }];
+      if (isLeader) return [{ path: "/dashboard", label: "Dashboard" }, { path: "/team/create", label: "Create Team" }, { path: "/leaderboard", label: "Leaderboard" }, { path: "/history", label: "History" }, { path: "/profile", label: "Profile" }];
       return base;
     }
     if (isLeader) {
@@ -45,6 +45,7 @@ function buildNav(role: string, isLeader: boolean, teamId: number | null, pendin
         { path: "/team/view",   label: "My Team"        },
         { path: "/team/submit", label: "Submit Project" },
         { path: "/leaderboard", label: "Leaderboard"    },
+        { path: "/history",     label: "History"        },
         { path: "/profile",     label: "Profile"        },
       ];
     }
@@ -52,6 +53,7 @@ function buildNav(role: string, isLeader: boolean, teamId: number | null, pendin
       { path: "/dashboard",   label: "Dashboard"  },
       { path: "/team/view",   label: "My Team"     },
       { path: "/leaderboard", label: "Leaderboard" },
+      { path: "/history",     label: "History"     },
       { path: "/profile",     label: "Profile"     },
     ];
   }
@@ -59,6 +61,7 @@ function buildNav(role: string, isLeader: boolean, teamId: number | null, pendin
     return [
       { path: "/dashboard",     label: "Dashboard"  },
       { path: "/mentor/tracks", label: "My Tracks"  },
+      { path: "/mentor/history",label: "History"    },
       { path: "/leaderboard",   label: "Leaderboard"},
       { path: "/profile",       label: "Profile"    },
     ];
@@ -89,6 +92,7 @@ function buildNav(role: string, isLeader: boolean, teamId: number | null, pendin
       { path: "/coordinator/teams",     label: "Teams"             },
       { path: "/coordinator/judges",    label: "Assignments"       },
       { path: "/coordinator/scoring",   label: "Scoring & Results" },
+      { path: "/coordinator/prizes",    label: "Awards"            },
       { path: "/profile",               label: "Profile"           },
     ];
   }
@@ -110,7 +114,9 @@ function getPageTitle(pathname: string): string {
     "/team/view": "My Team",
     "/team/manage": "My Team",
     "/team/submit": "Submit Project",
+    "/history": "History",
     "/mentor/tracks": "My Tracks",
+    "/mentor/history": "Mentoring History",
     "/judge/score": "Score Submissions",
     "/judge/history": "Scoring History",
     "/coordinator/dashboard": "Dashboard",
@@ -119,6 +125,7 @@ function getPageTitle(pathname: string): string {
     "/coordinator/teams": "Teams",
     "/coordinator/judges": "Assignments",
     "/coordinator/scoring": "Scoring & Results",
+    "/coordinator/prizes": "Awards",
   };
   return map[pathname] || "Console";
 }

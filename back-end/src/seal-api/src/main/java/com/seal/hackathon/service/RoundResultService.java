@@ -132,7 +132,7 @@ public class RoundResultService {
         if (Boolean.TRUE.equals(round.getIsFinal())) {
             // Final round — one global ranking across all teams (no per-track split).
             List<Map.Entry<Integer, BigDecimal>> ranked = new ArrayList<>(teamScores.entrySet());
-            ranked.sort((a, b) -> b.getValue().compareTo(a.getValue()));
+            ranked.sort(rankingComparator(subByTeam));
             for (int i = 0; i < ranked.size(); i++) {
                 Map.Entry<Integer, BigDecimal> e = ranked.get(i);
                 results.add(saveResult(round, coordinator, subByTeam.get(e.getKey()), e.getValue(), i + 1));
@@ -148,7 +148,7 @@ public class RoundResultService {
                 byTrack.computeIfAbsent(trackId, k -> new ArrayList<>()).add(entry);
             }
             for (List<Map.Entry<Integer, BigDecimal>> group : byTrack.values()) {
-                group.sort((a, b) -> b.getValue().compareTo(a.getValue()));
+                group.sort(rankingComparator(subByTeam));
                 for (int i = 0; i < group.size(); i++) {
                     Map.Entry<Integer, BigDecimal> e = group.get(i);
                     results.add(saveResult(round, coordinator, subByTeam.get(e.getKey()), e.getValue(), i + 1));
@@ -209,6 +209,26 @@ public class RoundResultService {
                 .finalizedBy(coordinator)
                 .build();
         return resultRepository.save(result);
+    }
+
+    /**
+     * Ranking order: highest score first; ties broken by the EARLIER submission
+     * (so the team that submitted sooner takes the higher rank, e.g. the last Top-N
+     * slot). Teams missing a submission time sort last.
+     */
+    private Comparator<Map.Entry<Integer, BigDecimal>> rankingComparator(Map<Integer, Submission> subByTeam) {
+        return (a, b) -> {
+            int byScore = b.getValue().compareTo(a.getValue());
+            if (byScore != 0) return byScore;
+            Submission sa = subByTeam.get(a.getKey());
+            Submission sb = subByTeam.get(b.getKey());
+            LocalDateTime ta = sa != null ? sa.getSubmittedAt() : null;
+            LocalDateTime tb = sb != null ? sb.getSubmittedAt() : null;
+            if (ta == null && tb == null) return 0;
+            if (ta == null) return 1;
+            if (tb == null) return -1;
+            return ta.compareTo(tb);
+        };
     }
 
     private RoundResultResponse mapToResponse(RoundResult r) {

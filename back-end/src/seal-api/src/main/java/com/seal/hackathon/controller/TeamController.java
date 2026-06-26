@@ -9,6 +9,7 @@ import com.seal.hackathon.dto.response.ActiveEventResponse;
 import com.seal.hackathon.dto.response.ApiResponse;
 import com.seal.hackathon.dto.response.MyTeamResponse;
 import com.seal.hackathon.dto.response.TeamDetailResponse;
+import com.seal.hackathon.dto.response.TeamHistoryResponse;
 import com.seal.hackathon.dto.response.TeamResponse;
 import com.seal.hackathon.dto.response.UserResponse;
 import com.seal.hackathon.security.UserPrincipal;
@@ -48,6 +49,14 @@ public class TeamController {
         UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
         return ResponseEntity.ok(ApiResponse.success("My team retrieved successfully.",
                 teamService.getMyTeam(principal.getUserId())));
+    }
+
+    @GetMapping("/my/history")
+    @PreAuthorize("hasRole('PARTICIPANT')")
+    public ResponseEntity<ApiResponse<List<TeamHistoryResponse>>> getMyHistory(Authentication authentication) {
+        UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
+        return ResponseEntity.ok(ApiResponse.success("Team history retrieved successfully.",
+                teamService.getMyHistory(principal.getUserId())));
     }
 
     @GetMapping("/active-events")

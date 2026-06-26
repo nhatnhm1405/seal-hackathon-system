@@ -632,6 +632,7 @@ export interface CreateRoundPayload {
 export interface UpdateRoundPayload {
   name?: string;
   topNAdvance?: number;
+  clearTopNAdvance?: boolean; // send true to REMOVE the cut-off (topNAdvance can't be unset via null)
   status?: string;
   startTime?: string;
   endTime?: string;
@@ -730,7 +731,9 @@ export interface TeamMember {
   userId: number;
   fullName: string;
   email: string;
-  role: 'LEADER' | 'MEMBER';
+  role?: 'LEADER' | 'MEMBER';
+  memberRole?: 'LEADER' | 'MEMBER'; // field name returned by GET /api/teams/event/{id}
+  joinedAt?: string;
 }
 
 // GET /api/teams/my — the current user's team in the active event.
@@ -779,9 +782,30 @@ export interface CreateTeamPayload {
   description?: string;
 }
 
+// One past/present team the participant has been on (GET /api/teams/my/history).
+export interface TeamHistoryEntry {
+  eventId: number;
+  eventName: string;
+  season?: string;
+  year?: number;
+  eventStatus: string;
+  teamId: number;
+  teamName: string;
+  trackName?: string | null;
+  teamStatus: string;
+  myRole?: string;
+  members: { fullName: string; role: string }[];
+  rounds: { roundName: string; isFinal: boolean; rankPosition: number; advanced: boolean; totalScore: number }[];
+  submissions: { roundName: string; repoUrl?: string; demoUrl?: string; slideUrl?: string; submittedAt?: string; status: string }[];
+  prize: { name: string; rankPosition: number; awardedAt?: string } | null;
+}
+
 export const teamsApi = {
   getActiveEvents: () =>
     apiFetch<ApiResponse<ActiveEventWithTracks[]>>('/api/teams/active-events'),
+
+  getMyHistory: () =>
+    apiFetch<ApiResponse<TeamHistoryEntry[]>>('/api/teams/my/history'),
 
   create: (payload: CreateTeamPayload) =>
     apiFetch<ApiResponse<Team>>('/api/teams', {
@@ -1144,6 +1168,70 @@ export const resultsApi = {
     }),
 };
 
+// ── Prizes (event-wide awards) ────────────────────────────────────
+
+export interface Prize {
+  prizeId: number;
+  eventId: number;
+  name: string;
+  description?: string;
+  rankPosition: number;
+  teamId?: number | null;
+  teamName?: string | null;
+  teamTrackName?: string | null;
+  finalScore?: number | null;
+  awardedAt?: string | null;
+  announced: boolean;
+}
+
+export interface CreatePrizePayload {
+  name: string;
+  description?: string;
+  rankPosition: number;
+  teamId?: number | null;
+}
+
+export interface UpdatePrizePayload {
+  name?: string;
+  description?: string;
+  rankPosition?: number;
+  teamId?: number | null;
+}
+
+export const prizesApi = {
+  // Public sees announced only; coordinator token returns drafts too.
+  getAll: (eventId: number) =>
+    apiFetch<ApiResponse<Prize[]>>(`/api/events/${eventId}/prizes`),
+
+  create: (eventId: number, payload: CreatePrizePayload) =>
+    apiFetch<ApiResponse<Prize>>(`/api/events/${eventId}/prizes`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  update: (eventId: number, prizeId: number, payload: UpdatePrizePayload) =>
+    apiFetch<ApiResponse<Prize>>(`/api/events/${eventId}/prizes/${prizeId}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
+
+  remove: (eventId: number, prizeId: number) =>
+    apiFetch<ApiResponse<void>>(`/api/events/${eventId}/prizes/${prizeId}`, {
+      method: 'DELETE',
+    }),
+
+  autoGenerate: (eventId: number, topN: number) =>
+    apiFetch<ApiResponse<Prize[]>>(`/api/events/${eventId}/prizes/auto-generate`, {
+      method: 'POST',
+      body: JSON.stringify({ topN }),
+    }),
+
+  announce: (eventId: number) =>
+    apiFetch<ApiResponse<Prize[]>>(`/api/events/${eventId}/prizes/announce`, {
+      method: 'POST',
+    }),
+};
+
 // ── Notifications ─────────────────────────────────────────────────
 
 export interface Notification {
@@ -1231,9 +1319,26 @@ export interface JudgeAssignment {
   teams: JudgeAssignedTeam[];
 }
 
+// Read-only mentor history (GET /api/mentor/assignments/history).
+export interface MentorHistoryEntry {
+  eventId: number;
+  eventName: string;
+  season?: string;
+  year?: number;
+  eventStatus: string;
+  tracks: {
+    trackId: number;
+    trackName: string;
+    teams: { teamId: number; teamName: string; teamStatus: string; finalRank?: number | null; prizeName?: string | null }[];
+  }[];
+}
+
 export const assignmentsApi = {
   getMentorAssignments: () =>
     apiFetch<ApiResponse<MentorAssignment>>('/api/mentor/assignments'),
+
+  getMentorHistory: () =>
+    apiFetch<ApiResponse<MentorHistoryEntry[]>>('/api/mentor/assignments/history'),
 
   getJudgeAssignments: () =>
     apiFetch<ApiResponse<JudgeAssignment>>('/api/judge/assignments'),
