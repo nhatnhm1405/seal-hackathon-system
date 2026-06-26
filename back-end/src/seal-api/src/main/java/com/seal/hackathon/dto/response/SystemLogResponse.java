@@ -24,5 +24,6 @@ public class SystemLogResponse {
     private String actorName;
     private String action;
     private String detail;
+    private String ipAddress;
     private LocalDateTime createdAt;
 }

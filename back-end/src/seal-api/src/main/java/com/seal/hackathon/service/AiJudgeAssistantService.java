@@ -7,7 +7,6 @@ import com.seal.hackathon.dto.response.AiInsightResponse;
 import com.seal.hackathon.entity.ScoringCriteria;
 import com.seal.hackathon.entity.Submission;
 import com.seal.hackathon.exception.BadRequestException;
-import com.seal.hackathon.exception.ForbiddenException;
 import com.seal.hackathon.exception.ResourceNotFoundException;
 import com.seal.hackathon.repository.ScoringCriteriaRepository;
 import com.seal.hackathon.repository.SubmissionRepository;
@@ -21,7 +20,6 @@ import org.springframework.web.client.RestClientResponseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * AI Judge Assistant — generates an advisory reading of a submission to help a
@@ -35,11 +33,6 @@ import java.util.Set;
 @Service
 @RequiredArgsConstructor
 public class AiJudgeAssistantService {
-
-    private static final String ROLE_EVENT_COORDINATOR = "ROLE_EVENT_COORDINATOR";
-    private static final String ROLE_JUDGE = "ROLE_JUDGE";
-    private static final String SUBMISSION_NOT_ASSIGNED_MESSAGE =
-            "Submission not found or not assigned to this judge.";
 
     private final SubmissionRepository submissionRepository;
     private final ScoringCriteriaRepository scoringCriteriaRepository;
@@ -67,13 +60,14 @@ public class AiJudgeAssistantService {
             + "For reference only — it does not replace the judge's evaluation and does not auto-score.";
 
     @Transactional(readOnly = true)
-    public AiInsightResponse analyzeSubmission(Integer requesterId, Set<String> authorities, Integer submissionId) {
+    public AiInsightResponse analyzeSubmission(Integer submissionId) {
         if (apiKey == null || apiKey.isBlank() || apiKey.startsWith("your-")) {
             throw new BadRequestException(
                     "AI Judge Assistant is not configured. Set GEMINI_API_KEY in the backend's .env file.");
         }
 
-        Submission submission = findReadableSubmission(requesterId, authorities, submissionId);
+        Submission submission = submissionRepository.findById(submissionId)
+                .orElseThrow(() -> new ResourceNotFoundException("Submission not found: " + submissionId));
 
         if (isBlank(submission.getDescription())
                 && isBlank(submission.getRepoUrl())
@@ -174,22 +168,6 @@ public class AiJudgeAssistantService {
             }
         }
         return sb.toString();
-    }
-
-    private Submission findReadableSubmission(Integer requesterId, Set<String> authorities, Integer submissionId) {
-        if (hasAuthority(authorities, ROLE_EVENT_COORDINATOR)) {
-            return submissionRepository.findById(submissionId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Submission not found: " + submissionId));
-        }
-        if (hasAuthority(authorities, ROLE_JUDGE)) {
-            return submissionRepository.findBySubmissionIdAndJudgeId(submissionId, requesterId)
-                    .orElseThrow(() -> new ResourceNotFoundException(SUBMISSION_NOT_ASSIGNED_MESSAGE));
-        }
-        throw new ForbiddenException("You do not have permission to analyze this submission.");
-    }
-
-    private boolean hasAuthority(Set<String> authorities, String authority) {
-        return authorities != null && authorities.contains(authority);
     }
 
     // ── Prompt ──────────────────────────────────────────────────────────

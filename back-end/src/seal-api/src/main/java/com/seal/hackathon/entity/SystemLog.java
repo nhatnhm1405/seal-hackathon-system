@@ -41,6 +41,9 @@ public class SystemLog {
     @Column(name = "detail", columnDefinition = "TEXT")
     private String detail;
 
+    @Column(name = "ip_address", length = 45)
+    private String ipAddress;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

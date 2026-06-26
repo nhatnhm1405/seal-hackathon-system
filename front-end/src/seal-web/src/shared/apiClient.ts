@@ -239,6 +239,7 @@ export interface SystemLogItem {
   actorName?: string;
   action: string;
   detail?: string;
+  ipAddress?: string;
   createdAt: string;
 }
 

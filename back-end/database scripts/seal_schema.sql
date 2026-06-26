@@ -503,6 +503,7 @@ CREATE TABLE SystemLog (
   actor_user_id INT         NOT NULL,
   action        VARCHAR(50) NOT NULL COMMENT 'CREATE_USER, LOCK_USER, RESET_PASSWORD, GRANT_ROLE, REVOKE_ROLE, UPDATE_TEMPLATE, LOGIN_FAILED...',
   detail        TEXT                 COMMENT 'Human-readable context, e.g. "granted EVENT_COORDINATOR to user#5"',
+  ip_address    VARCHAR(45),
   created_at    DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (log_id),
   KEY idx_syslog_actor   (actor_user_id),
