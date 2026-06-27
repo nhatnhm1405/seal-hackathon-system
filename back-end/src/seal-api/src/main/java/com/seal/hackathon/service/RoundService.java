@@ -10,6 +10,9 @@ import com.seal.hackathon.exception.BadRequestException;
 import com.seal.hackathon.exception.ResourceNotFoundException;
 import com.seal.hackathon.repository.HackathonEventRepository;
 import com.seal.hackathon.repository.RoundRepository;
+import com.seal.hackathon.repository.RoundResultRepository;
+import com.seal.hackathon.repository.ScoringCriteriaRepository;
+import com.seal.hackathon.repository.SubmissionRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +26,9 @@ public class RoundService {
 
     private final RoundRepository roundRepository;
     private final HackathonEventRepository eventRepository;
+    private final SubmissionRepository submissionRepository;
+    private final ScoringCriteriaRepository criteriaRepository;
+    private final RoundResultRepository resultRepository;
 
     @Transactional(readOnly = true)
     public RoundDetailResponse getRoundDetail(Integer eventId, Integer roundId) {
@@ -90,7 +96,9 @@ public class RoundService {
         if (request.getSubmissionDeadline() != null) {
             round.setSubmissionDeadline(request.getSubmissionDeadline());
         }
-        if (request.getTopNAdvance() != null) {
+        if (Boolean.TRUE.equals(request.getClearTopNAdvance())) {
+            round.setTopNAdvance(null); // remove the cut-off entirely (no elimination)
+        } else if (request.getTopNAdvance() != null) {
             round.setTopNAdvance(request.getTopNAdvance());
         }
         if (request.getIsFinal() != null) {
@@ -102,6 +110,35 @@ public class RoundService {
 
         round = roundRepository.save(round);
         return mapToResponse(round);
+    }
+
+    @Transactional
+    public void deleteRound(Integer eventId, Integer roundId) {
+        Round round = roundRepository.findByIdAndEventId(roundId, eventId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Round ID " + roundId + " not found in Event ID " + eventId));
+
+        if ("FINALIZED".equalsIgnoreCase(round.getStatus())) {
+            throw new BadRequestException(
+                    "Cannot delete a finalized round — its results are already locked.");
+        }
+        if (!submissionRepository.findAllByRound_RoundId(roundId).isEmpty()) {
+            throw new BadRequestException(
+                    "Cannot delete this round — teams have already submitted to it.");
+        }
+
+        // Safe to remove: no submissions and not finalized. Clear dependent criteria
+        // (and any stray results) first so we don't trip a foreign-key constraint.
+        var results = resultRepository.findAllByRound_RoundIdOrderByRankPosition(roundId);
+        if (!results.isEmpty()) {
+            resultRepository.deleteAll(results);
+        }
+        var criteria = criteriaRepository.findAllByRound_RoundIdOrderByOrderNumber(roundId);
+        if (!criteria.isEmpty()) {
+            criteriaRepository.deleteAll(criteria);
+        }
+
+        roundRepository.delete(round);
     }
 
     private RoundResponse mapToResponse(Round round) {

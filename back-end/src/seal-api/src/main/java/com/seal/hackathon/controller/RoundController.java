@@ -49,8 +49,17 @@ public class RoundController {
     public ResponseEntity<ApiResponse<RoundResponse>> updateRound(
             @PathVariable Integer eventId,
             @PathVariable Integer roundId,
-            @RequestBody UpdateRoundRequest request) {
+            @Valid @RequestBody UpdateRoundRequest request) {
         return ResponseEntity.ok(ApiResponse.success("Round updated successfully.",
                 roundService.updateRound(eventId, roundId, request)));
+    }
+
+    @DeleteMapping("/{roundId}")
+    @PreAuthorize("hasRole('EVENT_COORDINATOR')")
+    public ResponseEntity<ApiResponse<Void>> deleteRound(
+            @PathVariable Integer eventId,
+            @PathVariable Integer roundId) {
+        roundService.deleteRound(eventId, roundId);
+        return ResponseEntity.ok(ApiResponse.success("Round deleted successfully."));
     }
 }

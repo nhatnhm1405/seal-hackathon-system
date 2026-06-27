@@ -2,9 +2,11 @@ import {
   createContext, useContext, useState, useEffect, useCallback,
   ReactNode, useRef,
 } from "react";
+import { CheckCircle2, AlertTriangle, Info, LucideIcon } from "lucide-react";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { notificationsApi, Notification as ApiNotification } from "@/shared/apiClient";
 import { C } from "@/shared/components/PixelComponents";
+import { AnnouncementSplash } from "@/shared/components/AnnouncementSplash";
 
 // ── UI notification (mapped from the API NotificationResponse) ───────
 export type NotifKind = "info" | "success" | "warning";
@@ -15,11 +17,19 @@ export interface UINotification {
   message: string;
   is_read: boolean;
   type: NotifKind;
+  // Raw backend type (e.g. TIMER, ANNOUNCEMENT) — kept so the poll can decide
+  // whether to auto-banner. type (above) is only the 3 visual kinds.
+  rawType?: string;
   created_at: string;
+  // Announcement-only: source info for the email-style detail popup.
+  from?: string | null;
+  sender_role?: string | null;
+  scope_label?: string | null;
+  link_url?: string | null;
 }
 
 // Backend `type` is a free-form string (e.g. TEAM_APPROVED, ACCOUNT_REJECTED);
-// fold it into the three visual kinds the bell/toast styling understands.
+// fold it into the three visual kinds the bell/banner styling understands.
 function toKind(type?: string): NotifKind {
   const t = (type ?? "").toUpperCase();
   if (/SUCCESS|APPROV|ACCEPT|PUBLISH|WIN|ADVANCE/.test(t)) return "success";
@@ -34,34 +44,46 @@ function mapNotification(n: ApiNotification): UINotification {
     message: n.content,
     is_read: Boolean(n.isRead),
     type: toKind(n.type),
+    rawType: n.type,
     created_at: n.createdAt,
+    from: n.senderName ?? null,
+    sender_role: n.senderRole ?? null,
+    scope_label: n.scopeLabel ?? null,
+    link_url: n.linkUrl ?? null,
   };
 }
 
-// ── Toast ───────────────────────────────────────────────────────────
-export interface Toast {
+// ── Banner ───────────────────────────────────────────────────────────
+// ONE unified ephemeral banner for the whole app: auth events (login/logout),
+// action feedback (save/delete/approve...) and — auto-surfaced — every NEW
+// persistent notification arriving from /api/notifications. It slides in from
+// the top-center, glass + tech (squared corners) to match the pixel theme.
+export interface Banner {
   id: string;
-  type: "info" | "success" | "warning";
+  type: NotifKind;
   title: string;
   message: string;
+  // Set when the banner mirrors a persistent notification — lets a click
+  // mark that notification read and pop open the bell.
+  notificationId?: number;
 }
 
-// ── Auth Toast (iPhone-style, slides from top) ───────────────────────
-export interface AuthToast {
-  id: string;
-  type: "info" | "success" | "warning";
-  title: string;
-  message: string;
-}
+// Backward-compatible aliases — existing call sites pass {type,title,message}.
+export type Toast = Banner;
+export type AuthToast = Banner;
 
 // ── Context type ────────────────────────────────────────────────────
 interface NotificationContextType {
   userNotifications: UINotification[];
   unreadCount: number;
   markAllRead: () => void;
+  markRead: (id: number) => void;
   refresh: () => void;
   addToast: (t: Omit<Toast, "id">) => void;
   addAuthToast: (t: Omit<AuthToast, "id">) => void;
+  // Cross-component signal: bumped when a banner asks to open the bell dropdown.
+  bellOpenSignal: number;
+  requestOpenBell: () => void;
 }
 
 const NotificationContext = createContext<NotificationContextType | null>(null);
@@ -72,118 +94,177 @@ export function useNotifications() {
   return ctx;
 }
 
-// ── Auth Toast Item (iPhone-style banner) ───────────────────────────
-function AuthToastItem({ toast, onDismiss }: { toast: AuthToast; onDismiss: (id: string) => void }) {
+// How long a banner stays before auto-dismissing (ms). Paused on hover.
+const BANNER_DURATION = 4500;
+// Poll cadence for surfacing brand-new persistent notifications (ms).
+const POLL_INTERVAL = 25000;
+
+// ── Per-type visual tokens ──────────────────────────────────────────
+// Internationally-recognised line icons (lucide) keyed by kind. Note: CRUD
+// errors map to the "warning" kind (yellow) — the app keeps 3 visual kinds.
+const KIND_ICON: Record<NotifKind, LucideIcon> = {
+  success: CheckCircle2,
+  warning: AlertTriangle,
+  info: Info,
+};
+
+function bannerStyle(type: NotifKind) {
+  if (type === "success") {
+    return { accent: C.green, border: "rgba(34,197,94,0.45)", glow: "rgba(34,197,94,0.20)", chipBg: "rgba(34,197,94,0.14)" };
+  }
+  if (type === "warning") {
+    return { accent: C.yellow, border: "rgba(234,179,8,0.45)", glow: "rgba(234,179,8,0.20)", chipBg: "rgba(234,179,8,0.14)" };
+  }
+  return { accent: C.cyan, border: "rgba(6,182,212,0.45)", glow: "rgba(6,182,212,0.20)", chipBg: "rgba(6,182,212,0.14)" };
+}
+
+// ── Single banner (glass + tech, squared corners) ───────────────────
+function BannerItem({
+  banner, onDismiss, onActivate,
+}: {
+  banner: Banner;
+  onDismiss: (id: string) => void;
+  onActivate: (b: Banner) => void;
+}) {
   const [entered, setEntered] = useState(false);
   const [leaving, setLeaving] = useState(false);
+  const [paused, setPaused] = useState(false);
+  const remainingRef = useRef(BANNER_DURATION);
+  const startRef = useRef(0);
+  const timerRef = useRef<number>(0);
 
-  const iconColor =
-    toast.type === "success" ? C.green :
-    toast.type === "warning" ? "#eab308" :
-    "#06b6d4";
+  const s = bannerStyle(banner.type);
+  const Icon = KIND_ICON[banner.type];
 
-  const borderColor =
-    toast.type === "success" ? "rgba(34,197,94,0.4)" :
-    toast.type === "warning" ? "rgba(234,179,8,0.4)" :
-    "rgba(6,182,212,0.4)";
-
-  const glowColor =
-    toast.type === "success" ? "rgba(34,197,94,0.12)" :
-    toast.type === "warning" ? "rgba(234,179,8,0.12)" :
-    "rgba(6,182,212,0.12)";
-
-  const icon = toast.type === "success" ? "✓" : toast.type === "warning" ? "⚠" : "ℹ";
-
+  // Enter animation: two RAFs so the initial off-screen transform paints first.
   useEffect(() => {
-    const id1 = requestAnimationFrame(() => {
-      requestAnimationFrame(() => setEntered(true));
-    });
-    const timer = setTimeout(() => {
-      setLeaving(true);
-      setTimeout(() => onDismiss(toast.id), 350);
-    }, 4500);
-    return () => { cancelAnimationFrame(id1); clearTimeout(timer); };
-  }, [toast.id, onDismiss]);
+    const raf = requestAnimationFrame(() => requestAnimationFrame(() => setEntered(true)));
+    return () => cancelAnimationFrame(raf);
+  }, []);
 
-  function dismiss() {
-    if (leaving) return;
+  const beginLeave = useCallback(() => {
     setLeaving(true);
-    setTimeout(() => onDismiss(toast.id), 350);
-  }
+    window.setTimeout(() => onDismiss(banner.id), 300);
+  }, [banner.id, onDismiss]);
+
+  // Auto-dismiss countdown with hover-to-pause (keeps the progress bar in sync).
+  useEffect(() => {
+    if (leaving) return;
+    if (paused) {
+      remainingRef.current -= Date.now() - startRef.current;
+      if (timerRef.current) window.clearTimeout(timerRef.current);
+      return;
+    }
+    startRef.current = Date.now();
+    timerRef.current = window.setTimeout(beginLeave, Math.max(0, remainingRef.current));
+    return () => { if (timerRef.current) window.clearTimeout(timerRef.current); };
+  }, [paused, leaving, beginLeave]);
 
   const isVisible = entered && !leaving;
 
   return (
     <div
-      onClick={dismiss}
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      onClick={() => onActivate(banner)}
       style={{
-        background: "rgba(10, 14, 20, 0.96)",
-        backdropFilter: "blur(24px)",
-        WebkitBackdropFilter: "blur(24px)",
-        border: `1px solid ${borderColor}`,
-        borderTop: `2.5px solid ${iconColor}`,
-        borderRadius: 14,
-        boxShadow: `0 12px 40px rgba(0,0,0,0.65), 0 0 0 1px rgba(255,255,255,0.03), 0 4px 20px ${glowColor}`,
-        padding: "13px 18px 13px 14px",
+        position: "relative",
+        overflow: "hidden",
+        width: "100%",
+        boxSizing: "border-box",
+        background: "rgba(13, 17, 23, 0.92)",
+        backdropFilter: "blur(20px)",
+        WebkitBackdropFilter: "blur(20px)",
+        border: `1px solid ${s.border}`,
+        borderTop: `2px solid ${s.accent}`,
+        borderRadius: 3,
+        boxShadow: `0 10px 34px rgba(0,0,0,0.55), 0 0 18px ${s.glow}`,
+        padding: "12px 16px 13px 13px",
         display: "flex",
         alignItems: "flex-start",
         gap: 11,
-        minWidth: 300,
-        maxWidth: 420,
         cursor: "pointer",
         userSelect: "none",
-        transform: isVisible ? "translateY(0) scale(1)" : "translateY(-110%) scale(0.94)",
+        transform: isVisible ? "translateY(0)" : "translateY(-115%)",
         opacity: isVisible ? 1 : 0,
         transition: leaving
-          ? "transform 0.3s ease-in, opacity 0.25s ease-in"
-          : "transform 0.45s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease",
+          ? "transform 0.28s ease-in, opacity 0.24s ease-in"
+          : "transform 0.4s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.3s ease",
         fontFamily: "'JetBrains Mono', monospace",
       }}
     >
+      {/* Square icon chip with an internationally-recognised line icon */}
       <div style={{
-        width: 28, height: 28, borderRadius: "50%",
-        background: toast.type === "success" ? "rgba(34,197,94,0.14)" : toast.type === "warning" ? "rgba(234,179,8,0.14)" : "rgba(6,182,212,0.14)",
+        width: 26, height: 26, borderRadius: 2,
+        background: s.chipBg,
+        border: `1px solid ${s.border}`,
         display: "flex", alignItems: "center", justifyContent: "center",
         flexShrink: 0, marginTop: 1,
-        color: iconColor, fontSize: 13, fontWeight: 700,
-        boxShadow: `0 0 8px ${glowColor}`,
+        boxShadow: `0 0 8px ${s.glow}`,
       }}>
-        {icon}
+        <Icon size={15} strokeWidth={2.5} color={s.accent} />
       </div>
+
+      {/* Text */}
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ color: "#eef2ff", fontSize: 12, fontWeight: 700, letterSpacing: "0.06em", marginBottom: 3 }}>
-          {toast.title}
+        <div style={{
+          color: "#eef2ff", fontSize: 12, fontWeight: 700,
+          letterSpacing: "0.06em", marginBottom: 3, textTransform: "uppercase",
+        }}>
+          {banner.title}
         </div>
-        <div style={{ color: "rgba(148,163,184,0.9)", fontSize: 11, lineHeight: 1.55 }}>
-          {toast.message}
+        <div style={{ color: "rgba(148,163,184,0.92)", fontSize: 11, lineHeight: 1.5, wordBreak: "break-word" }}>
+          {banner.message}
         </div>
       </div>
+
+      {/* Close */}
       <button
-        onClick={(e) => { e.stopPropagation(); dismiss(); }}
+        onClick={(e) => { e.stopPropagation(); beginLeave(); }}
         style={{
           background: "none", border: "none", cursor: "pointer",
-          color: "rgba(100,116,139,0.8)", fontSize: 13, padding: 0,
+          color: "rgba(100,116,139,0.85)", fontSize: 13, padding: 0,
           flexShrink: 0, lineHeight: 1, marginTop: 2,
           transition: "color 0.15s",
         }}
         onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "#94a3b8"; }}
-        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(100,116,139,0.8)"; }}
+        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "rgba(100,116,139,0.85)"; }}
       >
         ✕
       </button>
+
+      {/* Auto-dismiss countdown bar */}
+      <div style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: 2, background: "rgba(255,255,255,0.06)" }}>
+        <div style={{
+          height: "100%", width: "100%",
+          background: s.accent,
+          transformOrigin: "left",
+          boxShadow: `0 0 6px ${s.glow}`,
+          animation: `sealBannerShrink ${BANNER_DURATION}ms linear forwards`,
+          animationPlayState: paused ? "paused" : "running",
+        }} />
+      </div>
     </div>
   );
 }
 
-// ── Auth Toast Container (fixed top-center) ─────────────────────────
-function AuthToastContainer({ toasts, onDismiss }: { toasts: AuthToast[]; onDismiss: (id: string) => void }) {
-  if (toasts.length === 0) return null;
+// ── Banner stack (fixed top-center, newest on top, max 3 + overflow) ─
+function BannerContainer({
+  banners, onDismiss, onActivate,
+}: {
+  banners: Banner[];
+  onDismiss: (id: string) => void;
+  onActivate: (b: Banner) => void;
+}) {
+  if (banners.length === 0) return null;
+  const MAX_VISIBLE = 3;
+  const visible = [...banners.slice(-MAX_VISIBLE)].reverse(); // newest first
+  const overflow = banners.length - visible.length;
+
   return (
     <div style={{
       position: "fixed",
-      top: 0,
-      left: 0,
-      right: 0,
+      top: 0, left: 0, right: 0,
       zIndex: 9999,
       display: "flex",
       flexDirection: "column",
@@ -192,109 +273,27 @@ function AuthToastContainer({ toasts, onDismiss }: { toasts: AuthToast[]; onDism
       gap: 8,
       pointerEvents: "none",
     }}>
-      {toasts.map(t => (
-        <div key={t.id} style={{ pointerEvents: "auto" }}>
-          <AuthToastItem toast={t} onDismiss={onDismiss} />
+      {visible.map(b => (
+        <div key={b.id} style={{ pointerEvents: "auto", width: "min(420px, calc(100vw - 32px))" }}>
+          <BannerItem banner={b} onDismiss={onDismiss} onActivate={onActivate} />
         </div>
       ))}
-    </div>
-  );
-}
-
-// ── Single toast item ───────────────────────────────────────────────
-function ToastItem({ toast, onDismiss }: { toast: Toast; onDismiss: (id: string) => void }) {
-  const [visible, setVisible] = useState(true);
-
-  const iconColor =
-    toast.type === "success" ? C.green :
-    toast.type === "warning" ? "#eab308" :
-    "#06b6d4";
-
-  const borderColor =
-    toast.type === "success" ? "rgba(34,197,94,0.4)" :
-    toast.type === "warning" ? "rgba(234,179,8,0.4)" :
-    "rgba(6,182,212,0.4)";
-
-  const bgColor =
-    toast.type === "success" ? "rgba(34,197,94,0.06)" :
-    toast.type === "warning" ? "rgba(234,179,8,0.06)" :
-    "rgba(6,182,212,0.06)";
-
-  const icon =
-    toast.type === "success" ? "✓" :
-    toast.type === "warning" ? "⚠" :
-    "ℹ";
-
-  useEffect(() => {
-    const auto = setTimeout(() => {
-      setVisible(false);
-      setTimeout(() => onDismiss(toast.id), 300);
-    }, 4000);
-    return () => clearTimeout(auto);
-  }, [toast.id, onDismiss]);
-
-  return (
-    <div
-      style={{
-        background: "#0d1117",
-        border: `1px solid ${borderColor}`,
-        borderLeft: `3px solid ${iconColor}`,
-        boxShadow: `0 4px 24px rgba(0,0,0,0.6), 0 0 12px ${bgColor}`,
-        padding: "14px 16px",
-        display: "flex",
-        alignItems: "flex-start",
-        gap: 12,
-        minWidth: 300,
-        maxWidth: 380,
-        fontFamily: "'JetBrains Mono', monospace",
-        opacity: visible ? 1 : 0,
-        transform: visible ? "translateX(0)" : "translateX(20px)",
-        transition: "opacity 0.3s ease, transform 0.3s ease",
-        position: "relative",
-      }}
-    >
-      <span style={{ color: iconColor, fontSize: 14, flexShrink: 0, lineHeight: 1.4 }}>{icon}</span>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ color: C.text, fontSize: 12, fontWeight: 700, letterSpacing: "0.04em", marginBottom: 3 }}>
-          {toast.title}
+      {overflow > 0 && (
+        <div style={{
+          pointerEvents: "none",
+          fontFamily: "'JetBrains Mono', monospace",
+          fontSize: 10, letterSpacing: "0.08em",
+          color: "rgba(148,163,184,0.85)",
+          background: "rgba(13,17,23,0.85)",
+          backdropFilter: "blur(8px)",
+          WebkitBackdropFilter: "blur(8px)",
+          border: "1px solid rgba(148,163,184,0.18)",
+          borderRadius: 2,
+          padding: "3px 10px",
+        }}>
+          +{overflow} thông báo nữa
         </div>
-        <div style={{ color: C.textMuted, fontSize: 11, lineHeight: 1.5 }}>
-          {toast.message}
-        </div>
-      </div>
-      <button
-        onClick={() => { setVisible(false); setTimeout(() => onDismiss(toast.id), 300); }}
-        style={{
-          background: "none", border: "none", cursor: "pointer",
-          color: C.textMuted, fontSize: 14, padding: 0, flexShrink: 0,
-          lineHeight: 1,
-        }}
-        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = C.text; }}
-        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = C.textMuted; }}
-      >
-        ✕
-      </button>
-    </div>
-  );
-}
-
-// ── Toast container (fixed bottom-right) ───────────────────────────
-function ToastContainer({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id: string) => void }) {
-  if (toasts.length === 0) return null;
-  return (
-    <div style={{
-      position: "fixed",
-      bottom: 24,
-      right: 24,
-      zIndex: 9000,
-      display: "flex",
-      flexDirection: "column",
-      gap: 10,
-      alignItems: "flex-end",
-    }}>
-      {toasts.map(t => (
-        <ToastItem key={t.id} toast={t} onDismiss={onDismiss} />
-      ))}
+      )}
     </div>
   );
 }
@@ -303,9 +302,43 @@ function ToastContainer({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const { currentUser } = useAuth();
   const [notifications, setNotifications] = useState<UINotification[]>([]);
-  const [toasts, setToasts] = useState<Toast[]>([]);
-  const [authToasts, setAuthToasts] = useState<AuthToast[]>([]);
+  const [banners, setBanners] = useState<Banner[]>([]);
+  // Welcome-style splash for freshly-arrived announcement messages.
+  const [announceSplash, setAnnounceSplash] = useState<{ count: number; from: string } | null>(null);
+  const [bellOpenSignal, setBellOpenSignal] = useState(0);
   const counterRef = useRef(0);
+  // IDs already accounted for, so polling only banners genuinely new arrivals.
+  const seenIdsRef = useRef<Set<number>>(new Set());
+  // First fetch just establishes a baseline — it must NOT banner the backlog.
+  const baselineSetRef = useRef(false);
+
+  const dismissBanner = useCallback((id: string) => {
+    setBanners(prev => prev.filter(b => b.id !== id));
+  }, []);
+
+  const pushBanner = useCallback((t: Omit<Banner, "id">) => {
+    const id = `banner-${Date.now()}-${counterRef.current++}`;
+    setBanners(prev => [...prev, { ...t, id }].slice(-6));
+  }, []);
+
+  const requestOpenBell = useCallback(() => setBellOpenSignal(s => s + 1), []);
+
+  const markOneRead = useCallback((notificationId: number) => {
+    setNotifications(prev => prev.map(n =>
+      n.notification_id === notificationId ? { ...n, is_read: true } : n,
+    ));
+    notificationsApi.markAsRead(notificationId).catch(() => {});
+  }, []);
+
+  // Click a banner: if it mirrors a real notification, mark it read and pop the
+  // bell open so the user lands on the full history; then clear the banner.
+  const activateBanner = useCallback((banner: Banner) => {
+    if (banner.notificationId != null) {
+      markOneRead(banner.notificationId);
+      requestOpenBell();
+    }
+    dismissBanner(banner.id);
+  }, [markOneRead, requestOpenBell, dismissBanner]);
 
   // The /api/notifications endpoint already scopes to the authenticated user.
   const refresh = useCallback(() => {
@@ -315,13 +348,64 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           .map(mapNotification)
           .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
         setNotifications(list);
+
+        // First load after sign-in: remember what's already there, no banners.
+        if (!baselineSetRef.current) {
+          seenIdsRef.current = new Set(list.map(n => n.notification_id));
+          baselineSetRef.current = true;
+          return;
+        }
+
+        // Surface every NEW arrival. Announcements (carry a sender) are aggregated
+        // into ONE welcome-style splash; everything else slides in as a banner.
+        // Iterate oldest-first so the newest ends up on top of the stack.
+        const fresh = list.filter(n => !seenIdsRef.current.has(n.notification_id));
+        const freshAnnouncements: UINotification[] = [];
+        [...fresh].reverse().forEach(n => {
+          seenIdsRef.current.add(n.notification_id);
+          if (n.is_read) return;
+          if (n.from) {
+            freshAnnouncements.push(n);
+          } else if (n.rawType === "TIMER") {
+            // Timer milestones are bannered instantly client-side by useRoundTimer;
+            // keep them in the bell history but don't double-banner from the poll.
+          } else {
+            pushBanner({
+              type: n.type, title: n.title, message: n.message,
+              notificationId: n.notification_id,
+            });
+          }
+        });
+        if (freshAnnouncements.length > 0) {
+          const senders = [...new Set(freshAnnouncements.map(a => a.from).filter(Boolean))] as string[];
+          const from = senders.length <= 1
+            ? (senders[0] ?? "a coordinator")
+            : senders.length === 2
+              ? `${senders[0]} and ${senders[1]}`
+              : `${senders[0]} and ${senders.length - 1} others`;
+          setAnnounceSplash({ count: freshAnnouncements.length, from });
+        }
       })
       .catch(() => { /* keep last known list on failure */ });
-  }, []);
+  }, [pushBanner]);
 
+  // Initial load + reset everything on sign-out / user switch.
   useEffect(() => {
-    if (!currentUser) { setNotifications([]); return; }
+    if (!currentUser) {
+      setNotifications([]);
+      setBanners([]);
+      seenIdsRef.current = new Set();
+      baselineSetRef.current = false;
+      return;
+    }
     refresh();
+  }, [currentUser, refresh]);
+
+  // Poll for brand-new notifications while signed in.
+  useEffect(() => {
+    if (!currentUser) return;
+    const id = window.setInterval(refresh, POLL_INTERVAL);
+    return () => window.clearInterval(id);
   }, [currentUser, refresh]);
 
   const userNotifications = notifications;
@@ -332,29 +416,34 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
   }, []);
 
-  const dismissToast = useCallback((id: string) => {
-    setToasts(prev => prev.filter(t => t.id !== id));
+  const markRead = useCallback((id: number) => {
+    setNotifications(prev => {
+      const target = prev.find(n => n.notification_id === id);
+      if (!target || target.is_read) return prev; // already read → no API call
+      notificationsApi.markAsRead(id).catch(() => {});
+      return prev.map(n => (n.notification_id === id ? { ...n, is_read: true } : n));
+    });
   }, []);
 
-  const addToast = useCallback((t: Omit<Toast, "id">) => {
-    const id = `toast-${Date.now()}-${counterRef.current++}`;
-    setToasts(prev => [...prev, { ...t, id }]);
-  }, []);
-
-  const dismissAuthToast = useCallback((id: string) => {
-    setAuthToasts(prev => prev.filter(t => t.id !== id));
-  }, []);
-
-  const addAuthToast = useCallback((t: Omit<AuthToast, "id">) => {
-    const id = `auth-toast-${Date.now()}-${counterRef.current++}`;
-    setAuthToasts(prev => [...prev, { ...t, id }]);
-  }, []);
+  // Both legacy entry points now feed the single unified banner stack.
+  const addToast = useCallback((t: Omit<Toast, "id">) => pushBanner(t), [pushBanner]);
+  const addAuthToast = useCallback((t: Omit<AuthToast, "id">) => pushBanner(t), [pushBanner]);
 
   return (
-    <NotificationContext.Provider value={{ userNotifications, unreadCount, markAllRead, refresh, addToast, addAuthToast }}>
+    <NotificationContext.Provider value={{
+      userNotifications, unreadCount, markAllRead, markRead, refresh,
+      addToast, addAuthToast, bellOpenSignal, requestOpenBell,
+    }}>
+
       {children}
-      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
-      <AuthToastContainer toasts={authToasts} onDismiss={dismissAuthToast} />
+      <BannerContainer banners={banners} onDismiss={dismissBanner} onActivate={activateBanner} />
+      <AnnouncementSplash
+        open={announceSplash != null}
+        count={announceSplash?.count ?? 0}
+        from={announceSplash?.from ?? ""}
+        onView={() => { requestOpenBell(); setAnnounceSplash(null); }}
+        onClose={() => setAnnounceSplash(null)}
+      />
     </NotificationContext.Provider>
   );
 }

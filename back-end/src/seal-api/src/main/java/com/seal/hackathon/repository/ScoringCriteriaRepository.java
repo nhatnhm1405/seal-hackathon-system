@@ -10,4 +10,7 @@ import java.util.List;
 public interface ScoringCriteriaRepository extends JpaRepository<ScoringCriteria, Integer> {
     List<ScoringCriteria> findAllByRound_RoundIdOrderByOrderNumber(Integer roundId);
     List<ScoringCriteria> findAllByEvent_EventIdAndRoundIsNullOrderByOrderNumber(Integer eventId);
+
+    // A template's own criteria items: not tied to any event or round.
+    List<ScoringCriteria> findAllByTemplate_TemplateIdAndEventIsNullAndRoundIsNullOrderByOrderNumber(Integer templateId);
 }

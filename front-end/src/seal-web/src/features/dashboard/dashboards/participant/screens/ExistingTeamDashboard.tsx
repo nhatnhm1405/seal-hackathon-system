@@ -7,9 +7,10 @@ import {
 } from "@/shared/components/PixelComponents";
 import {
     teamsApi, tracksApi, roundsApi, submissionsApi, resultsApi, notificationsApi,
-    MyTeam, Track, Round, RoundResult, Notification, ApiError,
+    MyTeam, Track, Round, RoundResult, Notification, ApiError, apiErrorMessage,
 } from "@/shared/apiClient";
 import { ParticipantJourneyBar } from "@/shared/components/ParticipantJourneyBar";
+import { ParticipantProblemCard } from "./ParticipantProblemCard";
 import { fmtDate, roundStatusColor, teamStatusColor } from "../utils/formatters";
 
 export function ExistingTeamDashboard() {
@@ -82,6 +83,7 @@ export function ExistingTeamDashboard() {
             addToast({ type: "success", title: "Track selected", message: picked ? `Your team is now in the "${picked.name}" track.` : "Your team's track has been set." });
         } catch (err) {
             setError(err instanceof ApiError ? err.message : "Failed to select track.");
+            addToast({ type: "warning", title: "Track selection failed", message: apiErrorMessage(err, "Failed to select track.") });
         } finally {
             setPicking(false);
         }
@@ -167,6 +169,11 @@ export function ExistingTeamDashboard() {
                     <InfoRow label="Current Round" value={activeRound?.name ?? "—"} badge={activeRound?.status} />
                 </div>
             </PixelCard>
+
+            {/* Track "đề thi" — download once released (approved team in a track only) */}
+            {team.status === 'APPROVED' && team.eventId != null && team.trackId != null && (
+                <ParticipantProblemCard eventId={team.eventId} trackId={team.trackId} />
+            )}
 
             {/* Stat cards */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16 }}>

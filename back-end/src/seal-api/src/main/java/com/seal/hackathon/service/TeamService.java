@@ -5,6 +5,7 @@ import com.seal.hackathon.dto.request.RejectTeamRequest;
 import com.seal.hackathon.dto.response.ActiveEventResponse;
 import com.seal.hackathon.dto.response.MyTeamResponse;
 import com.seal.hackathon.dto.response.TeamDetailResponse;
+import com.seal.hackathon.dto.response.TeamHistoryResponse;
 import com.seal.hackathon.dto.request.UpdateTeamRequest;
 import com.seal.hackathon.dto.response.TeamResponse;
 import com.seal.hackathon.dto.response.TrackResponse;
@@ -20,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -37,6 +39,10 @@ public class TeamService {
     private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final AuditLogService auditLogService;
+    private final RoundRepository roundRepository;
+    private final RoundResultRepository roundResultRepository;
+    private final SubmissionRepository submissionRepository;
+    private final PrizeRepository prizeRepository;
 
     // ── Participant: Create team ──────────────────────────────────────
 
@@ -118,6 +124,7 @@ public class TeamService {
                 .teamId(team.getTeamId())
                 .eventId(team.getEvent().getEventId())
                 .eventName(team.getEvent().getName())
+                .trackId(team.getTrack() != null ? team.getTrack().getTrackId() : null)
                 .trackName(team.getTrack() != null ? team.getTrack().getName() : null)
                 .name(team.getName())
                 .eventStatus(team.getEvent().getStatus())
@@ -126,6 +133,89 @@ public class TeamService {
                 .myRole(membership.getMemberRole())
                 .members(memberInfos)
                 .build();
+    }
+
+    // ── Participant: my team history (every event/season I joined) ────
+
+    @Transactional(readOnly = true)
+    public List<TeamHistoryResponse> getMyHistory(Integer userId) {
+        List<TeamMember> memberships = teamMemberRepository.findByUser_UserIdOrderByIdDesc(userId);
+        List<TeamHistoryResponse> history = new ArrayList<>();
+
+        for (TeamMember membership : memberships) {
+            Team team = membership.getTeam();
+            HackathonEvent event = team.getEvent();
+
+            List<TeamHistoryResponse.MemberInfo> members = teamMemberRepository
+                    .findByTeam_TeamId(team.getTeamId()).stream()
+                    .map(m -> TeamHistoryResponse.MemberInfo.builder()
+                            .fullName(m.getUser().getFullName())
+                            .role(m.getMemberRole())
+                            .build())
+                    .collect(Collectors.toList());
+
+            // Published per-round standing, in round order. Unpublished rounds stay hidden.
+            List<TeamHistoryResponse.RoundResultInfo> rounds = new ArrayList<>();
+            for (Round round : roundRepository.findAllByEvent_EventIdOrderByOrderNumber(event.getEventId())) {
+                roundResultRepository.findByTeam_TeamIdAndRound_RoundId(team.getTeamId(), round.getRoundId())
+                        .filter(r -> Boolean.TRUE.equals(r.getIsPublished()))
+                        .ifPresent(r -> {
+                            Integer topN = round.getTopNAdvance();
+                            boolean advanced = topN != null && r.getRankPosition() <= topN;
+                            rounds.add(TeamHistoryResponse.RoundResultInfo.builder()
+                                    .roundName(round.getName())
+                                    .isFinal(round.getIsFinal())
+                                    .rankPosition(r.getRankPosition())
+                                    .advanced(advanced)
+                                    .totalScore(r.getTotalScore())
+                                    .build());
+                        });
+            }
+
+            List<TeamHistoryResponse.SubmissionInfo> submissions = submissionRepository
+                    .findAllByTeam_TeamId(team.getTeamId()).stream()
+                    .filter(s -> !"DRAFT".equalsIgnoreCase(s.getStatus()))
+                    .sorted(Comparator.comparing(s -> s.getRound().getRoundId()))
+                    .map(s -> TeamHistoryResponse.SubmissionInfo.builder()
+                            .roundName(s.getRound().getName())
+                            .repoUrl(s.getRepoUrl())
+                            .demoUrl(s.getDemoUrl())
+                            .slideUrl(s.getSlideUrl())
+                            .submittedAt(s.getSubmittedAt())
+                            .status(s.getStatus())
+                            .build())
+                    .collect(Collectors.toList());
+
+            // Announced prize won by this team, if any.
+            TeamHistoryResponse.PrizeInfo prize = prizeRepository
+                    .findAllByEvent_EventIdAndAwardedAtIsNotNullOrderByRankPosition(event.getEventId()).stream()
+                    .filter(p -> p.getTeam() != null && p.getTeam().getTeamId().equals(team.getTeamId()))
+                    .findFirst()
+                    .map(p -> TeamHistoryResponse.PrizeInfo.builder()
+                            .name(p.getName())
+                            .rankPosition(p.getRankPosition())
+                            .awardedAt(p.getAwardedAt())
+                            .build())
+                    .orElse(null);
+
+            history.add(TeamHistoryResponse.builder()
+                    .eventId(event.getEventId())
+                    .eventName(event.getName())
+                    .season(event.getSeason())
+                    .year(event.getYear())
+                    .eventStatus(event.getStatus())
+                    .teamId(team.getTeamId())
+                    .teamName(team.getName())
+                    .trackName(team.getTrack() != null ? team.getTrack().getName() : null)
+                    .teamStatus(team.getStatus())
+                    .myRole(membership.getMemberRole())
+                    .members(members)
+                    .rounds(rounds)
+                    .submissions(submissions)
+                    .prize(prize)
+                    .build());
+        }
+        return history;
     }
 
     // ── Participant: team management (leader unless noted) ────────────
@@ -476,6 +566,47 @@ public class TeamService {
         team.setTrack(track);
         teamRepository.save(team);
         return getMyTeam(userId);
+    }
+
+    // ── Coordinator: Manually (re)assign a team to a track (SETUP) ────
+
+    /**
+     * Coordinator drag-and-drop assignment: places {@code teamId} into {@code trackId},
+     * or moves it to the unassigned pool when trackId is null. SETUP-only. Unlike
+     * participant self-selection ({@link #selectTrack}), this deliberately does NOT
+     * enforce track capacity — the coordinator may knowingly exceed the recommended
+     * max while cleaning up tracks (the UI surfaces a soft warning). Only APPROVED
+     * teams are placeable.
+     */
+    @Transactional
+    public TeamDetailResponse assignTeamToTrack(Integer actorUserId, Integer teamId, Integer trackId) {
+        Team team = teamRepository.findById(teamId)
+                .orElseThrow(() -> new ResourceNotFoundException("Team not found: " + teamId));
+        HackathonEvent event = team.getEvent();
+
+        if (!"SETUP".equalsIgnoreCase(event.getStatus())) {
+            throw new BadRequestException("Teams can only be reassigned to tracks during the SETUP phase.");
+        }
+        if (!"APPROVED".equalsIgnoreCase(team.getStatus())) {
+            throw new BadRequestException("Only approved teams can be assigned to a track.");
+        }
+
+        Track track = null;
+        if (trackId != null) {
+            track = trackRepository.findById(trackId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Track not found: " + trackId));
+            if (!track.getEvent().getEventId().equals(event.getEventId())) {
+                throw new BadRequestException("The selected track does not belong to this event.");
+            }
+        }
+
+        team.setTrack(track);
+        teamRepository.save(team);
+
+        auditLogService.record(actorUserId, "ASSIGN_TEAM_TRACK", "TEAM", teamId, null,
+                Map.<String, Object>of("trackId", trackId == null ? "UNASSIGNED" : trackId));
+
+        return mapToDetailResponse(team);
     }
 
     // ── Participant: Get active events with tracks ────────────────────

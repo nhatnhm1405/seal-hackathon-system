@@ -65,6 +65,9 @@ class TeamServiceTest {
     @Mock
     private NotificationService notificationService;
 
+    @Mock
+    private AuditLogService auditLogService;
+
     @InjectMocks
     private TeamService teamService;
 
@@ -1052,6 +1055,109 @@ class TeamServiceTest {
         request.setName(name);
         request.setDescription("Demo team");
         return request;
+    }
+
+    // ── Coordinator: assignTeamToTrack (drag-and-drop) ───────────────
+
+    @Test
+    void assignTeamToTrack_shouldPlaceTeam_whenSetupAndApproved() {
+        HackathonEvent event = event(1, "SETUP");
+        Team team = team(100, event, null, "Alpha", "APPROVED");
+        Track track = track(10, event);
+
+        when(teamRepository.findById(100)).thenReturn(Optional.of(team));
+        when(trackRepository.findById(10)).thenReturn(Optional.of(track));
+        when(teamMemberRepository.findByTeam_TeamId(100)).thenReturn(List.of());
+
+        TeamDetailResponse response = teamService.assignTeamToTrack(5, 100, 10);
+
+        assertEquals(track, team.getTrack());
+        assertEquals(10, response.getTrackId());
+        verify(teamRepository).save(team);
+    }
+
+    @Test
+    void assignTeamToTrack_shouldUnassign_whenTrackIdIsNull() {
+        HackathonEvent event = event(1, "SETUP");
+        Track current = track(10, event);
+        Team team = team(100, event, current, "Alpha", "APPROVED");
+
+        when(teamRepository.findById(100)).thenReturn(Optional.of(team));
+        when(teamMemberRepository.findByTeam_TeamId(100)).thenReturn(List.of());
+
+        TeamDetailResponse response = teamService.assignTeamToTrack(5, 100, null);
+
+        assertNull(team.getTrack());
+        assertNull(response.getTrackId());
+        verify(trackRepository, never()).findById(anyInt());
+        verify(teamRepository).save(team);
+    }
+
+    @Test
+    void assignTeamToTrack_shouldAllowExceedingCapacity() {
+        // Coordinator placement deliberately ignores capacity (soft cap on the UI),
+        // unlike participant selectTrack which hard-caps.
+        HackathonEvent event = event(1, "SETUP");
+        Team team = team(100, event, null, "Alpha", "APPROVED");
+        Track full = track(10, event);
+        full.setCapacity(1); // already "full" — must still accept the placement
+
+        when(teamRepository.findById(100)).thenReturn(Optional.of(team));
+        when(trackRepository.findById(10)).thenReturn(Optional.of(full));
+        when(teamMemberRepository.findByTeam_TeamId(100)).thenReturn(List.of());
+
+        teamService.assignTeamToTrack(5, 100, 10);
+
+        assertEquals(full, team.getTrack());
+        verify(teamRepository).save(team);
+    }
+
+    @Test
+    void assignTeamToTrack_shouldThrow_whenEventNotInSetup() {
+        HackathonEvent event = event(1, "OPEN");
+        Team team = team(100, event, null, "Alpha", "APPROVED");
+
+        when(teamRepository.findById(100)).thenReturn(Optional.of(team));
+
+        assertThrows(BadRequestException.class, () -> teamService.assignTeamToTrack(5, 100, 10));
+
+        verify(teamRepository, never()).save(any());
+    }
+
+    @Test
+    void assignTeamToTrack_shouldThrow_whenTeamNotApproved() {
+        HackathonEvent event = event(1, "SETUP");
+        Team team = team(100, event, null, "Alpha", "PENDING");
+
+        when(teamRepository.findById(100)).thenReturn(Optional.of(team));
+
+        assertThrows(BadRequestException.class, () -> teamService.assignTeamToTrack(5, 100, 10));
+
+        verify(teamRepository, never()).save(any());
+    }
+
+    @Test
+    void assignTeamToTrack_shouldThrow_whenTrackBelongsToAnotherEvent() {
+        HackathonEvent event = event(1, "SETUP");
+        HackathonEvent otherEvent = event(2, "SETUP");
+        Team team = team(100, event, null, "Alpha", "APPROVED");
+        Track foreignTrack = track(10, otherEvent);
+
+        when(teamRepository.findById(100)).thenReturn(Optional.of(team));
+        when(trackRepository.findById(10)).thenReturn(Optional.of(foreignTrack));
+
+        assertThrows(BadRequestException.class, () -> teamService.assignTeamToTrack(5, 100, 10));
+
+        verify(teamRepository, never()).save(any());
+    }
+
+    @Test
+    void assignTeamToTrack_shouldThrowResourceNotFound_whenTeamMissing() {
+        when(teamRepository.findById(100)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () -> teamService.assignTeamToTrack(5, 100, 10));
+
+        verify(teamRepository, never()).save(any());
     }
 
     private static HackathonEvent event(Integer eventId, String status) {

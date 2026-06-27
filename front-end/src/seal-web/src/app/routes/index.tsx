@@ -21,7 +21,9 @@ import { ProfilePage } from "@/features/users/ProfilePage";
 import { TeamCreatePage } from "@/features/teams/TeamCreatePage";
 import { TeamSubmitPage } from "@/features/submissions/TeamSubmitPage";
 import { TeamViewPage } from "@/features/teams/TeamViewPage";
+import { HistoryPage } from "@/features/teams/HistoryPage";
 import { MentorTracksPage } from "@/features/tracks/MentorTracksPage";
+import { MentorHistoryPage } from "@/features/tracks/MentorHistoryPage";
 import { JudgeScoringPage } from "@/features/scoring/JudgeScoringPage";
 import { JudgeHistoryPage } from "@/features/scoring/JudgeHistoryPage";
 import { CoordEventsPage } from "@/features/events/CoordEventsPage";
@@ -29,6 +31,7 @@ import { CoordAccountsPage } from "@/features/users/CoordAccountsPage";
 import { CoordTeamsPage } from "@/features/teams/CoordTeamsPage";
 import { CoordJudgesPage } from "@/features/scoring/CoordJudgesPage";
 import { CoordScoringPage } from "@/features/scoring/CoordScoringPage";
+import { CoordPrizesPage } from "@/features/scoring/CoordPrizesPage";
 import { AdminEventsPage } from "@/features/events/AdminEventsPage";
 import { AdminAccountsPage } from "@/features/users/AdminAccountsPage";
 import { AdminRolesPage } from "@/features/users/AdminRolesPage";
@@ -77,6 +80,16 @@ function RequireAuth({
   return <Outlet />;
 }
 
+// Keeps already-authenticated users off the public auth screens (/login,
+// /register, /forgot-password). Without this, an active session could open
+// /login by URL and sign into a second account on top of the first.
+function RedirectIfAuthenticated() {
+  const { isAuthenticated, isLoading } = useAuth();
+  if (isLoading) return null;
+  if (isAuthenticated) return <Navigate to="/dashboard" replace />;
+  return <Outlet />;
+}
+
 // Guards staff-only routes: if a multi-role user hasn't selected yet, send to /select-role
 function RoleGate() {
   const { availableRoles, activeRole } = useAuth();
@@ -100,6 +113,9 @@ function RootLayout() {
 
 function LandingPageWrapper() {
   const navigate = useNavigate();
+  // Everyone — visitors and logged-in users — gets the full standalone home page
+  // with its own navbar + footer intact. The home navbar shows a "Go to Dashboard"
+  // button when authenticated, so logged-in users can jump back into the app.
   return (
     <LandingPage
       navigate={(page) => {
@@ -119,15 +135,20 @@ export const router = createBrowserRouter([
       { path: "/about", Component: AboutPage },
       { path: "/team", Component: TeamPage },
       { path: "/contact", Component: ContactPage },
-      { path: "/login", Component: LoginPage },
-      { path: "/register", Component: RegisterPage },
+      {
+        element: <RedirectIfAuthenticated />,
+        children: [
+          { path: "/login", Component: LoginPage },
+          { path: "/register", Component: RegisterPage },
+          {
+            path: "/forgot-password",
+            Component: ForgotPasswordPage,
+          },
+        ],
+      },
       {
         path: "/pending-approval",
         Component: PendingApprovalPage,
-      },
-      {
-        path: "/forgot-password",
-        Component: ForgotPasswordPage,
       },
       {
         path: "/oauth2/redirect",
@@ -177,6 +198,10 @@ export const router = createBrowserRouter([
                   {
                     path: "/team/submit",
                     Component: TeamSubmitPage,
+                  },
+                  {
+                    path: "/history",
+                    Component: HistoryPage,
                   },
                 ],
               },
@@ -232,6 +257,10 @@ export const router = createBrowserRouter([
                         path: "/mentor/tracks",
                         Component: MentorTracksPage,
                       },
+                      {
+                        path: "/mentor/history",
+                        Component: MentorHistoryPage,
+                      },
                     ],
                   },
                   {
@@ -277,6 +306,10 @@ export const router = createBrowserRouter([
                       {
                         path: "/coordinator/scoring",
                         Component: CoordScoringPage,
+                      },
+                      {
+                        path: "/coordinator/prizes",
+                        Component: CoordPrizesPage,
                       },
                     ],
                   },

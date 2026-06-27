@@ -33,6 +33,12 @@ public class Notification {
     @Column(name = "type", length = 50)
     private String type;
 
+    // Set only for ANNOUNCEMENT notifications fanned out from an Announcement;
+    // lets the UI resolve the sender (From) and scope for the email-style popup.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "announcement_id")
+    private Announcement announcement;
+
     // related_event_id removed from schema — notifications are addressed to a user
     // and carry their context in the title/content.
 

@@ -2,7 +2,8 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   C, GradientText, PixelCard, PixelButton, PixelBadge,
 } from "@/shared/components/PixelComponents";
-import { apiFetch, ApiError } from "@/shared/apiClient";
+import { apiFetch, ApiError, apiErrorMessage } from "@/shared/apiClient";
+import { useNotifications } from "@/app/providers/NotificationProvider";
 
 // ── API shapes (tolerate camelCase + snake_case from the backend) ─────
 interface ApiTrack {
@@ -246,6 +247,7 @@ function TeamActionModal({
 }
 
 export function CoordTeamsPage() {
+  const { addToast } = useNotifications();
   const [events, setEvents] = useState<EventRow[]>([]);
   const [eventsLoading, setEventsLoading] = useState(true);
   const [eventsError, setEventsError] = useState<string | null>(null);
@@ -350,17 +352,21 @@ export function CoordTeamsPage() {
       if (type === 'approve') {
         await apiFetch(`/api/teams/${id}/approve`, { method: 'PUT' });
         setTeams(prev => prev.map(t => t.teamId === id ? { ...t, status: 'APPROVED' } : t));
+        addToast({ type: 'success', title: 'TEAM APPROVED', message: `"${team.name}" can now participate.` });
       } else if (type === 'reject') {
         await apiFetch(`/api/teams/${id}/reject`, { method: 'PUT', body: JSON.stringify({ reason }) });
         setTeams(prev => prev.map(t => t.teamId === id ? { ...t, status: 'REJECTED' } : t));
+        addToast({ type: 'warning', title: 'TEAM REJECTED', message: `"${team.name}" was rejected.` });
       } else {
         // Persisted to Team.disqualified_reason on the backend.
         await apiFetch(`/api/teams/${id}/disqualify`, { method: 'PUT', body: JSON.stringify({ reason }) });
         setTeams(prev => prev.map(t => t.teamId === id ? { ...t, status: 'DISQUALIFIED', disqualifiedReason: reason } : t));
+        addToast({ type: 'warning', title: 'TEAM DISQUALIFIED', message: `"${team.name}" was disqualified.` });
       }
       closeConfirm();
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Action failed.");
+      addToast({ type: 'warning', title: 'ACTION FAILED', message: apiErrorMessage(err, 'Action failed.') });
     } finally {
       setActionBusy(false);
     }

@@ -4,6 +4,7 @@ import com.seal.hackathon.dto.request.CreateEventRequest;
 import com.seal.hackathon.dto.request.UpdateEventRequest;
 import com.seal.hackathon.dto.response.HackathonEventResponse;
 import com.seal.hackathon.entity.HackathonEvent;
+import com.seal.hackathon.entity.Team;
 import com.seal.hackathon.entity.Track;
 import com.seal.hackathon.exception.BadRequestException;
 import com.seal.hackathon.exception.ResourceNotFoundException;
@@ -15,7 +16,9 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -33,8 +36,17 @@ public class HackathonEventService {
     private static final Set<String> VALID_STATUSES =
             Set.of("DRAFT", "OPEN", "SETUP", "IN_PROGRESS", "COMPLETED", "CANCELLED");
 
+    private static final Set<String> VALID_SEASONS =
+            Set.of("SPRING", "SUMMER", "FALL");
+
     private static final Set<String> VALID_TRACK_MODES =
             Set.of("SELF_SELECT", "RANDOM");
+
+    private static final String CANCELLED_STATUS = "CANCELLED";
+
+    // A track needs at least this many approved teams to be a valid competition
+    // track. Mirrors the frontend MIN_TEAMS_PER_TRACK (trackStats.ts).
+    private static final int MIN_TEAMS_PER_TRACK = 2;
 
     // Allowed status transitions — backend is the source of truth (the FE buttons
     // only mirror this). The Coordinator-operable states DRAFT/OPEN/SETUP/IN_PROGRESS
@@ -76,19 +88,14 @@ public class HackathonEventService {
 
     @Transactional
     public HackathonEventResponse createEvent(CreateEventRequest request, Integer actorUserId) {
-        String[] validSeasons = {"SPRING", "SUMMER", "FALL"};
-        boolean validSeason = false;
-        for (String s : validSeasons) {
-            if (s.equalsIgnoreCase(request.getSeason())) {
-                validSeason = true;
-                break;
-            }
-        }
-        if (!validSeason) {
-            throw new BadRequestException("Invalid season. Must be SPRING, SUMMER, or FALL.");
-        }
-
-        requireValidDates(request.getRegistrationStart(), request.getRegistrationEnd(),
+        String name = normalizeEventName(request.getName());
+        String season = normalizeSeason(request.getSeason());
+        Integer year = validateYear(request.getYear());
+        validateCompleteEventSchedule(season, year,
+                request.getRegistrationStart(), request.getRegistrationEnd(),
+                request.getStartDate(), request.getEndDate());
+        requireDatesNotBeforeToday(true,
+                request.getRegistrationStart(), request.getRegistrationEnd(),
                 request.getStartDate(), request.getEndDate());
 
         String status = (request.getStatus() != null && !request.getStatus().isBlank())
@@ -100,11 +107,13 @@ public class HackathonEventService {
                 ? request.getTrackSelectionMode().toUpperCase()
                 : "SELF_SELECT";
         requireValidTrackMode(trackMode);
+        validateUniqueActiveSeasonEvent(year, season, status, null);
+        validateNoOverlappingActiveEvent(request.getStartDate(), request.getEndDate(), status, null);
 
         HackathonEvent event = HackathonEvent.builder()
-                .name(request.getName().trim())
-                .season(request.getSeason().toUpperCase())
-                .year(request.getYear())
+                .name(name)
+                .season(season)
+                .year(year)
                 .description(request.getDescription())
                 .registrationStart(request.getRegistrationStart())
                 .registrationEnd(request.getRegistrationEnd())
@@ -126,29 +135,38 @@ public class HackathonEventService {
         HackathonEvent event = hackathonEventRepository.findById(eventId)
                 .orElseThrow(() -> new ResourceNotFoundException("Event not found: " + eventId));
 
-        if (request.getName() != null && !request.getName().isBlank()) {
-            event.setName(request.getName().trim());
+        String effectiveSeason = event.getSeason();
+        Integer effectiveYear = event.getYear();
+        LocalDateTime effectiveRegistrationStart = event.getRegistrationStart();
+        LocalDateTime effectiveRegistrationEnd = event.getRegistrationEnd();
+        LocalDateTime effectiveStartDate = event.getStartDate();
+        LocalDateTime effectiveEndDate = event.getEndDate();
+        String effectiveStatus = event.getStatus();
+        String effectiveTrackMode = event.getTrackSelectionMode();
+
+        if (request.getName() != null) {
+            event.setName(normalizeEventName(request.getName()));
         }
-        if (request.getSeason() != null && !request.getSeason().isBlank()) {
-            event.setSeason(request.getSeason().toUpperCase());
+        if (request.getSeason() != null) {
+            effectiveSeason = normalizeSeason(request.getSeason());
         }
         if (request.getYear() != null) {
-            event.setYear(request.getYear());
+            effectiveYear = validateYear(request.getYear());
         }
         if (request.getDescription() != null) {
             event.setDescription(request.getDescription());
         }
         if (request.getRegistrationStart() != null) {
-            event.setRegistrationStart(request.getRegistrationStart());
+            effectiveRegistrationStart = request.getRegistrationStart();
         }
         if (request.getRegistrationEnd() != null) {
-            event.setRegistrationEnd(request.getRegistrationEnd());
+            effectiveRegistrationEnd = request.getRegistrationEnd();
         }
         if (request.getStartDate() != null) {
-            event.setStartDate(request.getStartDate());
+            effectiveStartDate = request.getStartDate();
         }
         if (request.getEndDate() != null) {
-            event.setEndDate(request.getEndDate());
+            effectiveEndDate = request.getEndDate();
         }
         if (request.getTrackSelectionMode() != null && !request.getTrackSelectionMode().isBlank()) {
             String newMode = request.getTrackSelectionMode().toUpperCase();
@@ -158,7 +176,7 @@ public class HackathonEventService {
                 throw new BadRequestException(
                         "Track selection mode can only be changed while the event is in DRAFT or OPEN.");
             }
-            event.setTrackSelectionMode(newMode);
+            effectiveTrackMode = newMode;
         }
 
         if (request.getStatus() != null && !request.getStatus().isBlank()) {
@@ -166,7 +184,15 @@ public class HackathonEventService {
             requireValidStatus(newStatus);
             requireValidTransition(event.getStatus(), newStatus);
             boolean enteringSetup = "SETUP".equals(newStatus) && !"SETUP".equalsIgnoreCase(event.getStatus());
-            event.setStatus(newStatus);
+            // Starting the event (SETUP -> IN_PROGRESS) is gated: every track must
+            // have at least MIN_TEAMS_PER_TRACK approved teams and no approved team
+            // may be left unassigned. Validate BEFORE mutating status so a failed
+            // gate changes nothing.
+            boolean startingEvent = "IN_PROGRESS".equals(newStatus) && "SETUP".equalsIgnoreCase(event.getStatus());
+            if (startingEvent) {
+                requireSetupComplete(event);
+            }
+            effectiveStatus = newStatus;
             // Closing registration freezes the team count and computes per-track slots.
             if (enteringSetup) {
                 computeTrackCapacities(event);
@@ -174,8 +200,39 @@ public class HackathonEventService {
         }
 
         // Validate the effective date ordering after applying any patches.
-        requireValidDates(event.getRegistrationStart(), event.getRegistrationEnd(),
-                event.getStartDate(), event.getEndDate());
+        requireValidDates(effectiveRegistrationStart, effectiveRegistrationEnd,
+                effectiveStartDate, effectiveEndDate);
+
+        boolean scheduleTouched = request.getSeason() != null || request.getYear() != null
+                || request.getRegistrationStart() != null || request.getRegistrationEnd() != null
+                || request.getStartDate() != null || request.getEndDate() != null;
+        boolean reactivatingCancelled = CANCELLED_STATUS.equalsIgnoreCase(event.getStatus())
+                && !CANCELLED_STATUS.equalsIgnoreCase(effectiveStatus);
+        if (scheduleTouched || reactivatingCancelled) {
+            validateCompleteEventSchedule(effectiveSeason, effectiveYear,
+                    effectiveRegistrationStart, effectiveRegistrationEnd,
+                    effectiveStartDate, effectiveEndDate);
+        }
+        if (scheduleTouched) {
+            requireRequestedDatesNotBeforeToday(request);
+        }
+
+        boolean uniquenessOrOverlapMayChange = request.getSeason() != null || request.getYear() != null
+                || request.getStartDate() != null || request.getEndDate() != null
+                || reactivatingCancelled;
+        if (uniquenessOrOverlapMayChange) {
+            validateUniqueActiveSeasonEvent(effectiveYear, effectiveSeason, effectiveStatus, eventId);
+            validateNoOverlappingActiveEvent(effectiveStartDate, effectiveEndDate, effectiveStatus, eventId);
+        }
+
+        event.setSeason(effectiveSeason);
+        event.setYear(effectiveYear);
+        event.setRegistrationStart(effectiveRegistrationStart);
+        event.setRegistrationEnd(effectiveRegistrationEnd);
+        event.setStartDate(effectiveStartDate);
+        event.setEndDate(effectiveEndDate);
+        event.setTrackSelectionMode(effectiveTrackMode);
+        event.setStatus(effectiveStatus);
 
         event = hackathonEventRepository.save(event);
         return mapToResponse(event);
@@ -257,6 +314,42 @@ public class HackathonEventService {
         trackRepository.saveAll(tracks);
     }
 
+    /**
+     * Gate for leaving SETUP (SETUP -> IN_PROGRESS). The event can only start when
+     * every track has at least {@link #MIN_TEAMS_PER_TRACK} approved teams and no
+     * approved team is left unassigned. Throws a BadRequest listing every problem so
+     * the coordinator knows exactly what to fix (mirrors the FE canCompleteSetup).
+     */
+    private void requireSetupComplete(HackathonEvent event) {
+        List<Track> tracks = trackRepository.findAllByEvent_EventId(event.getEventId());
+        List<Team> approved = teamRepository
+                .findAllByEvent_EventIdAndStatus(event.getEventId(), "APPROVED");
+
+        Map<Integer, Long> perTrack = approved.stream()
+                .filter(t -> t.getTrack() != null)
+                .collect(Collectors.groupingBy(t -> t.getTrack().getTrackId(), Collectors.counting()));
+        long unassigned = approved.stream().filter(t -> t.getTrack() == null).count();
+
+        List<String> problems = new ArrayList<>();
+        if (tracks.isEmpty()) {
+            problems.add("the event has no tracks");
+        }
+        for (Track tr : tracks) {
+            long count = perTrack.getOrDefault(tr.getTrackId(), 0L);
+            if (count < MIN_TEAMS_PER_TRACK) {
+                problems.add("track \"" + tr.getName() + "\" has " + count
+                        + " team(s) (needs at least " + MIN_TEAMS_PER_TRACK + ")");
+            }
+        }
+        if (unassigned > 0) {
+            problems.add(unassigned + " team(s) still unassigned");
+        }
+
+        if (!problems.isEmpty()) {
+            throw new BadRequestException("Cannot start the event: " + String.join("; ", problems) + ".");
+        }
+    }
+
     private void requireValidTransition(String from, String to) {
         if (from == null || from.equals(to)) {
             return;
@@ -278,6 +371,125 @@ public class HackathonEventService {
         if (regEnd != null && start != null && start.isBefore(regEnd)) {
             throw new BadRequestException("The competition must start after registration closes.");
         }
+    }
+
+    private String normalizeEventName(String name) {
+        if (name == null || name.isBlank()) {
+            throw new BadRequestException("Event name is required.");
+        }
+        String normalized = name.trim();
+        if (normalized.length() > 255) {
+            throw new BadRequestException("Event name must not exceed 255 characters.");
+        }
+        return normalized;
+    }
+
+    private String normalizeSeason(String season) {
+        if (season == null || season.isBlank()) {
+            throw new BadRequestException("Season is required.");
+        }
+        String normalized = season.trim().toUpperCase();
+        if (!VALID_SEASONS.contains(normalized)) {
+            throw new BadRequestException("Invalid season. Must be SPRING, SUMMER, or FALL.");
+        }
+        return normalized;
+    }
+
+    private Integer validateYear(Integer year) {
+        if (year == null) {
+            throw new BadRequestException("Year is required.");
+        }
+        if (year < 2026 || year > 3000) {
+            throw new BadRequestException("Year must be between 2026 and 3000.");
+        }
+        return year;
+    }
+
+    private void validateCompleteEventSchedule(String season, Integer year,
+                                               LocalDateTime regStart, LocalDateTime regEnd,
+                                               LocalDateTime start, LocalDateTime end) {
+        validateYear(year);
+        if (regStart == null || regEnd == null || start == null || end == null) {
+            throw new BadRequestException(
+                    "Registration start, registration end, start date, and end date are all required.");
+        }
+        requireValidDates(regStart, regEnd, start, end);
+        requireDateInSeason("Registration start date", regStart, season, year);
+        requireDateInSeason("Registration end date", regEnd, season, year);
+        requireDateInSeason("Start date", start, season, year);
+        requireDateInSeason("End date", end, season, year);
+    }
+
+    private void requireDateInSeason(String label, LocalDateTime value, String season, Integer year) {
+        SeasonWindow window = seasonWindow(season, year);
+        LocalDate date = value.toLocalDate();
+        if (date.isBefore(window.start()) || date.isAfter(window.end())) {
+            throw new BadRequestException(label + " must be within " + season + " " + year
+                    + " (" + window.start() + " to " + window.end() + ").");
+        }
+    }
+
+    private SeasonWindow seasonWindow(String season, Integer year) {
+        return switch (normalizeSeason(season)) {
+            case "SPRING" -> new SeasonWindow(LocalDate.of(year, 1, 1), LocalDate.of(year, 4, 30));
+            case "SUMMER" -> new SeasonWindow(LocalDate.of(year, 5, 1), LocalDate.of(year, 8, 31));
+            case "FALL" -> new SeasonWindow(LocalDate.of(year, 9, 1), LocalDate.of(year, 12, 31));
+            default -> throw new BadRequestException("Invalid season. Must be SPRING, SUMMER, or FALL.");
+        };
+    }
+
+    private void requireDatesNotBeforeToday(boolean includeAllDates,
+                                            LocalDateTime regStart, LocalDateTime regEnd,
+                                            LocalDateTime start, LocalDateTime end) {
+        if (!includeAllDates) {
+            return;
+        }
+        LocalDate today = LocalDate.now();
+        requireDateNotBeforeToday("Registration start date", regStart, today);
+        requireDateNotBeforeToday("Registration end date", regEnd, today);
+        requireDateNotBeforeToday("Start date", start, today);
+        requireDateNotBeforeToday("End date", end, today);
+    }
+
+    private void requireRequestedDatesNotBeforeToday(UpdateEventRequest request) {
+        LocalDate today = LocalDate.now();
+        requireDateNotBeforeToday("Registration start date", request.getRegistrationStart(), today);
+        requireDateNotBeforeToday("Registration end date", request.getRegistrationEnd(), today);
+        requireDateNotBeforeToday("Start date", request.getStartDate(), today);
+        requireDateNotBeforeToday("End date", request.getEndDate(), today);
+    }
+
+    private void requireDateNotBeforeToday(String label, LocalDateTime value, LocalDate today) {
+        if (value != null && value.toLocalDate().isBefore(today)) {
+            throw new BadRequestException(label + " cannot be in the past.");
+        }
+    }
+
+    private void validateUniqueActiveSeasonEvent(Integer year, String season, String status, Integer excludeEventId) {
+        if (CANCELLED_STATUS.equalsIgnoreCase(status)) {
+            return;
+        }
+        boolean exists = excludeEventId == null
+                ? hackathonEventRepository.existsByYearAndSeasonIgnoreCaseAndStatusNotIgnoreCase(
+                        year, season, CANCELLED_STATUS)
+                : hackathonEventRepository.existsByYearAndSeasonIgnoreCaseAndStatusNotIgnoreCaseAndEventIdNot(
+                        year, season, CANCELLED_STATUS, excludeEventId);
+        if (exists) {
+            throw new BadRequestException("An active event already exists for " + season + " " + year + ".");
+        }
+    }
+
+    private void validateNoOverlappingActiveEvent(LocalDateTime start, LocalDateTime end,
+                                                  String status, Integer excludeEventId) {
+        if (CANCELLED_STATUS.equalsIgnoreCase(status)) {
+            return;
+        }
+        if (hackathonEventRepository.existsOverlappingActiveEvent(start, end, excludeEventId, CANCELLED_STATUS)) {
+            throw new BadRequestException("Event dates overlap with another active event.");
+        }
+    }
+
+    private record SeasonWindow(LocalDate start, LocalDate end) {
     }
 
     private HackathonEventResponse mapToResponse(HackathonEvent event) {

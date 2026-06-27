@@ -3,9 +3,10 @@ import {
   C, GradientText, PixelBadge,
 } from "@/shared/components/PixelComponents";
 import {
-  eventsApi, roundsApi, tracksApi, teamsApi, coordinatorApi, ApiError,
+  eventsApi, roundsApi, tracksApi, teamsApi, coordinatorApi, ApiError, apiErrorMessage,
   HackathonEvent, Round, Track, UserItem, JudgeRosterItem, MentorRosterItem, Team,
 } from "@/shared/apiClient";
+import { useNotifications } from "@/app/providers/NotificationProvider";
 
 const mono = "'JetBrains Mono', monospace";
 
@@ -36,6 +37,7 @@ type Active =
   | null;
 
 export function CoordJudgesPage() {
+  const { addToast } = useNotifications();
   const [events, setEvents] = useState<HackathonEvent[]>([]);
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
   const [rounds, setRounds] = useState<Round[]>([]);
@@ -98,23 +100,24 @@ export function CoordJudgesPage() {
     if (!active || selectedEventId == null) return;
     setBusy(true); setActionError(null);
     try {
-      if (active.kind === 'mentor') { await coordinatorApi.assignMentor({ mentorUserId: userId, trackId: active.trackId }); await reloadMentors(selectedEventId); }
-      else if (active.kind === 'judge') { await coordinatorApi.assignJudge({ judgeUserId: userId, roundId: active.roundId, trackId: active.trackId }); await reloadJudges(selectedEventId); }
-      else { await coordinatorApi.assignJudge({ judgeUserId: userId, roundId: active.roundId, trackId: null }); await reloadJudges(selectedEventId); }
+      if (active.kind === 'mentor') { await coordinatorApi.assignMentor({ mentorUserId: userId, trackId: active.trackId }); await reloadMentors(selectedEventId); addToast({ type: 'success', title: 'MENTOR ASSIGNED', message: 'Mentor added to the track.' }); }
+      else if (active.kind === 'judge') { await coordinatorApi.assignJudge({ judgeUserId: userId, roundId: active.roundId, trackId: active.trackId }); await reloadJudges(selectedEventId); addToast({ type: 'success', title: 'JUDGE ASSIGNED', message: 'Judge added to this round & track.' }); }
+      else { await coordinatorApi.assignJudge({ judgeUserId: userId, roundId: active.roundId, trackId: null }); await reloadJudges(selectedEventId); addToast({ type: 'success', title: 'JUDGE ASSIGNED', message: 'Judge added to the final round.' }); }
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Failed to assign.");
+      addToast({ type: 'warning', title: 'ASSIGN FAILED', message: apiErrorMessage(err, 'Failed to assign.') });
     } finally { setBusy(false); }
   }
 
   async function removeMentor(id: number) {
     setActionError(null);
-    try { await coordinatorApi.removeMentorAssignment(id); setMentors(prev => prev.filter(m => m.id !== id)); }
-    catch (err) { setActionError(err instanceof ApiError ? err.message : "Failed to remove."); }
+    try { await coordinatorApi.removeMentorAssignment(id); setMentors(prev => prev.filter(m => m.id !== id)); addToast({ type: 'info', title: 'MENTOR REMOVED', message: 'Mentor unassigned from the track.' }); }
+    catch (err) { setActionError(err instanceof ApiError ? err.message : "Failed to remove."); addToast({ type: 'warning', title: 'REMOVE FAILED', message: apiErrorMessage(err, 'Failed to remove.') }); }
   }
   async function removeJudge(id: number) {
     setActionError(null);
-    try { await coordinatorApi.removeJudgeAssignment(id); setJudges(prev => prev.filter(j => j.id !== id)); }
-    catch (err) { setActionError(err instanceof ApiError ? err.message : "Failed to remove."); }
+    try { await coordinatorApi.removeJudgeAssignment(id); setJudges(prev => prev.filter(j => j.id !== id)); addToast({ type: 'info', title: 'JUDGE REMOVED', message: 'Judge unassigned.' }); }
+    catch (err) { setActionError(err instanceof ApiError ? err.message : "Failed to remove."); addToast({ type: 'warning', title: 'REMOVE FAILED', message: apiErrorMessage(err, 'Failed to remove.') }); }
   }
 
   const addedIds = assignedUserIds();
@@ -185,7 +188,6 @@ export function CoordJudgesPage() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 12 }}>
         <div>
           <h1 style={{ fontFamily: mono, fontSize: 28, fontWeight: 800 }}><GradientText>Assignments</GradientText></h1>
-          <p style={{ color: C.textMuted, fontFamily: mono, fontSize: 12, marginTop: 4 }}>Mentor theo hạng mục · Judge theo vòng × hạng mục</p>
         </div>
         <div>
           <label style={{ color: C.greenMuted, fontFamily: mono, fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase" }}>Event</label>

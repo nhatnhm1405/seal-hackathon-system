@@ -1,11 +1,15 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { Bot, RefreshCw } from "lucide-react";
 import {
   C, GradientText, PixelCard, PixelButton, PixelBadge,
 } from "@/shared/components/PixelComponents";
 import {
-  assignmentsApi, eventsApi, roundsApi, submissionsApi, scoringApi, ApiError,
-  Round, Submission, ScoringCriteria, ScoreRecord,
+  assignmentsApi, eventsApi, roundsApi, submissionsApi, scoringApi, aiApi, ApiError, apiErrorMessage,
+  Round, Submission, ScoringCriteria, ScoreRecord, AiInsight,
 } from "@/shared/apiClient";
+import { useNotifications } from "@/app/providers/NotificationProvider";
+import { useRoundTimer } from "@/shared/hooks/useRoundTimer";
+import { CountdownDisplay } from "@/shared/components/CountdownDisplay";
 import { buildTeamCodeMap } from "./anon";
 
 type SubStatus = "not_scored" | "draft" | "scored";
@@ -21,6 +25,7 @@ function roundIsOpen(status?: string): boolean {
 }
 
 export function JudgeScoringPage() {
+  const { addToast } = useNotifications();
   // Assignment / event context
   const [eventId, setEventId] = useState<number | null>(null);
   const [rounds, setRounds] = useState<Round[]>([]);
@@ -46,6 +51,11 @@ export function JudgeScoringPage() {
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+
+  // AI Judge Assistant (advisory, per selected submission)
+  const [aiInsight, setAiInsight] = useState<AiInsight | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
 
   // ── Load assignment → event → rounds ────────────────────────────────
   useEffect(() => {
@@ -125,7 +135,9 @@ export function JudgeScoringPage() {
   const selectedRound = rounds.find(r => r.roundId === selectedRoundId) ?? null;
   const selectedSub = submissions.find(s => s.submissionId === selectedSubId) ?? null;
   const isReadOnly = selectedSub ? statusOf(selectedSub.submissionId) === "scored" : false;
-  const open = roundIsOpen(selectedRound?.status);
+  // Live JUDGING countdown; a configured-but-not-running timer hard-blocks scoring.
+  const judgingTimer = useRoundTimer(eventId, selectedRoundId, "JUDGING", { fireBanners: true });
+  const open = roundIsOpen(selectedRound?.status) && (!judgingTimer.isConfigured || judgingTimer.isRunning);
 
   const filteredSubs = submissions.filter(s => filter === "all" || statusOf(s.submissionId) === filter);
 
@@ -138,7 +150,26 @@ export function JudgeScoringPage() {
     setScoreInputs(map);
     setNotice(null);
     setActionError(null);
+    // AI insight is per-submission — drop it when switching submissions.
+    setAiInsight(null);
+    setAiError(null);
+    setAiLoading(false);
   }, [selectedSubId, selectedSub, myScores]);
+
+  async function askAi() {
+    if (!selectedSub) return;
+    setAiError(null);
+    setAiLoading(true);
+    try {
+      const res = await aiApi.getSubmissionInsights(selectedSub.submissionId);
+      setAiInsight(res.data);
+    } catch (err) {
+      setAiError(apiErrorMessage(err, "Failed to generate AI insights."));
+      addToast({ type: "warning", title: "AI ASSIST FAILED", message: apiErrorMessage(err, "Failed to generate AI insights.") });
+    } finally {
+      setAiLoading(false);
+    }
+  }
 
   function getVal(critId: number): number {
     return scoreInputs[critId]?.value ?? 0;
@@ -163,7 +194,9 @@ export function JudgeScoringPage() {
     for (const c of criteria) {
       const v = getVal(c.criteriaId);
       if (v < 0 || v > Number(c.maxScore)) {
-        setActionError(`"${c.name}": score must be between 0 and ${c.maxScore}.`);
+        const msg = `"${c.name}": score must be between 0 and ${c.maxScore}.`;
+        setActionError(msg);
+        addToast({ type: "warning", title: "INVALID SCORE", message: msg });
         return;
       }
     }
@@ -179,9 +212,15 @@ export function JudgeScoringPage() {
         })),
       });
       setNotice(draft ? "Draft saved." : "Scores submitted as final.");
+      addToast({
+        type: "success",
+        title: draft ? "DRAFT SAVED" : "SCORES SUBMITTED",
+        message: draft ? "Your draft scores were saved." : "Final scores submitted.",
+      });
       if (eventId != null && selectedRoundId != null) await loadRound(eventId, selectedRoundId);
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Failed to save scores.");
+      addToast({ type: "warning", title: "SAVE FAILED", message: apiErrorMessage(err, "Failed to save scores.") });
     } finally {
       setBusy(false);
     }
@@ -292,18 +331,139 @@ export function JudgeScoringPage() {
                         {selectedRound?.name} · Submitted {fmtDateTime(selectedSub.submittedAt)}
                       </div>
                     </div>
-                    {isReadOnly && <PixelBadge color="green">SCORES SUBMITTED</PixelBadge>}
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
+                      {judgingTimer.isConfigured && <CountdownDisplay remainingSeconds={judgingTimer.remainingSeconds} status={judgingTimer.status} size="sm" icon />}
+                      {isReadOnly && <PixelBadge color="green">SCORES SUBMITTED</PixelBadge>}
+                    </div>
                   </div>
                   <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
                     {selectedSub.repoUrl && <a href={selectedSub.repoUrl} target="_blank" rel="noreferrer"><PixelButton variant="secondary" size="sm">OPEN REPO</PixelButton></a>}
                     {selectedSub.demoUrl && <a href={selectedSub.demoUrl} target="_blank" rel="noreferrer"><PixelButton variant="secondary" size="sm">OPEN DEMO</PixelButton></a>}
                     {selectedSub.slideUrl && <a href={selectedSub.slideUrl} target="_blank" rel="noreferrer"><PixelButton variant="secondary" size="sm">OPEN SLIDES</PixelButton></a>}
+                    <PixelButton variant="cyber" size="sm" disabled={aiLoading} onClick={askAi}>
+                      {aiLoading
+                        ? "AI THINKING…"
+                        : aiInsight
+                          ? (<><RefreshCw size={14} strokeWidth={2.5} /><span>AI ASSIST</span></>)
+                          : (<><Bot size={14} strokeWidth={2.5} /><span>AI ASSIST</span></>)}
+                    </PixelButton>
                   </div>
                 </PixelCard>
 
+                {(aiLoading || aiError || aiInsight) && (
+                  <PixelCard glow glowColor="cyan" style={{ padding: 20 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, gap: 10 }}>
+                      <div style={{ color: C.cyanBright, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 700, letterSpacing: "0.08em" }}>
+                        AI JUDGE ASSISTANT
+                      </div>
+                      {aiInsight?.model && <PixelBadge color="cyan">{aiInsight.model}</PixelBadge>}
+                    </div>
+
+                    {aiLoading && (
+                      <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>
+                        Analyzing submission… (a few seconds)
+                      </div>
+                    )}
+
+                    {aiError && !aiLoading && (
+                      <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.35)", color: C.red, padding: "10px 14px", fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}>
+                        {aiError}
+                      </div>
+                    )}
+
+                    {aiInsight && !aiLoading && (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                        <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, lineHeight: 1.6 }}>
+                          {aiInsight.summary}
+                        </div>
+
+                        {aiInsight.repo && (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: 12, background: C.surface2, border: `1px solid ${C.border}` }}>
+                            <div style={{ color: C.cyanBright, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700, letterSpacing: "0.06em" }}>
+                              ⟨ / ⟩ REPOSITORY ANALYSIS
+                            </div>
+
+                            {!aiInsight.repo.analyzed && (
+                              <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, lineHeight: 1.5 }}>
+                                {aiInsight.repo.note || "Không phân tích được mã nguồn."}
+                              </div>
+                            )}
+
+                            {aiInsight.repo.analyzed && (
+                              <>
+                                {aiInsight.repo.techStack?.length > 0 && (
+                                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+                                    {aiInsight.repo.techStack.map((t, i) => <PixelBadge key={i} color="purple">{t}</PixelBadge>)}
+                                  </div>
+                                )}
+
+                                {aiInsight.repo.signals?.length > 0 && (
+                                  <ul style={{ margin: 0, paddingLeft: 18, color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, lineHeight: 1.6 }}>
+                                    {aiInsight.repo.signals.map((x, i) => <li key={i}>{x}</li>)}
+                                  </ul>
+                                )}
+
+                                {aiInsight.repo.redFlags?.length > 0 && (
+                                  <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.35)", padding: "8px 12px" }}>
+                                    <div style={{ color: C.red, fontFamily: "'JetBrains Mono', monospace", fontSize: 10.5, fontWeight: 700, marginBottom: 4 }}>⚑ RED FLAGS</div>
+                                    <ul style={{ margin: 0, paddingLeft: 18, color: C.red, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, lineHeight: 1.6 }}>
+                                      {aiInsight.repo.redFlags.map((x, i) => <li key={i}>{x}</li>)}
+                                    </ul>
+                                  </div>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        )}
+
+                        {aiInsight.strengths?.length > 0 && (
+                          <div>
+                            <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700, marginBottom: 6 }}>STRENGTHS</div>
+                            <ul style={{ margin: 0, paddingLeft: 18, color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 11.5, lineHeight: 1.6 }}>
+                              {aiInsight.strengths.map((x, i) => <li key={i}>{x}</li>)}
+                            </ul>
+                          </div>
+                        )}
+
+                        {aiInsight.concerns?.length > 0 && (
+                          <div>
+                            <div style={{ color: "#eab308", fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700, marginBottom: 6 }}>POINTS TO PROBE</div>
+                            <ul style={{ margin: 0, paddingLeft: 18, color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 11.5, lineHeight: 1.6 }}>
+                              {aiInsight.concerns.map((x, i) => <li key={i}>{x}</li>)}
+                            </ul>
+                          </div>
+                        )}
+
+                        {aiInsight.criteriaInsights?.length > 0 && (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                            <div style={{ color: C.blueBright, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700 }}>PER-CRITERIA NOTES</div>
+                            {aiInsight.criteriaInsights.map((ci, i) => (
+                              <div key={i} style={{ padding: 10, background: C.surface2, border: `1px solid ${C.border}` }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                                  <span style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, fontWeight: 600 }}>{ci.criteriaName}</span>
+                                  {ci.suggestedScoreRange && <PixelBadge color="blue">~ {ci.suggestedScoreRange}</PixelBadge>}
+                                </div>
+                                <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, lineHeight: 1.5 }}>{ci.assessment}</div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, lineHeight: 1.5, borderTop: `1px solid ${C.border}`, paddingTop: 10 }}>
+                          ⚠ {aiInsight.disclaimer}
+                        </div>
+                      </div>
+                    )}
+                  </PixelCard>
+                )}
+
                 {!open && !isReadOnly && (
                   <div style={{ background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.35)", color: "#eab308", padding: "10px 14px", fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}>
-                    Round is not open for scoring — saving is disabled.
+                    {judgingTimer.isConfigured && !judgingTimer.isRunning
+                      ? (judgingTimer.isPaused
+                          ? "Scoring is paused — saving is temporarily disabled."
+                          : "TIME'S UP — scoring is closed for this round.")
+                      : "Round is not open for scoring — saving is disabled."}
                   </div>
                 )}
 

@@ -1,4 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700;800&family=EB+Garamond:ital@0;1&display=swap');
 @import 'tailwindcss' source(none);
 @source '../../**/*.{js,ts,jsx,tsx}';
 @import 'tw-animate-css';
@@ -35,28 +36,110 @@ html.theme-transitioning *::after {
   --c-navbar-bg:    rgba(13,17,23,0.95);
   --c-footer-bg:    #050a0d;
   --c-copyright:    rgba(134,239,172,0.35);
+
+  /* Accent (xanh lá) — theme-aware để light mode dùng tông đậm hơn cho đủ tương phản */
+  --c-accent:        #22c55e;
+  --c-accent-bright: #4ade80; /* hover: sáng hơn ở dark */
+  --c-accent-dim:    #16a34a;
+
+  /* Glow neon — dark giữ nguyên, light sẽ tắt */
+  --c-glow:          rgba(34,197,94,0.30);
+  --c-glow-faint:    rgba(34,197,94,0.10);
+
+  /* Đổ bóng card — dark dùng bóng tối */
+  --c-card-shadow:   0 1px 3px rgba(0,0,0,0.3);
+
+  /* Màu chữ đặt trên nền accent (nút primary): dark = gần đen */
+  --c-on-accent:     #030b06;
 }
 
 :root[data-theme="light"] {
-  /* Backgrounds — subtle sage-mint tint giữ nhận diện xanh lá */
-  --c-bg:           #f3faf5;
+  /* HackerRank-style: nền trắng/xám rất nhạt, trung tính */
+  --c-bg:           #f7f8fa;
   --c-surface:      #ffffff;
-  --c-surface2:     #eaf4ed;
-  --c-surface3:     #d3e9d8;
+  --c-surface2:     #f1f3f5;
+  --c-surface3:     #e7ebef;
 
-  /* Text — dark forest green thay cho slate xám vô hồn */
-  --c-text:         #0b1f11;
-  --c-text-muted:   #276244;
-  --c-text-dim:     #4b8a68;
+  /* Text — slate/navy đậm, dễ đọc (muted/dim đậm thêm cho sidebar & chữ phụ rõ hơn) */
+  --c-text:         #1b2733;
+  --c-text-muted:   #41505f;
+  --c-text-dim:     #6b7888;
   --c-text-blue:    #1d4ed8;
 
-  /* Borders — viền xanh lá nhẹ, không phải xám */
-  --c-border:       rgba(22,101,52,0.18);
-  --c-border-bright:#16a34a;
-  --c-border-blue:  rgba(29,78,216,0.15);
+  /* Borders — xám nhạt trung tính */
+  --c-border:       #e2e6ea;
+  --c-border-bright:#1ba94c;
+  --c-border-blue:  rgba(29,78,216,0.18);
 
-  /* Nav/Footer */
-  --c-navbar-bg:    rgba(243,250,245,0.97);
-  --c-footer-bg:    #eaf4ed;
-  --c-copyright:    rgba(39,98,68,0.6);
+  /* Nav/Footer — xanh lá đậm dịu mắt thay vì trắng */
+  --c-navbar-bg:    rgba(205,235,215,0.96);
+  --c-footer-bg:    linear-gradient(180deg, #d2ecd9 0%, #b7e0c2 100%);
+  --c-copyright:    rgba(46,84,60,0.8);
+
+  /* Accent xanh đậm cho đủ tương phản trên nền trắng (đọc rõ + nút có chữ trắng) */
+  --c-accent:        #157f3c;
+  --c-accent-bright: #0f6a30;
+  --c-accent-dim:    #14702f;
+
+  /* Tắt glow neon ở light mode */
+  --c-glow:          rgba(27,169,76,0);
+  --c-glow-faint:    rgba(27,169,76,0);
+
+  /* Đổ bóng card — xám rất nhẹ, tinh tế */
+  --c-card-shadow:   0 1px 2px rgba(16,24,40,0.06), 0 1px 3px rgba(16,24,40,0.04);
+
+  /* Nút primary ở light: chữ trắng trên nền xanh đậm */
+  --c-on-accent:     #ffffff;
 }
+
+/* ── Light-mode overrides cho hiệu ứng neon hardcode ─────────────── */
+:root[data-theme="light"] .text-glow,
+:root[data-theme="light"] .text-glow-sm,
+:root[data-theme="light"] .text-glow-pulse {
+  text-shadow: none !important;
+  animation: none !important;
+}
+
+:root[data-theme="light"] .pixel-glow,
+:root[data-theme="light"] .pixel-glow-sm,
+:root[data-theme="light"] .blue-glow,
+:root[data-theme="light"] .blue-glow-sm,
+:root[data-theme="light"] .cyan-glow,
+:root[data-theme="light"] .glow-pulse,
+:root[data-theme="light"] .cyber-pulse {
+  box-shadow: 0 1px 3px rgba(16,24,40,0.08) !important;
+  animation: none !important;
+}
+
+/* Scrollbar sáng cho light mode (mặc định là tông đen) */
+:root[data-theme="light"] ::-webkit-scrollbar-track { background: #eef1f4; }
+:root[data-theme="light"] ::-webkit-scrollbar-thumb { background: #c2cad3; }
+:root[data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: #a9b4bf; }
+
+/* ── Chữ gradient: ở light mode ép về slate đặc cho dễ đọc ────────
+   Gradient xanh→lam chỉ hợp nền tối. Quy tắc này bắt mọi chữ dùng
+   background-clip:text (cả inline lẫn class .gradient-text) và đổi
+   sang màu chữ đặc. Chỉ áp khi DOM đang ở light mode nên các trang
+   public (forced-dark) giữ nguyên gradient. */
+:root[data-theme="light"] [style*="text-fill-color: transparent"],
+:root[data-theme="light"] [style*="background-clip: text"],
+:root[data-theme="light"] .gradient-text,
+:root[data-theme="light"] .gradient-text-rev {
+  background: none !important;
+  -webkit-background-clip: border-box !important;
+  background-clip: border-box !important;
+  -webkit-text-fill-color: var(--c-text) !important;
+  color: var(--c-text) !important;
+}
+
+/* ── Badge/status ở light mode: chữ đậm + nền nhạt đặc cho dễ đọc ──
+   Mặc định PixelBadge dùng chữ sáng (hợp dark) trên nền mờ → chìm trên
+   nền trắng. Override theo từng màu, chỉ áp ở light mode. */
+:root[data-theme="light"] .pixel-badge--green  { background:#e7f6ec !important; border-color:#a7dcb9 !important; color:#157f3c !important; }
+:root[data-theme="light"] .pixel-badge--yellow { background:#fcf3d6 !important; border-color:#e6cf83 !important; color:#92660a !important; }
+:root[data-theme="light"] .pixel-badge--red    { background:#fdeaea !important; border-color:#f0b4b4 !important; color:#c0341d !important; }
+:root[data-theme="light"] .pixel-badge--blue   { background:#e8f0fe !important; border-color:#aac6f5 !important; color:#1d4ed8 !important; }
+:root[data-theme="light"] .pixel-badge--orange { background:#fdeede !important; border-color:#f3c590 !important; color:#b45309 !important; }
+:root[data-theme="light"] .pixel-badge--gray   { background:#eef1f4 !important; border-color:#cbd3db !important; color:#475569 !important; }
+:root[data-theme="light"] .pixel-badge--cyan   { background:#def4f8 !important; border-color:#95d6e2 !important; color:#0e7490 !important; }
+:root[data-theme="light"] .pixel-badge--purple { background:#f0eafe !important; border-color:#c9b6f3 !important; color:#6d28d9 !important; }

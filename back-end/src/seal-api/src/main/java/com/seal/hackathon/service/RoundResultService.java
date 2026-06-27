@@ -67,14 +67,11 @@ public class RoundResultService {
             throw new BadRequestException("No submissions found for this round.");
         }
 
-        List<ScoringCriteria> criteriaList = criteriaRepository
-                .findAllByRound_RoundIdOrderByOrderNumber(roundId);
-
         // Delete existing results for this round before re-computing
         List<RoundResult> existing = resultRepository.findAllByRound_RoundIdOrderByRankPosition(roundId);
         resultRepository.deleteAll(existing);
 
-        // Compute average weighted score per team
+        // Compute the normalized 0–100 weighted-average score per team.
         Map<Integer, BigDecimal> teamScores = new LinkedHashMap<>();
         for (Submission submission : submissions) {
             List<Score> scores = scoreRepository.findAllBySubmission_SubmissionId(
@@ -87,44 +84,76 @@ public class RoundResultService {
                 continue;
             }
 
-            // Group by judge and compute weighted sum per judge, then average
-            Map<Integer, BigDecimal> judgeTotals = new HashMap<>();
+            // Per judge, normalize to a 0–100 score:
+            //   100 × Σ(weight × value/maxScore) / Σ(weight)
+            // Dividing by Σ(weight) and each criteria's maxScore makes the result
+            // independent of HOW MANY criteria the round has (and of their individual
+            // max scores), so a 5-criteria round and a 10-criteria round stay on the
+            // same 0–100 scale. Then average across judges.
+            Map<Integer, BigDecimal> judgeWeightedFraction = new HashMap<>();
+            Map<Integer, BigDecimal> judgeWeightSum = new HashMap<>();
             for (Score score : scores) {
-                BigDecimal weighted = score.getValue().multiply(score.getCriteria().getWeight());
-                judgeTotals.merge(score.getJudge().getUserId(), weighted, BigDecimal::add);
+                ScoringCriteria criteria = score.getCriteria();
+                BigDecimal weight = criteria.getWeight();
+                BigDecimal maxScore = criteria.getMaxScore();
+                if (weight == null || maxScore == null || maxScore.signum() == 0) {
+                    continue; // skip mis-configured criteria
+                }
+                BigDecimal fraction = score.getValue().divide(maxScore, 6, RoundingMode.HALF_UP); // 0..1
+                Integer judgeId = score.getJudge().getUserId();
+                judgeWeightedFraction.merge(judgeId, fraction.multiply(weight), BigDecimal::add);
+                judgeWeightSum.merge(judgeId, weight, BigDecimal::add);
             }
 
-            BigDecimal avg = judgeTotals.values().stream()
+            List<BigDecimal> judgePercents = new ArrayList<>();
+            for (Map.Entry<Integer, BigDecimal> e : judgeWeightSum.entrySet()) {
+                if (e.getValue().signum() == 0) continue;
+                judgePercents.add(judgeWeightedFraction.get(e.getKey())
+                        .divide(e.getValue(), 6, RoundingMode.HALF_UP)
+                        .multiply(BigDecimal.valueOf(100)));
+            }
+
+            if (judgePercents.isEmpty()) {
+                teamScores.put(submission.getTeam().getTeamId(), BigDecimal.ZERO);
+                continue;
+            }
+
+            BigDecimal avg = judgePercents.stream()
                     .reduce(BigDecimal.ZERO, BigDecimal::add)
-                    .divide(BigDecimal.valueOf(judgeTotals.size()), 2, RoundingMode.HALF_UP);
+                    .divide(BigDecimal.valueOf(judgePercents.size()), 2, RoundingMode.HALF_UP);
 
             teamScores.put(submission.getTeam().getTeamId(), avg);
         }
-
-        // Sort teams by score descending
-        List<Map.Entry<Integer, BigDecimal>> ranked = new ArrayList<>(teamScores.entrySet());
-        ranked.sort((a, b) -> b.getValue().compareTo(a.getValue()));
 
         List<RoundResult> results = new ArrayList<>();
         Map<Integer, Submission> subByTeam = submissions.stream()
                 .collect(Collectors.toMap(s -> s.getTeam().getTeamId(), s -> s));
 
-        for (int i = 0; i < ranked.size(); i++) {
-            Integer teamId = ranked.get(i).getKey();
-            BigDecimal score = ranked.get(i).getValue();
-            int rank = i + 1;
-
-            Submission sub = subByTeam.get(teamId);
-            RoundResult result = RoundResult.builder()
-                    .team(sub.getTeam())
-                    .round(round)
-                    .totalScore(score)
-                    .rankPosition(rank)
-                    .isPublished(false)
-                    .finalizedAt(LocalDateTime.now())
-                    .finalizedBy(coordinator)
-                    .build();
-            results.add(resultRepository.save(result));
+        if (Boolean.TRUE.equals(round.getIsFinal())) {
+            // Final round — one global ranking across all teams (no per-track split).
+            List<Map.Entry<Integer, BigDecimal>> ranked = new ArrayList<>(teamScores.entrySet());
+            ranked.sort(rankingComparator(subByTeam));
+            for (int i = 0; i < ranked.size(); i++) {
+                Map.Entry<Integer, BigDecimal> e = ranked.get(i);
+                results.add(saveResult(round, coordinator, subByTeam.get(e.getKey()), e.getValue(), i + 1));
+            }
+        } else {
+            // Per-track round — rank teams within each track separately so the cut-off
+            // (rank_position <= top_n_advance) means "top N of THIS track advance". Teams
+            // with no track fall into a single null bucket. Preserves track encounter order.
+            Map<Integer, List<Map.Entry<Integer, BigDecimal>>> byTrack = new LinkedHashMap<>();
+            for (Map.Entry<Integer, BigDecimal> entry : teamScores.entrySet()) {
+                Track track = subByTeam.get(entry.getKey()).getTeam().getTrack();
+                Integer trackId = track != null ? track.getTrackId() : null;
+                byTrack.computeIfAbsent(trackId, k -> new ArrayList<>()).add(entry);
+            }
+            for (List<Map.Entry<Integer, BigDecimal>> group : byTrack.values()) {
+                group.sort(rankingComparator(subByTeam));
+                for (int i = 0; i < group.size(); i++) {
+                    Map.Entry<Integer, BigDecimal> e = group.get(i);
+                    results.add(saveResult(round, coordinator, subByTeam.get(e.getKey()), e.getValue(), i + 1));
+                }
+            }
         }
 
         // Update round status to FINALIZED
@@ -167,6 +196,40 @@ public class RoundResultService {
     }
 
     // ── Helper ────────────────────────────────────────────────────────
+
+    private RoundResult saveResult(Round round, User coordinator, Submission sub,
+                                   BigDecimal score, int rank) {
+        RoundResult result = RoundResult.builder()
+                .team(sub.getTeam())
+                .round(round)
+                .totalScore(score)
+                .rankPosition(rank)
+                .isPublished(false)
+                .finalizedAt(LocalDateTime.now())
+                .finalizedBy(coordinator)
+                .build();
+        return resultRepository.save(result);
+    }
+
+    /**
+     * Ranking order: highest score first; ties broken by the EARLIER submission
+     * (so the team that submitted sooner takes the higher rank, e.g. the last Top-N
+     * slot). Teams missing a submission time sort last.
+     */
+    private Comparator<Map.Entry<Integer, BigDecimal>> rankingComparator(Map<Integer, Submission> subByTeam) {
+        return (a, b) -> {
+            int byScore = b.getValue().compareTo(a.getValue());
+            if (byScore != 0) return byScore;
+            Submission sa = subByTeam.get(a.getKey());
+            Submission sb = subByTeam.get(b.getKey());
+            LocalDateTime ta = sa != null ? sa.getSubmittedAt() : null;
+            LocalDateTime tb = sb != null ? sb.getSubmittedAt() : null;
+            if (ta == null && tb == null) return 0;
+            if (ta == null) return 1;
+            if (tb == null) return -1;
+            return ta.compareTo(tb);
+        };
+    }
 
     private RoundResultResponse mapToResponse(RoundResult r) {
         return RoundResultResponse.builder()

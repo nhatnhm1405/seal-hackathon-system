@@ -12,6 +12,7 @@ import com.seal.hackathon.entity.JudgeAssignment;
 import com.seal.hackathon.entity.MentorAssignment;
 import com.seal.hackathon.entity.Role;
 import com.seal.hackathon.entity.Round;
+import com.seal.hackathon.entity.Submission;
 import com.seal.hackathon.entity.Team;
 import com.seal.hackathon.entity.TeamMember;
 import com.seal.hackathon.entity.Track;
@@ -19,10 +20,15 @@ import com.seal.hackathon.entity.User;
 import com.seal.hackathon.entity.UserEventRole;
 import com.seal.hackathon.exception.BadRequestException;
 import com.seal.hackathon.exception.ResourceNotFoundException;
+import com.seal.hackathon.dto.response.MentorHistoryResponse;
+import com.seal.hackathon.entity.HackathonEvent;
 import com.seal.hackathon.repository.JudgeAssignmentRepository;
 import com.seal.hackathon.repository.MentorAssignmentRepository;
+import com.seal.hackathon.repository.PrizeRepository;
 import com.seal.hackathon.repository.RoleRepository;
 import com.seal.hackathon.repository.RoundRepository;
+import com.seal.hackathon.repository.RoundResultRepository;
+import com.seal.hackathon.repository.SubmissionRepository;
 import com.seal.hackathon.repository.TeamMemberRepository;
 import com.seal.hackathon.repository.TeamRepository;
 import com.seal.hackathon.repository.TrackRepository;
@@ -33,9 +39,13 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -63,6 +73,9 @@ public class AssignmentService {
     private final TrackRepository trackRepository;
     private final RoleRepository roleRepository;
     private final UserEventRoleRepository userEventRoleRepository;
+    private final SubmissionRepository submissionRepository;
+    private final RoundResultRepository roundResultRepository;
+    private final PrizeRepository prizeRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuditLogService auditLogService;
 
@@ -105,12 +118,27 @@ public class AssignmentService {
         List<MentorAssignmentResponse.AssignedTeamInfo> teamInfos = assignments.stream()
                 .flatMap(ma -> teamRepository
                         .findAllByTrack_TrackIdAndStatus(ma.getTrack().getTrackId(), "APPROVED").stream()
-                        .map(team -> MentorAssignmentResponse.AssignedTeamInfo.builder()
-                                .teamId(team.getTeamId())
-                                .teamName(team.getName())
-                                .trackName(ma.getTrack().getName())
-                                .members(mapMentorMembers(team))
-                                .build()))
+                        .map(team -> {
+                            // Submissions thực sự đã nộp (bỏ DRAFT) để biết team nộp chưa.
+                            List<Submission> submitted = submissionRepository
+                                    .findAllByTeam_TeamId(team.getTeamId()).stream()
+                                    .filter(s -> !"DRAFT".equalsIgnoreCase(s.getStatus()))
+                                    .collect(Collectors.toList());
+                            LocalDateTime lastAt = submitted.stream()
+                                    .map(Submission::getSubmittedAt)
+                                    .filter(Objects::nonNull)
+                                    .max(Comparator.naturalOrder())
+                                    .orElse(null);
+                            return MentorAssignmentResponse.AssignedTeamInfo.builder()
+                                    .teamId(team.getTeamId())
+                                    .teamName(team.getName())
+                                    .trackId(ma.getTrack().getTrackId())
+                                    .trackName(ma.getTrack().getName())
+                                    .members(mapMentorMembers(team))
+                                    .submissionCount(submitted.size())
+                                    .lastSubmittedAt(lastAt)
+                                    .build();
+                        }))
                 .collect(Collectors.toList());
 
         return MentorAssignmentResponse.builder()
@@ -119,6 +147,79 @@ public class AssignmentService {
                 .eventName(eventName)
                 .teams(teamInfos)
                 .build();
+    }
+
+    /**
+     * Read-only mentor history: every event the mentor was assigned to, grouped by the
+     * track(s) they mentored, with each approved team's final standing and prize.
+     */
+    @Transactional(readOnly = true)
+    public List<MentorHistoryResponse> getMentorHistory(Integer userId) {
+        List<MentorAssignment> assignments = mentorAssignmentRepository.findActiveByMentor(userId);
+
+        // Group assignments by event (preserve order), then by track within each event.
+        Map<Integer, List<MentorAssignment>> byEvent = new LinkedHashMap<>();
+        for (MentorAssignment ma : assignments) {
+            byEvent.computeIfAbsent(ma.getTrack().getEvent().getEventId(), k -> new ArrayList<>()).add(ma);
+        }
+
+        List<MentorHistoryResponse> result = new ArrayList<>();
+        for (List<MentorAssignment> evAssignments : byEvent.values()) {
+            HackathonEvent event = evAssignments.get(0).getTrack().getEvent();
+
+            Round finalRound = roundRepository.findFirstByEvent_EventIdAndIsFinalTrue(event.getEventId()).orElse(null);
+            Map<Integer, String> prizeByTeam = prizeRepository
+                    .findAllByEvent_EventIdAndAwardedAtIsNotNullOrderByRankPosition(event.getEventId()).stream()
+                    .filter(p -> p.getTeam() != null)
+                    .collect(Collectors.toMap(p -> p.getTeam().getTeamId(), p -> p.getName(), (a, b) -> a));
+
+            // Distinct tracks the mentor covered in this event.
+            Map<Integer, Track> distinctTracks = new LinkedHashMap<>();
+            for (MentorAssignment ma : evAssignments) {
+                distinctTracks.putIfAbsent(ma.getTrack().getTrackId(), ma.getTrack());
+            }
+
+            List<MentorHistoryResponse.TrackGroup> trackGroups = new ArrayList<>();
+            for (Track track : distinctTracks.values()) {
+                List<MentorHistoryResponse.TeamResult> teams = teamRepository
+                        .findAllByTrack_TrackIdAndStatus(track.getTrackId(), "APPROVED").stream()
+                        .map(team -> {
+                            Integer finalRank = finalRound == null ? null : roundResultRepository
+                                    .findByTeam_TeamIdAndRound_RoundId(team.getTeamId(), finalRound.getRoundId())
+                                    .filter(r -> Boolean.TRUE.equals(r.getIsPublished()))
+                                    .map(r -> r.getRankPosition())
+                                    .orElse(null);
+                            return MentorHistoryResponse.TeamResult.builder()
+                                    .teamId(team.getTeamId())
+                                    .teamName(team.getName())
+                                    .teamStatus(team.getStatus())
+                                    .finalRank(finalRank)
+                                    .prizeName(prizeByTeam.get(team.getTeamId()))
+                                    .build();
+                        })
+                        .collect(Collectors.toList());
+
+                trackGroups.add(MentorHistoryResponse.TrackGroup.builder()
+                        .trackId(track.getTrackId())
+                        .trackName(track.getName())
+                        .teams(teams)
+                        .build());
+            }
+
+            result.add(MentorHistoryResponse.builder()
+                    .eventId(event.getEventId())
+                    .eventName(event.getName())
+                    .season(event.getSeason())
+                    .year(event.getYear())
+                    .eventStatus(event.getStatus())
+                    .tracks(trackGroups)
+                    .build());
+        }
+
+        // Newest event first.
+        result.sort(Comparator.comparing(MentorHistoryResponse::getYear, Comparator.nullsLast(Comparator.reverseOrder()))
+                .thenComparing(MentorHistoryResponse::getEventId, Comparator.reverseOrder()));
+        return result;
     }
 
     /**

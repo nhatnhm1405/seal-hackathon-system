@@ -4,7 +4,8 @@ import { useForceDark } from "@/app/providers/ThemeProvider";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { C, GradientText, PixelButton, PixelInput, FloatingParticles } from "@/shared/components/PixelComponents";
 import { SealFooter } from "@/shared/components/SealFooter";
-import { authApi, ApiError, CompleteProfilePayload } from "@/shared/apiClient";
+import { authApi, ApiError, apiErrorMessage, CompleteProfilePayload } from "@/shared/apiClient";
+import { useNotifications } from "@/app/providers/NotificationProvider";
 import sealLogo from "@/imports/image.png";
 
 const selectStyle: React.CSSProperties = {
@@ -16,6 +17,7 @@ export function CompleteProfilePage() {
   useForceDark();
   const navigate = useNavigate();
   const { currentUser, logout, patchCurrentUser } = useAuth();
+  const { addAuthToast } = useNotifications();
 
   const [userType, setUserType] = useState<CompleteProfilePayload['userType']>('FPT_STUDENT');
   const [studentId, setStudentId] = useState("");
@@ -28,8 +30,16 @@ export function CompleteProfilePage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (!studentId.trim()) { setError("Student ID is required."); return; }
-    if (isExternal && !university.trim()) { setError("University is required for external students."); return; }
+    if (!studentId.trim()) {
+      setError("Student ID is required.");
+      addAuthToast({ type: "warning", title: "MISSING STUDENT ID", message: "Student ID is required." });
+      return;
+    }
+    if (isExternal && !university.trim()) {
+      setError("University is required for external students.");
+      addAuthToast({ type: "warning", title: "MISSING UNIVERSITY", message: "University is required for external students." });
+      return;
+    }
     setSubmitting(true);
     try {
       await authApi.completeProfile({
@@ -41,9 +51,11 @@ export function CompleteProfilePage() {
       // Clearing the incomplete flag lets the RequireAuth approval-gate take over;
       // we keep the session so the pending page (and gating) work without a race.
       patchCurrentUser({ profile_incomplete: false });
+      addAuthToast({ type: "success", title: "PROFILE COMPLETE", message: "Your account now awaits coordinator approval." });
       navigate("/pending-approval", { replace: true });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to save profile.");
+      addAuthToast({ type: "warning", title: "SAVE FAILED", message: apiErrorMessage(err, "Failed to save profile.") });
     } finally {
       setSubmitting(false);
     }

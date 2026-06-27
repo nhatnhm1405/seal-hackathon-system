@@ -2,13 +2,17 @@ import { useState, useEffect, useCallback } from "react";
 import {
   C, GradientText, PixelCard, PixelButton, PixelInput, PixelBadge,
 } from "@/shared/components/PixelComponents";
-import { teamsApi, roundsApi, submissionsApi, ApiError, MyTeam, Round, Submission } from "@/shared/apiClient";
+import { teamsApi, roundsApi, submissionsApi, ApiError, apiErrorMessage, MyTeam, Round, Submission } from "@/shared/apiClient";
+import { useNotifications } from "@/app/providers/NotificationProvider";
+import { useRoundTimer } from "@/shared/hooks/useRoundTimer";
+import { CountdownDisplay } from "@/shared/components/CountdownDisplay";
 
 function fmtDateTime(iso?: string) {
   return iso ? new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "—";
 }
 
 export function TeamSubmitPage() {
+  const { addToast } = useNotifications();
   const [team, setTeam] = useState<MyTeam | null>(null);
   const [rounds, setRounds] = useState<Round[]>([]);
   const [selectedRoundId, setSelectedRoundId] = useState<number | null>(null);
@@ -26,6 +30,9 @@ export function TeamSubmitPage() {
   const [description, setDescription] = useState("");
 
   const isLeader = team?.myRole === 'LEADER';
+
+  // Live CONTEST countdown for the selected round (fires milestone banners).
+  const timer = useRoundTimer(team?.eventId ?? null, selectedRoundId, "CONTEST", { fireBanners: true });
 
   // Load team + rounds.
   useEffect(() => {
@@ -81,12 +88,19 @@ export function TeamSubmitPage() {
   const selectedRound = rounds.find(r => r.roundId === selectedRoundId) ?? null;
   const deadlinePassed = selectedRound?.submissionDeadline ? new Date(selectedRound.submissionDeadline).getTime() < Date.now() : false;
   const teamApproved = (team?.status ?? "").toUpperCase() === "APPROVED";
-  const canSubmit = isLeader && teamApproved && !deadlinePassed;
+  // A configured CONTEST timer that isn't running (paused / stopped / expired /
+  // not started) hard-blocks submission — mirrors the backend gate.
+  const timerBlocks = timer.isConfigured && !timer.isRunning;
+  const canSubmit = isLeader && teamApproved && !deadlinePassed && !timerBlocks;
 
   async function submit() {
     if (!selectedRoundId) return;
     setActionError(null); setNotice(null);
-    if (!repoUrl.trim()) { setActionError("Repository URL is required."); return; }
+    if (!repoUrl.trim()) {
+      setActionError("Repository URL is required.");
+      addToast({ type: "warning", title: "MISSING REPO URL", message: "Repository URL is required." });
+      return;
+    }
     setBusy(true);
     try {
       await submissionsApi.submit({
@@ -97,9 +111,15 @@ export function TeamSubmitPage() {
         description: description.trim() || undefined,
       });
       setNotice(existing ? "Submission updated." : "Submission saved.");
+      addToast({
+        type: "success",
+        title: existing ? "SUBMISSION UPDATED" : "SUBMISSION SAVED",
+        message: existing ? "Your submission was updated." : "Your project was submitted.",
+      });
       loadSubmission(selectedRoundId);
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Failed to submit.");
+      addToast({ type: "warning", title: "SUBMIT FAILED", message: apiErrorMessage(err, "Failed to submit.") });
     } finally {
       setBusy(false);
     }
@@ -167,13 +187,29 @@ export function TeamSubmitPage() {
                   {existing?.submittedAt ? ` · Last submitted ${fmtDateTime(existing.submittedAt)}` : ""}
                 </div>
               </div>
-              {existing ? <PixelBadge color="green">SUBMITTED</PixelBadge> : <PixelBadge color="gray">NOT SUBMITTED</PixelBadge>}
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
+                {timer.isConfigured && <CountdownDisplay remainingSeconds={timer.remainingSeconds} status={timer.status} size="sm" icon />}
+                {existing ? <PixelBadge color="green">SUBMITTED</PixelBadge> : <PixelBadge color="gray">NOT SUBMITTED</PixelBadge>}
+              </div>
             </div>
           </PixelCard>
 
           {deadlinePassed && (
             <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.35)", color: C.red, padding: "12px 16px", fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>
               DEADLINE PASSED — the submission window is closed for this round.
+            </div>
+          )}
+
+          {timerBlocks && !deadlinePassed && (
+            <div style={{
+              background: timer.isPaused ? "rgba(234,179,8,0.08)" : "rgba(239,68,68,0.08)",
+              border: `1px solid ${timer.isPaused ? "rgba(234,179,8,0.35)" : "rgba(239,68,68,0.35)"}`,
+              color: timer.isPaused ? C.yellow : C.red,
+              padding: "12px 16px", fontFamily: "'JetBrains Mono', monospace", fontSize: 12,
+            }}>
+              {timer.isPaused
+                ? "The contest is paused — submissions are temporarily disabled."
+                : "TIME'S UP — the submission window is closed for this round."}
             </div>
           )}
 

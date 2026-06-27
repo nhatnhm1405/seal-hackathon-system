@@ -3,6 +3,7 @@ package com.seal.hackathon.service;
 import com.seal.hackathon.dto.request.CreateTrackRequest;
 import com.seal.hackathon.dto.response.TrackResponse;
 import com.seal.hackathon.entity.HackathonEvent;
+import com.seal.hackathon.entity.Team;
 import com.seal.hackathon.entity.Track;
 import com.seal.hackathon.exception.BadRequestException;
 import com.seal.hackathon.exception.ResourceNotFoundException;
@@ -236,6 +237,41 @@ class TrackServiceTest {
 
         verify(trackRepository, never()).existsByEventIdAndNormalizedName(anyInt(), any());
         verify(trackRepository, never()).save(any());
+    }
+
+    // Track CREATION is locked once registration closes (SETUP), even though
+    // update/delete stay allowed in SETUP. The various spellings exercise the
+    // status normalization (SET UP / set-up / padding all collapse to SETUP).
+    @ParameterizedTest
+    @ValueSource(strings = {"SETUP", "SET UP", "set-up", " setup "})
+    void createTrack_shouldThrowBadRequest_whenEventIsInSetup(String status) {
+        HackathonEvent event = event(1, status);
+
+        when(eventRepository.findById(1)).thenReturn(Optional.of(event));
+
+        assertThrows(BadRequestException.class, () -> trackService.createTrack(1, request("AI", null)));
+
+        verify(trackRepository, never()).existsByEventIdAndNormalizedName(anyInt(), any());
+        verify(trackRepository, never()).save(any());
+    }
+
+    @Test
+    void createTrack_shouldCreateTrack_whenEventIsOpen() {
+        HackathonEvent event = event(1, "OPEN");
+
+        when(eventRepository.findById(1)).thenReturn(Optional.of(event));
+        when(trackRepository.existsByEventIdAndNormalizedName(1, "AI")).thenReturn(false);
+        when(trackRepository.save(any(Track.class))).thenAnswer(invocation -> {
+            Track track = invocation.getArgument(0);
+            track.setTrackId(10);
+            return track;
+        });
+
+        TrackResponse response = trackService.createTrack(1, request("AI", null));
+
+        assertEquals(10, response.getTrackId());
+        assertEquals("AI", response.getName());
+        verify(trackRepository).save(any(Track.class));
     }
 
     @Test
@@ -547,7 +583,7 @@ class TrackServiceTest {
 
         when(eventRepository.findById(1)).thenReturn(Optional.of(event));
         when(trackRepository.findById(10)).thenReturn(Optional.of(track));
-        when(teamRepository.existsByTrack_TrackId(10)).thenReturn(false);
+        when(teamRepository.findAllByTrack_TrackId(10)).thenReturn(List.of());
 
         trackService.deleteTrack(1, 10);
 
@@ -561,7 +597,7 @@ class TrackServiceTest {
 
         when(eventRepository.findById(1)).thenReturn(Optional.of(event));
         when(trackRepository.findById(10)).thenReturn(Optional.of(track));
-        when(teamRepository.existsByTrack_TrackId(10)).thenReturn(false);
+        when(teamRepository.findAllByTrack_TrackId(10)).thenReturn(List.of());
 
         trackService.deleteTrack(1, 10);
 
@@ -638,7 +674,7 @@ class TrackServiceTest {
 
         assertThrows(ResourceNotFoundException.class, () -> trackService.deleteTrack(1, 10));
 
-        verify(teamRepository, never()).existsByTrack_TrackId(anyInt());
+        verify(teamRepository, never()).findAllByTrack_TrackId(anyInt());
         verify(trackRepository, never()).delete(any());
     }
 
@@ -653,22 +689,29 @@ class TrackServiceTest {
 
         assertThrows(BadRequestException.class, () -> trackService.deleteTrack(1, 10));
 
-        verify(teamRepository, never()).existsByTrack_TrackId(anyInt());
+        verify(teamRepository, never()).findAllByTrack_TrackId(anyInt());
         verify(trackRepository, never()).delete(any());
     }
 
     @Test
-    void deleteTrack_shouldThrowBadRequest_whenTrackHasTeams() {
+    void deleteTrack_shouldUnassignTeamsThenDelete_whenTrackHasTeams() {
+        // New behaviour: deleting a track during SETUP moves its teams back to the
+        // unassigned pool (track = null) instead of blocking the delete.
         HackathonEvent event = event(1, "SET UP");
         Track track = track(10, event, "AI");
+        Team teamA = teamOnTrack(100, event, track);
+        Team teamB = teamOnTrack(101, event, track);
 
         when(eventRepository.findById(1)).thenReturn(Optional.of(event));
         when(trackRepository.findById(10)).thenReturn(Optional.of(track));
-        when(teamRepository.existsByTrack_TrackId(10)).thenReturn(true);
+        when(teamRepository.findAllByTrack_TrackId(10)).thenReturn(List.of(teamA, teamB));
 
-        assertThrows(BadRequestException.class, () -> trackService.deleteTrack(1, 10));
+        trackService.deleteTrack(1, 10);
 
-        verify(trackRepository, never()).delete(any());
+        assertNull(teamA.getTrack());
+        assertNull(teamB.getTrack());
+        verify(teamRepository).saveAll(List.of(teamA, teamB));
+        verify(trackRepository).delete(track);
     }
 
     private static CreateTrackRequest request(String name, String description) {
@@ -697,6 +740,16 @@ class TrackServiceTest {
                 .event(event)
                 .name(name)
                 .description("Track description")
+                .build();
+    }
+
+    private static Team teamOnTrack(Integer teamId, HackathonEvent event, Track track) {
+        return Team.builder()
+                .teamId(teamId)
+                .event(event)
+                .track(track)
+                .name("Team " + teamId)
+                .status("APPROVED")
                 .build();
     }
 }

@@ -5,8 +5,8 @@ import { useNotifications } from "@/app/providers/NotificationProvider";
 import {
   C, GradientText, PixelCard, PixelButton, PixelBadge, PixelInput,
 } from "@/shared/components/PixelComponents";
-import { teamsApi, invitesApi, joinRequestsApi, ApiError, MyTeam, MyTeamMember, UserItem, JoinRequest } from "@/shared/apiClient";
-import { isTeamEditable, teamLockReason, MIN_TEAM_SIZE, MAX_TEAM_SIZE } from "@/shared/teamPhase";
+import { teamsApi, invitesApi, joinRequestsApi, ApiError, apiErrorMessage, MyTeam, MyTeamMember, UserItem, JoinRequest } from "@/shared/apiClient";
+import { isTeamEditable, MIN_TEAM_SIZE, MAX_TEAM_SIZE } from "@/shared/teamPhase";
 
 function statusBadgeColor(status?: string): "green" | "yellow" | "red" | "gray" {
   const s = (status ?? "").toUpperCase();
@@ -66,7 +66,6 @@ export function TeamViewPage() {
 
   const isLeader = team?.myRole === 'LEADER';
   const editable = isTeamEditable(team?.eventStatus);
-  const lockReason = teamLockReason(team?.eventStatus);
 
   if (loading) {
     return <div style={{ padding: 24 }}><PixelCard style={{ padding: 32, textAlign: "center" }}>
@@ -97,6 +96,7 @@ export function TeamViewPage() {
       addToast({ type: "success", title: "Team renamed", message: `Your team is now "${res.data.name}".` });
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Failed to rename team.");
+      addToast({ type: "warning", title: "Rename failed", message: apiErrorMessage(err, "Failed to rename team.") });
     } finally { setBusy(false); }
   }
 
@@ -121,6 +121,7 @@ export function TeamViewPage() {
       setInviteQuery(""); setInviteResults([]); setShowInvite(false);
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Failed to send invite.");
+      addToast({ type: "warning", title: "Invite failed", message: apiErrorMessage(err, "Failed to send invite.") });
     }
   }
 
@@ -136,6 +137,7 @@ export function TeamViewPage() {
       addToast({ type: "success", title: "Member added", message: `${r.requesterName} has joined your team.` });
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Failed to accept request.");
+      addToast({ type: "warning", title: "Accept failed", message: apiErrorMessage(err, "Failed to accept request.") });
     } finally { setBusyReq(null); }
   }
 
@@ -147,6 +149,7 @@ export function TeamViewPage() {
       addToast({ type: "info", title: "Request declined", message: `${r.requesterName}'s join request was declined.` });
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Failed to decline request.");
+      addToast({ type: "warning", title: "Decline failed", message: apiErrorMessage(err, "Failed to decline request.") });
     } finally { setBusyReq(null); }
   }
 
@@ -160,6 +163,7 @@ export function TeamViewPage() {
       addToast({ type: "warning", title: "Member removed", message: `${m.memberName} was removed from the team.` });
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Failed to remove member.");
+      addToast({ type: "warning", title: "Remove failed", message: apiErrorMessage(err, "Failed to remove member.") });
     } finally { setBusy(false); }
   }
 
@@ -174,6 +178,7 @@ export function TeamViewPage() {
       setTransferTarget(null);
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Failed to transfer leadership.");
+      addToast({ type: "warning", title: "Transfer failed", message: apiErrorMessage(err, "Failed to transfer leadership.") });
     } finally { setBusy(false); }
   }
 
@@ -188,6 +193,7 @@ export function TeamViewPage() {
       navigate('/dashboard');
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Failed to leave team.");
+      addToast({ type: "warning", title: "Leave failed", message: apiErrorMessage(err, "Failed to leave team.") });
     } finally { setBusy(false); }
   }
 
@@ -224,13 +230,6 @@ export function TeamViewPage() {
       {team.status === 'PENDING' && (
         <div style={{ background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.4)", color: "#eab308", fontFamily: "'JetBrains Mono', monospace", fontSize: 12, padding: "12px 16px" }}>
           Your team is awaiting coordinator approval. You cannot submit until approved.
-        </div>
-      )}
-
-      {lockReason && (
-        <div style={{ background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.4)", color: "#3b82f6", fontFamily: "'JetBrains Mono', monospace", fontSize: 12, padding: "12px 16px", display: "flex", gap: 8 }}>
-          <span aria-hidden style={{ flexShrink: 0 }}>🔒</span>
-          <span>{lockReason}</span>
         </div>
       )}
 

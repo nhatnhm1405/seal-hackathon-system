@@ -54,7 +54,7 @@ INSERT IGNORE INTO Role (role_id, role_name, description) VALUES
 
 
 -- =====================================================
--- 2. USER  (user_id 1-27)
+-- 2. USER  (user_id 1-43)
 -- user_type : 'FPT_STUDENT' | 'EXTERNAL_STUDENT' | 'STAFF'
 -- judge_type: 'INTERNAL' | 'GUEST' | NULL   (only set for users who judge)
 -- =====================================================
@@ -194,7 +194,92 @@ INSERT INTO `User` (user_id, email, password_hash, full_name, user_type, judge_t
   -- user_id 27: STAFF — Mentor for event 2
   (27, 'mentor.hung@fpt.edu.vn',
    '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
-   'Nguyen Minh Hung', 'STAFF', NULL, NULL, NULL, TRUE, TRUE);
+   'Nguyen Minh Hung', 'STAFF', NULL, NULL, NULL, TRUE, TRUE),
+
+  -- ── Event 2 extra teams (14-17) participants ──
+  -- Team Aurora (team 14)
+  -- user_id 28: FPT_STUDENT leader
+  (28, 'leader9@fpt.edu.vn',
+   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   'Tran Van Son', 'FPT_STUDENT', NULL, 'SE211020', NULL, TRUE, TRUE),
+
+  -- user_id 29: FPT_STUDENT member
+  (29, 'member11@fpt.edu.vn',
+   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   'Nguyen Thi Hang', 'FPT_STUDENT', NULL, 'HE211021', NULL, TRUE, TRUE),
+
+  -- user_id 30: EXTERNAL_STUDENT member (HCMUT)
+  (30, 'member12@hcmut.edu.vn',
+   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   'Le Van Khoa', 'EXTERNAL_STUDENT', NULL, 'BK2100222', 'HCMUT', TRUE, TRUE),
+
+  -- user_id 31: FPT_STUDENT member
+  (31, 'member13@fpt.edu.vn',
+   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   'Pham Thi Yen', 'FPT_STUDENT', NULL, 'DE211022', NULL, TRUE, TRUE),
+
+  -- user_id 32: EXTERNAL_STUDENT member (UIT)
+  (32, 'member14@uit.edu.vn',
+   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   'Vo Van Tai', 'EXTERNAL_STUDENT', NULL, 'UIT2100302', 'UIT', TRUE, TRUE),
+
+  -- Team Specter (team 15)
+  -- user_id 33: FPT_STUDENT leader
+  (33, 'leader10@fpt.edu.vn',
+   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   'Hoang Van Tan', 'FPT_STUDENT', NULL, 'SE211023', NULL, TRUE, TRUE),
+
+  -- user_id 34: FPT_STUDENT member
+  (34, 'member15@fpt.edu.vn',
+   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   'Do Thi Mai', 'FPT_STUDENT', NULL, 'HE211024', NULL, TRUE, TRUE),
+
+  -- user_id 35: EXTERNAL_STUDENT member (HCMUT)
+  (35, 'member16@hcmut.edu.vn',
+   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   'Ngo Van Hai', 'EXTERNAL_STUDENT', NULL, 'BK2100223', 'HCMUT', TRUE, TRUE),
+
+  -- user_id 36: FPT_STUDENT member
+  (36, 'member17@fpt.edu.vn',
+   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   'Bui Van Long', 'FPT_STUDENT', NULL, 'CE211025', NULL, TRUE, TRUE),
+
+  -- Team Quantum (team 16)
+  -- user_id 37: EXTERNAL_STUDENT leader (HCMUT)
+  (37, 'leader11@hcmut.edu.vn',
+   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   'Tran Van Phu', 'EXTERNAL_STUDENT', NULL, 'BK2100224', 'HCMUT', TRUE, TRUE),
+
+  -- user_id 38: EXTERNAL_STUDENT member (HCMUT)
+  (38, 'member18@hcmut.edu.vn',
+   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   'Le Thi Thao', 'EXTERNAL_STUDENT', NULL, 'BK2100225', 'HCMUT', TRUE, TRUE),
+
+  -- user_id 39: FPT_STUDENT member
+  (39, 'member19@fpt.edu.vn',
+   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   'Nguyen Van Vu', 'FPT_STUDENT', NULL, 'SE211026', NULL, TRUE, TRUE),
+
+  -- Team Zephyr (team 17)
+  -- user_id 40: FPT_STUDENT leader
+  (40, 'leader12@fpt.edu.vn',
+   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   'Dang Van Hieu', 'FPT_STUDENT', NULL, 'SE211027', NULL, TRUE, TRUE),
+
+  -- user_id 41: FPT_STUDENT member
+  (41, 'member20@fpt.edu.vn',
+   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   'Pham Thi Linh', 'FPT_STUDENT', NULL, 'HE211028', NULL, TRUE, TRUE),
+
+  -- user_id 42: EXTERNAL_STUDENT member (UIT)
+  (42, 'member21@uit.edu.vn',
+   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   'Vo Thi Ngoc', 'EXTERNAL_STUDENT', NULL, 'UIT2100303', 'UIT', TRUE, TRUE),
+
+  -- user_id 43: FPT_STUDENT member
+  (43, 'member22@fpt.edu.vn',
+   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   'Nguyen Van Dung', 'FPT_STUDENT', NULL, 'CE211029', NULL, TRUE, TRUE);
 
 
 -- =====================================================
@@ -257,10 +342,10 @@ INSERT INTO Round
 VALUES
   (1, 'Preliminary', 1,
    '2026-02-01 08:00:00', '2026-02-28 23:59:59', '2026-02-28 23:59:59',
-   5, FALSE, 'FINALIZED'),
+   2, FALSE, 'FINALIZED'),   -- Top 2 PER TRACK advance (Web: Phoenix,Dragon; Mobile: Tiger; AI: Eagle)
   (1, 'Semi-final', 2,
    '2026-03-10 08:00:00', '2026-03-31 23:59:59', '2026-03-31 23:59:59',
-   2, FALSE, 'FINALIZED'),
+   1, FALSE, 'FINALIZED'),   -- Top 1 PER TRACK advance (Phoenix, Tiger, Eagle → Final)
   (1, 'Final', 3,
    '2026-04-10 08:00:00', '2026-04-30 23:59:59', '2026-04-30 23:59:59',
    NULL, TRUE, 'FINALIZED');
@@ -348,7 +433,7 @@ INSERT INTO MentorAssignment (mentor_user_id, track_id) VALUES
 
 
 -- =====================================================
--- 7. TEAM  (team_id 1-13)
+-- 7. TEAM  (team_id 1-17)
 -- =====================================================
 -- Event 1 — Spring (team 1-5). track 1=Web, 2=Mobile, 3=AI
 INSERT INTO Team (event_id, track_id, name, description, status) VALUES
@@ -358,7 +443,7 @@ INSERT INTO Team (event_id, track_id, name, description, status) VALUES
   (1, 3, 'Team Eagle',   'AI cham diem bai tap tu dong',          'APPROVED'),  -- team 4
   (1, 1, 'Team Falcon',  'Web marketplace trao doi sach cu',      'APPROVED');  -- team 5
 
--- Event 2 — Summer (team 6-13): ALL register WITHOUT a track (track_id = NULL).
+-- Event 2 — Summer (team 6-17): ALL register WITHOUT a track (track_id = NULL).
 -- Track is assigned during SETUP: leaders self-select (SELF_SELECT mode) or the
 -- coordinator draws (RANDOM mode) via POST /api/teams/event/2/draw-tracks.
 -- Mix of APPROVED/PENDING so the approval step can be demoed — only APPROVED teams
@@ -371,7 +456,11 @@ INSERT INTO Team (event_id, track_id, name, description, status) VALUES
   (2, NULL, 'Team Pixel',    'Platform thiet ke portfolio sinh vien', 'PENDING'),   -- team 10
   (2, NULL, 'Team Comet',    'Web app cong dong sinh vien',           'APPROVED'),  -- team 11
   (2, NULL, 'Team Vortex',   'Nen tang AI ho tro hoc tap',            'APPROVED'),  -- team 12
-  (2, NULL, 'Team Lumen',    'Giai phap cong nghe xanh',              'PENDING');   -- team 13
+  (2, NULL, 'Team Lumen',    'Giai phap cong nghe xanh',              'PENDING'),   -- team 13
+  (2, NULL, 'Team Aurora',   'Web app ho tro on tap thi cu',          'APPROVED'),  -- team 14
+  (2, NULL, 'Team Specter',  'AI phat hien dao van bai nop',          'APPROVED'),  -- team 15
+  (2, NULL, 'Team Quantum',  'Nen tang quan ly du an nhom sinh vien', 'PENDING'),   -- team 16
+  (2, NULL, 'Team Zephyr',   'Giai phap IoT tiet kiem nang luong',    'APPROVED');  -- team 17
 
 
 -- =====================================================
@@ -412,12 +501,38 @@ INSERT INTO TeamMember (team_id, user_id, member_role) VALUES
   (12, 15, 'MEMBER'), -- Ngo Van Hieu
   (13, 10, 'LEADER'); -- Vo Thi Hoa
 
+-- Event 2 extra teams 14-17 (NULL-track). Brand-new users 28-43.
+INSERT INTO TeamMember (team_id, user_id, member_role) VALUES
+  -- Team Aurora (5)
+  (14, 28, 'LEADER'), -- Tran Van Son
+  (14, 29, 'MEMBER'), -- Nguyen Thi Hang
+  (14, 30, 'MEMBER'), -- Le Van Khoa
+  (14, 31, 'MEMBER'), -- Pham Thi Yen
+  (14, 32, 'MEMBER'), -- Vo Van Tai
+  -- Team Specter (4)
+  (15, 33, 'LEADER'), -- Hoang Van Tan
+  (15, 34, 'MEMBER'), -- Do Thi Mai
+  (15, 35, 'MEMBER'), -- Ngo Van Hai
+  (15, 36, 'MEMBER'), -- Bui Van Long
+  -- Team Quantum (3)
+  (16, 37, 'LEADER'), -- Tran Van Phu
+  (16, 38, 'MEMBER'), -- Le Thi Thao
+  (16, 39, 'MEMBER'), -- Nguyen Van Vu
+  -- Team Zephyr (4)
+  (17, 40, 'LEADER'), -- Dang Van Hieu
+  (17, 41, 'MEMBER'), -- Pham Thi Linh
+  (17, 42, 'MEMBER'), -- Vo Thi Ngoc
+  (17, 43, 'MEMBER'); -- Nguyen Van Dung
+
 
 -- =====================================================
--- 9. SCORING CRITERIA TEMPLATE  (template_id 1)
+-- 9. SCORING CRITERIA TEMPLATE  (template_id 1-2)
+-- Reusable criteria sets a coordinator can apply to any round. Their items
+-- live in section 10b (template-only ScoringCriteria rows).
 -- =====================================================
-INSERT INTO ScoringCriteriaTemplate (name, description, is_default) VALUES
-  ('Standard Hackathon Criteria', 'Bo tieu chi mac dinh cho su kien SEAL', TRUE);
+INSERT INTO ScoringCriteriaTemplate (template_id, name, description, is_default) VALUES
+  (1, 'Standard Hackathon Criteria', 'Default SEAL set: innovation, technical, UI/UX, presentation, completeness', TRUE),
+  (2, 'Pitch & Demo Day',            'Lightweight set for pitch / demo-day rounds',                                FALSE);
 
 
 -- =====================================================
@@ -446,25 +561,76 @@ INSERT INTO ScoringCriteria (event_id, round_id, template_id, name, description,
 
 
 -- =====================================================
+-- 10b. SCORING CRITERIA TEMPLATE ITEMS  (template-only: event_id/round_id NULL)
+-- The reusable items a coordinator applies to a round via "Apply template".
+-- New criteria_ids continue after the 15 event-1 rows above.
+-- =====================================================
+INSERT INTO ScoringCriteria (event_id, round_id, template_id, name, description, weight, max_score, order_number) VALUES
+  -- Template 1 — Standard Hackathon Criteria
+  (NULL, NULL, 1, 'Innovation',   'Originality and creativity of the idea',  1.5, 10.0, 1),
+  (NULL, NULL, 1, 'Technical',    'Engineering quality and implementation',  2.0, 10.0, 2),
+  (NULL, NULL, 1, 'UI/UX',        'Interface design and user experience',    1.0, 10.0, 3),
+  (NULL, NULL, 1, 'Presentation', 'Pitching and demo skills',                1.0, 10.0, 4),
+  (NULL, NULL, 1, 'Completeness', 'How finished and usable the product is',  1.5, 10.0, 5),
+  -- Template 2 — Pitch & Demo Day
+  (NULL, NULL, 2, 'Problem & Solution', 'Clarity of the problem and the proposed solution', 1.5, 10.0, 1),
+  (NULL, NULL, 2, 'Demo',               'Quality and impact of the live demo',              2.0, 10.0, 2),
+  (NULL, NULL, 2, 'Market Potential',   'Market viability and ability to scale',            1.0, 10.0, 3),
+  (NULL, NULL, 2, 'Teamwork',           'Team collaboration and role clarity',              1.0, 10.0, 4);
+
+
+-- =====================================================
 -- 11. SUBMISSION  (submission_id 1-12) — event 1
 -- Prelim (r1): all 5 teams | Semi (r2): Phoenix,Dragon,Tiger,Eagle | Final (r3): Phoenix,Tiger,Eagle
+--
+-- Descriptions feed the AI Judge Assistant (it reads description + repo to give
+-- advisory notes). Sub 1/2/4 point at REAL public GitHub repos so the
+-- "Repository Analysis" block has live data in round 1 (Web + AI tracks):
+--   • sub 1 (MATCH)    — spring-petclinic: description + repo agree.
+--   • sub 2 (MISMATCH) — desc says Node.js, repo is Flask (Python) → AI flags it.
+--   • sub 4 (BONUS)    — AutoGrade pitched as FastAPI → FastAPI template repo.
+-- The other subs keep placeholder repos; their descriptions still drive AI text.
 -- =====================================================
-INSERT INTO Submission (team_id, round_id, repo_url, demo_url, slide_url, submitted_by, status) VALUES
+INSERT INTO Submission (team_id, round_id, repo_url, demo_url, slide_url, description, submitted_by, status) VALUES
   -- Preliminary (round 1)
-  (1, 1, 'https://github.com/team-phoenix/seal', 'https://demo.teamphoenix.io', 'https://slides.com/phoenix', 6,  'SUBMITTED'),  -- sub 1
-  (2, 1, 'https://github.com/team-dragon/seal',  'https://demo.teamdragon.io',  'https://slides.com/dragon',  16, 'SUBMITTED'),  -- sub 2
-  (3, 1, 'https://github.com/team-tiger/seal',   'https://demo.teamtiger.io',   'https://slides.com/tiger',   12, 'SUBMITTED'),  -- sub 3
-  (4, 1, 'https://github.com/team-eagle/seal',   'https://demo.teameagle.io',   'https://slides.com/eagle',   18, 'SUBMITTED'),  -- sub 4
-  (5, 1, 'https://github.com/team-falcon/seal',  'https://demo.teamfalcon.io',  'https://slides.com/falcon',  9,  'SUBMITTED'),  -- sub 5
+  (1, 1, 'https://github.com/spring-projects/spring-petclinic', 'https://demo.teamphoenix.io', 'https://slides.com/phoenix',
+   'PetClinic Manager là hệ thống web quản lý phòng khám thú y. Chức năng gồm quản lý hồ sơ chủ nuôi và thú cưng, đặt và theo dõi lịch hẹn khám, quản lý thông tin bác sĩ thú y theo chuyên khoa, và ghi nhận lịch sử khám chữa của từng thú cưng. Backend Spring Boot (Java) với cơ sở dữ liệu quan hệ, giao diện web theo mô hình MVC. Bản nộp vòng sơ khảo đã chạy được CRUD chủ nuôi/thú cưng và luồng đặt lịch khám; phần thống kê báo cáo còn đang phát triển.',
+   6,  'SUBMITTED'),  -- sub 1 · MATCH (real repo)
+  (2, 1, 'https://github.com/pallets/flask',  'https://demo.teamdragon.io',  'https://slides.com/dragon',
+   'EduDragon là nền tảng học tập trực tuyến cho phép giảng viên tạo khoá học, tải video bài giảng và ra quiz tự chấm. Sinh viên theo dõi tiến độ học và nhận gợi ý bài tiếp theo. Stack Node.js + PostgreSQL + React, đã có xác thực JWT và phân quyền giảng viên/sinh viên. Vòng sơ khảo demo được tạo khoá học và làm quiz; tính năng thanh toán khoá học trả phí chưa hoàn thiện.',
+   16, 'SUBMITTED'),  -- sub 2 · MISMATCH (repo is Flask)
+  (3, 1, 'https://github.com/team-tiger/seal',   'https://demo.teamtiger.io',   'https://slides.com/tiger',
+   'HealthTiger là ứng dụng di động theo dõi sức khoẻ sinh viên: ghi nhận số bước chân, giấc ngủ, nhịp tim và nhắc nhở uống nước. App native (Kotlin/Swift) kết nối cảm biến điện thoại, hiển thị biểu đồ tuần/tháng và đặt mục tiêu cá nhân. Vòng sơ khảo chạy mượt phần thu thập dữ liệu và biểu đồ; chưa có đồng bộ dữ liệu lên cloud nên đổi máy sẽ mất lịch sử.',
+   12, 'SUBMITTED'),  -- sub 3
+  (4, 1, 'https://github.com/fastapi/full-stack-fastapi-template',   'https://demo.teameagle.io',   'https://slides.com/eagle',
+   'AutoGrade dùng AI để chấm điểm bài tập lập trình và bài luận ngắn tự động. Hệ thống chạy test case cho bài code và dùng mô hình NLP đánh giá bài luận theo rubric, sinh nhận xét gợi ý cho sinh viên. Backend Python FastAPI + mô hình fine-tune, dashboard cho giảng viên xem phân bố điểm. Vòng sơ khảo demo chấm code khá tốt; phần NLP chấm luận đôi khi lệch với giảng viên và chưa có báo cáo tổng hợp.',
+   18, 'SUBMITTED'),  -- sub 4 · BONUS (FastAPI template repo)
+  (5, 1, 'https://github.com/team-falcon/seal',  'https://demo.teamfalcon.io',  'https://slides.com/falcon',
+   'BookFalcon là sàn trao đổi và mua bán sách cũ giữa sinh viên trong trường. Người dùng đăng sách, tìm theo môn học, nhắn tin thoả thuận và đánh giá người bán. Web full-stack React + Express + MongoDB, có tìm kiếm và lọc theo danh mục. Vòng sơ khảo mới hoàn thiện đăng tin và tìm kiếm; phần chat và đánh giá còn dở dang, UI cần trau chuốt thêm.',
+   9,  'SUBMITTED'),  -- sub 5
   -- Semi-final (round 2)
-  (1, 2, 'https://github.com/team-phoenix/seal', 'https://demo.teamphoenix.io/v2', 'https://slides.com/phoenix-semi', 6,  'SUBMITTED'),  -- sub 6
-  (2, 2, 'https://github.com/team-dragon/seal',  'https://demo.teamdragon.io/v2',  'https://slides.com/dragon-semi',  16, 'SUBMITTED'),  -- sub 7
-  (3, 2, 'https://github.com/team-tiger/seal',   'https://demo.teamtiger.io/v2',   'https://slides.com/tiger-semi',   12, 'SUBMITTED'),  -- sub 8
-  (4, 2, 'https://github.com/team-eagle/seal',   'https://demo.teameagle.io/v2',   'https://slides.com/eagle-semi',   18, 'SUBMITTED'),  -- sub 9
+  (1, 2, 'https://github.com/team-phoenix/seal', 'https://demo.teamphoenix.io/v2', 'https://slides.com/phoenix-semi',
+   'SmartDorm bản vòng bán kết: bổ sung thanh toán phí KTX qua cổng giả lập, dashboard thống kê tỉ lệ lấp đầy phòng cho ban quản lý, và thông báo realtime khi yêu cầu báo hỏng được xử lý. Đã viết unit test cho module phòng và tích hợp CI. Trải nghiệm người dùng được làm lại gọn gàng hơn so với vòng sơ khảo.',
+   6,  'SUBMITTED'),  -- sub 6
+  (2, 2, 'https://github.com/team-dragon/seal',  'https://demo.teamdragon.io/v2',  'https://slides.com/dragon-semi',
+   'EduDragon bản vòng bán kết: thêm lộ trình học cá nhân hoá gợi ý bài tiếp theo dựa trên kết quả quiz, diễn đàn hỏi đáp theo khoá học và xuất chứng chỉ hoàn thành. Tối ưu truy vấn báo cáo tiến độ và bổ sung phân trang. Pitch deck trình bày rõ mô hình doanh thu freemium.',
+   16, 'SUBMITTED'),  -- sub 7
+  (3, 2, 'https://github.com/team-tiger/seal',   'https://demo.teamtiger.io/v2',   'https://slides.com/tiger-semi',
+   'HealthTiger bản vòng bán kết: đã thêm đồng bộ dữ liệu lên cloud (Firebase), đăng nhập đa thiết bị và tính năng thử thách nhóm để bạn bè cùng vận động. Cải thiện hiệu năng vẽ biểu đồ và giảm hao pin khi chạy nền. Giao diện mobile được đánh giá tự nhiên, mượt.',
+   12, 'SUBMITTED'),  -- sub 8
+  (4, 2, 'https://github.com/team-eagle/seal',   'https://demo.teameagle.io/v2',   'https://slides.com/eagle-semi',
+   'AutoGrade bản vòng bán kết: bổ sung dashboard phân tích cho giảng viên (phân bố điểm, câu sai nhiều nhất), cho phép giảng viên ghi đè điểm AI và lưu lại lịch sử chỉnh sửa. Mô hình NLP được hiệu chỉnh lại rubric nên bám sát giảng viên hơn. Vẫn cần thêm dữ liệu huấn luyện cho môn tự luận dài.',
+   18, 'SUBMITTED'),  -- sub 9
   -- Final (round 3)
-  (1, 3, 'https://github.com/team-phoenix/seal', 'https://demo.teamphoenix.io/final', 'https://slides.com/phoenix-final', 6,  'SUBMITTED'),  -- sub 10
-  (3, 3, 'https://github.com/team-tiger/seal',   'https://demo.teamtiger.io/final',   'https://slides.com/tiger-final',   12, 'SUBMITTED'),  -- sub 11
-  (4, 3, 'https://github.com/team-eagle/seal',   'https://demo.teameagle.io/final',   'https://slides.com/eagle-final',   18, 'SUBMITTED');  -- sub 12
+  (1, 3, 'https://github.com/team-phoenix/seal', 'https://demo.teamphoenix.io/final', 'https://slides.com/phoenix-final',
+   'SmartDorm bản chung kết: sản phẩm gần như hoàn chỉnh — quản lý phòng, báo hỏng, thanh toán, điểm danh QR và báo cáo cho ban quản lý đều hoạt động ổn định. Đã triển khai thử nghiệm cho một toà KTX với dữ liệu thật, có tài liệu hướng dẫn và phân tích khả năng nhân rộng ra nhiều cơ sở.',
+   6,  'SUBMITTED'),  -- sub 10
+  (3, 3, 'https://github.com/team-tiger/seal',   'https://demo.teamtiger.io/final',   'https://slides.com/tiger-final',
+   'HealthTiger bản chung kết: hoàn thiện đồng bộ cloud, thử thách nhóm và tích hợp nhắc nhở sức khoẻ thông minh theo thói quen người dùng. Có khảo sát người dùng thật cho thấy mức độ giữ chân tốt. Định hướng mở rộng sang hợp tác với phòng y tế trường để theo dõi sức khoẻ tổng thể.',
+   12, 'SUBMITTED'),  -- sub 11
+  (4, 3, 'https://github.com/team-eagle/seal',   'https://demo.teameagle.io/final',   'https://slides.com/eagle-final',
+   'AutoGrade bản chung kết: nền tảng chấm tự động cho cả code và tự luận, kèm dashboard phân tích và cơ chế giám sát của giảng viên để đảm bảo công bằng. Đã đo độ đồng thuận giữa AI và giảng viên trên tập bài thật và trình bày hướng cải thiện. Tiềm năng áp dụng cho các môn lập trình quy mô lớn.',
+   18, 'SUBMITTED');  -- sub 12
 
 
 -- =====================================================
@@ -563,19 +729,21 @@ INSERT INTO Score (submission_id, judge_user_id, criteria_id, value, comment, is
 -- "advanced" is NOT stored; derive it as rank_position <= Round.top_n_advance
 -- (per track for preliminary rounds).
 -- =====================================================
+-- NOTE: preliminary/semi rank_position is PER TRACK (rank restarts at 1 within each
+-- track), matching how the backend finalizes non-final rounds. Final (round 3) is global.
 INSERT INTO RoundResult (team_id, round_id, total_score, rank_position, is_published, finalized_at, finalized_by) VALUES
-  -- Preliminary (round 1)
-  (1, 1, 63.50, 1, TRUE, '2026-02-28 22:00:00', 2),  -- Phoenix
-  (3, 1, 57.25, 2, TRUE, '2026-02-28 22:00:00', 2),  -- Tiger
-  (4, 1, 55.50, 3, TRUE, '2026-02-28 22:00:00', 2),  -- Eagle
-  (2, 1, 54.50, 4, TRUE, '2026-02-28 22:00:00', 2),  -- Dragon
-  (5, 1, 49.75, 5, TRUE, '2026-02-28 22:00:00', 2),  -- Falcon
-  -- Semi-final (round 2)
-  (1, 2, 63.50, 1, TRUE, '2026-03-31 22:00:00', 2),  -- Phoenix
-  (3, 2, 59.75, 2, TRUE, '2026-03-31 22:00:00', 2),  -- Tiger
-  (4, 2, 59.25, 3, TRUE, '2026-03-31 22:00:00', 2),  -- Eagle
-  (2, 2, 57.00, 4, TRUE, '2026-03-31 22:00:00', 2),  -- Dragon
-  -- Final (round 3)
+  -- Preliminary (round 1) — per track. Web(t1): Phoenix,Dragon,Falcon | Mobile(t2): Tiger | AI(t3): Eagle
+  (1, 1, 63.50, 1, TRUE, '2026-02-28 22:00:00', 2),  -- Phoenix  Web   #1  (advance)
+  (2, 1, 54.50, 2, TRUE, '2026-02-28 22:00:00', 2),  -- Dragon   Web   #2  (advance)
+  (5, 1, 49.75, 3, TRUE, '2026-02-28 22:00:00', 2),  -- Falcon   Web   #3  (eliminated, topN=2)
+  (3, 1, 57.25, 1, TRUE, '2026-02-28 22:00:00', 2),  -- Tiger    Mobile #1 (advance)
+  (4, 1, 55.50, 1, TRUE, '2026-02-28 22:00:00', 2),  -- Eagle    AI    #1  (advance)
+  -- Semi-final (round 2) — per track. Web(t1): Phoenix,Dragon | Mobile(t2): Tiger | AI(t3): Eagle
+  (1, 2, 63.50, 1, TRUE, '2026-03-31 22:00:00', 2),  -- Phoenix  Web   #1  (advance)
+  (2, 2, 57.00, 2, TRUE, '2026-03-31 22:00:00', 2),  -- Dragon   Web   #2  (eliminated, topN=1)
+  (3, 2, 59.75, 1, TRUE, '2026-03-31 22:00:00', 2),  -- Tiger    Mobile #1 (advance)
+  (4, 2, 59.25, 1, TRUE, '2026-03-31 22:00:00', 2),  -- Eagle    AI    #1  (advance)
+  -- Final (round 3) — GLOBAL ranking, no track
   (1, 3, 65.50, 1, TRUE, '2026-04-30 20:00:00', 2),  -- Phoenix — Web Champion
   (4, 3, 62.00, 2, TRUE, '2026-04-30 20:00:00', 2),  -- Eagle — AI Champion
   (3, 3, 61.00, 3, TRUE, '2026-04-30 20:00:00', 2);  -- Tiger — Mobile Champion
@@ -583,24 +751,16 @@ INSERT INTO RoundResult (team_id, round_id, total_score, rank_position, is_publi
 
 -- =====================================================
 -- 14. PRIZE
--- Event 1 (COMPLETED): awarded. Event 2 (running): team_id/awarded_at NULL.
+-- Prizes are EVENT-WIDE: top N of the FINAL round's GLOBAL ranking (all tracks
+-- combined), so track_id is always NULL. See Final (round 3) RoundResult above.
+-- Event 1 (COMPLETED): announced top 3. Event 2 (running): no prizes yet — they
+-- get generated live via POST /api/events/2/prizes/auto-generate in the demo.
 -- =====================================================
--- Event 1 — awarded. track 1=Web, 2=Mobile, 3=AI
+-- Event 1 — Final ranking: Phoenix(1)=65.50, Eagle(4)=62.00, Tiger(3)=61.00
 INSERT INTO Prize (event_id, track_id, name, description, rank_position, team_id, awarded_at) VALUES
-  (1, 1,    'Champion',      'Web Application — Quan quan',   1, 1, '2026-04-30 20:00:00'),  -- Phoenix
-  (1, 1,    '1st Runner-up', 'Web Application — A quan',      2, 2, '2026-04-30 20:00:00'),  -- Dragon
-  (1, 2,    'Champion',      'Mobile App — Quan quan',        1, 3, '2026-04-30 20:00:00'),  -- Tiger
-  (1, 3,    'Champion',      'AI Solution — Quan quan',       1, 4, '2026-04-30 20:00:00'),  -- Eagle
-  (1, NULL, 'Best Overall',  'Doi xuat sac nhat Spring 2026', 1, 1, '2026-04-30 20:00:00');  -- Phoenix
-
--- Event 2 — not yet awarded. track 4=Web, 5=AI, 6=Social, 7=Green
-INSERT INTO Prize (event_id, track_id, name, description, rank_position, team_id, awarded_at) VALUES
-  (2, 4,    'Champion',      'Web Application — Quan quan',   1, NULL, NULL),
-  (2, 4,    '1st Runner-up', 'Web Application — A quan',      2, NULL, NULL),
-  (2, 5,    'Champion',      'AI Solution — Quan quan',       1, NULL, NULL),
-  (2, 6,    'Champion',      'Social Impact — Quan quan',     1, NULL, NULL),
-  (2, 7,    'Champion',      'Green Tech — Quan quan',        1, NULL, NULL),
-  (2, NULL, 'Best Overall',  'Doi xuat sac nhat Summer 2026', 1, NULL, NULL);
+  (1, NULL, 'Champion',      'Top 1 — Spring 2026', 1, 1, '2026-04-30 20:00:00'),  -- Phoenix
+  (1, NULL, '1st Runner-up', 'Top 2 — Spring 2026', 2, 4, '2026-04-30 20:00:00'),  -- Eagle
+  (1, NULL, '2nd Runner-up', 'Top 3 — Spring 2026', 3, 3, '2026-04-30 20:00:00');  -- Tiger
 
 
 -- =====================================================
@@ -699,8 +859,8 @@ INSERT INTO AuditLog (actor_user_id, action, target_type, target_id, reason, met
    '{"round_name":"Semi-final","event_id":1,"published_at":"2026-03-31T22:00:00"}', '192.168.1.1'),
   (2, 'PUBLISH_RESULT', 'ROUND', 3, NULL,
    '{"round_name":"Final","event_id":1,"published_at":"2026-04-30T20:00:00"}', '192.168.1.1'),
-  (2, 'AWARD_PRIZE', 'PRIZE', NULL, NULL,
-   '{"event_id":1,"team":"Team Phoenix","prize":"Champion Web + Best Overall"}', '192.168.1.1'),
+  (2, 'AWARD_PRIZE', 'PRIZE', 1, NULL,
+   '{"eventId":1,"winners":["#1 Champion -> Team Phoenix","#2 1st Runner-up -> Team Eagle","#3 2nd Runner-up -> Team Tiger"]}', '192.168.1.1'),
   (4, 'UPDATE_SCORE', 'SCORE', 1, 'Xem lai demo, dieu chinh diem Innovation',
    '{"before":7.5,"after":9.0,"criteria":"Innovation","submission_id":1}', '192.168.1.2'),
   -- Event 2 team approvals

@@ -8,13 +8,13 @@ export const C = {
   surface2: "var(--c-surface2)",
   surface3: "var(--c-surface3)",
 
-  // Green (primary accent — cố định)
-  green:         "#22c55e",
-  greenBright:   "#4ade80",
-  greenDim:      "#16a34a",
+  // Green (primary accent — theo theme: light dùng tông đậm hơn)
+  green:         "var(--c-accent)",
+  greenBright:   "var(--c-accent-bright)",
+  greenDim:      "var(--c-accent-dim)",
   greenMuted:    "var(--c-text-muted)",
-  greenGlow:     "rgba(34,197,94,0.3)",
-  greenGlowFaint:"rgba(34,197,94,0.1)",
+  greenGlow:     "var(--c-glow)",
+  greenGlowFaint:"var(--c-glow-faint)",
 
   // Blue (secondary cyber accent — cố định)
   blue:          "#3b82f6",
@@ -47,6 +47,9 @@ export const C = {
   red:    "#ef4444",
   yellow: "#eab308",
   orange: "#f97316",
+
+  // Màu chữ đặt trên nền accent (nút primary) — theo theme
+  onAccent: "var(--c-on-accent)",
 
   // Backgrounds đặc biệt — theo theme
   navbarBg:  "var(--c-navbar-bg)",
@@ -116,7 +119,7 @@ export function PixelButton({
   const variantStyles: Record<string, React.CSSProperties> = {
     primary: {
       background: C.green,
-      color: "#030b06",
+      color: C.onAccent,
       border: `1px solid ${C.green}`,
       boxShadow: `0 0 16px ${C.greenGlow}, inset 0 1px 0 rgba(255,255,255,0.1)`,
       fontWeight: 700,
@@ -196,7 +199,7 @@ export function PixelCard({ children, className = "", glow = false, glowColor = 
         background: gradient ? C.gradientCard : C.surface,
         border: `1px solid ${glow ? accentMap[glowColor] + "33" : C.border}`,
         borderRadius: 0,
-        boxShadow: glow ? glowMap[glowColor] : `0 1px 3px rgba(0,0,0,0.3)`,
+        boxShadow: glow ? glowMap[glowColor] : `var(--c-card-shadow)`,
         position: "relative",
         overflow: "hidden",
         transition: "box-shadow 0.2s ease",
@@ -392,10 +395,10 @@ export function PixelBadge({ children, color = "green" }: PixelBadgeProps) {
     <span
       style={{
         background: c.bg, border: `1px solid ${c.border}`, color: c.text,
-        fontFamily: "'JetBrains Mono', monospace", fontSize: 10,
-        padding: "2px 8px", letterSpacing: "0.08em", borderRadius: 0,
+        fontFamily: "'JetBrains Mono', monospace", fontSize: 11,
+        padding: "3px 9px", letterSpacing: "0.06em", borderRadius: 0,
       }}
-      className="uppercase inline-flex items-center gap-1"
+      className={`pixel-badge pixel-badge--${color} uppercase inline-flex items-center gap-1`}
     >
       {children}
     </span>
