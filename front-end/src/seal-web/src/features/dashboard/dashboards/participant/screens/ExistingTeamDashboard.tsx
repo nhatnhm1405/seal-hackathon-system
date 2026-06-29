@@ -7,7 +7,7 @@ import {
 } from "@/shared/components/PixelComponents";
 import {
     teamsApi, tracksApi, roundsApi, submissionsApi, resultsApi, notificationsApi,
-    MyTeam, Track, Round, RoundResult, Notification, ApiError, apiErrorMessage,
+    MyTeam, Track, Round, RoundResult, Notification, ApiError, apiErrorMessage, participationRequestsApi,
 } from "@/shared/apiClient";
 import { ParticipantJourneyBar } from "@/shared/components/ParticipantJourneyBar";
 import { ParticipantProblemCard } from "./ParticipantProblemCard";
@@ -27,6 +27,8 @@ export function ExistingTeamDashboard() {
     const [rank, setRank] = useState<RoundResult | null>(null);
     const [feed, setFeed] = useState<Notification[]>([]);
     const [error, setError] = useState<string | null>(null);
+    const [accessRequested, setAccessRequested] = useState(false);
+    const [requestingAccess, setRequestingAccess] = useState(false);
 
     const reload = useCallback(async () => {
         setError(null);
@@ -89,6 +91,21 @@ export function ExistingTeamDashboard() {
         }
     }
 
+    async function requestParticipationAccess() {
+        if (requestingAccess || accessRequested) return;
+        setRequestingAccess(true);
+        try {
+            await participationRequestsApi.request();
+            setAccessRequested(true);
+            addToast({ type: "success", title: "Request submitted", message: "A System Admin will review your participation access request." });
+        } catch (err) {
+            setError(err instanceof ApiError ? err.message : "Failed to submit participation access request.");
+            addToast({ type: "warning", title: "Request failed", message: apiErrorMessage(err, "Failed to submit participation access request.") });
+        } finally {
+            setRequestingAccess(false);
+        }
+    }
+
     if (!currentUser || !team) return null;
 
     const isLeader = team.myRole === 'LEADER' || currentUser.is_leader;
@@ -123,8 +140,22 @@ export function ExistingTeamDashboard() {
                 <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.35)", color: C.red, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, padding: "10px 14px" }}>ERROR: {error}</div>
             )}
 
+            {!currentUser.is_active && (
+                <PixelCard style={{ padding: 18, borderColor: "rgba(6,182,212,0.35)", background: "rgba(6,182,212,0.06)" }}>
+                    <div style={{ color: "#06b6d4", fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", marginBottom: 6 }}>
+                        // is_active_mode
+                    </div>
+                    <p style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, lineHeight: 1.7, marginBottom: 12 }}>
+                        You can view your team and event data, but write actions are locked until a System Admin grants participation access.
+                    </p>
+                    <PixelButton variant="cyber" size="sm" disabled={requestingAccess || accessRequested} onClick={requestParticipationAccess}>
+                        {accessRequested ? "REQUEST SENT" : requestingAccess ? "SENDING..." : "REQUEST PARTICIPATION ACCESS"}
+                    </PixelButton>
+                </PixelCard>
+            )}
+
             {/* Leader-only actions */}
-            {isLeader && (
+            {isLeader && currentUser.is_active && (
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                     <PixelButton variant="cyber" onClick={() => navigate('/team/view')}>MANAGE TEAM</PixelButton>
                     {team.status === 'APPROVED' && (
@@ -134,7 +165,7 @@ export function ExistingTeamDashboard() {
             )}
 
             {/* SELF_SELECT track picker — leader chooses the team's track during SETUP */}
-            {needsTrackPick && (
+            {needsTrackPick && currentUser.is_active && (
                 <PixelCard glow style={{ padding: 20 }}>
                     <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", marginBottom: 8 }}>// select_your_track</div>
                     <p style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, marginBottom: 14, lineHeight: 1.5 }}>

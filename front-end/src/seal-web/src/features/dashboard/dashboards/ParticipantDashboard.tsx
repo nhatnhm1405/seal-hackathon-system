@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { useNotifications } from "@/app/providers/NotificationProvider";
-import { invitesApi, HackathonEvent } from "@/shared/apiClient";
+import { invitesApi, HackathonEvent, participationRequestsApi, ApiError, apiErrorMessage } from "@/shared/apiClient";
+import { C, GradientText, PixelButton, PixelCard } from "@/shared/components/PixelComponents";
 import { NoTeamDashboard } from "./participant/screens/NoTeamDashboard";
 import { ExistingTeamDashboard } from "./participant/screens/ExistingTeamDashboard";
 import { CreateTeamScreen } from "./participant/screens/CreateTeamScreen";
@@ -24,6 +25,8 @@ export function ParticipantDashboard() {
     const [pendingTeamName, setPendingTeamName] = useState<string | null>(null);
     const [showInvites, setShowInvites] = useState(false);
     const [pendingInviteCount, setPendingInviteCount] = useState(0);
+    const [requestingAccess, setRequestingAccess] = useState(false);
+    const [accessRequested, setAccessRequested] = useState(false);
 
     const loadInviteCount = useCallback(() => {
         invitesApi.getPending().then(r => setPendingInviteCount((r.data ?? []).length)).catch(() => setPendingInviteCount(0));
@@ -32,6 +35,24 @@ export function ParticipantDashboard() {
     useEffect(() => { loadInviteCount(); }, [loadInviteCount]);
 
     if (!currentUser) return null;
+
+    async function requestParticipationAccess() {
+        if (requestingAccess || accessRequested) return;
+        setRequestingAccess(true);
+        try {
+            await participationRequestsApi.request();
+            setAccessRequested(true);
+            addToast({ type: "success", title: "Request submitted", message: "A System Admin will review your participation access request." });
+        } catch (err) {
+            const message = apiErrorMessage(err, "Failed to submit participation access request.");
+            if (err instanceof ApiError && err.status === 400) {
+                setAccessRequested(true);
+            }
+            addToast({ type: "warning", title: "Request failed", message });
+        } finally {
+            setRequestingAccess(false);
+        }
+    }
 
     // Just-created team → show success first, even though team context is now set.
     if (screen === 'success' && pendingTeamName) {
@@ -47,6 +68,16 @@ export function ParticipantDashboard() {
     // Participant WITH a team → member / leader console.
     if (currentUser.team_id !== null) {
         return <ExistingTeamDashboard />;
+    }
+
+    if (!currentUser.is_active) {
+        return (
+            <ReadOnlyAccessPanel
+                requesting={requestingAccess}
+                requested={accessRequested}
+                onRequest={requestParticipationAccess}
+            />
+        );
     }
 
     // Create-team form.
@@ -97,6 +128,35 @@ export function ParticipantDashboard() {
                     }}
                 />
             )}
+        </div>
+    );
+}
+
+function ReadOnlyAccessPanel({
+    requesting,
+    requested,
+    onRequest,
+}: {
+    requesting: boolean;
+    requested: boolean;
+    onRequest: () => void;
+}) {
+    return (
+        <div style={{ padding: 24 }}>
+            <PixelCard glow gradient style={{ padding: 28, maxWidth: 720 }}>
+                <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, letterSpacing: "0.12em", marginBottom: 10 }}>
+                    // is_active_account
+                </div>
+                <h1 style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 26, fontWeight: 900, lineHeight: 1.2, marginBottom: 12 }}>
+                    <GradientText>Participation access required</GradientText>
+                </h1>
+                <p style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, lineHeight: 1.8, maxWidth: 560, marginBottom: 18 }}>
+                    Your account is currently read-only. You can still view existing information, but creating teams, joining teams, accepting invites, selecting tracks and submitting projects require System Admin approval.
+                </p>
+                <PixelButton variant="cyber" disabled={requesting || requested} onClick={onRequest}>
+                    {requested ? "REQUEST SENT" : requesting ? "SENDING..." : "REQUEST PARTICIPATION ACCESS"}
+                </PixelButton>
+            </PixelCard>
         </div>
     );
 }
