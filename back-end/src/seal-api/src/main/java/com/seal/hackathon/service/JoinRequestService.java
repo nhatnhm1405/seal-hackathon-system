@@ -184,7 +184,7 @@ public class JoinRequestService {
 
     private void validateRequesterCanAskToJoin(User requester, Team team) {
         if (!Boolean.TRUE.equals(requester.getIsApproved()) || !Boolean.TRUE.equals(requester.getIsActive())) {
-            throw new BadRequestException("Your account is not approved or active.");
+            throw new BadRequestException("Your account is not approved or is read-only.");
         }
         validateTeamCanAcceptRequest(team);
         if (teamMemberRepository.existsByUser_UserIdAndTeam_Event_EventId(

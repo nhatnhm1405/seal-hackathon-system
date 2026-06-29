@@ -87,7 +87,7 @@ public class AnnouncementService {
         Set<Integer> recipients = teamRepository.findAllByTrack_TrackIdAndStatus(trackId, "APPROVED").stream()
                 .flatMap(t -> teamMemberRepository.findByTeam_TeamId(t.getTeamId()).stream())
                 .map(m -> m.getUser())
-                .filter(this::isActiveApproved)
+                .filter(this::isApprovedRecipient)
                 .map(User::getUserId)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
 
@@ -154,7 +154,7 @@ public class AnnouncementService {
     private Set<Integer> resolveEventAudience(Integer eventId, String audience) {
         Set<Integer> ids = new LinkedHashSet<>();
         if (audience.equals("PARTICIPANT") || audience.equals("ALL")) {
-            userRepository.findActiveApprovedStudents()
+            userRepository.findApprovedStudents()
                     .forEach(u -> ids.add(u.getUserId()));
         }
         if (audience.equals("JUDGE") || audience.equals("ALL")) {
@@ -170,7 +170,7 @@ public class AnnouncementService {
     private Set<Integer> staffOf(Integer eventId, String roleName) {
         return userEventRoleRepository.findByRole_RoleNameAndEventId(roleName, eventId).stream()
                 .map(uer -> uer.getUser())
-                .filter(this::isActiveApproved)
+                .filter(this::isApprovedRecipient)
                 .map(User::getUserId)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
     }
@@ -183,8 +183,8 @@ public class AnnouncementService {
         return recipientIds.size();
     }
 
-    private boolean isActiveApproved(User u) {
-        return Boolean.TRUE.equals(u.getIsApproved()) && Boolean.TRUE.equals(u.getIsActive());
+    private boolean isApprovedRecipient(User u) {
+        return Boolean.TRUE.equals(u.getIsApproved());
     }
 
     private static String trimToNull(String s) {

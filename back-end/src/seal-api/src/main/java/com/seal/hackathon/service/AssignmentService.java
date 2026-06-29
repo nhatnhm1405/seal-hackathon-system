@@ -82,7 +82,6 @@ public class AssignmentService {
         return userRepository.findAll().stream()
                 .filter(u -> "STAFF".equalsIgnoreCase(u.getUserType()))
                 .filter(u -> Boolean.TRUE.equals(u.getIsApproved()))
-                .filter(u -> Boolean.TRUE.equals(u.getIsActive()))
                 .map(u -> UserResponse.builder()
                         .userId(u.getUserId())
                         .email(u.getEmail())
