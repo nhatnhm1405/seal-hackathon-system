@@ -144,12 +144,12 @@ class TeamInviteServiceTest {
     }
 
     @Test
-    void createInvite_shouldThrowBadRequest_whenInviterIsNotApprovedOrActive() {
+    void createInvite_shouldThrowBadRequest_whenInviterIsNotApprovedOrWritable() {
         Team team = team(99, event(1, "OPEN"), "APPROVED");
-        User inactiveInviter = user(100, "Leader", "FPT_STUDENT", true, false);
+        User readOnlyInviter = user(100, "Leader", "FPT_STUDENT", true, false);
 
         when(teamRepository.findById(99)).thenReturn(Optional.of(team));
-        when(userRepository.findById(100)).thenReturn(Optional.of(inactiveInviter));
+        when(userRepository.findById(100)).thenReturn(Optional.of(readOnlyInviter));
 
         assertThrows(BadRequestException.class,
                 () -> teamInviteService.createInvite(100, 99, inviteRequest(101, null)));
