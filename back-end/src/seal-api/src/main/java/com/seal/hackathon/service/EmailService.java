@@ -66,6 +66,25 @@ public class EmailService {
         sendEmail(to, subject, plainText, html);
     }
 
+    public void sendPasswordResetOtpEmail(String to, String fullName, String otp, long expiresInMinutes) {
+        String safeName = escapeHtml(fullName);
+        String safeOtp = escapeHtml(otp);
+        String subject = "[SEAL Hackathon] Password reset OTP";
+        String plainText = "Hello " + fullName + ",\n\n"
+                + "Your password reset OTP is: " + otp + "\n"
+                + "This code will expire in " + expiresInMinutes + " minutes.\n"
+                + "If you did not request this, please ignore this email.\n\n"
+                + "SEAL Hackathon Team";
+
+        String html = buildOtpEmailTemplate(
+                safeName,
+                safeOtp,
+                expiresInMinutes
+        );
+
+        sendEmail(to, subject, plainText, html);
+    }
+
     private void sendEmail(String to, String subject, String plainText, String html) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
@@ -153,6 +172,57 @@ public class EmailService {
                 accentColor,
                 actionLabel
         );
+    }
+
+    private String buildOtpEmailTemplate(String safeName, String safeOtp, long expiresInMinutes) {
+        return """
+                <!doctype html>
+                <html>
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                </head>
+                <body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,Helvetica,sans-serif;color:#111827;">
+                    <div style="display:none;max-height:0;overflow:hidden;opacity:0;">
+                        SEAL Hackathon password reset code
+                    </div>
+                    <table role="presentation" width="100%%" cellspacing="0" cellpadding="0" style="background:#f3f4f6;padding:32px 12px;">
+                        <tr>
+                            <td align="center">
+                                <table role="presentation" width="100%%" cellspacing="0" cellpadding="0" style="max-width:640px;background:#ffffff;border-radius:18px;overflow:hidden;border:1px solid #e5e7eb;">
+                                    <tr>
+                                        <td style="padding:0;background:#111827;">
+                                            <div style="height:8px;background:linear-gradient(90deg,#22c55e,#2563eb,#7c3aed);"></div>
+                                            <div style="padding:30px 32px;color:#ffffff;">
+                                                <div style="font-size:13px;letter-spacing:0.12em;text-transform:uppercase;font-weight:700;opacity:0.9;">SEAL Hackathon</div>
+                                                <div style="font-size:30px;line-height:1.2;font-weight:800;margin-top:10px;">Password reset</div>
+                                                <div style="font-size:15px;line-height:1.6;margin-top:10px;opacity:0.92;">Use this one-time code to continue.</div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding:32px;">
+                                            <span style="display:inline-block;background:#dbeafe;color:#1e3a8a;border-radius:999px;padding:8px 14px;font-size:13px;font-weight:700;">OTP Code</span>
+                                            <h1 style="font-size:24px;line-height:1.3;margin:22px 0 10px;color:#111827;">Hello %s,</h1>
+                                            <p style="font-size:16px;line-height:1.7;margin:0 0 18px;color:#374151;">Enter this code on the SEAL Hackathon reset password screen:</p>
+                                            <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:14px;padding:22px;margin:22px 0;text-align:center;">
+                                                <div style="font-size:34px;line-height:1.1;letter-spacing:0.35em;font-weight:800;color:#111827;font-family:Consolas,Monaco,monospace;">%s</div>
+                                            </div>
+                                            <p style="font-size:15px;line-height:1.7;margin:0;color:#374151;">This code expires in %d minutes and can be entered up to 10 times. If you did not request this, you can safely ignore this email.</p>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td style="padding:22px 32px;background:#111827;color:#d1d5db;">
+                                            <div style="font-size:14px;line-height:1.6;">This is an automated email from SEAL Hackathon. Please do not reply directly to this message.</div>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                    </table>
+                </body>
+                </html>
+                """.formatted(safeName, safeOtp, expiresInMinutes);
     }
 
     private String escapeHtml(String value) {
