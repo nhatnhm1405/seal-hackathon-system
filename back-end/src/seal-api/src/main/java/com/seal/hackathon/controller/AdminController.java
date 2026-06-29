@@ -66,20 +66,6 @@ public class AdminController {
                 adminService.updateUser(id, request, currentUserId(authentication))));
     }
 
-    @PutMapping("/users/{id}/activate")
-    public ResponseEntity<ApiResponse<UserResponse>> activateUser(
-            @PathVariable Integer id, Authentication authentication) {
-        return ResponseEntity.ok(ApiResponse.success("User activated.",
-                adminService.activateUser(id, currentUserId(authentication))));
-    }
-
-    @PutMapping("/users/{id}/deactivate")
-    public ResponseEntity<ApiResponse<UserResponse>> deactivateUser(
-            @PathVariable Integer id, Authentication authentication) {
-        return ResponseEntity.ok(ApiResponse.success("User deactivated.",
-                adminService.deactivateUser(id, currentUserId(authentication))));
-    }
-
     // ── Role grants ───────────────────────────────────────────────────
 
     @GetMapping("/roles")

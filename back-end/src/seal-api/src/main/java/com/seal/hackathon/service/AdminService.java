@@ -30,7 +30,7 @@ import java.util.stream.Collectors;
  * Platform administration — SYSTEM_ADMIN only.
  *
  * The System Admin runs the PLATFORM: global user accounts, role grants
- * (notably granting EVENT_COORDINATOR), account activation, and the system log.
+ * (notably granting EVENT_COORDINATOR), account administration, and the system log.
  * Event-scoped work (approving participants, assigning judges/mentors, scoring)
  * belongs to EVENT_COORDINATOR, not here.
  */
@@ -47,7 +47,6 @@ public class AdminService {
     private final HackathonEventRepository hackathonEventRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuthService authService;
-    private final AccountService accountService;
     private final SystemLogService systemLogService;
 
     // ── Users ─────────────────────────────────────────────────────────
@@ -108,7 +107,7 @@ public class AdminService {
     /**
      * Edits an existing account's profile fields (patch semantics — null fields are
      * left unchanged). Login identity (email), account category (userType) and the
-     * approval/active flags are intentionally not editable here.
+     * approval/read-only flags are intentionally not editable here.
      */
     @Transactional
     public UserResponse updateUser(Integer userId, UpdateUserRequest request, Integer adminId) {
@@ -134,20 +133,6 @@ public class AdminService {
         User refreshed = userRepository.findByIdWithRoles(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
         return authService.mapToUserResponse(refreshed);
-    }
-
-    @Transactional
-    public UserResponse activateUser(Integer userId, Integer adminId) {
-        UserResponse result = accountService.activateUser(userId);
-        systemLogService.record(adminId, "ACTIVATE_USER", "activated user#" + userId);
-        return result;
-    }
-
-    @Transactional
-    public UserResponse deactivateUser(Integer userId, Integer adminId) {
-        UserResponse result = accountService.deactivateUser(userId);
-        systemLogService.record(adminId, "DEACTIVATE_USER", "deactivated user#" + userId);
-        return result;
     }
 
     // ── Role grants ───────────────────────────────────────────────────
