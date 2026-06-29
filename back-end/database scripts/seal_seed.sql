@@ -61,224 +61,224 @@ INSERT IGNORE INTO Role (role_id, role_name, description) VALUES
 INSERT INTO `User` (user_id, email, password_hash, full_name, user_type, judge_type, student_id, university, is_approved, is_active) VALUES
   -- user_id 1: STAFF — System Administrator (platform owner; not tied to any event)
   (1, 'admin@fpt.edu.vn',
-   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   '$2a$10$0ck6TfX5CqlTb8NFxY63guW52UpO3kFCbJYtKOA5a6/iqPzuB/Veq',
    'SEAL System Admin', 'STAFF', NULL, NULL, NULL, TRUE, TRUE),
 
   -- user_id 2: STAFF — Event Coordinator
   (2, 'coordinator@fpt.edu.vn',
-   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   '$2a$10$0ck6TfX5CqlTb8NFxY63guW52UpO3kFCbJYtKOA5a6/iqPzuB/Veq',
    'Nguyen Van Coordinator', 'STAFF', NULL, NULL, NULL, TRUE, TRUE),
 
   -- user_id 3: STAFF — Internal mentor / judge (Thay An)
   (3, 'mentor.an@fpt.edu.vn',
-   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   '$2a$10$0ck6TfX5CqlTb8NFxY63guW52UpO3kFCbJYtKOA5a6/iqPzuB/Veq',
    'Tran Van An', 'STAFF', 'INTERNAL', NULL, NULL, TRUE, TRUE),
 
   -- user_id 4: STAFF — Internal judge (Thay Binh)
   (4, 'judge.binh@fpt.edu.vn',
-   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   '$2a$10$0ck6TfX5CqlTb8NFxY63guW52UpO3kFCbJYtKOA5a6/iqPzuB/Veq',
    'Le Van Binh', 'STAFF', 'INTERNAL', NULL, NULL, TRUE, TRUE),
 
   -- user_id 5: STAFF — Guest judge (pre-approved)
   (5, 'guest.judge@gmail.com',
-   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   '$2a$10$0ck6TfX5CqlTb8NFxY63guW52UpO3kFCbJYtKOA5a6/iqPzuB/Veq',
    'Pham Thi Guest', 'STAFF', 'GUEST', NULL, NULL, TRUE, TRUE),
 
   -- user_id 6: FPT_STUDENT — Team leader (multi-event)
   (6, 'leader1@fpt.edu.vn',
-   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   '$2a$10$0ck6TfX5CqlTb8NFxY63guW52UpO3kFCbJYtKOA5a6/iqPzuB/Veq',
    'Hoang Van Leader', 'FPT_STUDENT', NULL, 'SE211234', NULL, TRUE, TRUE),
 
   -- user_id 7: FPT_STUDENT — Team member
   (7, 'member1@fpt.edu.vn',
-   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   '$2a$10$0ck6TfX5CqlTb8NFxY63guW52UpO3kFCbJYtKOA5a6/iqPzuB/Veq',
    'Nguyen Thi Lan', 'FPT_STUDENT', NULL, 'HE195678', NULL, TRUE, TRUE),
 
   -- user_id 8: FPT_STUDENT — Team member
   (8, 'member2@fpt.edu.vn',
-   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   '$2a$10$0ck6TfX5CqlTb8NFxY63guW52UpO3kFCbJYtKOA5a6/iqPzuB/Veq',
    'Tran Van Duc', 'FPT_STUDENT', NULL, 'DE209012', NULL, TRUE, TRUE),
 
   -- user_id 9: EXTERNAL_STUDENT — Team leader from HCMUT (multi-event)
   (9, 'leader2@hcmut.edu.vn',
-   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   '$2a$10$0ck6TfX5CqlTb8NFxY63guW52UpO3kFCbJYtKOA5a6/iqPzuB/Veq',
    'Do Van Long', 'EXTERNAL_STUDENT', NULL, 'BK2100123', 'HCMUT', TRUE, TRUE),
 
   -- user_id 10: EXTERNAL_STUDENT — Team member from HCMUT
   (10, 'member3@hcmut.edu.vn',
-   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   '$2a$10$0ck6TfX5CqlTb8NFxY63guW52UpO3kFCbJYtKOA5a6/iqPzuB/Veq',
    'Vo Thi Hoa', 'EXTERNAL_STUDENT', NULL, 'BK2100456', 'HCMUT', TRUE, TRUE),
 
   -- user_id 11: EXTERNAL_STUDENT — Not yet approved (tests pending-approval flow)
   (11, 'member4@hcmut.edu.vn',
-   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   '$2a$10$0ck6TfX5CqlTb8NFxY63guW52UpO3kFCbJYtKOA5a6/iqPzuB/Veq',
    'Ly Van Minh', 'EXTERNAL_STUDENT', NULL, 'BK2100789', 'HCMUT', FALSE, TRUE),
 
   -- user_id 12: FPT_STUDENT — Team leader (multi-event)
   (12, 'student.ce@fpt.edu.vn',
-   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   '$2a$10$0ck6TfX5CqlTb8NFxY63guW52UpO3kFCbJYtKOA5a6/iqPzuB/Veq',
    'Pham Thi Bich', 'FPT_STUDENT', NULL, 'CE213456', NULL, TRUE, TRUE),
 
   -- user_id 13: FPT_STUDENT — Team member
   (13, 'student.qe@fpt.edu.vn',
-   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   '$2a$10$0ck6TfX5CqlTb8NFxY63guW52UpO3kFCbJYtKOA5a6/iqPzuB/Veq',
    'Nguyen Van Khoa', 'FPT_STUDENT', NULL, 'QE207890', NULL, TRUE, TRUE),
 
   -- ── Event 1 (Spring 2026 - COMPLETED) participants ──
   -- user_id 14: FPT_STUDENT member
   (14, 'leader3@fpt.edu.vn',
-   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   '$2a$10$0ck6TfX5CqlTb8NFxY63guW52UpO3kFCbJYtKOA5a6/iqPzuB/Veq',
    'Bui Thi Thu', 'FPT_STUDENT', NULL, 'SE211001', NULL, TRUE, TRUE),
 
   -- user_id 15: FPT_STUDENT member
   (15, 'member5@fpt.edu.vn',
-   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   '$2a$10$0ck6TfX5CqlTb8NFxY63guW52UpO3kFCbJYtKOA5a6/iqPzuB/Veq',
    'Ngo Van Hieu', 'FPT_STUDENT', NULL, 'HE201002', NULL, TRUE, TRUE),
 
   -- user_id 16: FPT_STUDENT leader
   (16, 'leader4@fpt.edu.vn',
-   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
-   'Tran Thi Mai', 'FPT_STUDENT', NULL, 'DE211003', NULL, TRUE, TRUE),
+   '$2a$10$0ck6TfX5CqlTb8NFxY63guW52UpO3kFCbJYtKOA5a6/iqPzuB/Veq',
+   'Tran Thi Mai', 'FPT_STUDENT', NULL, 'DE211003', NULL, TRUE, FALSE),
 
   -- user_id 17: EXTERNAL_STUDENT member (UIT)
   (17, 'member6@uit.edu.vn',
-   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
-   'Dang Van Tuan', 'EXTERNAL_STUDENT', NULL, 'UIT2100301', 'UIT', TRUE, TRUE),
+   '$2a$10$0ck6TfX5CqlTb8NFxY63guW52UpO3kFCbJYtKOA5a6/iqPzuB/Veq',
+   'Dang Van Tuan', 'EXTERNAL_STUDENT', NULL, 'UIT2100301', 'UIT', TRUE, FALSE),
 
   -- user_id 18: FPT_STUDENT leader (top winner event 1)
   (18, 'leader5@fpt.edu.vn',
-   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   '$2a$10$0ck6TfX5CqlTb8NFxY63guW52UpO3kFCbJYtKOA5a6/iqPzuB/Veq',
    'Le Van Nam', 'FPT_STUDENT', NULL, 'CE211004', NULL, TRUE, TRUE),
 
   -- user_id 19: FPT_STUDENT member
   (19, 'member7@fpt.edu.vn',
-   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   '$2a$10$0ck6TfX5CqlTb8NFxY63guW52UpO3kFCbJYtKOA5a6/iqPzuB/Veq',
    'Hoang Thi Ly', 'FPT_STUDENT', NULL, 'SE201005', NULL, TRUE, TRUE),
 
   -- user_id 20: STAFF — Internal judge for event 1 (Co Cam)
   (20, 'judge.cam@fpt.edu.vn',
-   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   '$2a$10$0ck6TfX5CqlTb8NFxY63guW52UpO3kFCbJYtKOA5a6/iqPzuB/Veq',
    'Nguyen Thi Cam', 'STAFF', 'INTERNAL', NULL, NULL, TRUE, TRUE),
 
   -- ── Event 2 (Summer 2026 - IN_PROGRESS) participants ──
   -- user_id 21: FPT_STUDENT leader
   (21, 'leader6@fpt.edu.vn',
-   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   '$2a$10$0ck6TfX5CqlTb8NFxY63guW52UpO3kFCbJYtKOA5a6/iqPzuB/Veq',
    'Pham Van Dat', 'FPT_STUDENT', NULL, 'SE211006', NULL, TRUE, TRUE),
 
   -- user_id 22: FPT_STUDENT member
   (22, 'member8@fpt.edu.vn',
-   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   '$2a$10$0ck6TfX5CqlTb8NFxY63guW52UpO3kFCbJYtKOA5a6/iqPzuB/Veq',
    'Vo Thi Lan', 'FPT_STUDENT', NULL, 'HE211007', NULL, TRUE, TRUE),
 
   -- user_id 23: FPT_STUDENT member
   (23, 'member9@fpt.edu.vn',
-   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   '$2a$10$0ck6TfX5CqlTb8NFxY63guW52UpO3kFCbJYtKOA5a6/iqPzuB/Veq',
    'Nguyen Van Phuc', 'FPT_STUDENT', NULL, 'AI211008', NULL, TRUE, TRUE),
 
   -- user_id 24: EXTERNAL_STUDENT leader (not approved — tests pending flow)
   (24, 'leader7@hust.edu.vn',
-   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   '$2a$10$0ck6TfX5CqlTb8NFxY63guW52UpO3kFCbJYtKOA5a6/iqPzuB/Veq',
    'Dinh Van Khang', 'EXTERNAL_STUDENT', NULL, 'HUST2100901', 'HUST', FALSE, TRUE),
 
   -- user_id 25: FPT_STUDENT leader
   (25, 'leader8@fpt.edu.vn',
-   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   '$2a$10$0ck6TfX5CqlTb8NFxY63guW52UpO3kFCbJYtKOA5a6/iqPzuB/Veq',
    'Tran Van Quan', 'FPT_STUDENT', NULL, 'SE211010', NULL, TRUE, TRUE),
 
   -- user_id 26: FPT_STUDENT member
   (26, 'member10@fpt.edu.vn',
-   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   '$2a$10$0ck6TfX5CqlTb8NFxY63guW52UpO3kFCbJYtKOA5a6/iqPzuB/Veq',
    'Nguyen Thi Bich', 'FPT_STUDENT', NULL, 'HE211011', NULL, TRUE, TRUE),
 
   -- user_id 27: STAFF — Mentor for event 2
   (27, 'mentor.hung@fpt.edu.vn',
-   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   '$2a$10$0ck6TfX5CqlTb8NFxY63guW52UpO3kFCbJYtKOA5a6/iqPzuB/Veq',
    'Nguyen Minh Hung', 'STAFF', NULL, NULL, NULL, TRUE, TRUE),
 
   -- ── Event 2 extra teams (14-17) participants ──
   -- Team Aurora (team 14)
   -- user_id 28: FPT_STUDENT leader
   (28, 'leader9@fpt.edu.vn',
-   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   '$2a$10$0ck6TfX5CqlTb8NFxY63guW52UpO3kFCbJYtKOA5a6/iqPzuB/Veq',
    'Tran Van Son', 'FPT_STUDENT', NULL, 'SE211020', NULL, TRUE, TRUE),
 
   -- user_id 29: FPT_STUDENT member
   (29, 'member11@fpt.edu.vn',
-   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   '$2a$10$0ck6TfX5CqlTb8NFxY63guW52UpO3kFCbJYtKOA5a6/iqPzuB/Veq',
    'Nguyen Thi Hang', 'FPT_STUDENT', NULL, 'HE211021', NULL, TRUE, TRUE),
 
   -- user_id 30: EXTERNAL_STUDENT member (HCMUT)
   (30, 'member12@hcmut.edu.vn',
-   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   '$2a$10$0ck6TfX5CqlTb8NFxY63guW52UpO3kFCbJYtKOA5a6/iqPzuB/Veq',
    'Le Van Khoa', 'EXTERNAL_STUDENT', NULL, 'BK2100222', 'HCMUT', TRUE, TRUE),
 
   -- user_id 31: FPT_STUDENT member
   (31, 'member13@fpt.edu.vn',
-   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   '$2a$10$0ck6TfX5CqlTb8NFxY63guW52UpO3kFCbJYtKOA5a6/iqPzuB/Veq',
    'Pham Thi Yen', 'FPT_STUDENT', NULL, 'DE211022', NULL, TRUE, TRUE),
 
   -- user_id 32: EXTERNAL_STUDENT member (UIT)
   (32, 'member14@uit.edu.vn',
-   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   '$2a$10$0ck6TfX5CqlTb8NFxY63guW52UpO3kFCbJYtKOA5a6/iqPzuB/Veq',
    'Vo Van Tai', 'EXTERNAL_STUDENT', NULL, 'UIT2100302', 'UIT', TRUE, TRUE),
 
   -- Team Specter (team 15)
   -- user_id 33: FPT_STUDENT leader
   (33, 'leader10@fpt.edu.vn',
-   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   '$2a$10$0ck6TfX5CqlTb8NFxY63guW52UpO3kFCbJYtKOA5a6/iqPzuB/Veq',
    'Hoang Van Tan', 'FPT_STUDENT', NULL, 'SE211023', NULL, TRUE, TRUE),
 
   -- user_id 34: FPT_STUDENT member
   (34, 'member15@fpt.edu.vn',
-   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   '$2a$10$0ck6TfX5CqlTb8NFxY63guW52UpO3kFCbJYtKOA5a6/iqPzuB/Veq',
    'Do Thi Mai', 'FPT_STUDENT', NULL, 'HE211024', NULL, TRUE, TRUE),
 
   -- user_id 35: EXTERNAL_STUDENT member (HCMUT)
   (35, 'member16@hcmut.edu.vn',
-   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   '$2a$10$0ck6TfX5CqlTb8NFxY63guW52UpO3kFCbJYtKOA5a6/iqPzuB/Veq',
    'Ngo Van Hai', 'EXTERNAL_STUDENT', NULL, 'BK2100223', 'HCMUT', TRUE, TRUE),
 
   -- user_id 36: FPT_STUDENT member
   (36, 'member17@fpt.edu.vn',
-   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   '$2a$10$0ck6TfX5CqlTb8NFxY63guW52UpO3kFCbJYtKOA5a6/iqPzuB/Veq',
    'Bui Van Long', 'FPT_STUDENT', NULL, 'CE211025', NULL, TRUE, TRUE),
 
   -- Team Quantum (team 16)
   -- user_id 37: EXTERNAL_STUDENT leader (HCMUT)
   (37, 'leader11@hcmut.edu.vn',
-   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   '$2a$10$0ck6TfX5CqlTb8NFxY63guW52UpO3kFCbJYtKOA5a6/iqPzuB/Veq',
    'Tran Van Phu', 'EXTERNAL_STUDENT', NULL, 'BK2100224', 'HCMUT', TRUE, TRUE),
 
   -- user_id 38: EXTERNAL_STUDENT member (HCMUT)
   (38, 'member18@hcmut.edu.vn',
-   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   '$2a$10$0ck6TfX5CqlTb8NFxY63guW52UpO3kFCbJYtKOA5a6/iqPzuB/Veq',
    'Le Thi Thao', 'EXTERNAL_STUDENT', NULL, 'BK2100225', 'HCMUT', TRUE, TRUE),
 
   -- user_id 39: FPT_STUDENT member
   (39, 'member19@fpt.edu.vn',
-   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   '$2a$10$0ck6TfX5CqlTb8NFxY63guW52UpO3kFCbJYtKOA5a6/iqPzuB/Veq',
    'Nguyen Van Vu', 'FPT_STUDENT', NULL, 'SE211026', NULL, TRUE, TRUE),
 
   -- Team Zephyr (team 17)
   -- user_id 40: FPT_STUDENT leader
   (40, 'leader12@fpt.edu.vn',
-   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   '$2a$10$0ck6TfX5CqlTb8NFxY63guW52UpO3kFCbJYtKOA5a6/iqPzuB/Veq',
    'Dang Van Hieu', 'FPT_STUDENT', NULL, 'SE211027', NULL, TRUE, TRUE),
 
   -- user_id 41: FPT_STUDENT member
   (41, 'member20@fpt.edu.vn',
-   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   '$2a$10$0ck6TfX5CqlTb8NFxY63guW52UpO3kFCbJYtKOA5a6/iqPzuB/Veq',
    'Pham Thi Linh', 'FPT_STUDENT', NULL, 'HE211028', NULL, TRUE, TRUE),
 
   -- user_id 42: EXTERNAL_STUDENT member (UIT)
   (42, 'member21@uit.edu.vn',
-   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   '$2a$10$0ck6TfX5CqlTb8NFxY63guW52UpO3kFCbJYtKOA5a6/iqPzuB/Veq',
    'Vo Thi Ngoc', 'EXTERNAL_STUDENT', NULL, 'UIT2100303', 'UIT', TRUE, TRUE),
 
   -- user_id 43: FPT_STUDENT member
   (43, 'member22@fpt.edu.vn',
-   '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+   '$2a$10$0ck6TfX5CqlTb8NFxY63guW52UpO3kFCbJYtKOA5a6/iqPzuB/Veq',
    'Nguyen Van Dung', 'FPT_STUDENT', NULL, 'CE211029', NULL, TRUE, TRUE);
 
 
