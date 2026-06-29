@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { apiFetch, getToken, setToken, clearToken, ApiError, teamsApi } from "@/shared/apiClient";
+import { apiFetch, getToken, getTokenStorage, setToken, clearToken, ApiError, teamsApi } from "@/shared/apiClient";
 
 // ── Public AuthUser shape ────────────────────────────────────────────
 export interface AuthUser {
@@ -17,6 +17,8 @@ export interface AuthUser {
   profile_incomplete: boolean;
   // false until a coordinator approves the account
   approved: boolean;
+  // true means a participant can only read existing data
+  is_active: boolean;
 }
 
 // ── Context type ─────────────────────────────────────────────────────
@@ -27,7 +29,7 @@ interface AuthContextType {
   availableRoles: string[];
   activeRole: string | null;
   setActiveRole: (role: string | null) => void;
-  login: (email: string, password: string, rememberMe?: boolean) => Promise<'ok' | 'ok:select-role' | 'invalid_credentials' | 'pending_approval' | 'inactive'>;
+  login: (email: string, password: string, rememberMe?: boolean) => Promise<'ok' | 'ok:select-role' | 'invalid_credentials' | 'pending_approval'>;
   logout: () => void;
   updateLeaderStatus: (isLeader: boolean) => void;
   clearTeam: () => void;
@@ -38,6 +40,22 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 const ACTIVE_ROLE_KEY = 'activeRole';
+
+function getStoredActiveRole(): string | null {
+  return localStorage.getItem(ACTIVE_ROLE_KEY) ?? sessionStorage.getItem(ACTIVE_ROLE_KEY);
+}
+
+function setStoredActiveRole(role: string | null) {
+  const storage = getTokenStorage();
+  localStorage.removeItem(ACTIVE_ROLE_KEY);
+  sessionStorage.removeItem(ACTIVE_ROLE_KEY);
+  if (!role) return;
+  if (storage === 'local') {
+    localStorage.setItem(ACTIVE_ROLE_KEY, role);
+  } else {
+    sessionStorage.setItem(ACTIVE_ROLE_KEY, role);
+  }
+}
 
 // ── API response shape (defensive — backend may vary) ─────────────────
 interface ApiUserProfile {
@@ -65,6 +83,8 @@ interface ApiUserProfile {
   is_leader?: boolean;
   isApproved?: boolean;
   is_approved?: boolean;
+  isActive?: boolean;
+  is_active?: boolean;
 }
 
 // ── Collects all raw role strings from backend profile ────────────────
@@ -132,6 +152,7 @@ function resolveRole(profile: ApiUserProfile): AuthUser['role'] {
 
 function mapApiUser(profile: ApiUserProfile): AuthUser {
   const userType = profile.userType ?? profile.user_type ?? '';
+  const isActive = profile.isActive ?? profile.is_active ?? true;
   return {
     user_id:      profile.userId ?? profile.user_id ?? 0,
     full_name:    profile.fullName ?? profile.full_name ?? '',
@@ -147,6 +168,7 @@ function mapApiUser(profile: ApiUserProfile): AuthUser {
     team_id:      profile.teamId ?? profile.team_id ?? null,
     profile_incomplete: userType === 'PENDING_PROFILE',
     approved:     profile.isApproved ?? profile.is_approved ?? true,
+    is_active:    isActive,
   };
 }
 
@@ -174,17 +196,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [availableRoles, setAvailableRoles] = useState<string[]>([]);
   const [activeRole, setActiveRoleState] = useState<string | null>(
-    () => localStorage.getItem(ACTIVE_ROLE_KEY),
+    () => getStoredActiveRole(),
   );
 
   // ── Active role setter (persists to localStorage) ───────────────────
   function setActiveRole(role: string | null) {
     setActiveRoleState(role);
     if (role) {
-      localStorage.setItem(ACTIVE_ROLE_KEY, role);
+      setStoredActiveRole(role);
       setCurrentUser(prev => prev ? { ...prev, role: mapBackendRole(role) } : prev);
     } else {
-      localStorage.removeItem(ACTIVE_ROLE_KEY);
+      setStoredActiveRole(null);
       setCurrentUser(prev => prev ? { ...prev, role: 'PARTICIPANT' } : prev);
     }
   }
@@ -202,11 +224,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         let resolvedActive: string | null = null;
         if (allRoles.length === 1) {
           resolvedActive = allRoles[0];
-          localStorage.setItem(ACTIVE_ROLE_KEY, resolvedActive);
+          setStoredActiveRole(resolvedActive);
         } else if (allRoles.length > 1) {
-          const saved = localStorage.getItem(ACTIVE_ROLE_KEY);
+          const saved = getStoredActiveRole();
           resolvedActive = (saved && allRoles.includes(saved)) ? saved : null;
-          if (!resolvedActive) localStorage.removeItem(ACTIVE_ROLE_KEY);
+          if (!resolvedActive) setStoredActiveRole(null);
         }
 
         setActiveRoleState(resolvedActive);
@@ -219,7 +241,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
       .catch(() => {
         clearToken();
-        localStorage.removeItem(ACTIVE_ROLE_KEY);
+        setStoredActiveRole(null);
       })
       .finally(() => setIsLoading(false));
   }, []);
@@ -229,13 +251,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     email: string,
     password: string,
     rememberMe = false,
-  ): Promise<'ok' | 'ok:select-role' | 'invalid_credentials' | 'pending_approval' | 'inactive'> {
+  ): Promise<'ok' | 'ok:select-role' | 'invalid_credentials' | 'pending_approval'> {
     try {
       // Wipe any prior session before authenticating a new one — otherwise a
       // leftover token / activeRole / user from the previous account can bleed
       // into the new login and make subsequent requests carry the wrong identity.
       clearToken();
-      localStorage.removeItem(ACTIVE_ROLE_KEY);
+      setStoredActiveRole(null);
       setCurrentUser(null);
       setAvailableRoles([]);
       setActiveRoleState(null);
@@ -255,12 +277,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       let resolvedActive: string | null = null;
       if (allRoles.length === 1) {
         resolvedActive = allRoles[0];
-        localStorage.setItem(ACTIVE_ROLE_KEY, resolvedActive);
+        setStoredActiveRole(resolvedActive);
       } else if (allRoles.length > 1) {
         // Check if there is a previously saved valid role
-        const saved = localStorage.getItem(ACTIVE_ROLE_KEY);
+        const saved = getStoredActiveRole();
         resolvedActive = (saved && allRoles.includes(saved)) ? saved : null;
-        if (!resolvedActive) localStorage.removeItem(ACTIVE_ROLE_KEY);
+        if (!resolvedActive) setStoredActiveRole(null);
       }
 
       setActiveRoleState(resolvedActive);
@@ -274,13 +296,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return allRoles.length > 1 && resolvedActive === null ? 'ok:select-role' : 'ok';
     } catch (err) {
       clearToken();
-      localStorage.removeItem(ACTIVE_ROLE_KEY);
+      setStoredActiveRole(null);
       if (err instanceof ApiError) {
         if (err.status === 403) {
-          const msg = err.message.toLowerCase();
-          if (msg.includes('inactive') || msg.includes('deactivated') || msg.includes('disabled')) {
-            return 'inactive';
-          }
           return 'pending_approval';
         }
         if (err.status === 401) return 'invalid_credentials';
@@ -297,7 +315,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       apiFetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
     }
     clearToken();
-    localStorage.removeItem(ACTIVE_ROLE_KEY);
+    setStoredActiveRole(null);
     setCurrentUser(null);
     setAvailableRoles([]);
     setActiveRoleState(null);
