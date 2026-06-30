@@ -3,6 +3,7 @@ package com.seal.hackathon.controller;
 import com.seal.hackathon.dto.response.ApiResponse;
 import com.seal.hackathon.dto.response.JudgeAssignmentResponse;
 import com.seal.hackathon.dto.response.MentorAssignmentResponse;
+import com.seal.hackathon.dto.response.MentorHistoryResponse;
 import com.seal.hackathon.security.UserPrincipal;
 import com.seal.hackathon.service.AssignmentService;
 import lombok.RequiredArgsConstructor;
@@ -12,6 +13,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 /**
  * Controller cung cấp API lấy danh sách phân công cho Mentor và Judge.
@@ -33,6 +36,18 @@ public class AssignmentController {
         UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
         MentorAssignmentResponse response = assignmentService.getMentorAssignments(principal.getUserId());
         return ResponseEntity.ok(ApiResponse.success("Mentor assignments retrieved successfully.", response));
+    }
+
+    /**
+     * GET /api/mentor/assignments/history
+     * Read-only history of every event the mentor was assigned to.
+     */
+    @GetMapping("/mentor/assignments/history")
+    @PreAuthorize("hasRole('MENTOR')")
+    public ResponseEntity<ApiResponse<List<MentorHistoryResponse>>> getMentorHistory(Authentication authentication) {
+        UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
+        return ResponseEntity.ok(ApiResponse.success("Mentor history retrieved successfully.",
+                assignmentService.getMentorHistory(principal.getUserId())));
     }
 
     /**
