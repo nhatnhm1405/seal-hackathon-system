@@ -1316,7 +1316,7 @@ export function CoordEventsPage() {
                     {`Problem import unlocks once registration closes (event in SETUP). Current: ${selectedEvent.status}.`}
                   </div>
                 ) : (
-                  <TrackProblemsTab eventId={selectedEvent.eventId} canManage={canManageProblems} />
+                  <TrackProblemsTab eventId={selectedEvent.eventId} canManage={canManageProblems} canRelease={selectedEvent.status === 'IN_PROGRESS'} />
                 )}
               </div>
             )}
