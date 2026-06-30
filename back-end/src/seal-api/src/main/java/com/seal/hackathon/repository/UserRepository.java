@@ -21,8 +21,8 @@ public interface UserRepository extends JpaRepository<User, Integer> {
     Optional<User> findByProviderAndProviderId(String provider, String providerId);
 
     // Users awaiting coordinator approval
-    @Query("SELECT DISTINCT u FROM User u LEFT JOIN FETCH u.userEventRoles uer LEFT JOIN FETCH uer.role WHERE u.isApproved = false AND u.isActive = true")
-    List<User> findAllByIsApprovedFalseAndIsActiveTrue();
+    @Query("SELECT DISTINCT u FROM User u LEFT JOIN FETCH u.userEventRoles uer LEFT JOIN FETCH uer.role WHERE u.isApproved = false")
+    List<User> findAllByIsApprovedFalse();
 
     // Fetch user together with all their roles to avoid N+1 in auth paths
     @Query("SELECT DISTINCT u FROM User u LEFT JOIN FETCH u.userEventRoles uer LEFT JOIN FETCH uer.role WHERE u.email = :email")
@@ -32,10 +32,11 @@ public interface UserRepository extends JpaRepository<User, Integer> {
     Optional<User> findByIdWithRoles(Integer userId);
 
     /**
-     * Search active student accounts a participant can invite, by email,
+     * Search approved writable student accounts a participant can invite, by email,
      * student id or full name (case-insensitive substring).
      */
-    @Query("SELECT u FROM User u WHERE u.isActive = true " +
+    @Query("SELECT u FROM User u WHERE u.isApproved = true " +
+           "AND u.isActive = true " +
            "AND u.userType IN ('FPT_STUDENT', 'EXTERNAL_STUDENT') " +
            "AND (LOWER(u.email) LIKE CONCAT('%', :q, '%') " +
            "  OR LOWER(u.studentId) LIKE CONCAT('%', :q, '%') " +
@@ -43,7 +44,7 @@ public interface UserRepository extends JpaRepository<User, Integer> {
     List<User> searchInvitableStudents(@Param("q") String q);
 
     /** All approved & active student accounts — recipients of "Participants" announcements. */
-    @Query("SELECT u FROM User u WHERE u.isApproved = true AND u.isActive = true " +
+    @Query("SELECT u FROM User u WHERE u.isApproved = true " +
            "AND u.userType IN ('FPT_STUDENT', 'EXTERNAL_STUDENT')")
-    List<User> findActiveApprovedStudents();
+    List<User> findApprovedStudents();
 }

@@ -291,6 +291,8 @@ interface PixelInputProps {
   type?: string;
   value?: string;
   onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  min?: string;
+  max?: string;
   prefix?: string;
   className?: string;
   disabled?: boolean;
@@ -316,7 +318,7 @@ function EyeClosed() {
   );
 }
 
-export function PixelInput({ label, placeholder, type = "text", value, onChange, prefix, className = "", disabled = false, showToggle = false }: PixelInputProps) {
+export function PixelInput({ label, placeholder, type = "text", value, onChange, min, max, prefix, className = "", disabled = false, showToggle = false }: PixelInputProps) {
   const [focused, setFocused] = useState(false);
   const [visible, setVisible] = useState(false);
   const [hoverEye, setHoverEye] = useState(false);
@@ -342,7 +344,7 @@ export function PixelInput({ label, placeholder, type = "text", value, onChange,
         }}
       >
         <input
-          type={resolvedType} value={value} onChange={onChange} placeholder={placeholder} disabled={disabled}
+          type={resolvedType} value={value} onChange={onChange} placeholder={placeholder} disabled={disabled} min={min} max={max}
           onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
           style={{
             background: "transparent", border: "none", outline: "none",

@@ -214,14 +214,14 @@ public class TeamInviteService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException(label + " not found: " + userId));
         if (!Boolean.TRUE.equals(user.getIsApproved()) || !Boolean.TRUE.equals(user.getIsActive())) {
-            throw new BadRequestException(label + " account is not approved or active.");
+            throw new BadRequestException(label + " account is not approved or is read-only.");
         }
         return user;
     }
 
     private void validateInvitableUser(User user) {
         if (!Boolean.TRUE.equals(user.getIsApproved()) || !Boolean.TRUE.equals(user.getIsActive())) {
-            throw new BadRequestException("Cannot invite a user whose account is not approved or active.");
+            throw new BadRequestException("Cannot invite a user whose account is not approved or is read-only.");
         }
         if (user.getUserType() == null || !INVITABLE_USER_TYPES.contains(user.getUserType().toUpperCase(Locale.ROOT))) {
             throw new BadRequestException("Only student participant accounts can be invited to a team.");

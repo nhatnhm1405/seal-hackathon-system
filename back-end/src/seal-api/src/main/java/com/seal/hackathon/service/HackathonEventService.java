@@ -5,12 +5,16 @@ import com.seal.hackathon.dto.request.UpdateEventRequest;
 import com.seal.hackathon.dto.response.HackathonEventResponse;
 import com.seal.hackathon.entity.HackathonEvent;
 import com.seal.hackathon.entity.Team;
+import com.seal.hackathon.entity.TeamMember;
 import com.seal.hackathon.entity.Track;
+import com.seal.hackathon.entity.User;
 import com.seal.hackathon.exception.BadRequestException;
 import com.seal.hackathon.exception.ResourceNotFoundException;
 import com.seal.hackathon.repository.HackathonEventRepository;
+import com.seal.hackathon.repository.TeamMemberRepository;
 import com.seal.hackathon.repository.TeamRepository;
 import com.seal.hackathon.repository.TrackRepository;
+import com.seal.hackathon.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -31,6 +35,8 @@ public class HackathonEventService {
     private final HackathonEventRepository hackathonEventRepository;
     private final TrackRepository trackRepository;
     private final TeamRepository teamRepository;
+    private final TeamMemberRepository teamMemberRepository;
+    private final UserRepository userRepository;
     private final AuditLogService auditLogService;
 
     private static final Set<String> VALID_STATUSES =
@@ -253,6 +259,7 @@ public class HackathonEventService {
         }
         event.setStatus("COMPLETED");
         event = hackathonEventRepository.save(event);
+        lockCompletedEventParticipantsReadOnly(event.getEventId());
         return mapToResponse(event);
     }
 
@@ -282,6 +289,30 @@ public class HackathonEventService {
             throw new BadRequestException("Invalid status '" + status
                     + "'. Must be DRAFT, OPEN, SETUP, IN_PROGRESS, COMPLETED or CANCELLED.");
         }
+    }
+
+    private void lockCompletedEventParticipantsReadOnly(Integer completedEventId) {
+        List<User> students = teamRepository.findAllByEvent_EventId(completedEventId).stream()
+                .flatMap(team -> teamMemberRepository.findByTeam_TeamId(team.getTeamId()).stream())
+                .map(TeamMember::getUser)
+                .filter(this::isStudent)
+                .filter(user -> !hasNonCompletedMembership(user, completedEventId))
+                .distinct()
+                .collect(Collectors.toList());
+        students.forEach(user -> user.setIsActive(false));
+        userRepository.saveAll(students);
+    }
+
+    private boolean isStudent(User user) {
+        return "FPT_STUDENT".equalsIgnoreCase(user.getUserType())
+                || "EXTERNAL_STUDENT".equalsIgnoreCase(user.getUserType());
+    }
+
+    private boolean hasNonCompletedMembership(User user, Integer completedEventId) {
+        return teamMemberRepository.findByUser_UserIdOrderByIdDesc(user.getUserId()).stream()
+                .map(member -> member.getTeam().getEvent())
+                .filter(event -> !event.getEventId().equals(completedEventId))
+                .anyMatch(event -> !"COMPLETED".equalsIgnoreCase(event.getStatus()));
     }
 
     private void requireValidTrackMode(String mode) {

@@ -7,7 +7,7 @@ import { usePendingAccounts } from "@/app/providers/PendingAccountsProvider";
 import { useNotifications } from "@/app/providers/NotificationProvider";
 
 // After the platform split, a Coordinator's only account responsibility is the
-// approval queue. Full account management (list-all, edit, activate/deactivate,
+// approval queue. Full account management (list-all, edit, read-only access,
 // role grants) belongs to the System Admin under /api/admin. This page therefore
 // talks ONLY to /api/account-approvals.
 
@@ -48,7 +48,7 @@ function ApprovalModal({ account, reject, onClose, onConfirm, working, error }: 
         </h2>
         <p style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, lineHeight: 1.8, marginBottom: 24 }}>
           {reject
-            ? <>You are about to reject {name} ({account.email}). Their account will be deactivated and they will not be able to log in.</>
+            ? <>You are about to reject {name} ({account.email}). Their account will remain unapproved and they will not be able to log in.</>
             : <>You are about to approve {name} ({account.email}). They will be able to log in once approved.</>}
         </p>
         {error && (

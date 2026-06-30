@@ -1,20 +1,22 @@
 package com.seal.hackathon.entity;
 
-import jakarta.persistence.*;
-import lombok.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.time.LocalDateTime;
 
-/**
- * Maps to the `Prize` table. SEAL prizes are EVENT-WIDE: winners are the top N of
- * the FINAL round's global ranking (all teams across all tracks combined), so
- * {@code track} is always NULL. The per-track {@code Round.topNAdvance} is a
- * separate, advancement-only concept — unrelated to prizes.
- *
- * Lifecycle: a prize starts as a draft slot (team may be filled from the final
- * ranking, but {@code awardedAt} is NULL = not public). Announcing the prizes sets
- * {@code awardedAt}, which makes them visible publicly and notifies the winners.
- */
 @Entity
 @Table(name = "Prize")
 @Getter

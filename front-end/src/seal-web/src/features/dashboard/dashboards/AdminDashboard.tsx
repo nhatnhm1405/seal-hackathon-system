@@ -28,8 +28,8 @@ export function AdminDashboard() {
   }, []);
 
   const total    = users.length;
-  const pending  = users.filter(u => !u.isApproved && u.isActive).length;
-  const inactive = users.filter(u => !u.isActive).length;
+  const pending  = users.filter(u => !u.isApproved).length;
+  const isActive = users.filter(u => u.isActive).length;
   const staff    = users.filter(u => u.userType === 'STAFF').length;
 
   // Count active grants per role name (e.g. EVENT_COORDINATOR, JUDGE, MENTOR).
@@ -41,7 +41,7 @@ export function AdminDashboard() {
   const stats = [
     { label: "Total Accounts", value: total,    color: C.text },
     { label: "Pending Approval", value: pending,  color: "#facc15" },
-    { label: "Inactive",        value: inactive, color: "#ef4444" },
+    { label: "isActive",        value: isActive, color: "#06b6d4" },
     { label: "Staff Accounts",  value: staff,    color: C.green },
   ];
 

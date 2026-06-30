@@ -24,9 +24,82 @@ interface PendingAction {
   run: () => Promise<void>;
 }
 
+type EventSeason = 'SPRING' | 'SUMMER' | 'FALL';
+
 function fmtDateTime(iso?: string) {
   if (!iso) return "—";
   return new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+function dateToLocalDateTime(date: string, time = "08:00:00") {
+  if (!date) return undefined;
+  return `${date}T${time}`;
+}
+
+function seasonWindow(season: EventSeason, yearValue: string) {
+  const year = Number(yearValue) || new Date().getFullYear();
+  const bounds: Record<EventSeason, { start: string; end: string }> = {
+    SPRING: { start: "01-01", end: "04-30" },
+    SUMMER: { start: "05-01", end: "08-31" },
+    FALL: { start: "09-01", end: "12-31" },
+  };
+  const bound = bounds[season];
+  return {
+    label: `${season} ${year}`,
+    start: `${year}-${bound.start}`,
+    end: `${year}-${bound.end}`,
+  };
+}
+
+function createEventDateErrors(
+  season: EventSeason,
+  year: string,
+  registrationStart: string,
+  registrationEnd: string,
+  startDate: string,
+  endDate: string,
+) {
+  const errors: string[] = [];
+  const numericYear = Number(year);
+  if (!Number.isInteger(numericYear) || numericYear < 2026 || numericYear > 3000) {
+    errors.push("Year must be between 2026 and 3000.");
+    return errors;
+  }
+
+  const window = seasonWindow(season, year);
+  const fields = [
+    ["Registration start date", registrationStart],
+    ["Registration end date", registrationEnd],
+    ["Start date", startDate],
+    ["End date", endDate],
+  ] as const;
+  const missing = fields.filter(([, value]) => !value).map(([label]) => label);
+  if (missing.length > 0) {
+    errors.push(`${missing.join(", ")} ${missing.length === 1 ? "is" : "are"} required.`);
+    return errors;
+  }
+
+  const outside = fields
+    .filter(([, value]) => value < window.start || value > window.end)
+    .map(([label]) => label);
+  if (outside.length > 0) {
+    errors.push(`${outside.join(", ")} must be within ${window.label} (${window.start} to ${window.end}).`);
+  }
+
+  const registrationStartAt = dateToLocalDateTime(registrationStart, "00:00:00")!;
+  const registrationEndAt = dateToLocalDateTime(registrationEnd, "23:59:59")!;
+  const startAt = dateToLocalDateTime(startDate)!;
+  const endAt = dateToLocalDateTime(endDate, "23:59:59")!;
+  if (registrationEndAt < registrationStartAt) {
+    errors.push("Registration end must be on or after registration start.");
+  }
+  if (startAt < registrationEndAt) {
+    errors.push("The competition must start after registration closes.");
+  }
+  if (endAt < startAt) {
+    errors.push("End date must be on or after start date.");
+  }
+  return errors;
 }
 
 export function AdminEventsPage() {
@@ -46,7 +119,7 @@ export function AdminEventsPage() {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [evName, setEvName] = useState("");
-  const [evSeason, setEvSeason] = useState<'SPRING' | 'SUMMER' | 'FALL'>("SPRING");
+  const [evSeason, setEvSeason] = useState<EventSeason>("SPRING");
   const [evYear, setEvYear] = useState(String(new Date().getFullYear()));
   const [evRegStart, setEvRegStart] = useState("");
   const [evRegEnd, setEvRegEnd] = useState("");
@@ -60,6 +133,7 @@ export function AdminEventsPage() {
   const [dialogError, setDialogError] = useState<string | null>(null);
 
   const selectedEvent = selectedEventId ? events.find(e => e.eventId === selectedEventId) ?? null : null;
+  const createEventSeasonWindow = seasonWindow(evSeason, evYear);
 
   // ── Load events ───────────────────────────────────────────────────
   function loadEvents() {
@@ -185,6 +259,13 @@ export function AdminEventsPage() {
       addToast({ type: 'warning', title: 'MISSING NAME', message: 'Please enter an event name.' });
       return;
     }
+    const dateErrors = createEventDateErrors(evSeason, evYear, evRegStart, evRegEnd, evStart, evEnd);
+    if (dateErrors.length > 0) {
+      const message = dateErrors.join(" ");
+      setCreateError(message);
+      addToast({ type: 'warning', title: 'CHECK DATES', message });
+      return;
+    }
     setCreateError(null);
     setCreating(true);
     try {
@@ -194,10 +275,10 @@ export function AdminEventsPage() {
           name: evName,
           season: evSeason,
           year: Number(evYear) || new Date().getFullYear(),
-          registrationStart: evRegStart || undefined,
-          registrationEnd: evRegEnd || undefined,
-          startDate: evStart || undefined,
-          endDate: evEnd || undefined,
+          registrationStart: dateToLocalDateTime(evRegStart, "00:00:00"),
+          registrationEnd: dateToLocalDateTime(evRegEnd, "23:59:59"),
+          startDate: dateToLocalDateTime(evStart),
+          endDate: dateToLocalDateTime(evEnd, "23:59:59"),
           status: 'DRAFT',
           trackSelectionMode: evMode,
         }),
@@ -269,15 +350,15 @@ export function AdminEventsPage() {
               <PixelInput label="Event Name" value={evName} onChange={(e) => setEvName(e.target.value)} placeholder="SEAL Fall 2026" />
               <div>
                 <label style={{ color: C.greenMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase" }}>Season</label>
-                <select value={evSeason} onChange={(e) => setEvSeason(e.target.value as 'SPRING' | 'SUMMER' | 'FALL')} style={{ width: "100%", marginTop: 6, padding: "10px 12px", background: C.surface2, border: `1px solid ${C.border}`, color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, borderRadius: 0, outline: "none" }}>
+                <select value={evSeason} onChange={(e) => setEvSeason(e.target.value as EventSeason)} style={{ width: "100%", marginTop: 6, padding: "10px 12px", background: C.surface2, border: `1px solid ${C.border}`, color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, borderRadius: 0, outline: "none" }}>
                   <option value="SPRING">Spring</option>
                   <option value="SUMMER">Summer</option>
                   <option value="FALL">Fall</option>
                 </select>
               </div>
               <PixelInput label="Year" type="number" value={evYear} onChange={(e) => setEvYear(e.target.value)} />
-              <PixelInput label="Registration Start" type="date" value={evRegStart} onChange={(e) => setEvRegStart(e.target.value)} />
-              <PixelInput label="Registration End" type="date" value={evRegEnd} onChange={(e) => setEvRegEnd(e.target.value)} />
+              <PixelInput label="Registration Start" type="date" min={createEventSeasonWindow.start} max={createEventSeasonWindow.end} value={evRegStart} onChange={(e) => setEvRegStart(e.target.value)} />
+              <PixelInput label="Registration End" type="date" min={createEventSeasonWindow.start} max={createEventSeasonWindow.end} value={evRegEnd} onChange={(e) => setEvRegEnd(e.target.value)} />
               <div>
                 <label style={{ color: C.greenMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase" }}>Track Assignment</label>
                 <select value={evMode} onChange={(e) => setEvMode(e.target.value as TrackMode)} style={{ width: "100%", marginTop: 6, padding: "10px 12px", background: C.surface2, border: `1px solid ${C.border}`, color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, borderRadius: 0, outline: "none" }}>
@@ -285,8 +366,8 @@ export function AdminEventsPage() {
                   <option value="RANDOM">Random draw</option>
                 </select>
               </div>
-              <PixelInput label="Start Date" type="date" value={evStart} onChange={(e) => setEvStart(e.target.value)} />
-              <PixelInput label="End Date" type="date" value={evEnd} onChange={(e) => setEvEnd(e.target.value)} />
+              <PixelInput label="Start Date" type="date" min={createEventSeasonWindow.start} max={createEventSeasonWindow.end} value={evStart} onChange={(e) => setEvStart(e.target.value)} />
+              <PixelInput label="End Date" type="date" min={createEventSeasonWindow.start} max={createEventSeasonWindow.end} value={evEnd} onChange={(e) => setEvEnd(e.target.value)} />
             </div>
 
             {/* Tracks & rounds are configured by the Event Coordinator during the

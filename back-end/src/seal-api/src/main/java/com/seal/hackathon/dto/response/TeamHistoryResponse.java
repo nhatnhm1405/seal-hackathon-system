@@ -24,34 +24,41 @@ public class TeamHistoryResponse {
     private String season;
     private Integer year;
     private String eventStatus;
-
     private Integer teamId;
     private String teamName;
     private String trackName;
     private String teamStatus;
     private String myRole;
-
     private List<MemberInfo> members;
-    private List<RoundResultInfo> rounds;   // published rounds only, in order
+    private List<RoundInfo> rounds;
     private List<SubmissionInfo> submissions;
-    private PrizeInfo prize;                 // announced prize for this team, or null
+    private PrizeInfo prize;
 
-    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class MemberInfo {
         private String fullName;
         private String role;
     }
 
-    @Data @Builder @NoArgsConstructor @AllArgsConstructor
-    public static class RoundResultInfo {
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class RoundInfo {
         private String roundName;
         private Boolean isFinal;
         private Integer rankPosition;
-        private Boolean advanced;       // rank <= round.topNAdvance (derived)
+        private Boolean advanced;
         private BigDecimal totalScore;
     }
 
-    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class SubmissionInfo {
         private String roundName;
         private String repoUrl;
@@ -61,7 +68,10 @@ public class TeamHistoryResponse {
         private String status;
     }
 
-    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class PrizeInfo {
         private String name;
         private Integer rankPosition;

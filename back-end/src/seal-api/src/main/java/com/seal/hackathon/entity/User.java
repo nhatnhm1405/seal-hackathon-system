@@ -55,7 +55,7 @@ public class User {
     @Builder.Default
     private Boolean isApproved = false;
 
-    // false = deactivated/rejected, true = active
+    // Reused flag: false means a participant is read-only; true means writable/active.
     @Column(name = "is_active", nullable = false)
     @Builder.Default
     private Boolean isActive = true;

@@ -41,8 +41,8 @@ function buildNav(role: string, isLeader: boolean, teamId: number | null, pendin
     }
     if (isLeader) {
       return [
-        { path: "/dashboard",   label: "Dashboard"     },
-        { path: "/team/view",   label: "My Team"        },
+        { path: "/dashboard", label: "Dashboard" },
+        { path: "/team/view", label: "My Team" },
         { path: "/team/submit", label: "Submit Project" },
         { path: "/leaderboard", label: "Leaderboard"    },
         { path: "/history",     label: "History"        },
@@ -50,11 +50,11 @@ function buildNav(role: string, isLeader: boolean, teamId: number | null, pendin
       ];
     }
     return [
-      { path: "/dashboard",   label: "Dashboard"  },
-      { path: "/team/view",   label: "My Team"     },
+      { path: "/dashboard", label: "Dashboard" },
+      { path: "/team/view", label: "My Team" },
       { path: "/leaderboard", label: "Leaderboard" },
-      { path: "/history",     label: "History"     },
-      { path: "/profile",     label: "Profile"     },
+      { path: "/history", label: "History" },
+      { path: "/profile", label: "Profile" },
     ];
   }
   if (role === "MENTOR") {
@@ -68,10 +68,10 @@ function buildNav(role: string, isLeader: boolean, teamId: number | null, pendin
   }
   if (role === "JUDGE") {
     return [
-      { path: "/dashboard",    label: "Dashboard"        },
-      { path: "/judge/score",  label: "Score Submissions" },
-      { path: "/judge/history",label: "Scoring History"  },
-      { path: "/profile",      label: "Profile"          },
+      { path: "/dashboard", label: "Dashboard" },
+      { path: "/judge/score", label: "Score Submissions" },
+      { path: "/judge/history", label: "Scoring History" },
+      { path: "/profile", label: "Profile" },
     ];
   }
   if (role === "ADMIN") {
@@ -99,16 +99,25 @@ function buildNav(role: string, isLeader: boolean, teamId: number | null, pendin
   return [{ path: "/dashboard", label: "Dashboard" }];
 }
 
+function isDashboardPath(pathname: string): boolean {
+  return DASHBOARD_PATHS.has(pathname);
+}
+
 function getPageTitle(pathname: string): string {
   const map: Record<string, string> = {
     "/": "Home",
     "/dashboard": "Dashboard",
+    "/dashboard/judge": "Dashboard",
+    "/dashboard/mentor": "Dashboard",
+    "/dashboard/coordinator": "Dashboard",
     "/admin/dashboard": "Dashboard",
     "/admin/events": "Events",
     "/admin/accounts": "Accounts",
+    "/admin/participation-requests": "Participation Requests",
     "/admin/roles": "Role Grants",
     "/admin/logs": "System Logs",
     "/leaderboard": "Leaderboard",
+    "/history": "History",
     "/profile": "Profile",
     "/team/create": "Create Team",
     "/team/view": "My Team",
@@ -132,11 +141,11 @@ function getPageTitle(pathname: string): string {
 
 function roleBadgeStyle(role: string): { bg: string; color: string } {
   switch (role) {
-    case "ADMIN":       return { bg: "rgba(239,68,68,0.15)", color: "#ef4444" };
+    case "ADMIN": return { bg: "rgba(239,68,68,0.15)", color: "#ef4444" };
     case "COORDINATOR": return { bg: "rgba(234,179,8,0.15)", color: "#eab308" };
-    case "MENTOR":      return { bg: "rgba(6,182,212,0.15)",  color: "#06b6d4" };
-    case "JUDGE":       return { bg: "rgba(59,130,246,0.15)", color: "#3b82f6" };
-    default:            return { bg: "rgba(34,197,94,0.15)",  color: "#22c55e" };
+    case "MENTOR": return { bg: "rgba(6,182,212,0.15)", color: "#06b6d4" };
+    case "JUDGE": return { bg: "rgba(59,130,246,0.15)", color: "#3b82f6" };
+    default: return { bg: "rgba(34,197,94,0.15)", color: "#22c55e" };
   }
 }
 
@@ -184,136 +193,136 @@ function NotificationBell() {
 
   return (
     <>
-    <div ref={ref} style={{ position: "relative" }}>
-      <button
-        onClick={() => setOpen(o => !o)}
-        style={{
-          position: "relative",
-          background: open ? "rgba(34,197,94,0.08)" : "none",
-          border: open ? `1px solid ${C.border}` : "1px solid transparent",
-          cursor: "pointer",
-          padding: "6px 8px",
-          borderRadius: 0,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          transition: "all 0.15s",
-        }}
-        title="Notifications"
-        onMouseEnter={(e) => { if (!open) (e.currentTarget as HTMLElement).style.background = "rgba(34,197,94,0.06)"; }}
-        onMouseLeave={(e) => { if (!open) (e.currentTarget as HTMLElement).style.background = "none"; }}
-      >
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={unreadCount > 0 ? C.green : C.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
-          <path d="M13.73 21a2 2 0 0 1-3.46 0" />
-        </svg>
-        {unreadCount > 0 && (
-          <span style={{
-            position: "absolute", top: 2, right: 2,
-            background: C.red, color: "#fff",
-            fontFamily: "'JetBrains Mono', monospace", fontSize: 8, fontWeight: 700,
-            borderRadius: "50%", width: 14, height: 14,
-            display: "flex", alignItems: "center", justifyContent: "center",
-          }}>
-            {unreadCount > 9 ? "9+" : unreadCount}
-          </span>
-        )}
-      </button>
-
-      {open && (
-        <div style={{
-          position: "absolute", top: "calc(100% + 6px)", right: 0,
-          width: 340,
-          background: C.surface,
-          border: `1px solid ${C.border}`,
-          boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
-          zIndex: 300,
-          display: "flex",
-          flexDirection: "column",
-          maxHeight: 420,
-          overflow: "hidden",
-        }}>
-          {/* Header */}
-          <div style={{
-            display: "flex", alignItems: "center", justifyContent: "space-between",
-            padding: "12px 16px",
-            borderBottom: `1px solid ${C.border}`,
-            flexShrink: 0,
-          }}>
-            <span style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 700, letterSpacing: "0.05em" }}>
-              Notifications
-              {unreadCount > 0 && (
-                <span style={{ color: C.textMuted }}> · {unreadCount} unread</span>
-              )}
+      <div ref={ref} style={{ position: "relative" }}>
+        <button
+          onClick={() => setOpen(o => !o)}
+          style={{
+            position: "relative",
+            background: open ? "rgba(34,197,94,0.08)" : "none",
+            border: open ? `1px solid ${C.border}` : "1px solid transparent",
+            cursor: "pointer",
+            padding: "6px 8px",
+            borderRadius: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            transition: "all 0.15s",
+          }}
+          title="Notifications"
+          onMouseEnter={(e) => { if (!open) (e.currentTarget as HTMLElement).style.background = "rgba(34,197,94,0.06)"; }}
+          onMouseLeave={(e) => { if (!open) (e.currentTarget as HTMLElement).style.background = "none"; }}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={unreadCount > 0 ? C.green : C.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+            <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+          </svg>
+          {unreadCount > 0 && (
+            <span style={{
+              position: "absolute", top: 2, right: 2,
+              background: C.red, color: "#fff",
+              fontFamily: "'JetBrains Mono', monospace", fontSize: 8, fontWeight: 700,
+              borderRadius: "50%", width: 14, height: 14,
+              display: "flex", alignItems: "center", justifyContent: "center",
+            }}>
+              {unreadCount > 9 ? "9+" : unreadCount}
             </span>
-            {unreadCount > 0 && (
-              <button
-                onClick={markAllRead}
-                style={{
-                  background: "none", border: "none", cursor: "pointer",
-                  color: C.textMuted, fontFamily: "'JetBrains Mono', monospace",
-                  fontSize: 9, letterSpacing: "0.08em", padding: 0,
-                  transition: "color 0.15s",
-                }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = C.green; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = C.textMuted; }}
-              >
-                MARK ALL READ
-              </button>
-            )}
-          </div>
+          )}
+        </button>
 
-          {/* List */}
-          <div style={{ overflowY: "auto", flex: 1 }}>
-            {userNotifications.length === 0 ? (
-              <div style={{ padding: "24px 16px", color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, textAlign: "center" }}>
-                No notifications
-              </div>
-            ) : (
-              userNotifications.map((n) => (
-                <div
-                  key={n.notification_id}
-                  onClick={() => openDetail(n)}
+        {open && (
+          <div style={{
+            position: "absolute", top: "calc(100% + 6px)", right: 0,
+            width: 340,
+            background: C.surface,
+            border: `1px solid ${C.border}`,
+            boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
+            zIndex: 300,
+            display: "flex",
+            flexDirection: "column",
+            maxHeight: 420,
+            overflow: "hidden",
+          }}>
+            {/* Header */}
+            <div style={{
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+              padding: "12px 16px",
+              borderBottom: `1px solid ${C.border}`,
+              flexShrink: 0,
+            }}>
+              <span style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 700, letterSpacing: "0.05em" }}>
+                Notifications
+                {unreadCount > 0 && (
+                  <span style={{ color: C.textMuted }}> · {unreadCount} unread</span>
+                )}
+              </span>
+              {unreadCount > 0 && (
+                <button
+                  onClick={markAllRead}
                   style={{
-                    padding: "12px 16px",
-                    borderBottom: `1px solid rgba(34,197,94,0.05)`,
-                    background: n.is_read ? "transparent" : "rgba(34,197,94,0.03)",
-                    display: "flex",
-                    gap: 10,
-                    alignItems: "flex-start",
-                    cursor: "pointer",
-                    transition: "background 0.12s",
+                    background: "none", border: "none", cursor: "pointer",
+                    color: C.textMuted, fontFamily: "'JetBrains Mono', monospace",
+                    fontSize: 9, letterSpacing: "0.08em", padding: 0,
+                    transition: "color 0.15s",
                   }}
-                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(34,197,94,0.07)"; }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = n.is_read ? "transparent" : "rgba(34,197,94,0.03)"; }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = C.green; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = C.textMuted; }}
                 >
-                  {/* Unread dot */}
-                  <div style={{
-                    width: 6, height: 6, borderRadius: "50%", flexShrink: 0, marginTop: 5,
-                    background: n.is_read ? "transparent" : typeColor(n.type),
-                    boxShadow: n.is_read ? "none" : `0 0 6px ${typeColor(n.type)}`,
-                  }} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
-                      <span style={{ color: n.is_read ? C.text : typeColor(n.type), fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700 }}>
-                        {n.title}
-                      </span>
-                    </div>
-                    <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, lineHeight: 1.5, marginBottom: 4 }}>
-                      {n.message}
-                    </div>
-                    <div style={{ color: C.textDim, fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.06em" }}>
-                      {fmtTime(n.created_at)}
+                  MARK ALL READ
+                </button>
+              )}
+            </div>
+
+            {/* List */}
+            <div style={{ overflowY: "auto", flex: 1 }}>
+              {userNotifications.length === 0 ? (
+                <div style={{ padding: "24px 16px", color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, textAlign: "center" }}>
+                  No notifications
+                </div>
+              ) : (
+                userNotifications.map((n) => (
+                  <div
+                    key={n.notification_id}
+                    onClick={() => openDetail(n)}
+                    style={{
+                      padding: "12px 16px",
+                      borderBottom: `1px solid rgba(34,197,94,0.05)`,
+                      background: n.is_read ? "transparent" : "rgba(34,197,94,0.03)",
+                      display: "flex",
+                      gap: 10,
+                      alignItems: "flex-start",
+                      cursor: "pointer",
+                      transition: "background 0.12s",
+                    }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(34,197,94,0.07)"; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = n.is_read ? "transparent" : "rgba(34,197,94,0.03)"; }}
+                  >
+                    {/* Unread dot */}
+                    <div style={{
+                      width: 6, height: 6, borderRadius: "50%", flexShrink: 0, marginTop: 5,
+                      background: n.is_read ? "transparent" : typeColor(n.type),
+                      boxShadow: n.is_read ? "none" : `0 0 6px ${typeColor(n.type)}`,
+                    }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 3 }}>
+                        <span style={{ color: n.is_read ? C.text : typeColor(n.type), fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700 }}>
+                          {n.title}
+                        </span>
+                      </div>
+                      <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, lineHeight: 1.5, marginBottom: 4 }}>
+                        {n.message}
+                      </div>
+                      <div style={{ color: C.textDim, fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.06em" }}>
+                        {fmtTime(n.created_at)}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))
-            )}
+                ))
+              )}
+            </div>
           </div>
-        </div>
-      )}
-    </div>
-    <NotificationDetailModal notification={selected} onClose={() => setSelected(null)} />
+        )}
+      </div>
+      <NotificationDetailModal notification={selected} onClose={() => setSelected(null)} />
     </>
   );
 }
@@ -323,7 +332,7 @@ interface TopNavbarProps {
   pageTitle: string;
   collapsed: boolean;
   onToggleCollapse: () => void;
-  currentUser: { user_id: number; full_name: string; role: string; is_leader: boolean; team_id: number | null };
+  currentUser: { user_id: number; full_name: string; role: string; is_leader: boolean; team_id: number | null; avatar_url: string | null };
   onLogout: () => void;
   onNavigate: (path: string) => void;
 }
@@ -390,17 +399,17 @@ function TopNavbar({ pageTitle, collapsed, onToggleCollapse, currentUser, onLogo
           {collapsed ? (
             /* Hamburger (mở) */
             <svg width="17" height="17" viewBox="0 0 17 17" fill="none" style={{ pointerEvents: "none" }}>
-              <line x1="2" y1="4.5"  x2="15" y2="4.5"  stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/>
-              <line x1="2" y1="8.5"  x2="15" y2="8.5"  stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/>
-              <line x1="2" y1="12.5" x2="15" y2="12.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round"/>
+              <line x1="2" y1="4.5" x2="15" y2="4.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+              <line x1="2" y1="8.5" x2="15" y2="8.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+              <line x1="2" y1="12.5" x2="15" y2="12.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
             </svg>
           ) : (
             /* Arrow-left (đóng) */
             <svg width="17" height="17" viewBox="0 0 17 17" fill="none" style={{ pointerEvents: "none" }}>
-              <rect x="2" y="3" width="3.5" height="11" rx="0.5" fill="currentColor" opacity="0.35"/>
-              <line x1="8"  y1="4.5"  x2="15" y2="4.5"  stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-              <line x1="8"  y1="8.5"  x2="15" y2="8.5"  stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-              <line x1="8"  y1="12.5" x2="15" y2="12.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              <rect x="2" y="3" width="3.5" height="11" rx="0.5" fill="currentColor" opacity="0.35" />
+              <line x1="8" y1="4.5" x2="15" y2="4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              <line x1="8" y1="8.5" x2="15" y2="8.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              <line x1="8" y1="12.5" x2="15" y2="12.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
             </svg>
           )}
         </button>
@@ -409,10 +418,10 @@ function TopNavbar({ pageTitle, collapsed, onToggleCollapse, currentUser, onLogo
           type="button"
           onClick={() => onNavigate("/")}
           title="Về trang chủ"
-          style={{ display: "flex", alignItems: "center", gap: 10, background: "transparent", border: "none", padding: 0, cursor: "pointer" }}
+          style={{ display: "flex", alignItems: "center", gap: 10, height: 44, overflow: "hidden", background: "transparent", border: "none", padding: 0, cursor: "pointer" }}
         >
-          <div style={{ height: 72, overflow: "visible", flexShrink: 0, display: "flex", alignItems: "center" }}>
-            <img src={sealLogo} alt="SEAL" style={{ height: 144, width: "auto", objectFit: "contain", filter: "drop-shadow(0 0 6px rgba(34,197,94,0.4))" }} />
+          <div style={{ width: 96, height: 44, overflow: "hidden", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <img src={sealLogo} alt="SEAL" style={{ height: 96, width: "auto", objectFit: "contain", filter: "drop-shadow(0 0 6px rgba(34,197,94,0.4))", pointerEvents: "none" }} />
           </div>
           <span style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 13, letterSpacing: "0.06em", background: "linear-gradient(135deg, #22c55e 0%, #3b82f6 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", whiteSpace: "nowrap" }}>
             SEAL Hackathon
@@ -452,20 +461,20 @@ function TopNavbar({ pageTitle, collapsed, onToggleCollapse, currentUser, onLogo
           {theme === "dark" ? (
             /* Sun icon */
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={{ pointerEvents: "none" }}>
-              <circle cx="12" cy="12" r="5"/>
-              <line x1="12" y1="1"  x2="12" y2="3"/>
-              <line x1="12" y1="21" x2="12" y2="23"/>
-              <line x1="4.22" y1="4.22"   x2="5.64" y2="5.64"/>
-              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
-              <line x1="1"  y1="12" x2="3"  y2="12"/>
-              <line x1="21" y1="12" x2="23" y2="12"/>
-              <line x1="4.22" y1="19.78"  x2="5.64" y2="18.36"/>
-              <line x1="18.36" y1="5.64"  x2="19.78" y2="4.22"/>
+              <circle cx="12" cy="12" r="5" />
+              <line x1="12" y1="1" x2="12" y2="3" />
+              <line x1="12" y1="21" x2="12" y2="23" />
+              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+              <line x1="1" y1="12" x2="3" y2="12" />
+              <line x1="21" y1="12" x2="23" y2="12" />
+              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
             </svg>
           ) : (
             /* Moon icon */
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={{ pointerEvents: "none" }}>
-              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
             </svg>
           )}
         </button>
@@ -568,13 +577,11 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
   const pageTitle = getPageTitle(location.pathname);
 
   function handleLogout() {
-    const name = currentUser.full_name;
+    const name = currentUser?.full_name ?? 'User';
     addAuthToast({ type: 'info', title: 'LOGGED OUT', message: `Goodbye, ${name}. See you next time!` });
     logout();
     navigate('/');
   }
-
-  const isDashboardRoute = location.pathname !== '/';
 
   return (
     <div style={{ minHeight: "100vh", background: C.bg, display: "flex", flexDirection: "column", color: C.text }}>
@@ -641,11 +648,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
             {/* Separator between the public-site link and in-app navigation */}
             <div style={{ height: 1, background: C.border, margin: collapsed ? "4px 2px 6px" : "4px 4px 6px" }} />
             {nav.map((item) => {
-              // The Dashboard item lives at "/dashboard" but the user may have
-              // arrived via a role-specific alias — keep it lit for all of them.
-              const active = item.path === "/dashboard"
-                ? DASHBOARD_PATHS.has(location.pathname)
-                : (isDashboardRoute && location.pathname === item.path);
+              const active = item.label === "Dashboard" ? isDashboardPath(location.pathname) : location.pathname === item.path;
               return (
                 <button
                   key={item.path}

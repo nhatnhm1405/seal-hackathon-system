@@ -12,10 +12,12 @@ function roundBadgeColor(status?: string) {
 
 export function EventDetailDrawer({
     event,
+    readOnly = false,
     onClose,
     onCreateTeam,
 }: {
     event: HackathonEvent;
+    readOnly?: boolean;
     onClose: () => void;
     onCreateTeam: (eventId: number) => void;
 }) {
@@ -128,11 +130,13 @@ export function EventDetailDrawer({
 
                     {/* Register CTA — no track choice here; the team picks/gets a track at Setup */}
                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                        <PixelButton variant="cyber" fullWidth onClick={() => onCreateTeam(event.eventId)}>
-                            REGISTER & CREATE TEAM
+                        <PixelButton variant="cyber" fullWidth disabled={readOnly} onClick={() => onCreateTeam(event.eventId)}>
+                            {readOnly ? "READ-ONLY" : "REGISTER & CREATE TEAM"}
                         </PixelButton>
                         <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, textAlign: "center", lineHeight: 1.6 }}>
-                            You'll become the team leader. Your track is assigned later during Setup.
+                            {readOnly
+                                ? "Request participation access before creating a team for this event."
+                                : "You'll become the team leader. Your track is assigned later during Setup."}
                         </div>
                     </div>
                 </div>

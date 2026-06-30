@@ -11,12 +11,20 @@ export function NoTeamDashboard({
     onWaitForInvite,
     pendingTeamName,
     pendingInviteCount,
+    readOnly = false,
+    requestingAccess = false,
+    accessRequested = false,
+    onRequestAccess,
 }: {
     onCreateTeam: (eventId?: number, trackId?: number) => void;
     onViewDetails: (event: HackathonEvent) => void;
     onWaitForInvite: () => void;
     pendingTeamName: string | null;
     pendingInviteCount: number;
+    readOnly?: boolean;
+    requestingAccess?: boolean;
+    accessRequested?: boolean;
+    onRequestAccess?: () => void;
 }) {
     const { openTour } = useTour();
     const [events, setEvents] = useState<ActiveEventWithTracks[]>([]);
@@ -63,7 +71,11 @@ export function NoTeamDashboard({
                     <GradientText>Join an Event</GradientText>
                 </h1>
 
-                {pendingTeamName ? (
+                {readOnly ? (
+                    <p style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, marginBottom: 16, lineHeight: 1.8, maxWidth: 560 }}>
+                        Your account is currently read-only. You can view events and existing participation records, but creating or joining teams requires System Admin approval.
+                    </p>
+                ) : pendingTeamName ? (
                     <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
                         <span style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>
                             Your team <strong style={{ color: C.text }}>{pendingTeamName}</strong> is waiting for coordinator approval.
@@ -77,9 +89,15 @@ export function NoTeamDashboard({
                 )}
 
                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                    <PixelButton variant="cyber" onClick={() => onCreateTeam()}>CREATE A TEAM</PixelButton>
+                    {readOnly ? (
+                        <PixelButton variant="cyber" disabled={requestingAccess || accessRequested} onClick={onRequestAccess}>
+                            {accessRequested ? "REQUEST SENT" : requestingAccess ? "SENDING..." : "REQUEST PARTICIPATION ACCESS"}
+                        </PixelButton>
+                    ) : (
+                        <PixelButton variant="cyber" onClick={() => onCreateTeam()}>CREATE A TEAM</PixelButton>
+                    )}
                     <div style={{ position: "relative", display: "inline-flex" }}>
-                        <PixelButton variant="ghost" onClick={onWaitForInvite}>WAIT FOR INVITE</PixelButton>
+                        <PixelButton variant="ghost" onClick={onWaitForInvite}>{readOnly ? "VIEW INVITES" : "WAIT FOR INVITE"}</PixelButton>
                         {pendingInviteCount > 0 && (
                             <span style={{ position: "absolute", top: -8, right: -8, minWidth: 18, height: 18, borderRadius: "50%", background: C.blue, color: "#fff", fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: `0 0 8px rgba(59,130,246,0.6)`, pointerEvents: "none" }}>
                                 {pendingInviteCount}
@@ -144,7 +162,9 @@ export function NoTeamDashboard({
                                 </div>
 
                                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                                    <PixelButton variant="cyber" onClick={() => onCreateTeam(ev.eventId)}>REGISTER & CREATE TEAM</PixelButton>
+                                    <PixelButton variant="cyber" disabled={readOnly} onClick={() => onCreateTeam(ev.eventId)}>
+                                        {readOnly ? "READ-ONLY" : "REGISTER & CREATE TEAM"}
+                                    </PixelButton>
                                     <PixelButton variant="secondary" onClick={() => onViewDetails(toEvent(ev))}>VIEW DETAILS →</PixelButton>
                                 </div>
                             </div>

@@ -33,12 +33,21 @@ export function OAuth2RedirectPage() {
         const u = res.data;
         if (u.userType === PENDING_PROFILE) {
           addAuthToast({ type: 'success', title: 'WELCOME', message: 'Complete your profile to get started.' });
-        } else {
-          addAuthToast({ type: 'success', title: 'WELCOME BACK', message: `Authenticated as ${u.fullName}` });
+          window.location.replace("/complete-profile");
+          return;
         }
+        if (!u.isApproved) {
+          addAuthToast({ type: 'success', title: 'PROFILE COMPLETE', message: 'Your account awaits coordinator approval.' });
+          window.location.replace("/pending-approval");
+          return;
+        }
+        addAuthToast({ type: 'success', title: 'WELCOME BACK', message: `Authenticated as ${u.fullName}` });
+        window.location.replace("/dashboard");
       })
-      .catch(() => addAuthToast({ type: 'success', title: 'WELCOME BACK', message: 'You are signed in.' }))
-      .finally(() => navigate("/dashboard", { replace: true }));
+      .catch(() => {
+        addAuthToast({ type: 'success', title: 'WELCOME BACK', message: 'You are signed in.' });
+        window.location.replace("/dashboard");
+      });
   }, [searchParams, navigate, addAuthToast]);
 
   return (

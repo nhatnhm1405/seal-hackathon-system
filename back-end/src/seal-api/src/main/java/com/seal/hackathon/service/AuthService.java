@@ -26,6 +26,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
@@ -95,18 +96,13 @@ public class AuthService {
             throw new UnauthorizedException("Invalid email or password.");
         }
 
-        // 3. Check is_active
-        if (!Boolean.TRUE.equals(user.getIsActive())) {
-            throw new ForbiddenException("Your account has been deactivated. Please contact an administrator.");
-        }
-
-        // 4. Check is_approved
+        // 3. Check is_approved
         if (!Boolean.TRUE.equals(user.getIsApproved())) {
             throw new ForbiddenException(
                     "Your account is pending approval. Please wait for an Event Coordinator to review your registration.");
         }
 
-        // 5. Generate JWT
+        // 4. Generate JWT
         UserPrincipal principal = new UserPrincipal(user);
         List<String> roles = principal.getAuthorities().stream()
                 .map(a -> a.getAuthority().replace("ROLE_", ""))
@@ -171,16 +167,17 @@ public class AuthService {
         return mapToUserResponse(user);
     }
 
-    /** A user patches their own profile (fullName / studentId / university). */
+    /** A user patches their own profile (fullName / university). */
     @Transactional
     public UserResponse updateOwnProfile(String email, com.seal.hackathon.dto.request.UpdateProfileRequest request) {
         User user = userRepository.findByEmailWithRoles(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found."));
+        if (request.getStudentId() != null
+                && !Objects.equals(normalizeOptionalText(request.getStudentId()), normalizeOptionalText(user.getStudentId()))) {
+            throw new BadRequestException("Student ID cannot be changed from profile settings.");
+        }
         if (request.getFullName() != null && !request.getFullName().isBlank()) {
             user.setFullName(request.getFullName().trim());
-        }
-        if (request.getStudentId() != null) {
-            user.setStudentId(request.getStudentId().isBlank() ? null : request.getStudentId().trim());
         }
         if (request.getUniversity() != null) {
             user.setUniversity(request.getUniversity().isBlank() ? null : request.getUniversity().trim());
@@ -254,6 +251,10 @@ public class AuthService {
         };
     }
 
+    private String normalizeOptionalText(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
+    }
+
     // ---------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------
@@ -316,7 +317,7 @@ public class AuthService {
         }
 
         TeamMember membership = memberships.stream()
-                .filter(this::isActiveEventMembership)
+                .filter(this::isCurrentEventMembership)
                 .findFirst()
                 .orElse(memberships.get(0));
 
@@ -324,7 +325,7 @@ public class AuthService {
         response.setIsLeader(normalizeTeamRole(membership));
     }
 
-    private boolean isActiveEventMembership(TeamMember membership) {
+    private boolean isCurrentEventMembership(TeamMember membership) {
         String status = membership.getTeam().getEvent().getStatus();
         return "OPEN".equalsIgnoreCase(status)
                 || "SETUP".equalsIgnoreCase(status)

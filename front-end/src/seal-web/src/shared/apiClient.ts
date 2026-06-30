@@ -6,6 +6,11 @@ const TOKEN_KEY = 'seal_auth_token';
 export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY) ?? sessionStorage.getItem(TOKEN_KEY);
 }
+export function getTokenStorage(): 'local' | 'session' | null {
+  if (localStorage.getItem(TOKEN_KEY)) return 'local';
+  if (sessionStorage.getItem(TOKEN_KEY)) return 'session';
+  return null;
+}
 export function setToken(token: string, remember = true): void {
   // Clear the *other* store first. getToken() reads localStorage before
   // sessionStorage, so a leftover token in localStorage (e.g. a previous
@@ -91,6 +96,24 @@ export interface LoginPayload {
   password: string;
 }
 
+export interface ForgotPasswordPayload {
+  email: string;
+}
+
+export interface VerifyResetOtpPayload {
+  email: string;
+  otp: string;
+}
+
+export interface VerifyResetOtpData {
+  resetToken: string;
+}
+
+export interface ResetPasswordPayload {
+  resetToken: string;
+  newPassword: string;
+}
+
 export interface AuthTokenData {
   token: string;
   userId?: number;
@@ -101,6 +124,8 @@ export interface UserProfile {
   email: string;
   fullName: string;
   userType: string;
+  studentId?: string | null;
+  university?: string | null;
   isApproved: boolean;
   isActive: boolean;
   avatarUrl?: string | null;
@@ -147,6 +172,24 @@ export const authApi = {
 
   logout: () =>
     apiFetch<void>('/api/auth/logout', { method: 'POST' }),
+
+  requestPasswordReset: (payload: ForgotPasswordPayload) =>
+    apiFetch<ApiResponse<null>>('/api/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  verifyResetOtp: (payload: VerifyResetOtpPayload) =>
+    apiFetch<ApiResponse<VerifyResetOtpData>>('/api/auth/verify-reset-otp', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  resetPassword: (payload: ResetPasswordPayload) =>
+    apiFetch<ApiResponse<null>>('/api/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
 
   // Upload a new profile picture (multipart). Returns the updated profile.
   uploadAvatar: (file: File) => {
@@ -287,12 +330,6 @@ export const adminApi = {
       body: JSON.stringify(payload),
     }),
 
-  activateUser: (userId: number) =>
-    apiFetch<ApiResponse<UserItem>>(`/api/admin/users/${userId}/activate`, { method: 'PUT' }),
-
-  deactivateUser: (userId: number) =>
-    apiFetch<ApiResponse<UserItem>>(`/api/admin/users/${userId}/deactivate`, { method: 'PUT' }),
-
   // Role grants
   getRoleGrants: () =>
     apiFetch<ApiResponse<RoleGrantItem[]>>('/api/admin/roles'),
@@ -312,6 +349,38 @@ export const adminApi = {
   // System log
   getSystemLogs: () =>
     apiFetch<ApiResponse<SystemLogItem[]>>('/api/admin/system-logs'),
+};
+
+export interface ParticipationAccessRequest {
+  requestId: number;
+  userId: number;
+  email: string;
+  fullName: string;
+  userType: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  requestedAt: string;
+  resolvedAt?: string;
+  resolvedBy?: number;
+}
+
+export const participationRequestsApi = {
+  request: () =>
+    apiFetch<ApiResponse<ParticipationAccessRequest>>('/api/participation-requests', {
+      method: 'POST',
+    }),
+
+  getPending: () =>
+    apiFetch<ApiResponse<ParticipationAccessRequest[]>>('/api/admin/participation-requests'),
+
+  approve: (requestId: number) =>
+    apiFetch<ApiResponse<ParticipationAccessRequest>>(`/api/admin/participation-requests/${requestId}/approve`, {
+      method: 'POST',
+    }),
+
+  reject: (requestId: number) =>
+    apiFetch<ApiResponse<ParticipationAccessRequest>>(`/api/admin/participation-requests/${requestId}/reject`, {
+      method: 'POST',
+    }),
 };
 
 // ── Events ────────────────────────────────────────────────────────
@@ -815,6 +884,15 @@ export const teamsApi = {
 
   getMy: () =>
     apiFetch<ApiResponse<MyTeam>>('/api/teams/my'),
+
+  getMyHistory: () =>
+    apiFetch<ApiResponse<MyTeam[]>>('/api/teams/my/history'),
+
+  getMyResultHistory: () =>
+    apiFetch<ApiResponse<TeamHistoryEntry[]>>('/api/teams/my/result-history'),
+
+  getMyForEvent: (eventId: number) =>
+    apiFetch<ApiResponse<MyTeam>>(`/api/teams/my/event/${eventId}`),
 
   getByEvent: (eventId: number) =>
     apiFetch<ApiResponse<Team[]>>(`/api/teams/event/${eventId}`),

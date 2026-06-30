@@ -37,6 +37,9 @@ public class TeamService {
     private final HackathonEventRepository eventRepository;
     private final TrackRepository trackRepository;
     private final UserRepository userRepository;
+    private final SubmissionRepository submissionRepository;
+    private final RoundResultRepository roundResultRepository;
+    private final PrizeRepository prizeRepository;
     private final NotificationService notificationService;
     private final AuditLogService auditLogService;
     private final RoundRepository roundRepository;
@@ -96,43 +99,42 @@ public class TeamService {
 
     @Transactional(readOnly = true)
     public MyTeamResponse getMyTeam(Integer userId) {
-        List<String> activeStatuses = List.of("OPEN", "SETUP", "IN_PROGRESS");
+        List<String> currentStatuses = List.of("OPEN", "SETUP", "IN_PROGRESS");
         List<TeamMember> myMemberships = teamMemberRepository
-                .findByUser_UserIdAndTeam_Event_StatusIn(userId, activeStatuses);
+                .findByUser_UserIdAndTeam_Event_StatusIn(userId, currentStatuses);
+        if (myMemberships.isEmpty()) {
+            myMemberships = teamMemberRepository.findByUser_UserIdOrderByIdDesc(userId);
+        }
 
         if (myMemberships.isEmpty()) {
-            throw new ResourceNotFoundException("You are not currently a member of any team in an active event.");
+            throw new ResourceNotFoundException("You are not currently a member of any team.");
         }
 
         TeamMember membership = myMemberships.get(0);
-        Team team = membership.getTeam();
-        List<TeamMember> allMembers = teamMemberRepository.findByTeam_TeamId(team.getTeamId());
+        return mapToMyTeamResponse(membership);
+    }
 
-        List<MyTeamResponse.TeamMemberInfo> memberInfos = allMembers.stream()
-                .map(m -> MyTeamResponse.TeamMemberInfo.builder()
-                        .userId(m.getUser().getUserId())
-                        .memberName(m.getUser().getFullName())
-                        .email(m.getUser().getEmail())
-                        .studentType(m.getUser().getUserType())
-                        .studentId(m.getUser().getStudentId())
-                        .role(m.getMemberRole())
-                        .joinedAt(m.getJoinedAt())
-                        .build())
+    @Transactional(readOnly = true)
+    public List<MyTeamResponse> getMyTeamHistory(Integer userId) {
+        return teamMemberRepository.findByUser_UserIdOrderByIdDesc(userId).stream()
+                .map(this::mapToMyTeamResponse)
                 .collect(Collectors.toList());
+    }
 
-        return MyTeamResponse.builder()
-                .teamId(team.getTeamId())
-                .eventId(team.getEvent().getEventId())
-                .eventName(team.getEvent().getName())
-                .trackId(team.getTrack() != null ? team.getTrack().getTrackId() : null)
-                .trackName(team.getTrack() != null ? team.getTrack().getName() : null)
-                .name(team.getName())
-                .eventStatus(team.getEvent().getStatus())
-                .trackSelectionMode(team.getEvent().getTrackSelectionMode())
-                .status(team.getStatus())
-                .myRole(membership.getMemberRole())
-                .members(memberInfos)
-                .build();
+    @Transactional(readOnly = true)
+    public List<TeamHistoryResponse> getMyResultHistory(Integer userId) {
+        return teamMemberRepository.findByUser_UserIdOrderByIdDesc(userId).stream()
+                .map(this::mapToTeamHistoryResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public MyTeamResponse getMyTeamByEvent(Integer userId, Integer eventId) {
+        return teamMemberRepository.findByUser_UserIdOrderByIdDesc(userId).stream()
+                .filter(m -> m.getTeam().getEvent().getEventId().equals(eventId))
+                .findFirst()
+                .map(this::mapToMyTeamResponse)
+                .orElseThrow(() -> new ResourceNotFoundException("You are not part of any team in this event."));
     }
 
     // ── Participant: my team history (every event/season I joined) ────
@@ -658,6 +660,108 @@ public class TeamService {
                 .description(team.getDescription())
                 .status(team.getStatus())
                 .createdAt(team.getCreatedAt())
+                .build();
+    }
+
+    private MyTeamResponse mapToMyTeamResponse(TeamMember membership) {
+        Team team = membership.getTeam();
+        List<TeamMember> allMembers = teamMemberRepository.findByTeam_TeamId(team.getTeamId());
+
+        List<MyTeamResponse.TeamMemberInfo> memberInfos = allMembers.stream()
+                .map(m -> MyTeamResponse.TeamMemberInfo.builder()
+                        .userId(m.getUser().getUserId())
+                        .memberName(m.getUser().getFullName())
+                        .email(m.getUser().getEmail())
+                        .studentType(m.getUser().getUserType())
+                        .studentId(m.getUser().getStudentId())
+                        .role(m.getMemberRole())
+                        .joinedAt(m.getJoinedAt())
+                        .build())
+                .collect(Collectors.toList());
+
+        return MyTeamResponse.builder()
+                .teamId(team.getTeamId())
+                .eventId(team.getEvent().getEventId())
+                .eventName(team.getEvent().getName())
+                .trackId(team.getTrack() != null ? team.getTrack().getTrackId() : null)
+                .trackName(team.getTrack() != null ? team.getTrack().getName() : null)
+                .name(team.getName())
+                .eventStatus(team.getEvent().getStatus())
+                .trackSelectionMode(team.getEvent().getTrackSelectionMode())
+                .status(team.getStatus())
+                .myRole(membership.getMemberRole())
+                .members(memberInfos)
+                .build();
+    }
+
+    private TeamHistoryResponse mapToTeamHistoryResponse(TeamMember membership) {
+        Team team = membership.getTeam();
+        HackathonEvent event = team.getEvent();
+
+        List<TeamHistoryResponse.MemberInfo> memberInfos = teamMemberRepository.findByTeam_TeamId(team.getTeamId()).stream()
+                .map(m -> TeamHistoryResponse.MemberInfo.builder()
+                        .fullName(m.getUser().getFullName())
+                        .role(m.getMemberRole())
+                        .build())
+                .collect(Collectors.toList());
+
+        List<TeamHistoryResponse.RoundInfo> roundInfos = roundResultRepository
+                .findAllByTeamIdOrderByRoundOrder(team.getTeamId()).stream()
+                .map(result -> {
+                    Round round = result.getRound();
+                    Integer topNAdvance = round.getTopNAdvance();
+                    boolean advanced = topNAdvance != null && result.getRankPosition() != null
+                            && result.getRankPosition() <= topNAdvance;
+
+                    return TeamHistoryResponse.RoundInfo.builder()
+                            .roundName(round.getName())
+                            .isFinal(round.getIsFinal())
+                            .rankPosition(result.getRankPosition())
+                            .advanced(advanced)
+                            .totalScore(result.getTotalScore())
+                            .build();
+                })
+                .collect(Collectors.toList());
+
+        List<Submission> submissions = new ArrayList<>(submissionRepository.findAllByTeam_TeamId(team.getTeamId()));
+        submissions.sort((a, b) -> Integer.compare(
+                a.getRound().getOrderNumber() != null ? a.getRound().getOrderNumber() : 0,
+                b.getRound().getOrderNumber() != null ? b.getRound().getOrderNumber() : 0));
+
+        List<TeamHistoryResponse.SubmissionInfo> submissionInfos = submissions.stream()
+                .map(submission -> TeamHistoryResponse.SubmissionInfo.builder()
+                        .roundName(submission.getRound().getName())
+                        .repoUrl(submission.getRepoUrl())
+                        .demoUrl(submission.getDemoUrl())
+                        .slideUrl(submission.getSlideUrl())
+                        .submittedAt(submission.getSubmittedAt())
+                        .status(submission.getStatus())
+                        .build())
+                .collect(Collectors.toList());
+
+        Prize prize = prizeRepository.findFirstByTeam_TeamIdAndAwardedAtIsNotNullOrderByRankPositionAsc(team.getTeamId())
+                .orElse(null);
+        TeamHistoryResponse.PrizeInfo prizeInfo = prize == null ? null : TeamHistoryResponse.PrizeInfo.builder()
+                .name(prize.getName())
+                .rankPosition(prize.getRankPosition())
+                .awardedAt(prize.getAwardedAt())
+                .build();
+
+        return TeamHistoryResponse.builder()
+                .eventId(event.getEventId())
+                .eventName(event.getName())
+                .season(event.getSeason())
+                .year(event.getYear())
+                .eventStatus(event.getStatus())
+                .teamId(team.getTeamId())
+                .teamName(team.getName())
+                .trackName(team.getTrack() != null ? team.getTrack().getName() : null)
+                .teamStatus(team.getStatus())
+                .myRole(membership.getMemberRole())
+                .members(memberInfos)
+                .rounds(roundInfos)
+                .submissions(submissionInfos)
+                .prize(prizeInfo)
                 .build();
     }
 

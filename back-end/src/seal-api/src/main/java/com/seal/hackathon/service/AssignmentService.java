@@ -6,8 +6,10 @@ import com.seal.hackathon.dto.request.CreateGuestJudgeRequest;
 import com.seal.hackathon.dto.response.JudgeAssignmentResponse;
 import com.seal.hackathon.dto.response.JudgeRosterItemResponse;
 import com.seal.hackathon.dto.response.MentorAssignmentResponse;
+import com.seal.hackathon.dto.response.MentorHistoryResponse;
 import com.seal.hackathon.dto.response.MentorRosterItemResponse;
 import com.seal.hackathon.dto.response.UserResponse;
+import com.seal.hackathon.entity.HackathonEvent;
 import com.seal.hackathon.entity.JudgeAssignment;
 import com.seal.hackathon.entity.MentorAssignment;
 import com.seal.hackathon.entity.Role;
@@ -89,7 +91,6 @@ public class AssignmentService {
         return userRepository.findAll().stream()
                 .filter(u -> "STAFF".equalsIgnoreCase(u.getUserType()))
                 .filter(u -> Boolean.TRUE.equals(u.getIsApproved()))
-                .filter(u -> Boolean.TRUE.equals(u.getIsActive()))
                 .map(u -> UserResponse.builder()
                         .userId(u.getUserId())
                         .email(u.getEmail())
@@ -150,8 +151,8 @@ public class AssignmentService {
     }
 
     /**
-     * Read-only mentor history: every event the mentor was assigned to, grouped by the
-     * track(s) they mentored, with each approved team's final standing and prize.
+     * Read-only mentor history: every event the mentor was assigned to, grouped by
+     * the track(s) they mentored, with each approved team's final standing and prize.
      */
     @Transactional(readOnly = true)
     public List<MentorHistoryResponse> getMentorHistory(Integer userId) {
@@ -164,18 +165,20 @@ public class AssignmentService {
         }
 
         List<MentorHistoryResponse> result = new ArrayList<>();
-        for (List<MentorAssignment> evAssignments : byEvent.values()) {
-            HackathonEvent event = evAssignments.get(0).getTrack().getEvent();
+        for (List<MentorAssignment> eventAssignments : byEvent.values()) {
+            HackathonEvent event = eventAssignments.get(0).getTrack().getEvent();
 
             Round finalRound = roundRepository.findFirstByEvent_EventIdAndIsFinalTrue(event.getEventId()).orElse(null);
             Map<Integer, String> prizeByTeam = prizeRepository
                     .findAllByEvent_EventIdAndAwardedAtIsNotNullOrderByRankPosition(event.getEventId()).stream()
-                    .filter(p -> p.getTeam() != null)
-                    .collect(Collectors.toMap(p -> p.getTeam().getTeamId(), p -> p.getName(), (a, b) -> a));
+                    .filter(prize -> prize.getTeam() != null)
+                    .collect(Collectors.toMap(
+                            prize -> prize.getTeam().getTeamId(),
+                            prize -> prize.getName(),
+                            (first, ignored) -> first));
 
-            // Distinct tracks the mentor covered in this event.
             Map<Integer, Track> distinctTracks = new LinkedHashMap<>();
-            for (MentorAssignment ma : evAssignments) {
+            for (MentorAssignment ma : eventAssignments) {
                 distinctTracks.putIfAbsent(ma.getTrack().getTrackId(), ma.getTrack());
             }
 
@@ -185,10 +188,11 @@ public class AssignmentService {
                         .findAllByTrack_TrackIdAndStatus(track.getTrackId(), "APPROVED").stream()
                         .map(team -> {
                             Integer finalRank = finalRound == null ? null : roundResultRepository
-                                    .findByTeam_TeamIdAndRound_RoundId(team.getTeamId(), finalRound.getRoundId())
-                                    .filter(r -> Boolean.TRUE.equals(r.getIsPublished()))
-                                    .map(r -> r.getRankPosition())
-                                    .orElse(null);
+                        .findByTeam_TeamIdAndRound_RoundId(team.getTeamId(), finalRound.getRoundId())
+                        .filter(resultRow -> Boolean.TRUE.equals(resultRow.getIsPublished()))
+                        .map(resultRow -> resultRow.getRankPosition())
+                        .orElse(null);
+
                             return MentorHistoryResponse.TeamResult.builder()
                                     .teamId(team.getTeamId())
                                     .teamName(team.getName())

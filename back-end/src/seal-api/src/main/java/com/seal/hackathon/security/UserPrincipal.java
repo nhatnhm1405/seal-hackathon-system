@@ -32,7 +32,7 @@ public class UserPrincipal implements UserDetails, OAuth2User {
     private final String password;
     private final String userType;
     private final boolean approved;
-    private final boolean active;
+    private final boolean isActive;
     private final Collection<? extends GrantedAuthority> authorities;
 
     // Chứa attributes từ Google/GitHub; rỗng với local login
@@ -54,7 +54,7 @@ public class UserPrincipal implements UserDetails, OAuth2User {
         this.password    = user.getPasswordHash() != null ? user.getPasswordHash() : "";
         this.userType    = user.getUserType();
         this.approved    = Boolean.TRUE.equals(user.getIsApproved());
-        this.active      = Boolean.TRUE.equals(user.getIsActive());
+        this.isActive    = Boolean.TRUE.equals(user.getIsActive());
         this.authorities = buildAuthorities(user);
         this.attributes  = attributes;
     }
@@ -80,7 +80,7 @@ public class UserPrincipal implements UserDetails, OAuth2User {
 
     @Override
     public boolean isEnabled() {
-        return active;
+        return true;
     }
 
     @Override

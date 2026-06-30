@@ -1,7 +1,7 @@
 -- =====================================================
 -- SEAL Hackathon Management System
 -- MySQL DDL Script  (idempotent — safe to re-run)
--- 26 tables
+-- 28 tables
 --
 -- CHANGELOG (assignment redesign):
 --   - Removed TeamAssignment (duplicate + wrong business unit).
@@ -80,13 +80,49 @@ CREATE TABLE `User` (
   university    VARCHAR(255)          COMMENT 'For external students only',
   judge_type    VARCHAR(20)           COMMENT 'INTERNAL or GUEST — only set for users who act as judges; NULL otherwise',
   is_approved   BOOLEAN      NOT NULL DEFAULT FALSE,
-  is_active     BOOLEAN      NOT NULL DEFAULT TRUE,
+  is_active     BOOLEAN      NOT NULL DEFAULT TRUE COMMENT 'FALSE = participant read-only, TRUE = writable/active',
   created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   expired_at    DATETIME              COMMENT 'Account expiry (set manually), e.g. guest judge valid until event end. NULL = never expires',
   PRIMARY KEY (user_id),
   UNIQUE KEY uq_email (email),
   KEY idx_user_type (user_type),
   KEY idx_user_provider (provider, provider_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE ParticipationAccessRequest (
+  request_id    INT          NOT NULL AUTO_INCREMENT,
+  user_id       INT          NOT NULL,
+  email         VARCHAR(255) NOT NULL,
+  status        VARCHAR(20)  NOT NULL DEFAULT 'PENDING' COMMENT 'PENDING, APPROVED, REJECTED',
+  requested_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  resolved_at   DATETIME              NULL,
+  resolved_by   INT                   NULL,
+  PRIMARY KEY (request_id),
+  KEY idx_participation_access_status (status, requested_at),
+  KEY idx_participation_access_user_status (user_id, status),
+  CONSTRAINT fk_participation_access_user
+    FOREIGN KEY (user_id) REFERENCES `User`(user_id)
+    ON DELETE CASCADE,
+  CONSTRAINT fk_participation_access_resolved_by
+    FOREIGN KEY (resolved_by) REFERENCES `User`(user_id)
+    ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE PasswordResetOtp (
+  id               BIGINT       NOT NULL AUTO_INCREMENT,
+  user_id          INT          NOT NULL,
+  otp_hash         VARCHAR(255) NOT NULL COMMENT 'PasswordEncoder hash of the 6-digit OTP',
+  reset_token_hash VARCHAR(255)          COMMENT 'SHA-256 hash of the temporary token issued after OTP verification',
+  expires_at       DATETIME     NOT NULL,
+  verified_at      DATETIME,
+  used_at          DATETIME,
+  attempt_count    INT          NOT NULL DEFAULT 0,
+  created_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_password_reset_token_hash (reset_token_hash),
+  KEY idx_password_reset_user_active (user_id, used_at, created_at),
+  KEY idx_password_reset_expires_at (expires_at),
+  CONSTRAINT fk_password_reset_otp_user FOREIGN KEY (user_id) REFERENCES `User` (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- =====================================================

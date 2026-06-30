@@ -141,8 +141,15 @@ public class SubmissionService {
                 .filter(m -> m.getTeam().getEvent().getEventId()
                         .equals(round.getEvent().getEventId()))
                 .findFirst()
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "You are not part of any team in this event."));
+                .orElse(null);
+        if (membership == null) {
+            membership = teamMemberRepository.findByUser_UserIdOrderByIdDesc(userId).stream()
+                    .filter(m -> m.getTeam().getEvent().getEventId()
+                            .equals(round.getEvent().getEventId()))
+                    .findFirst()
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "You are not part of any team in this event."));
+        }
 
         Submission submission = submissionRepository
                 .findByTeam_TeamIdAndRound_RoundId(membership.getTeam().getTeamId(), roundId)
