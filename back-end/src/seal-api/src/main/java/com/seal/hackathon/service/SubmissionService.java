@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -31,7 +32,9 @@ public class SubmissionService {
     private final SubmissionRepository submissionRepository;
     private final TeamMemberRepository teamMemberRepository;
     private final RoundRepository roundRepository;
+    private final RoundResultRepository resultRepository;
     private final UserRepository userRepository;
+    private final RoundTimerService roundTimerService;
 
     // ── Participant: submit or update submission ──────────────────────
 
@@ -52,6 +55,11 @@ public class SubmissionService {
             throw new BadRequestException("Submissions are only accepted for ACTIVE or OPEN rounds.");
         }
 
+        // Hard gate: if a CONTEST countdown is configured for this round, it must be
+        // running (not paused/stopped/expired). Rounds without a timer keep the
+        // legacy behavior (late = allowed but flagged LATE below).
+        roundTimerService.assertContestOpen(round.getRoundId());
+
         // Find the user's team in this event
         List<TeamMember> memberships = teamMemberRepository
                 .findByUser_UserIdAndTeam_Event_StatusIn(userId,
@@ -70,6 +78,26 @@ public class SubmissionService {
         if (!"LEADER".equalsIgnoreCase(membership.getMemberRole())) {
             throw new ForbiddenException("Only the team leader can submit or update a submission.");
         }
+
+        // Advancement gate: a team eliminated in the preceding round (outside its
+        // track's Top N) cannot submit to this one. Only enforced once the previous
+        // round is FINALIZED and has a cut-off; no cut-off (null) means no elimination.
+        roundRepository.findAllByEvent_EventIdOrderByOrderNumber(round.getEvent().getEventId()).stream()
+                .filter(r -> r.getOrderNumber() < round.getOrderNumber())
+                .max(Comparator.comparingInt(Round::getOrderNumber))
+                .ifPresent(prev -> {
+                    Integer cutoff = prev.getTopNAdvance();
+                    if ("FINALIZED".equalsIgnoreCase(prev.getStatus()) && cutoff != null) {
+                        boolean advanced = resultRepository
+                                .findByTeam_TeamIdAndRound_RoundId(team.getTeamId(), prev.getRoundId())
+                                .map(rr -> rr.getRankPosition() <= cutoff)
+                                .orElse(false);
+                        if (!advanced) {
+                            throw new BadRequestException("Your team did not advance from \""
+                                    + prev.getName() + "\" and cannot submit to this round.");
+                        }
+                    }
+                });
 
         LocalDateTime now = LocalDateTime.now();
         if (round.getSubmissionDeadline() != null && now.isAfter(round.getSubmissionDeadline())) {

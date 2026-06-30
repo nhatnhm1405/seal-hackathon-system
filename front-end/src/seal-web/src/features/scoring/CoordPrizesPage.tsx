@@ -66,6 +66,8 @@ export function CoordPrizesPage() {
 
   useEffect(() => {
     setLoading(true);
+    setLoadError(null);
+
     eventsApi.getAll()
       .then((response) => {
         const loaded = response.data ?? [];
@@ -142,6 +144,7 @@ export function CoordPrizesPage() {
 
     const lastPrize = sortedPrizes[sortedPrizes.length - 1];
     const nextRank = (lastPrize?.rankPosition ?? 0) + 1;
+
     run(() => prizesApi.create(selectedEventId, { name: `Prize #${nextRank}`, rankPosition: nextRank }), "Slot added.");
   }
 
@@ -251,7 +254,7 @@ export function CoordPrizesPage() {
           <label style={{ display: "block", color: C.greenMuted, fontFamily: mono, fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>
             Event
           </label>
-          <select value={selectedEventId ?? 0} onChange={(event) => setSelectedEventId(Number(event.target.value) || null)} style={selectStyle}>
+          <select value={selectedEventId ?? 0} onChange={(event) => setSelectedEventId(Number(event.target.value) || null)} style={selectStyle} disabled={loading || busy}>
             {events.length === 0 && <option value={0}>No events</option>}
             {events.map((event) => (
               <option key={event.eventId} value={event.eventId}>

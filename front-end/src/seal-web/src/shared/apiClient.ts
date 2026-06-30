@@ -873,6 +873,9 @@ export const teamsApi = {
   getActiveEvents: () =>
     apiFetch<ApiResponse<ActiveEventWithTracks[]>>('/api/teams/active-events'),
 
+  getMyHistory: () =>
+    apiFetch<ApiResponse<TeamHistoryEntry[]>>('/api/teams/my/history'),
+
   create: (payload: CreateTeamPayload) =>
     apiFetch<ApiResponse<Team>>('/api/teams', {
       method: 'POST',

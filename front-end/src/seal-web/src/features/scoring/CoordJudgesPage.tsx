@@ -188,7 +188,6 @@ export function CoordJudgesPage() {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 12 }}>
         <div>
           <h1 style={{ fontFamily: mono, fontSize: 28, fontWeight: 800 }}><GradientText>Assignments</GradientText></h1>
-          <p style={{ color: C.textMuted, fontFamily: mono, fontSize: 12, marginTop: 4 }}>Mentor theo hạng mục · Judge theo vòng × hạng mục</p>
         </div>
         <div>
           <label style={{ color: C.greenMuted, fontFamily: mono, fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase" }}>Event</label>

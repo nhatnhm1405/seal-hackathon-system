@@ -5,6 +5,13 @@ import { ApiError, assignmentsApi, MentorHistoryEntry } from "@/shared/apiClient
 const mono = "'JetBrains Mono', monospace";
 const PRIZE_COLOR = "#FFD24A";
 
+function eventStatusColor(status?: string): "green" | "gray" | "yellow" | "red" {
+  if (status === "COMPLETED") return "gray";
+  if (status === "CANCELLED") return "red";
+  if (status === "DRAFT" || status === "SETUP") return "yellow";
+  return "green";
+}
+
 export function MentorHistoryPage() {
   const [entries, setEntries] = useState<MentorHistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,8 +61,9 @@ export function MentorHistoryPage() {
         </PixelCard>
       ) : (
         entries.map((entry) => {
+          const tracks = entry.tracks ?? [];
           const isOpen = open.has(entry.eventId);
-          const teamCount = entry.tracks.reduce((total, track) => total + track.teams.length, 0);
+          const teamCount = tracks.reduce((total, track) => total + (track.teams ?? []).length, 0);
           const seasonLabel = (entry.season ?? "-").slice(0, 3);
 
           return (
@@ -78,11 +86,11 @@ export function MentorHistoryPage() {
                     {entry.eventName}
                   </div>
                   <div style={{ fontFamily: mono, fontSize: 11, color: C.textMuted, marginTop: 5 }}>
-                    {entry.tracks.length} track{entry.tracks.length === 1 ? "" : "s"} - {teamCount} team{teamCount === 1 ? "" : "s"} mentored
+                    {tracks.length} track{tracks.length === 1 ? "" : "s"} - {teamCount} team{teamCount === 1 ? "" : "s"} mentored
                   </div>
                 </div>
 
-                <PixelBadge color={entry.eventStatus === "COMPLETED" ? "gray" : "green"}>
+                <PixelBadge color={eventStatusColor(entry.eventStatus)}>
                   {entry.eventStatus}
                 </PixelBadge>
                 <span style={{ color: C.textMuted, fontFamily: mono, fontSize: 14 }}>
@@ -92,47 +100,55 @@ export function MentorHistoryPage() {
 
               {isOpen && (
                 <div style={{ padding: 18, display: "flex", flexDirection: "column", gap: 18 }}>
-                  {entry.tracks.map((track) => (
-                    <section key={track.trackId}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-                        <span style={{ width: 5, height: 18, background: C.green }} />
-                        <span style={{ fontFamily: mono, fontSize: 14, fontWeight: 800, color: C.text, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                          {track.trackName}
-                        </span>
-                      </div>
+                  {tracks.length === 0 ? (
+                    <div style={{ color: C.textMuted, fontFamily: mono, fontSize: 12 }}>
+                      No track data.
+                    </div>
+                  ) : tracks.map((track) => {
+                    const teams = track.teams ?? [];
 
-                      {track.teams.length === 0 ? (
-                        <div style={{ color: C.textMuted, fontFamily: mono, fontSize: 12 }}>No approved teams.</div>
-                      ) : (
-                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                          {track.teams
-                            .slice()
-                            .sort((a, b) => {
-                              const rankDiff = (a.finalRank ?? Number.MAX_SAFE_INTEGER) - (b.finalRank ?? Number.MAX_SAFE_INTEGER);
-                              return rankDiff !== 0 ? rankDiff : a.teamName.localeCompare(b.teamName);
-                            })
-                            .map((team) => (
-                              <div key={team.teamId} style={{ display: "flex", gap: 12, alignItems: "center", fontFamily: mono, fontSize: 12, flexWrap: "wrap" }}>
-                                <span style={{ color: C.text, minWidth: 170, fontWeight: 600 }}>
-                                  {team.teamName}
-                                </span>
-                                <span style={{ color: C.cyan, minWidth: 80 }}>
-                                  {team.finalRank != null ? `Final #${team.finalRank}` : "-"}
-                                </span>
-                                {team.prizeName && (
-                                  <span style={{ color: PRIZE_COLOR, fontWeight: 700 }}>
-                                    Prize: {team.prizeName}
-                                  </span>
-                                )}
-                                <PixelBadge color={team.teamStatus === "DISQUALIFIED" ? "red" : "gray"}>
-                                  {team.teamStatus}
-                                </PixelBadge>
-                              </div>
-                            ))}
+                    return (
+                      <section key={track.trackId}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                          <span style={{ width: 5, height: 18, background: C.green }} />
+                          <span style={{ fontFamily: mono, fontSize: 14, fontWeight: 800, color: C.text, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                            {track.trackName}
+                          </span>
                         </div>
-                      )}
-                    </section>
-                  ))}
+
+                        {teams.length === 0 ? (
+                          <div style={{ color: C.textMuted, fontFamily: mono, fontSize: 12 }}>No approved teams.</div>
+                        ) : (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                            {teams
+                              .slice()
+                              .sort((a, b) => {
+                                const rankDiff = (a.finalRank ?? Number.MAX_SAFE_INTEGER) - (b.finalRank ?? Number.MAX_SAFE_INTEGER);
+                                return rankDiff !== 0 ? rankDiff : a.teamName.localeCompare(b.teamName);
+                              })
+                              .map((team) => (
+                                <div key={team.teamId} style={{ display: "flex", gap: 12, alignItems: "center", fontFamily: mono, fontSize: 12, flexWrap: "wrap" }}>
+                                  <span style={{ color: C.text, minWidth: 170, fontWeight: 600 }}>
+                                    {team.teamName}
+                                  </span>
+                                  <span style={{ color: C.cyan, minWidth: 80 }}>
+                                    {team.finalRank != null ? `Final #${team.finalRank}` : "-"}
+                                  </span>
+                                  {team.prizeName && (
+                                    <span style={{ color: PRIZE_COLOR, fontWeight: 700 }}>
+                                      Prize: {team.prizeName}
+                                    </span>
+                                  )}
+                                  <PixelBadge color={team.teamStatus === "DISQUALIFIED" ? "red" : "gray"}>
+                                    {team.teamStatus}
+                                  </PixelBadge>
+                                </div>
+                              ))}
+                          </div>
+                        )}
+                      </section>
+                    );
+                  })}
                 </div>
               )}
             </PixelCard>

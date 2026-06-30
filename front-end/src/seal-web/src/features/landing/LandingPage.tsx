@@ -200,6 +200,14 @@ const features = [
   { title: "Announcements & Alerts", desc: "Instant alerts the moment anything changes.", accent: C.green },
 ];
 
+// Smooth-scroll to a section on the landing page. Used by the "Event
+// Registration" CTAs to drop visitors at the live Events list (role-agnostic —
+// works the same whether or not they're logged in).
+function scrollToLandingSection(id: string) {
+  const el = document.querySelector(id);
+  if (el) el.scrollIntoView({ behavior: "smooth" });
+}
+
 const NAV_LINKS = [
   { label: "Home", href: "#hero" },
   { label: "About", href: "#features" },
@@ -336,6 +344,9 @@ function NavBar({ navigate }: { navigate: (p: Page) => void }) {
 
 function HeroSection({ navigate, data }: { navigate: (p: Page) => void; data: LandingData }) {
   const leaderColors = [C.green, C.blue, C.cyan];
+  // Logged-in visitors already have a session — send them straight into the app
+  // instead of bouncing them through the login/register screens.
+  const { isAuthenticated } = useAuth();
   return (
     <section
       id="hero"
@@ -391,8 +402,8 @@ function HeroSection({ navigate, data }: { navigate: (p: Page) => void; data: La
           </div>
 
           <div className="flex flex-wrap gap-3">
-            <PixelButton variant="cyber" size="lg" onClick={() => navigate("auth")}>GET STARTED FREE</PixelButton>
-            <PixelButton variant="secondary" size="lg" onClick={() => navigate("register")}>EVENT REGISTRATION</PixelButton>
+            <PixelButton variant="cyber" size="lg" onClick={() => navigate(isAuthenticated ? "dashboard" : "auth")}>{isAuthenticated ? "GO TO DASHBOARD" : "GET STARTED FREE"}</PixelButton>
+            <PixelButton variant="secondary" size="lg" onClick={() => scrollToLandingSection("#events")}>EVENT REGISTRATION</PixelButton>
           </div>
         </div>
 
@@ -1264,6 +1275,9 @@ function InnovationStrip() {
 }
 
 function CTASection({ navigate }: { navigate: (p: Page) => void }) {
+  // Same auth-aware routing as the hero CTAs — no forced re-login for an
+  // already-authenticated visitor.
+  const { isAuthenticated } = useAuth();
   return (
     <section
       style={{
@@ -1293,8 +1307,8 @@ function CTASection({ navigate }: { navigate: (p: Page) => void }) {
           }}
         >
           <div className="flex justify-center gap-3">
-            <PixelButton variant="cyber" size="lg" onClick={() => navigate("register")}>GET STARTED FREE</PixelButton>
-            <PixelButton variant="secondary" size="lg" onClick={() => navigate("register")}>EVENT REGISTRATION</PixelButton>
+            <PixelButton variant="cyber" size="lg" onClick={() => navigate(isAuthenticated ? "dashboard" : "register")}>{isAuthenticated ? "GO TO DASHBOARD" : "GET STARTED FREE"}</PixelButton>
+            <PixelButton variant="secondary" size="lg" onClick={() => scrollToLandingSection("#events")}>EVENT REGISTRATION</PixelButton>
           </div>
           <p style={{ color: "rgba(134,239,172,0.4)", fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginTop: 16, letterSpacing: "0.04em" }}>
             No credit card required · Free forever · Open source

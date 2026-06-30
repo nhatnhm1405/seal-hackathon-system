@@ -188,10 +188,10 @@ public class AssignmentService {
                         .findAllByTrack_TrackIdAndStatus(track.getTrackId(), "APPROVED").stream()
                         .map(team -> {
                             Integer finalRank = finalRound == null ? null : roundResultRepository
-                                                                            .findByTeam_TeamIdAndRound_RoundId(team.getTeamId(), finalRound.getRoundId())
-                                                                            .filter(resultRow -> Boolean.TRUE.equals(resultRow.getIsPublished()))
-                                                                            .map(resultRow -> resultRow.getRankPosition())
-                                                                            .orElse(null);
+                        .findByTeam_TeamIdAndRound_RoundId(team.getTeamId(), finalRound.getRoundId())
+                        .filter(resultRow -> Boolean.TRUE.equals(resultRow.getIsPublished()))
+                        .map(resultRow -> resultRow.getRankPosition())
+                        .orElse(null);
 
                             return MentorHistoryResponse.TeamResult.builder()
                                     .teamId(team.getTeamId())

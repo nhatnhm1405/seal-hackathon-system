@@ -321,15 +321,18 @@ export function CoordScoringPage() {
                     {g.rows.map((r, i) => {
                       const next = g.rows[i + 1];
                       const showCutLine = r.advanced && next != null && !next.advanced;
+                      // Non-final rounds eliminate teams outside their track's Top N.
+                      // Eliminated rows are dimmed (faded back), not painted bright red.
+                      const eliminated = !isFinalRound && topN != null && !r.advanced;
                       return (
                       <Fragment key={r.resultId}>
-                      <tr style={{ borderBottom: `1px solid rgba(34,197,94,0.06)`, background: r.advanced ? "rgba(34,197,94,0.07)" : i % 2 === 0 ? C.surface : C.surface2 }}>
-                        <td style={{ color: C.cyan, fontSize: 14, fontWeight: 700, padding: "12px 14px" }}>#{r.rankPosition}</td>
+                      <tr style={{ borderBottom: `1px solid rgba(34,197,94,0.06)`, background: eliminated ? "rgba(239,68,68,0.04)" : r.advanced ? "rgba(34,197,94,0.07)" : i % 2 === 0 ? C.surface : C.surface2, opacity: eliminated ? 0.5 : 1 }}>
+                        <td style={{ color: eliminated ? C.textMuted : C.cyan, fontSize: 14, fontWeight: 700, padding: "12px 14px" }}>#{r.rankPosition}</td>
                         <td style={{ color: C.text, fontSize: 13, padding: "12px 14px" }}>{r.teamName}</td>
                         <td style={{ color: C.textMuted, fontSize: 11, padding: "12px 14px" }}>{r.trackName ?? "—"}</td>
                         <td style={{ color: C.green, fontSize: 14, fontWeight: 700, padding: "12px 14px" }}>{Number(r.totalScore).toFixed(1)}</td>
                         <td style={{ padding: "12px 14px" }}>
-                          <PixelBadge color={r.advanced ? "green" : "gray"}>{r.advanced ? (isFinalRound ? "WINNER" : "ADVANCED") : "—"}</PixelBadge>
+                          <PixelBadge color={r.advanced ? "green" : "gray"}>{r.advanced ? (isFinalRound ? "WINNER" : "ADVANCED") : eliminated ? "ELIMINATED" : "—"}</PixelBadge>
                         </td>
                       </tr>
                       {showCutLine && (

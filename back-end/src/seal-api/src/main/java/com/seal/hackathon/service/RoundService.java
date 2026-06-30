@@ -96,7 +96,9 @@ public class RoundService {
         if (request.getSubmissionDeadline() != null) {
             round.setSubmissionDeadline(request.getSubmissionDeadline());
         }
-        if (request.getTopNAdvance() != null) {
+        if (Boolean.TRUE.equals(request.getClearTopNAdvance())) {
+            round.setTopNAdvance(null); // remove the cut-off entirely (no elimination)
+        } else if (request.getTopNAdvance() != null) {
             round.setTopNAdvance(request.getTopNAdvance());
         }
         if (request.getIsFinal() != null) {

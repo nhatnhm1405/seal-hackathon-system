@@ -56,7 +56,7 @@ export function HistoryPage() {
   const [entries, setEntries] = useState<TeamHistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [open, setOpen] = useState<Set<number>>(new Set());
+  const [open, setOpen] = useState<Set<string>>(new Set());
   const [certificate, setCertificate] = useState<TeamHistoryEntry | null>(null);
 
   useEffect(() => {
@@ -66,10 +66,10 @@ export function HistoryPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  const toggle = (teamId: number) =>
+  const toggle = (key: string) =>
     setOpen((previous) => {
       const next = new Set(previous);
-      next.has(teamId) ? next.delete(teamId) : next.add(teamId);
+      next.has(key) ? next.delete(key) : next.add(key);
       return next;
     });
 
@@ -103,7 +103,8 @@ export function HistoryPage() {
       ) : (
         entries.map((entry) => {
           const summary = standing(entry);
-          const isOpen = open.has(entry.teamId);
+          const entryKey = `${entry.eventId}-${entry.teamId}`;
+          const isOpen = open.has(entryKey);
           const rounds = entry.rounds ?? [];
           const submissions = entry.submissions ?? [];
           const members = entry.members ?? [];
@@ -112,9 +113,9 @@ export function HistoryPage() {
           const seasonLabel = (entry.season ?? "-").slice(0, 3);
 
           return (
-            <PixelCard key={`${entry.eventId}-${entry.teamId}`} glow gradient style={{ padding: 0, overflow: "hidden", borderLeft: `4px solid ${summary.color}` }}>
+            <PixelCard key={entryKey} glow gradient style={{ padding: 0, overflow: "hidden", borderLeft: `4px solid ${summary.color}` }}>
               <div
-                onClick={() => toggle(entry.teamId)}
+                onClick={() => toggle(entryKey)}
                 style={{ padding: "16px 18px", display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap", cursor: "pointer", borderBottom: isOpen ? `1px solid ${C.border}` : "none" }}
               >
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minWidth: 64, padding: "6px 8px", background: C.surface2, border: `1px solid ${C.border}` }}>
@@ -142,6 +143,7 @@ export function HistoryPage() {
 
                 {completed && (
                   <button
+                    type="button"
                     onClick={(event) => {
                       event.stopPropagation();
                       setCertificate(entry);

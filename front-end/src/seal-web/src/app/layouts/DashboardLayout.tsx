@@ -44,9 +44,9 @@ function buildNav(role: string, isLeader: boolean, teamId: number | null, pendin
         { path: "/dashboard", label: "Dashboard" },
         { path: "/team/view", label: "My Team" },
         { path: "/team/submit", label: "Submit Project" },
-        { path: "/leaderboard", label: "Leaderboard" },
-        { path: "/history", label: "History" },
-        { path: "/profile", label: "Profile" },
+        { path: "/leaderboard", label: "Leaderboard"    },
+        { path: "/history",     label: "History"        },
+        { path: "/profile",     label: "Profile"        },
       ];
     }
     return [
@@ -59,11 +59,11 @@ function buildNav(role: string, isLeader: boolean, teamId: number | null, pendin
   }
   if (role === "MENTOR") {
     return [
-      { path: "/dashboard", label: "Dashboard" },
-      { path: "/mentor/tracks", label: "My Tracks" },
-      { path: "/mentor/history", label: "History" },
-      { path: "/leaderboard", label: "Leaderboard" },
-      { path: "/profile", label: "Profile" },
+      { path: "/dashboard",     label: "Dashboard"  },
+      { path: "/mentor/tracks", label: "My Tracks"  },
+      { path: "/mentor/history",label: "History"    },
+      { path: "/leaderboard",   label: "Leaderboard"},
+      { path: "/profile",       label: "Profile"    },
     ];
   }
   if (role === "JUDGE") {
@@ -76,24 +76,24 @@ function buildNav(role: string, isLeader: boolean, teamId: number | null, pendin
   }
   if (role === "ADMIN") {
     return [
-      { path: "/dashboard", label: "Dashboard" },
-      { path: "/admin/events", label: "Events" },
-      { path: "/admin/accounts", label: "Accounts" },
-      { path: "/admin/roles", label: "Role Grants" },
-      { path: "/admin/logs", label: "System Logs" },
-      { path: "/profile", label: "Profile" },
+      { path: "/dashboard",       label: "Dashboard"   },
+      { path: "/admin/events",    label: "Events"      },
+      { path: "/admin/accounts",  label: "Accounts"    },
+      { path: "/admin/roles",     label: "Role Grants" },
+      { path: "/admin/logs",      label: "System Logs" },
+      { path: "/profile",         label: "Profile"     },
     ];
   }
   if (role === "COORDINATOR") {
     return [
-      { path: "/dashboard", label: "Dashboard" },
-      { path: "/coordinator/events", label: "Events" },
-      { path: "/coordinator/accounts", label: "Accounts", badge: pendingCount },
-      { path: "/coordinator/teams", label: "Teams" },
-      { path: "/coordinator/judges", label: "Assignments" },
-      { path: "/coordinator/scoring", label: "Scoring & Results" },
-      { path: "/coordinator/prizes", label: "Awards" },
-      { path: "/profile", label: "Profile" },
+      { path: "/dashboard",             label: "Dashboard"         },
+      { path: "/coordinator/events",    label: "Events"            },
+      { path: "/coordinator/accounts",  label: "Accounts", badge: pendingCount },
+      { path: "/coordinator/teams",     label: "Teams"             },
+      { path: "/coordinator/judges",    label: "Assignments"       },
+      { path: "/coordinator/scoring",   label: "Scoring & Results" },
+      { path: "/coordinator/prizes",    label: "Awards"            },
+      { path: "/profile",               label: "Profile"           },
     ];
   }
   return [{ path: "/dashboard", label: "Dashboard" }];
@@ -123,6 +123,7 @@ function getPageTitle(pathname: string): string {
     "/team/view": "My Team",
     "/team/manage": "My Team",
     "/team/submit": "Submit Project",
+    "/history": "History",
     "/mentor/tracks": "My Tracks",
     "/mentor/history": "Mentoring History",
     "/judge/score": "Score Submissions",

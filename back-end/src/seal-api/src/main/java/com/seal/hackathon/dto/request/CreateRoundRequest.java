@@ -1,5 +1,6 @@
 package com.seal.hackathon.dto.request;
 
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
@@ -23,6 +24,7 @@ public class CreateRoundRequest {
     @NotNull(message = "Submission deadline is required")
     private LocalDateTime submissionDeadline;
 
+    @Min(value = 1, message = "Top N advance must be at least 1")
     private Integer topNAdvance;
 
     // TRUE = final round (judges score all teams, no per-track split)

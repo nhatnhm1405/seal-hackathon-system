@@ -6,7 +6,7 @@ import {
   C, GradientText, PixelCard, PixelButton, PixelBadge, PixelInput,
 } from "@/shared/components/PixelComponents";
 import { teamsApi, invitesApi, joinRequestsApi, ApiError, apiErrorMessage, MyTeam, MyTeamMember, UserItem, JoinRequest } from "@/shared/apiClient";
-import { isTeamEditable, teamLockReason, MIN_TEAM_SIZE, MAX_TEAM_SIZE } from "@/shared/teamPhase";
+import { isTeamEditable, MIN_TEAM_SIZE, MAX_TEAM_SIZE } from "@/shared/teamPhase";
 
 function statusBadgeColor(status?: string): "green" | "yellow" | "red" | "gray" {
   const s = (status ?? "").toUpperCase();

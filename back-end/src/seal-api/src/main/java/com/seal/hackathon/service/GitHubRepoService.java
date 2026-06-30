@@ -62,8 +62,8 @@ public class GitHubRepoService {
             return RepoDigest.builder()
                     .analyzed(false)
                     .note(isBlank(repoUrl)
-                            ? "Bài nộp không có link repository."
-                            : "Link repo không phải GitHub nên AI bỏ qua phần phân tích mã nguồn.")
+                            ? "The submission has no repository link."
+                            : "The repo link is not a GitHub URL, so the AI skipped source-code analysis.")
                     .build();
         }
 
@@ -79,11 +79,11 @@ public class GitHubRepoService {
             return RepoDigest.builder().analyzed(false).note(describeError(e)).build();
         } catch (Exception e) {
             return RepoDigest.builder().analyzed(false)
-                    .note("Không đọc được repo từ GitHub (" + shorten(e.getMessage()) + ").").build();
+                    .note("Could not read the repo from GitHub (" + shorten(e.getMessage()) + ").").build();
         }
         if (meta == null) {
             return RepoDigest.builder().analyzed(false)
-                    .note("GitHub không trả về dữ liệu cho repo này.").build();
+                    .note("GitHub returned no data for this repo.").build();
         }
 
         String defaultBranch = text(meta, "default_branch", "main");
@@ -342,7 +342,7 @@ public class GitHubRepoService {
         cleaned = HANDLE.matcher(cleaned).replaceAll("[user]");
         cleaned = cleaned.trim();
         if (cleaned.length() > README_MAX_CHARS) {
-            cleaned = cleaned.substring(0, README_MAX_CHARS) + "\n…(đã cắt bớt)";
+            cleaned = cleaned.substring(0, README_MAX_CHARS) + "\n…(truncated)";
         }
         return cleaned;
     }
@@ -353,13 +353,13 @@ public class GitHubRepoService {
                 : e.getResponseHeaders().getFirst("X-RateLimit-Remaining");
         if ((status == 403 || status == 429) && "0".equals(remaining)) {
             return isBlank(token)
-                    ? "Đã chạm giới hạn GitHub API (chưa cấu hình token). Đặt GITHUB_TOKEN trong .env để nâng hạn mức."
-                    : "Đã chạm giới hạn GitHub API. Vui lòng thử lại sau ít phút.";
+                    ? "Hit the GitHub API rate limit (no token configured). Set GITHUB_TOKEN in .env to raise the limit."
+                    : "Hit the GitHub API rate limit. Please try again in a few minutes.";
         }
         return switch (status) {
-            case 404 -> "Repo không tồn tại hoặc ở chế độ private (token hiện tại không truy cập được).";
-            case 401, 403 -> "GitHub từ chối truy cập repo (kiểm tra GITHUB_TOKEN hoặc quyền của token).";
-            default -> "GitHub trả về lỗi " + status + " khi đọc repo.";
+            case 404 -> "The repo does not exist or is private (the current token cannot access it).";
+            case 401, 403 -> "GitHub denied access to the repo (check GITHUB_TOKEN or the token's permissions).";
+            default -> "GitHub returned error " + status + " while reading the repo.";
         };
     }
 
@@ -379,7 +379,7 @@ public class GitHubRepoService {
     }
 
     private static String shorten(String s) {
-        if (s == null) return "không rõ";
+        if (s == null) return "unknown";
         String one = s.replaceAll("\\s+", " ").trim();
         return one.length() <= 120 ? one : one.substring(0, 120) + "…";
     }

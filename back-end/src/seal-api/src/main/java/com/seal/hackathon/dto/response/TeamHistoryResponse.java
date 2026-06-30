@@ -9,12 +9,16 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
+/**
+ * One entry per team the participant has ever been on, across every event/season.
+ * Read-only retrospective: team + members, the team's published per-round standing,
+ * its submissions, and any prize it won. Used by the participant "History" page.
+ */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 public class TeamHistoryResponse {
-
     private Integer eventId;
     private String eventName;
     private String season;

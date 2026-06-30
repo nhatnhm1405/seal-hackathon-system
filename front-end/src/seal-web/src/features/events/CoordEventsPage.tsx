@@ -12,6 +12,7 @@ import {
 } from "@/features/events/eventUtils";
 import { maxTeamsPerTrack, countAssigned, countUnassigned, teamsForTrack, isTrackValid, wouldExceedMax, canCompleteSetup, MIN_TEAMS_PER_TRACK } from "@/features/events/trackStats";
 import { TrackProblemsTab } from "@/features/events/TrackProblemPanel";
+import { ContestTimerPanel } from "@/features/events/ContestTimerPanel";
 import { DndProvider, useDrag, useDrop } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 
@@ -308,7 +309,7 @@ export function CoordEventsPage() {
   const [rdStart, setRdStart] = useState("");
   const [rdEnd, setRdEnd] = useState("");
   const [rdDeadline, setRdDeadline] = useState("");
-  const [rdTopN, setRdTopN] = useState(3);
+  const [rdTopN, setRdTopN] = useState<number | null>(3); // null = no cut-off (no elimination)
   const [editingRoundId, setEditingRoundId] = useState<number | null>(null);
 
   // Criteria form
@@ -757,7 +758,7 @@ export function CoordEventsPage() {
           startTime: rdStart || undefined,
           endTime: rdEnd || undefined,
           submissionDeadline: rdDeadline || undefined,
-          topNAdvance: rdTopN,
+          topNAdvance: rdTopN ?? undefined, // omit → round created with no cut-off
         }),
       });
       setRounds(prev => [...prev, normalizeRound(res.data)].sort((a, b) => a.orderNumber - b.orderNumber));
@@ -776,7 +777,7 @@ export function CoordEventsPage() {
     setRdStart(r.startTime ? r.startTime.slice(0, 16) : "");
     setRdEnd(r.endTime ? r.endTime.slice(0, 16) : "");
     setRdDeadline(r.submissionDeadline ? r.submissionDeadline.slice(0, 16) : "");
-    setRdTopN(r.topNAdvance ?? 0);
+    setRdTopN(r.topNAdvance ?? null);
   }
 
   function cancelRoundEdit() {
@@ -801,7 +802,8 @@ export function CoordEventsPage() {
           startTime: rdStart || undefined,
           endTime: rdEnd || undefined,
           submissionDeadline: rdDeadline || undefined,
-          topNAdvance: rdTopN,
+          // null → explicitly clear the cut-off; a number → set it.
+          ...(rdTopN == null ? { clearTopNAdvance: true } : { topNAdvance: rdTopN }),
         }),
       });
       const updated = normalizeRound(res.data);
@@ -1114,6 +1116,7 @@ export function CoordEventsPage() {
               { id: "rounds", label: "Rounds" },
               { id: "problems", label: "Problems" },
               { id: "criteria", label: "Criteria" },
+              { id: "timers", label: "Timers" },
               { id: "audit", label: "Audit" },
             ]}
             active={detailTab}
@@ -1313,7 +1316,7 @@ export function CoordEventsPage() {
                     {`Problem import unlocks once registration closes (event in SETUP). Current: ${selectedEvent.status}.`}
                   </div>
                 ) : (
-                  <TrackProblemsTab eventId={selectedEvent.eventId} canManage={canManageProblems} />
+                  <TrackProblemsTab eventId={selectedEvent.eventId} canManage={canManageProblems} canRelease={selectedEvent.status === 'IN_PROGRESS'} />
                 )}
               </div>
             )}
@@ -1368,7 +1371,7 @@ export function CoordEventsPage() {
                     <PixelInput label="Start" type="datetime-local" value={rdStart} onChange={(e) => setRdStart(e.target.value)} />
                     <PixelInput label="End" type="datetime-local" value={rdEnd} onChange={(e) => setRdEnd(e.target.value)} />
                     <PixelInput label="Deadline" type="datetime-local" value={rdDeadline} onChange={(e) => setRdDeadline(e.target.value)} />
-                    <PixelInput label="Top N" type="number" value={String(rdTopN)} onChange={(e) => setRdTopN(Number(e.target.value))} />
+                    <PixelInput label="Top N" type="number" placeholder="Empty = no cut-off" value={rdTopN == null ? "" : String(rdTopN)} onChange={(e) => setRdTopN(e.target.value === "" ? null : Number(e.target.value))} />
                     {editingRoundId != null ? (
                       <div style={{ display: "flex", gap: 8 }}>
                         <PixelButton variant="cyber" onClick={saveRoundEdit}>SAVE</PixelButton>
@@ -1382,6 +1385,36 @@ export function CoordEventsPage() {
                     Top N = teams advancing <b>per track</b> for normal rounds (each track ranked separately), or <b>overall winners</b> for the Final round (all tracks combined into one ranking).
                   </div>
                 </div>
+              </div>
+            )}
+
+            {detailTab === "timers" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {rounds.length === 0 ? (
+                  <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>Add a round first — timers are configured per round.</div>
+                ) : (
+                  <>
+                    {/* Round selector (same pattern as Criteria) */}
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      {rounds.map(r => {
+                        const active = selectedRoundId === r.roundId;
+                        return (
+                          <button key={r.roundId} onClick={() => setSelectedRoundId(r.roundId)}
+                            style={{
+                              padding: "6px 12px",
+                              background: active ? "rgba(34,197,94,0.12)" : C.surface2,
+                              border: active ? `1px solid ${C.green}` : `1px solid ${C.border}`,
+                              color: active ? C.green : C.textMuted,
+                              fontFamily: "'JetBrains Mono', monospace", fontSize: 11, cursor: "pointer", borderRadius: 0,
+                            }}>
+                            {r.orderNumber}. {r.name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <ContestTimerPanel eventId={selectedEvent.eventId} roundId={selectedRoundId} />
+                  </>
+                )}
               </div>
             )}
 

@@ -1,5 +1,5 @@
 import { createPortal } from "react-dom";
-import { TeamHistoryEntry } from "@/shared/apiClient";
+import type { TeamHistoryEntry } from "@/shared/apiClient";
 import fptLogo from "@/imports/fpt-logo.png";
 
 const MEDAL_COLOR: Record<number, string> = {
@@ -29,11 +29,12 @@ export function CertificateModal({ entry, recipientName, onClose }: Props) {
   const track = entry.trackName ? ` in the ${entry.trackName} track` : "";
   const rounds = entry.rounds ?? [];
   const roundReached = rounds.length > 0 ? rounds[rounds.length - 1].roundName : null;
+  const displayRecipientName = recipientName.trim() || "Participant";
 
   const statement = isAchievement
     ? `for achieving ${prize.name} (Rank #${prize.rankPosition}) with team "${entry.teamName}" at ${entry.eventName}.`
     : `for participating in ${entry.eventName} as ${roleLabel} of team "${entry.teamName}"${track}` +
-    `${roundReached ? `, completing the ${roundReached} round` : ""}.`;
+      `${roundReached ? `, completing the ${roundReached} round` : ""}.`;
 
   return createPortal(
     <div
@@ -73,8 +74,8 @@ export function CertificateModal({ entry, recipientName, onClose }: Props) {
       `}</style>
 
       <div className="no-print-hide" onClick={(event) => event.stopPropagation()} style={{ display: "flex", gap: 10, marginBottom: 14 }}>
-        <button onClick={() => window.print()} style={buttonStyle(accent, true)}>Print / Save as PDF</button>
-        <button onClick={onClose} style={buttonStyle("#6b7280", false)}>Close</button>
+        <button type="button" onClick={() => window.print()} style={buttonStyle(accent, true)}>Print / Save as PDF</button>
+        <button type="button" onClick={onClose} style={buttonStyle("#6b7280", false)}>Close</button>
       </div>
 
       <div
@@ -121,7 +122,7 @@ export function CertificateModal({ entry, recipientName, onClose }: Props) {
           </div>
 
           <div style={{ fontFamily: display, marginTop: 12, fontSize: 56, fontWeight: 700, color: accent, lineHeight: 1.1 }}>
-            {recipientName}
+            {displayRecipientName}
           </div>
 
           <div style={{ width: 60, height: 1, background: "#bbb", margin: "18px 0" }} />

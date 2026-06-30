@@ -1,91 +1,189 @@
-import { useEffect, useMemo, useState } from "react";
-import { ApiError, RoundTimerState, TimerPhase, timersApi } from "@/shared/apiClient";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { timersApi, type RoundTimerState, type TimerPhase, type TimerStatus } from "@/shared/apiClient";
+import { useNotifications } from "@/app/providers/NotificationProvider";
 
-interface UseRoundTimerOptions {
-  fireBanners?: boolean;
-}
+const RESYNC_MS = 20_000;
+const DEFAULT_MILESTONES = [30, 15, 5, 1];
 
-interface UseRoundTimerResult {
+export interface RoundTimerView {
+  status: TimerStatus;
+  remainingSeconds: number;
+  durationSeconds: number;
+  endsAt: string | null;
   isConfigured: boolean;
   isRunning: boolean;
   isPaused: boolean;
-  status: RoundTimerState["status"];
-  remainingSeconds: number;
-  state: RoundTimerState | null;
+  isExpired: boolean;
   loading: boolean;
+  refetch: () => void;
 }
 
-const EMPTY_TIMER: UseRoundTimerResult = {
-  isConfigured: false,
-  isRunning: false,
-  isPaused: false,
-  status: "IDLE",
-  remainingSeconds: 0,
-  state: null,
-  loading: false,
-};
+interface UseRoundTimerOptions {
+  fireBanners?: boolean;
+  enabled?: boolean;
+}
+
+function phaseWord(phase: TimerPhase): string {
+  return phase === "JUDGING" ? "scoring" : "submission";
+}
 
 export function useRoundTimer(
-  eventId: number | null,
-  roundId: number | null,
+  eventId: number | null | undefined,
+  roundId: number | null | undefined,
   phase: TimerPhase,
-  _options: UseRoundTimerOptions = {},
-): UseRoundTimerResult {
+  options: UseRoundTimerOptions = {},
+): RoundTimerView {
+  const { addToast } = useNotifications();
+  const fireBanners = options.fireBanners ?? false;
+  const enabled = (options.enabled ?? true) && eventId != null && roundId != null;
+
   const [state, setState] = useState<RoundTimerState | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState<boolean>(enabled);
+  const [remaining, setRemaining] = useState<number>(0);
+
+  const skewRef = useRef(0);
+  const stateRef = useRef<RoundTimerState | null>(null);
+  const firedRef = useRef<Set<string>>(new Set());
+  const runKeyRef = useRef<string>("");
+  const prevRemainingRef = useRef<number | null>(null);
+
+  const applyState = useCallback((nextState: RoundTimerState) => {
+    skewRef.current = (nextState.serverNow ? Date.parse(nextState.serverNow) : Date.now()) - Date.now();
+
+    const runKey = `${nextState.status}|${nextState.startedAt ?? ""}`;
+    if (runKey !== runKeyRef.current) {
+      runKeyRef.current = runKey;
+      firedRef.current = new Set();
+      prevRemainingRef.current = null;
+    }
+
+    stateRef.current = nextState;
+    setState(nextState);
+  }, []);
+
+  const clearState = useCallback(() => {
+    stateRef.current = null;
+    setState(null);
+    setRemaining(0);
+    firedRef.current = new Set();
+    prevRemainingRef.current = null;
+  }, []);
+
+  const refetch = useCallback(() => {
+    if (!enabled) return;
+
+    timersApi.get(eventId as number, roundId as number, phase)
+      .then((response) => applyState(response.data))
+      .catch(() => clearState());
+  }, [enabled, eventId, roundId, phase, applyState, clearState]);
 
   useEffect(() => {
-    let cancelled = false;
-
-    if (eventId == null || roundId == null) {
-      setState(null);
+    if (!enabled) {
+      clearState();
       setLoading(false);
       return;
     }
 
-    const currentEventId = eventId;
-    const currentRoundId = roundId;
+    let active = true;
+    clearState();
+    setLoading(true);
 
-    async function load() {
-      setLoading(true);
-      try {
-        const response = await timersApi.get(currentEventId, currentRoundId, phase);
-        if (!cancelled) setState(response.data ?? null);
-      } catch (err) {
-        if (!cancelled) {
-          if (err instanceof ApiError && err.status === 404) {
-            setState(null);
-          } else {
-            setState(null);
-          }
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
+    timersApi.get(eventId as number, roundId as number, phase)
+      .then((response) => {
+        if (active) applyState(response.data);
+      })
+      .catch(() => {
+        if (active) clearState();
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
 
-    load();
-    const interval = window.setInterval(load, 30000);
+    const intervalId = window.setInterval(() => {
+      timersApi.get(eventId as number, roundId as number, phase)
+        .then((response) => {
+          if (active) applyState(response.data);
+        })
+        .catch(() => {
+          if (active) clearState();
+        });
+    }, RESYNC_MS);
 
     return () => {
-      cancelled = true;
-      window.clearInterval(interval);
+      active = false;
+      window.clearInterval(intervalId);
     };
-  }, [eventId, roundId, phase]);
+  }, [enabled, eventId, roundId, phase, applyState, clearState]);
 
-  return useMemo(() => {
-    if (!state) return { ...EMPTY_TIMER, loading };
+  useEffect(() => {
+    if (!enabled) return;
 
-    const remainingSeconds = Math.max(0, Math.floor(state.remainingSeconds ?? 0));
+    const tick = () => {
+      const currentState = stateRef.current;
 
-    return {
-      isConfigured: state.status !== "IDLE",
-      isRunning: state.status === "RUNNING" && remainingSeconds > 0,
-      isPaused: state.status === "PAUSED",
-      status: state.status,
-      remainingSeconds,
-      state,
-      loading,
-    };
-  }, [state, loading]);
+      if (!currentState) {
+        setRemaining(0);
+        return;
+      }
+
+      let nextRemaining: number;
+
+      if (currentState.status === "RUNNING" && currentState.endsAt) {
+        nextRemaining = Math.max(
+          0,
+          Math.round((Date.parse(currentState.endsAt) - (Date.now() + skewRef.current)) / 1000),
+        );
+      } else if (currentState.status === "PAUSED") {
+        nextRemaining = Math.max(0, currentState.remainingSeconds ?? 0);
+      } else {
+        nextRemaining = 0;
+      }
+
+      setRemaining(nextRemaining);
+
+      if (fireBanners && currentState.status === "RUNNING") {
+        const previousRemaining = prevRemainingRef.current;
+
+        if (previousRemaining != null) {
+          const duration = currentState.durationSeconds ?? 0;
+          const minutes = currentState.milestoneMinutes?.length
+            ? currentState.milestoneMinutes
+            : DEFAULT_MILESTONES;
+          const word = phaseWord(phase);
+
+          const marks: Array<{
+            key: string;
+            seconds: number;
+            title: string;
+            message: string;
+            type: "info" | "warning";
+          }> = [];
+
+          for (const minute of minutes) {
+            const seconds = minute * 60;
+            if (seconds < duration) {
+              marks.push({
+                key: `REM_${minute}`,
+                seconds,
+                title: `${minute} min left`,
+                message: `${minute} minutes left in the ${word} window.`,
+                type: minute <= 5 ? "warning" : "info",
+              });
+            }
+          }
+
+          if ((currentState.notifyAtHalf ?? true) && duration > 0) {
+            marks.push({
+              key: "HALF",
+              seconds: Math.floor(duration / 2),
+              title: "Halfway point",
+              message: `Half of the ${word} time has elapsed.`,
+              type: "info",
+            });
+          }
+
+          marks.push({
+            key: "EXPIRED",
+            seconds: 0,
+            title: "Time's up",
 }

@@ -49,7 +49,7 @@ public class RoundController {
     public ResponseEntity<ApiResponse<RoundResponse>> updateRound(
             @PathVariable Integer eventId,
             @PathVariable Integer roundId,
-            @RequestBody UpdateRoundRequest request) {
+            @Valid @RequestBody UpdateRoundRequest request) {
         return ResponseEntity.ok(ApiResponse.success("Round updated successfully.",
                 roundService.updateRound(eventId, roundId, request)));
     }
