@@ -124,6 +124,8 @@ export interface UserProfile {
   email: string;
   fullName: string;
   userType: string;
+  studentId?: string | null;
+  university?: string | null;
   isApproved: boolean;
   isActive: boolean;
   avatarUrl?: string | null;
@@ -699,7 +701,7 @@ export interface CreateRoundPayload {
 export interface UpdateRoundPayload {
   name?: string;
   topNAdvance?: number;
-  clearTopNAdvance?: boolean;
+  clearTopNAdvance?: boolean; // send true to REMOVE the cut-off (topNAdvance can't be unset via null)
   status?: string;
   startTime?: string;
   endTime?: string;
@@ -725,6 +727,11 @@ export const roundsApi = {
       body: JSON.stringify(payload),
     }),
 };
+
+// ── Round Timers (live countdown per round phase) ───────────────────
+// CONTEST gates team submission; JUDGING gates judge scoring. Time is
+// server-authoritative: compute remaining from endsAt vs serverNow (correct for
+// client clock skew) — never trust the local clock. See useRoundTimer.
 
 export type TimerPhase = 'CONTEST' | 'JUDGING';
 export type TimerStatus = 'IDLE' | 'RUNNING' | 'PAUSED' | 'STOPPED' | 'EXPIRED';
@@ -794,7 +801,7 @@ export interface TeamMember {
   fullName: string;
   email: string;
   role?: 'LEADER' | 'MEMBER';
-  memberRole?: 'LEADER' | 'MEMBER';
+  memberRole?: 'LEADER' | 'MEMBER'; // field name returned by GET /api/teams/event/{id}
   joinedAt?: string;
 }
 
@@ -844,6 +851,7 @@ export interface CreateTeamPayload {
   description?: string;
 }
 
+// One past/present team the participant has been on (GET /api/teams/my/history).
 export interface TeamHistoryEntry {
   eventId: number;
   eventName: string;
@@ -875,7 +883,10 @@ export const teamsApi = {
     apiFetch<ApiResponse<MyTeam>>('/api/teams/my'),
 
   getMyHistory: () =>
-    apiFetch<ApiResponse<TeamHistoryEntry[]>>('/api/teams/my/history'),
+    apiFetch<ApiResponse<MyTeam[]>>('/api/teams/my/history'),
+
+  getMyResultHistory: () =>
+    apiFetch<ApiResponse<TeamHistoryEntry[]>>('/api/teams/my/result-history'),
 
   getMyForEvent: (eventId: number) =>
     apiFetch<ApiResponse<MyTeam>>(`/api/teams/my/event/${eventId}`),
@@ -1232,7 +1243,7 @@ export const resultsApi = {
     }),
 };
 
-// ── Notifications ─────────────────────────────────────────────────
+// ── Prizes (event-wide awards) ────────────────────────────────────
 
 export interface Prize {
   prizeId: number;
@@ -1263,6 +1274,7 @@ export interface UpdatePrizePayload {
 }
 
 export const prizesApi = {
+  // Public sees announced only; coordinator token returns drafts too.
   getAll: (eventId: number) =>
     apiFetch<ApiResponse<Prize[]>>(`/api/events/${eventId}/prizes`),
 
@@ -1294,6 +1306,8 @@ export const prizesApi = {
       method: 'POST',
     }),
 };
+
+// ── Notifications ─────────────────────────────────────────────────
 
 export interface Notification {
   notificationId: number;
@@ -1380,6 +1394,7 @@ export interface JudgeAssignment {
   teams: JudgeAssignedTeam[];
 }
 
+// Read-only mentor history (GET /api/mentor/assignments/history).
 export interface MentorHistoryEntry {
   eventId: number;
   eventName: string;

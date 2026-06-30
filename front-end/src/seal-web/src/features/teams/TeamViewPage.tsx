@@ -110,9 +110,9 @@ export function TeamViewPage() {
   const isLeader = team?.myRole === 'LEADER';
   const editable = isTeamEditable(team?.eventStatus);
   const readOnly = currentUser?.is_active === false;
-  const canEditTeam = !readOnly && editable;
-  const canManageMembers = isLeader && canEditTeam;
-  const lockReason = teamLockReason(team?.eventStatus);
+  const lockReason = team ? teamLockReason(team.eventStatus) : null;
+  const canEditTeam = !readOnly && isLeader && editable;
+  const canManageMembers = canEditTeam;
 
   if (loading) {
     return <div style={{ padding: 24 }}><PixelCard style={{ padding: 32, textAlign: "center" }}>
@@ -182,7 +182,7 @@ export function TeamViewPage() {
     setBusyReq(r.requestId); setActionError(null); setNotice(null);
     try {
       await joinRequestsApi.accept(r.requestId);
-      const res = await teamsApi.getMy();
+      const res = team.eventId != null ? await teamsApi.getMyForEvent(team.eventId) : await teamsApi.getMy();
       setTeam(res.data);
       loadJoinRequests(team.teamId);
       setNotice(`${r.requesterName} has joined the team.`);

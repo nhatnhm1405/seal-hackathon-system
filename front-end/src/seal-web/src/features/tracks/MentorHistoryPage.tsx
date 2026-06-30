@@ -3,6 +3,7 @@ import { C, GradientText, PixelBadge, PixelCard } from "@/shared/components/Pixe
 import { ApiError, assignmentsApi, MentorHistoryEntry } from "@/shared/apiClient";
 
 const mono = "'JetBrains Mono', monospace";
+const PRIZE_COLOR = "#FFD24A";
 
 export function MentorHistoryPage() {
   const [entries, setEntries] = useState<MentorHistoryEntry[]>([]);
@@ -27,9 +28,11 @@ export function MentorHistoryPage() {
   return (
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
       <div>
-        <h1 style={{ fontFamily: mono, fontSize: 28, fontWeight: 800 }}><GradientText>Mentoring History</GradientText></h1>
+        <h1 style={{ fontFamily: mono, fontSize: 28, fontWeight: 800 }}>
+          <GradientText>Mentoring History</GradientText>
+        </h1>
         <p style={{ color: C.textMuted, fontFamily: mono, fontSize: 12, marginTop: 4 }}>
-          Events you mentored, grouped by track and team result.
+          Events you mentored, grouped by track, team result, and awards.
         </p>
       </div>
 
@@ -45,56 +48,97 @@ export function MentorHistoryPage() {
         </PixelCard>
       ) : entries.length === 0 ? (
         <PixelCard style={{ padding: 40, textAlign: "center" }}>
-          <div style={{ color: C.textMuted, fontFamily: mono, fontSize: 13 }}>No mentoring history yet.</div>
+          <div style={{ color: C.textMuted, fontFamily: mono, fontSize: 13 }}>
+            No mentoring history yet.
+          </div>
         </PixelCard>
-      ) : entries.map((entry) => {
-        const isOpen = open.has(entry.eventId);
-        const teamCount = entry.tracks.reduce((total, track) => total + track.teams.length, 0);
+      ) : (
+        entries.map((entry) => {
+          const isOpen = open.has(entry.eventId);
+          const teamCount = entry.tracks.reduce((total, track) => total + track.teams.length, 0);
+          const seasonLabel = (entry.season ?? "-").slice(0, 3);
 
-        return (
-          <PixelCard key={entry.eventId} glow gradient style={{ padding: 0, overflow: "hidden" }}>
-            <div
-              onClick={() => toggle(entry.eventId)}
-              style={{ padding: "16px 18px", display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap", cursor: "pointer", borderBottom: isOpen ? `1px solid ${C.border}` : "none" }}
-            >
-              <div style={{ flex: "1 1 240px" }}>
-                <div style={{ fontFamily: mono, fontSize: 17, fontWeight: 800, color: C.text }}>{entry.eventName}</div>
-                <div style={{ fontFamily: mono, fontSize: 11, color: C.textMuted, marginTop: 5 }}>
-                  {entry.tracks.length} track{entry.tracks.length === 1 ? "" : "s"} - {teamCount} team{teamCount === 1 ? "" : "s"}
+          return (
+            <PixelCard key={entry.eventId} glow gradient style={{ padding: 0, overflow: "hidden", borderLeft: `4px solid ${C.green}` }}>
+              <div
+                onClick={() => toggle(entry.eventId)}
+                style={{ padding: "16px 18px", display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap", cursor: "pointer", borderBottom: isOpen ? `1px solid ${C.border}` : "none" }}
+              >
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minWidth: 64, padding: "6px 8px", background: C.surface2, border: `1px solid ${C.border}` }}>
+                  <span style={{ fontFamily: mono, fontSize: 12, fontWeight: 800, color: C.green, textTransform: "uppercase" }}>
+                    {seasonLabel}
+                  </span>
+                  <span style={{ fontFamily: mono, fontSize: 10, color: C.textMuted }}>
+                    {entry.year ?? ""}
+                  </span>
                 </div>
-              </div>
-              <PixelBadge color={entry.eventStatus === "COMPLETED" ? "gray" : "green"}>{entry.eventStatus}</PixelBadge>
-              <span style={{ color: C.textMuted, fontFamily: mono, fontSize: 14 }}>{isOpen ? "v" : ">"}</span>
-            </div>
 
-            {isOpen && (
-              <div style={{ padding: 18, display: "flex", flexDirection: "column", gap: 18 }}>
-                {entry.tracks.map((track) => (
-                  <section key={track.trackId}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-                      <span style={{ width: 5, height: 18, background: C.green }} />
-                      <span style={{ fontFamily: mono, fontSize: 14, fontWeight: 800, color: C.text, textTransform: "uppercase", letterSpacing: "0.04em" }}>{track.trackName}</span>
-                    </div>
-                    {track.teams.length === 0 ? (
-                      <div style={{ color: C.textMuted, fontFamily: mono, fontSize: 12 }}>No approved teams.</div>
-                    ) : track.teams
-                      .slice()
-                      .sort((a, b) => (a.finalRank ?? 999) - (b.finalRank ?? 999))
-                      .map((team) => (
-                        <div key={team.teamId} style={{ display: "flex", gap: 12, alignItems: "center", fontFamily: mono, fontSize: 12, flexWrap: "wrap", marginBottom: 6 }}>
-                          <span style={{ color: C.text, minWidth: 170, fontWeight: 600 }}>{team.teamName}</span>
-                          <span style={{ color: C.cyan, minWidth: 80 }}>{team.finalRank != null ? `Final #${team.finalRank}` : "-"}</span>
-                          {team.prizeName && <span style={{ color: C.yellow, fontWeight: 700 }}>{team.prizeName}</span>}
-                          <PixelBadge color={team.teamStatus === "DISQUALIFIED" ? "red" : "gray"}>{team.teamStatus}</PixelBadge>
-                        </div>
-                      ))}
-                  </section>
-                ))}
+                <div style={{ flex: "1 1 220px" }}>
+                  <div style={{ fontFamily: mono, fontSize: 17, fontWeight: 800, color: C.text }}>
+                    {entry.eventName}
+                  </div>
+                  <div style={{ fontFamily: mono, fontSize: 11, color: C.textMuted, marginTop: 5 }}>
+                    {entry.tracks.length} track{entry.tracks.length === 1 ? "" : "s"} - {teamCount} team{teamCount === 1 ? "" : "s"} mentored
+                  </div>
+                </div>
+
+                <PixelBadge color={entry.eventStatus === "COMPLETED" ? "gray" : "green"}>
+                  {entry.eventStatus}
+                </PixelBadge>
+                <span style={{ color: C.textMuted, fontFamily: mono, fontSize: 14 }}>
+                  {isOpen ? "v" : ">"}
+                </span>
               </div>
-            )}
-          </PixelCard>
-        );
-      })}
+
+              {isOpen && (
+                <div style={{ padding: 18, display: "flex", flexDirection: "column", gap: 18 }}>
+                  {entry.tracks.map((track) => (
+                    <section key={track.trackId}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                        <span style={{ width: 5, height: 18, background: C.green }} />
+                        <span style={{ fontFamily: mono, fontSize: 14, fontWeight: 800, color: C.text, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                          {track.trackName}
+                        </span>
+                      </div>
+
+                      {track.teams.length === 0 ? (
+                        <div style={{ color: C.textMuted, fontFamily: mono, fontSize: 12 }}>No approved teams.</div>
+                      ) : (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                          {track.teams
+                            .slice()
+                            .sort((a, b) => {
+                              const rankDiff = (a.finalRank ?? Number.MAX_SAFE_INTEGER) - (b.finalRank ?? Number.MAX_SAFE_INTEGER);
+                              return rankDiff !== 0 ? rankDiff : a.teamName.localeCompare(b.teamName);
+                            })
+                            .map((team) => (
+                              <div key={team.teamId} style={{ display: "flex", gap: 12, alignItems: "center", fontFamily: mono, fontSize: 12, flexWrap: "wrap" }}>
+                                <span style={{ color: C.text, minWidth: 170, fontWeight: 600 }}>
+                                  {team.teamName}
+                                </span>
+                                <span style={{ color: C.cyan, minWidth: 80 }}>
+                                  {team.finalRank != null ? `Final #${team.finalRank}` : "-"}
+                                </span>
+                                {team.prizeName && (
+                                  <span style={{ color: PRIZE_COLOR, fontWeight: 700 }}>
+                                    Prize: {team.prizeName}
+                                  </span>
+                                )}
+                                <PixelBadge color={team.teamStatus === "DISQUALIFIED" ? "red" : "gray"}>
+                                  {team.teamStatus}
+                                </PixelBadge>
+                              </div>
+                            ))}
+                        </div>
+                      )}
+                    </section>
+                  ))}
+                </div>
+              )}
+            </PixelCard>
+          );
+        })
+      )}
     </div>
   );
 }

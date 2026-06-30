@@ -22,6 +22,8 @@ import com.seal.hackathon.entity.User;
 import com.seal.hackathon.entity.UserEventRole;
 import com.seal.hackathon.exception.BadRequestException;
 import com.seal.hackathon.exception.ResourceNotFoundException;
+import com.seal.hackathon.dto.response.MentorHistoryResponse;
+import com.seal.hackathon.entity.HackathonEvent;
 import com.seal.hackathon.repository.JudgeAssignmentRepository;
 import com.seal.hackathon.repository.MentorAssignmentRepository;
 import com.seal.hackathon.repository.PrizeRepository;
@@ -156,6 +158,7 @@ public class AssignmentService {
     public List<MentorHistoryResponse> getMentorHistory(Integer userId) {
         List<MentorAssignment> assignments = mentorAssignmentRepository.findActiveByMentor(userId);
 
+        // Group assignments by event (preserve order), then by track within each event.
         Map<Integer, List<MentorAssignment>> byEvent = new LinkedHashMap<>();
         for (MentorAssignment ma : assignments) {
             byEvent.computeIfAbsent(ma.getTrack().getEvent().getEventId(), k -> new ArrayList<>()).add(ma);
@@ -185,10 +188,10 @@ public class AssignmentService {
                         .findAllByTrack_TrackIdAndStatus(track.getTrackId(), "APPROVED").stream()
                         .map(team -> {
                             Integer finalRank = finalRound == null ? null : roundResultRepository
-                                    .findByTeam_TeamIdAndRound_RoundId(team.getTeamId(), finalRound.getRoundId())
-                                    .filter(resultRow -> Boolean.TRUE.equals(resultRow.getIsPublished()))
-                                    .map(resultRow -> resultRow.getRankPosition())
-                                    .orElse(null);
+                                                                            .findByTeam_TeamIdAndRound_RoundId(team.getTeamId(), finalRound.getRoundId())
+                                                                            .filter(resultRow -> Boolean.TRUE.equals(resultRow.getIsPublished()))
+                                                                            .map(resultRow -> resultRow.getRankPosition())
+                                                                            .orElse(null);
 
                             return MentorHistoryResponse.TeamResult.builder()
                                     .teamId(team.getTeamId())
@@ -217,6 +220,7 @@ public class AssignmentService {
                     .build());
         }
 
+        // Newest event first.
         result.sort(Comparator.comparing(MentorHistoryResponse::getYear, Comparator.nullsLast(Comparator.reverseOrder()))
                 .thenComparing(MentorHistoryResponse::getEventId, Comparator.reverseOrder()));
         return result;

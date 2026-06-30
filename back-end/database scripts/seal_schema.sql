@@ -32,6 +32,14 @@
 --     truth for "sent history" and the email-style popup.
 --   - Added Notification.announcement_id back-link (NULL for non-announcement
 --     notifications) so the popup can resolve sender + scope.
+--
+-- CHANGELOG (round timers — folds in seal_roundtimer.sql):
+--   - Added RoundTimer: a live, server-authoritative countdown per (round, phase).
+--     CONTEST phase gates team submission; JUDGING phase gates judge scoring.
+--     Coordinator controls start/pause/resume/extend/stop; remaining time is
+--     derived from ends_at so reloads/restarts recompute the same value.
+--   - Added RoundTimerNotice: exactly-once ledger so milestone reminders are
+--     fanned out to the audience only once (no scheduler; materialised lazily on read).
 -- =====================================================
 
 -- Drop and recreate so this script is always safe to re-run.
@@ -179,9 +187,14 @@ CREATE TABLE Round (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- =====================================================
--- ROUND TIMERS
--- Server-authoritative countdown per (round, phase).
--- CONTEST gates team submission; JUDGING gates judge scoring.
+-- ROUND TIMERS  (must come after Round)
+-- A live, server-authoritative countdown per round, one row per (round, phase):
+--   CONSTEST phase  -> gates team SUBMISSION  (participants)
+--   JUDGING  phase  -> gates judge SCORING    (judges)
+-- The coordinator starts/pauses/resumes/extends/stops it; remaining time is
+-- derived from ends_at (never the client clock). State is kept in the DB so a
+-- reload / backend restart recomputes the same countdown. Milestone reminders
+-- are configurable per timer (milestone_minutes + notify_at_half).
 -- =====================================================
 
 CREATE TABLE RoundTimer (
@@ -202,6 +215,10 @@ CREATE TABLE RoundTimer (
   CONSTRAINT fk_roundtimer_round FOREIGN KEY (round_id) REFERENCES Round (round_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Exactly-once ledger for milestone fan-out. Without a scheduler, milestone
+-- notifications are materialised lazily when any client reads the timer state;
+-- this unique key guarantees each (round, phase, mark) is fanned out to the
+-- audience only once, regardless of how many clients trigger the read.
 CREATE TABLE RoundTimerNotice (
   id            INT          NOT NULL AUTO_INCREMENT,
   round_id      INT          NOT NULL,

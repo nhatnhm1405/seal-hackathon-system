@@ -7,6 +7,11 @@ import lombok.NoArgsConstructor;
 
 import java.util.List;
 
+/**
+ * Read-only retrospective for a mentor: one entry per event they were assigned to,
+ * grouped by the track(s) they mentored, with each approved team's final standing
+ * and any prize. Used by the mentor "History" page.
+ */
 @Data
 @Builder
 @NoArgsConstructor
@@ -37,7 +42,7 @@ public class MentorHistoryResponse {
         private Integer teamId;
         private String teamName;
         private String teamStatus;
-        private Integer finalRank;
-        private String prizeName;
+        private Integer finalRank;   // rank in the final round if published, else null
+        private String prizeName;    // announced prize for this team, else null
     }
 }

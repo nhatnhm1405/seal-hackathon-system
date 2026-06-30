@@ -35,6 +35,7 @@ public class Prize {
     @JoinColumn(name = "event_id", nullable = false)
     private HackathonEvent event;
 
+    // Always NULL for event-wide prizes; kept for schema compatibility.
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "track_id")
     private Track track;
@@ -48,10 +49,12 @@ public class Prize {
     @Column(name = "rank_position", nullable = false)
     private Integer rankPosition;
 
+    // Set when a team is assigned to this prize (from the final ranking or by hand).
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "team_id")
     private Team team;
 
+    // NULL = draft (not public). Set on announce.
     @Column(name = "awarded_at")
     private LocalDateTime awardedAt;
 }

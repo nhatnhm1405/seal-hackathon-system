@@ -1,10 +1,16 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/app/providers/AuthProvider";
-import { C, GradientText, PixelBadge, PixelButton, PixelCard } from "@/shared/components/PixelComponents";
+import { C, GradientText, PixelBadge, PixelCard } from "@/shared/components/PixelComponents";
 import { ApiError, TeamHistoryEntry, teamsApi } from "@/shared/apiClient";
 import { CertificateModal } from "./CertificateModal";
 
 const mono = "'JetBrains Mono', monospace";
+
+const MEDAL_COLOR: Record<number, string> = {
+  1: "#FFD24A",
+  2: "#CBD5E1",
+  3: "#E0915A",
+};
 
 function statusColor(status?: string): "green" | "gray" | "yellow" | "red" {
   if (status === "COMPLETED") return "gray";
@@ -13,14 +19,36 @@ function statusColor(status?: string): "green" | "gray" | "yellow" | "red" {
   return "green";
 }
 
-function standing(entry: TeamHistoryEntry): string {
-  if (entry.prize) return entry.prize.name;
+function standing(entry: TeamHistoryEntry): { text: string; color: string } {
   const rounds = entry.rounds ?? [];
+
+  if (entry.prize) {
+    return {
+      text: entry.prize.name,
+      color: MEDAL_COLOR[entry.prize.rankPosition] ?? C.green,
+    };
+  }
+
+  if (entry.teamStatus === "DISQUALIFIED") {
+    return { text: "Disqualified", color: C.red };
+  }
+
   const finalRound = rounds.find((round) => round.isFinal);
-  if (finalRound) return `Finalist #${finalRound.rankPosition}`;
-  const latestRound = rounds.at(-1);
-  if (latestRound) return `${latestRound.roundName} #${latestRound.rankPosition}`;
-  return entry.teamStatus ?? entry.eventStatus;
+  if (finalRound) {
+    return { text: `Finalist #${finalRound.rankPosition}`, color: C.green };
+  }
+
+  const lastEliminated = rounds.slice().reverse().find((round) => !round.advanced);
+  if (lastEliminated) {
+    return { text: `Eliminated - ${lastEliminated.roundName}`, color: C.textMuted };
+  }
+
+  const latestRound = rounds[rounds.length - 1];
+  if (latestRound) {
+    return { text: `${latestRound.roundName} #${latestRound.rankPosition}`, color: C.cyan };
+  }
+
+  return { text: entry.teamStatus ?? entry.eventStatus, color: C.textMuted };
 }
 
 export function HistoryPage() {
@@ -32,7 +60,7 @@ export function HistoryPage() {
   const [certificate, setCertificate] = useState<TeamHistoryEntry | null>(null);
 
   useEffect(() => {
-    teamsApi.getMyHistory()
+    teamsApi.getMyResultHistory()
       .then((response) => setEntries(response.data ?? []))
       .catch((err) => setError(err instanceof ApiError ? err.message : "Failed to load history."))
       .finally(() => setLoading(false));
@@ -48,9 +76,11 @@ export function HistoryPage() {
   return (
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 16 }}>
       <div>
-        <h1 style={{ fontFamily: mono, fontSize: 28, fontWeight: 800 }}><GradientText>History</GradientText></h1>
+        <h1 style={{ fontFamily: mono, fontSize: 28, fontWeight: 800 }}>
+          <GradientText>History</GradientText>
+        </h1>
         <p style={{ color: C.textMuted, fontFamily: mono, fontSize: 12, marginTop: 4 }}>
-          Teams, submissions and results from events you joined.
+          Teams, submissions, results and certificates from events you joined.
         </p>
       </div>
 
@@ -66,42 +96,70 @@ export function HistoryPage() {
         </PixelCard>
       ) : entries.length === 0 ? (
         <PixelCard style={{ padding: 40, textAlign: "center" }}>
-          <div style={{ color: C.textMuted, fontFamily: mono, fontSize: 13 }}>You have not joined any event yet.</div>
+          <div style={{ color: C.textMuted, fontFamily: mono, fontSize: 13 }}>
+            You have not joined any event yet.
+          </div>
         </PixelCard>
       ) : (
         entries.map((entry) => {
+          const summary = standing(entry);
           const isOpen = open.has(entry.teamId);
           const rounds = entry.rounds ?? [];
           const submissions = entry.submissions ?? [];
           const members = entry.members ?? [];
           const completed = entry.eventStatus === "COMPLETED";
+          const roleLabel = entry.myRole === "LEADER" ? "Team Leader" : "Member";
+          const seasonLabel = (entry.season ?? "-").slice(0, 3);
 
           return (
-            <PixelCard key={`${entry.eventId}-${entry.teamId}`} glow gradient style={{ padding: 0, overflow: "hidden" }}>
+            <PixelCard key={`${entry.eventId}-${entry.teamId}`} glow gradient style={{ padding: 0, overflow: "hidden", borderLeft: `4px solid ${summary.color}` }}>
               <div
                 onClick={() => toggle(entry.teamId)}
                 style={{ padding: "16px 18px", display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap", cursor: "pointer", borderBottom: isOpen ? `1px solid ${C.border}` : "none" }}
               >
-                <div style={{ flex: "1 1 240px" }}>
-                  <div style={{ fontFamily: mono, fontSize: 17, fontWeight: 800, color: C.text }}>{entry.eventName}</div>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", minWidth: 64, padding: "6px 8px", background: C.surface2, border: `1px solid ${C.border}` }}>
+                  <span style={{ fontFamily: mono, fontSize: 12, fontWeight: 800, color: summary.color, textTransform: "uppercase" }}>
+                    {seasonLabel}
+                  </span>
+                  <span style={{ fontFamily: mono, fontSize: 10, color: C.textMuted }}>
+                    {entry.year ?? ""}
+                  </span>
+                </div>
+
+                <div style={{ flex: "1 1 220px" }}>
+                  <div style={{ fontFamily: mono, fontSize: 17, fontWeight: 800, color: C.text }}>
+                    {entry.eventName}
+                  </div>
                   <div style={{ fontFamily: mono, fontSize: 11, color: C.textMuted, marginTop: 5 }}>
-                    Team <b style={{ color: C.text }}>{entry.teamName}</b>{entry.trackName ? ` - ${entry.trackName}` : ""} - {entry.myRole ?? "MEMBER"}
+                    Team <b style={{ color: C.text }}>{entry.teamName}</b>
+                    {entry.trackName ? ` - ${entry.trackName}` : ""} - {roleLabel}
                   </div>
                 </div>
-                <PixelBadge color={statusColor(entry.eventStatus)}>{entry.eventStatus}</PixelBadge>
-                <PixelBadge color={entry.prize ? "yellow" : "cyan"}>{standing(entry)}</PixelBadge>
+
+                <span style={{ fontFamily: mono, fontSize: 12, fontWeight: 800, color: summary.color, background: C.surface2, border: `1px solid ${summary.color}`, padding: "5px 12px", letterSpacing: "0.04em" }}>
+                  {summary.text}
+                </span>
+
                 {completed && (
-                  <PixelButton size="sm" variant="secondary" onClick={(event) => { event.stopPropagation(); setCertificate(entry); }}>
+                  <button
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setCertificate(entry);
+                    }}
+                    style={{ fontFamily: mono, fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", padding: "7px 12px", cursor: "pointer", borderRadius: 0, border: `1px solid ${C.green}`, background: "transparent", color: C.green }}
+                  >
                     CERTIFICATE
-                  </PixelButton>
+                  </button>
                 )}
+
+                <PixelBadge color={statusColor(entry.eventStatus)}>{entry.eventStatus}</PixelBadge>
                 <span style={{ color: C.textMuted, fontFamily: mono, fontSize: 14 }}>{isOpen ? "v" : ">"}</span>
               </div>
 
               {isOpen && (
                 <div style={{ padding: 18, display: "flex", flexDirection: "column", gap: 18 }}>
                   <section>
-                    <div style={sectionLabel}>Members</div>
+                    <div style={sectionLabel}>Team members</div>
                     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                       {members.length === 0 ? (
                         <span style={{ color: C.textMuted, fontFamily: mono, fontSize: 12 }}>No member data.</span>
@@ -117,29 +175,39 @@ export function HistoryPage() {
                     <div style={sectionLabel}>Round results</div>
                     {rounds.length === 0 ? (
                       <div style={{ color: C.textMuted, fontFamily: mono, fontSize: 12 }}>No round result data.</div>
-                    ) : rounds.map((round, index) => (
-                      <div key={index} style={{ display: "flex", gap: 12, alignItems: "center", fontFamily: mono, fontSize: 12, marginBottom: 6 }}>
-                        <span style={{ color: C.text, minWidth: 160 }}>{round.roundName}{round.isFinal ? " (Final)" : ""}</span>
-                        <span style={{ color: C.cyan, fontWeight: 700 }}>#{round.rankPosition}</span>
-                        <span style={{ color: C.green }}>{Number(round.totalScore).toFixed(1)}</span>
-                        <PixelBadge color={round.advanced ? "green" : "gray"}>{round.advanced ? "Advanced" : "Finished"}</PixelBadge>
+                    ) : (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        {rounds.map((round, index) => (
+                          <div key={index} style={{ display: "flex", gap: 12, alignItems: "center", fontFamily: mono, fontSize: 12, flexWrap: "wrap" }}>
+                            <span style={{ color: C.text, minWidth: 160 }}>{round.roundName}{round.isFinal ? " (Final)" : ""}</span>
+                            <span style={{ color: C.cyan, fontWeight: 700, minWidth: 42 }}>#{round.rankPosition}</span>
+                            <span style={{ color: C.green, minWidth: 64 }}>{Number(round.totalScore).toFixed(1)}</span>
+                            <PixelBadge color={round.advanced ? "green" : "gray"}>
+                              {round.advanced ? (round.isFinal ? "Winner tier" : "Advanced") : (round.isFinal ? "Finalist" : "Eliminated")}
+                            </PixelBadge>
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    )}
                   </section>
 
                   <section>
                     <div style={sectionLabel}>Submissions</div>
                     {submissions.length === 0 ? (
                       <div style={{ color: C.textMuted, fontFamily: mono, fontSize: 12 }}>No submission data.</div>
-                    ) : submissions.map((submission, index) => (
-                      <div key={index} style={{ display: "flex", gap: 12, alignItems: "center", fontFamily: mono, fontSize: 12, flexWrap: "wrap", marginBottom: 6 }}>
-                        <span style={{ color: C.text, minWidth: 160 }}>{submission.roundName}</span>
-                        {submission.repoUrl && <a href={submission.repoUrl} target="_blank" rel="noreferrer" style={linkStyle}>repo</a>}
-                        {submission.demoUrl && <a href={submission.demoUrl} target="_blank" rel="noreferrer" style={linkStyle}>demo</a>}
-                        {submission.slideUrl && <a href={submission.slideUrl} target="_blank" rel="noreferrer" style={linkStyle}>slides</a>}
-                        <PixelBadge color={submission.status === "LATE" ? "yellow" : "gray"}>{submission.status}</PixelBadge>
+                    ) : (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        {submissions.map((submission, index) => (
+                          <div key={index} style={{ display: "flex", gap: 12, alignItems: "center", fontFamily: mono, fontSize: 12, flexWrap: "wrap" }}>
+                            <span style={{ color: C.text, minWidth: 160 }}>{submission.roundName}</span>
+                            {submission.repoUrl && <a href={submission.repoUrl} target="_blank" rel="noreferrer" style={linkStyle}>repo</a>}
+                            {submission.demoUrl && <a href={submission.demoUrl} target="_blank" rel="noreferrer" style={linkStyle}>demo</a>}
+                            {submission.slideUrl && <a href={submission.slideUrl} target="_blank" rel="noreferrer" style={linkStyle}>slides</a>}
+                            <PixelBadge color={submission.status === "LATE" ? "yellow" : "gray"}>{submission.status}</PixelBadge>
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    )}
                   </section>
                 </div>
               )}

@@ -5,6 +5,7 @@ import com.seal.hackathon.dto.request.RejectTeamRequest;
 import com.seal.hackathon.dto.response.ActiveEventResponse;
 import com.seal.hackathon.dto.response.MyTeamResponse;
 import com.seal.hackathon.dto.response.TeamDetailResponse;
+import com.seal.hackathon.dto.response.TeamHistoryResponse;
 import com.seal.hackathon.dto.request.UpdateTeamRequest;
 import com.seal.hackathon.dto.response.TeamResponse;
 import com.seal.hackathon.dto.response.TrackResponse;
@@ -35,6 +36,9 @@ public class TeamService {
     private final HackathonEventRepository eventRepository;
     private final TrackRepository trackRepository;
     private final UserRepository userRepository;
+    private final SubmissionRepository submissionRepository;
+    private final RoundResultRepository roundResultRepository;
+    private final PrizeRepository prizeRepository;
     private final NotificationService notificationService;
     private final AuditLogService auditLogService;
 
@@ -109,6 +113,13 @@ public class TeamService {
     public List<MyTeamResponse> getMyTeamHistory(Integer userId) {
         return teamMemberRepository.findByUser_UserIdOrderByIdDesc(userId).stream()
                 .map(this::mapToMyTeamResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<TeamHistoryResponse> getMyResultHistory(Integer userId) {
+        return teamMemberRepository.findByUser_UserIdOrderByIdDesc(userId).stream()
+                .map(this::mapToTeamHistoryResponse)
                 .collect(Collectors.toList());
     }
 
@@ -592,6 +603,77 @@ public class TeamService {
                 .status(team.getStatus())
                 .myRole(membership.getMemberRole())
                 .members(memberInfos)
+                .build();
+    }
+
+    private TeamHistoryResponse mapToTeamHistoryResponse(TeamMember membership) {
+        Team team = membership.getTeam();
+        HackathonEvent event = team.getEvent();
+
+        List<TeamHistoryResponse.MemberInfo> memberInfos = teamMemberRepository.findByTeam_TeamId(team.getTeamId()).stream()
+                .map(m -> TeamHistoryResponse.MemberInfo.builder()
+                        .fullName(m.getUser().getFullName())
+                        .role(m.getMemberRole())
+                        .build())
+                .collect(Collectors.toList());
+
+        List<TeamHistoryResponse.RoundInfo> roundInfos = roundResultRepository
+                .findAllByTeamIdOrderByRoundOrder(team.getTeamId()).stream()
+                .map(result -> {
+                    Round round = result.getRound();
+                    Integer topNAdvance = round.getTopNAdvance();
+                    boolean advanced = topNAdvance != null && result.getRankPosition() != null
+                            && result.getRankPosition() <= topNAdvance;
+
+                    return TeamHistoryResponse.RoundInfo.builder()
+                            .roundName(round.getName())
+                            .isFinal(round.getIsFinal())
+                            .rankPosition(result.getRankPosition())
+                            .advanced(advanced)
+                            .totalScore(result.getTotalScore())
+                            .build();
+                })
+                .collect(Collectors.toList());
+
+        List<Submission> submissions = new ArrayList<>(submissionRepository.findAllByTeam_TeamId(team.getTeamId()));
+        submissions.sort((a, b) -> Integer.compare(
+                a.getRound().getOrderNumber() != null ? a.getRound().getOrderNumber() : 0,
+                b.getRound().getOrderNumber() != null ? b.getRound().getOrderNumber() : 0));
+
+        List<TeamHistoryResponse.SubmissionInfo> submissionInfos = submissions.stream()
+                .map(submission -> TeamHistoryResponse.SubmissionInfo.builder()
+                        .roundName(submission.getRound().getName())
+                        .repoUrl(submission.getRepoUrl())
+                        .demoUrl(submission.getDemoUrl())
+                        .slideUrl(submission.getSlideUrl())
+                        .submittedAt(submission.getSubmittedAt())
+                        .status(submission.getStatus())
+                        .build())
+                .collect(Collectors.toList());
+
+        Prize prize = prizeRepository.findFirstByTeam_TeamIdAndAwardedAtIsNotNullOrderByRankPositionAsc(team.getTeamId())
+                .orElse(null);
+        TeamHistoryResponse.PrizeInfo prizeInfo = prize == null ? null : TeamHistoryResponse.PrizeInfo.builder()
+                .name(prize.getName())
+                .rankPosition(prize.getRankPosition())
+                .awardedAt(prize.getAwardedAt())
+                .build();
+
+        return TeamHistoryResponse.builder()
+                .eventId(event.getEventId())
+                .eventName(event.getName())
+                .season(event.getSeason())
+                .year(event.getYear())
+                .eventStatus(event.getStatus())
+                .teamId(team.getTeamId())
+                .teamName(team.getName())
+                .trackName(team.getTrack() != null ? team.getTrack().getName() : null)
+                .teamStatus(team.getStatus())
+                .myRole(membership.getMemberRole())
+                .members(memberInfos)
+                .rounds(roundInfos)
+                .submissions(submissionInfos)
+                .prize(prizeInfo)
                 .build();
     }
 
