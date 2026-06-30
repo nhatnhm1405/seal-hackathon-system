@@ -108,7 +108,7 @@ class GitHubRepoServiceTest {
         String huge = "a".repeat(10_000);
         String out = GitHubRepoService.scrub(huge);
         assertTrue(out.length() < huge.length());
-        assertTrue(out.contains("(đã cắt bớt)"));
+        assertTrue(out.contains("(truncated)"));
     }
 
     @Test

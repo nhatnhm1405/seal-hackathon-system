@@ -48,7 +48,7 @@ class AiJudgeAssistantRepoAnalysisTest {
     void nullDigestIsHandled() {
         RepoAnalysis r = AiJudgeAssistantService.buildRepoAnalysis(null);
         assertFalse(r.isAnalyzed());
-        assertEquals("Không phân tích được repository.", r.getNote());
+        assertEquals("Could not analyze the repository.", r.getNote());
     }
 
     @Test
@@ -78,21 +78,21 @@ class AiJudgeAssistantRepoAnalysisTest {
     void emptyRepoIsFlagged() {
         RepoAnalysis r = AiJudgeAssistantService.buildRepoAnalysis(
                 healthy().fileCount(1).sizeKb(0).build());
-        assertTrue(r.getRedFlags().stream().anyMatch(f -> f.contains("TRỐNG")));
+        assertTrue(r.getRedFlags().stream().anyMatch(f -> f.contains("EMPTY")));
     }
 
     @Test
     void singleCommitDumpIsFlagged() {
         RepoAnalysis r = AiJudgeAssistantService.buildRepoAnalysis(
                 healthy().commitCount(1).firstCommitDate("2026-06-19").lastCommitDate("2026-06-19").build());
-        assertTrue(r.getRedFlags().stream().anyMatch(f -> f.contains("dồn")));
+        assertTrue(r.getRedFlags().stream().anyMatch(f -> f.contains("squeezed")));
     }
 
     @Test
     void allCommitsSameDayIsFlagged() {
         RepoAnalysis r = AiJudgeAssistantService.buildRepoAnalysis(
                 healthy().commitCount(8).firstCommitDate("2026-06-19").lastCommitDate("2026-06-19").build());
-        assertTrue(r.getRedFlags().stream().anyMatch(f -> f.contains("cùng một ngày")));
+        assertTrue(r.getRedFlags().stream().anyMatch(f -> f.contains("same day")));
     }
 
     @Test
