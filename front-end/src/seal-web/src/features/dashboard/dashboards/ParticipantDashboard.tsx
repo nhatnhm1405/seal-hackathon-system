@@ -70,18 +70,17 @@ export function ParticipantDashboard() {
         return <ExistingTeamDashboard />;
     }
 
-    if (!currentUser.is_active) {
-        return (
-            <ReadOnlyAccessPanel
-                requesting={requestingAccess}
-                requested={accessRequested}
-                onRequest={requestParticipationAccess}
-            />
-        );
-    }
-
     // Create-team form.
     if (screen === 'create') {
+        if (!currentUser.is_active) {
+            return (
+                <ReadOnlyAccessPanel
+                    requesting={requestingAccess}
+                    requested={accessRequested}
+                    onRequest={requestParticipationAccess}
+                />
+            );
+        }
         return (
             <CreateTeamScreen
                 initialEventId={createEventId}
@@ -103,7 +102,15 @@ export function ParticipantDashboard() {
             <NoTeamDashboard
                 pendingTeamName={pendingTeamName}
                 pendingInviteCount={pendingInviteCount}
+                readOnly={!currentUser.is_active}
+                requestingAccess={requestingAccess}
+                accessRequested={accessRequested}
+                onRequestAccess={requestParticipationAccess}
                 onCreateTeam={(eventId, trackId) => {
+                    if (!currentUser.is_active) {
+                        requestParticipationAccess();
+                        return;
+                    }
                     setCreateEventId(eventId ?? null);
                     setCreateTrackId(trackId ?? null);
                     setDrawerEvent(null);
@@ -120,8 +127,13 @@ export function ParticipantDashboard() {
             {drawerEvent && (
                 <EventDetailDrawer
                     event={drawerEvent}
+                    readOnly={!currentUser.is_active}
                     onClose={() => setDrawerEvent(null)}
                     onCreateTeam={(eventId) => {
+                        if (!currentUser.is_active) {
+                            requestParticipationAccess();
+                            return;
+                        }
                         setCreateEventId(eventId);
                         setDrawerEvent(null);
                         setScreen('create');

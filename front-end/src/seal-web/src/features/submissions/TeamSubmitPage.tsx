@@ -4,14 +4,26 @@ import {
 } from "@/shared/components/PixelComponents";
 import { teamsApi, roundsApi, submissionsApi, ApiError, apiErrorMessage, MyTeam, Round, Submission } from "@/shared/apiClient";
 import { useNotifications } from "@/app/providers/NotificationProvider";
+import { useAuth } from "@/app/providers/AuthProvider";
 
 function fmtDateTime(iso?: string) {
   return iso ? new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "—";
 }
 
+function eventOptionLabel(team: MyTeam): string {
+  const name = team.eventName ?? `Event #${team.eventId ?? "—"}`;
+  const status = team.eventStatus
+    ? team.eventStatus.toLowerCase().replace(/(^|_)([a-z])/g, (_, sep, char) => `${sep === "_" ? " " : ""}${char.toUpperCase()}`)
+    : null;
+  return status ? `${name} (${status})` : name;
+}
+
 export function TeamSubmitPage() {
   const { addToast } = useNotifications();
+  const { currentUser } = useAuth();
   const [team, setTeam] = useState<MyTeam | null>(null);
+  const [teamHistory, setTeamHistory] = useState<MyTeam[]>([]);
+  const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
   const [rounds, setRounds] = useState<Round[]>([]);
   const [selectedRoundId, setSelectedRoundId] = useState<number | null>(null);
   const [existing, setExisting] = useState<Submission | null>(null);
@@ -29,22 +41,37 @@ export function TeamSubmitPage() {
 
   const isLeader = team?.myRole === 'LEADER';
 
-  // Load team + rounds.
+  async function loadRoundsForTeam(nextTeam: MyTeam, cancelled = false) {
+    if (nextTeam.eventId == null) {
+      setRounds([]);
+      setSelectedRoundId(null);
+      return;
+    }
+    const rs = await roundsApi.getAll(nextTeam.eventId).then(r => r.data ?? []).catch(() => []);
+    if (cancelled) return;
+    const sorted = [...rs].sort((a, b) => (a.orderNumber ?? a.roundId) - (b.orderNumber ?? b.roundId));
+    setRounds(sorted);
+    const open = sorted.find(r => ["ACTIVE", "OPEN"].includes((r.status ?? "").toUpperCase()));
+    setSelectedRoundId((open ?? sorted[0])?.roundId ?? null);
+  }
+
+  // Load team history + rounds for the default selected event.
   useEffect(() => {
     let cancelled = false;
     setLoading(true); setLoadError(null);
     (async () => {
       try {
-        const t = (await teamsApi.getMy()).data;
+        const history = (await teamsApi.getMyHistory()).data ?? [];
         if (cancelled) return;
-        setTeam(t);
-        if (t?.eventId != null) {
-          const rs = await roundsApi.getAll(t.eventId).then(r => r.data ?? []).catch(() => []);
-          if (cancelled) return;
-          const sorted = [...rs].sort((a, b) => (a.orderNumber ?? a.roundId) - (b.orderNumber ?? b.roundId));
-          setRounds(sorted);
-          const open = sorted.find(r => ["ACTIVE", "OPEN"].includes((r.status ?? "").toUpperCase()));
-          setSelectedRoundId((open ?? sorted[0])?.roundId ?? null);
+        setTeamHistory(history);
+        const firstTeam = history[0] ?? null;
+        setTeam(firstTeam);
+        setSelectedEventId(firstTeam?.eventId ?? null);
+        if (firstTeam) {
+          await loadRoundsForTeam(firstTeam, cancelled);
+        } else {
+          setRounds([]);
+          setSelectedRoundId(null);
         }
       } catch (err) {
         if (!cancelled) {
@@ -57,6 +84,29 @@ export function TeamSubmitPage() {
     })();
     return () => { cancelled = true; };
   }, []);
+
+  async function handleEventChange(eventId: number) {
+    setLoading(true);
+    setLoadError(null);
+    setActionError(null);
+    setNotice(null);
+    setExisting(null);
+    setRepoUrl("");
+    setDemoUrl("");
+    setSlideUrl("");
+    setDescription("");
+    try {
+      const nextTeam = (await teamsApi.getMyForEvent(eventId)).data;
+      setTeam(nextTeam);
+      setSelectedEventId(nextTeam.eventId ?? null);
+      setTeamHistory(prev => prev.map(t => t.eventId === eventId ? nextTeam : t));
+      await loadRoundsForTeam(nextTeam);
+    } catch (err) {
+      setLoadError(err instanceof ApiError ? err.message : "Failed to load this event.");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   // Load existing submission for the selected round.
   const loadSubmission = useCallback((roundId: number) => {
@@ -83,7 +133,10 @@ export function TeamSubmitPage() {
   const selectedRound = rounds.find(r => r.roundId === selectedRoundId) ?? null;
   const deadlinePassed = selectedRound?.submissionDeadline ? new Date(selectedRound.submissionDeadline).getTime() < Date.now() : false;
   const teamApproved = (team?.status ?? "").toUpperCase() === "APPROVED";
-  const canSubmit = isLeader && teamApproved && !deadlinePassed;
+  const readOnly = currentUser?.is_active === false;
+  const roundOpen = ["ACTIVE", "OPEN"].includes((selectedRound?.status ?? "").toUpperCase());
+  const eventAllowsSubmit = ["OPEN", "IN_PROGRESS"].includes((team?.eventStatus ?? "").toUpperCase());
+  const canSubmit = !readOnly && isLeader && teamApproved && roundOpen && eventAllowsSubmit && !deadlinePassed;
 
   async function submit() {
     if (!selectedRoundId) return;
@@ -137,14 +190,55 @@ export function TeamSubmitPage() {
         </h1>
       </div>
 
+      {teamHistory.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, maxWidth: 520 }}>
+          <label style={{ color: C.greenMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase" }}>
+            Event
+          </label>
+          <select
+            value={selectedEventId ?? ""}
+            onChange={(e) => handleEventChange(Number(e.target.value))}
+            disabled={teamHistory.length <= 1}
+            style={{
+              width: "100%",
+              background: C.surface2,
+              border: `1px solid ${C.border}`,
+              color: C.text,
+              padding: "13px 16px",
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: 13,
+              fontWeight: 700,
+              borderRadius: 0,
+              outline: "none",
+            }}
+          >
+            {teamHistory.map(item => (
+              <option key={item.teamId} value={item.eventId ?? ""}>
+                {eventOptionLabel(item)}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       {!isLeader && (
         <div style={{ background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.35)", color: "#eab308", fontFamily: "'JetBrains Mono', monospace", fontSize: 12, padding: "10px 14px" }}>
           Only the team leader can submit. You can view the current submission below.
         </div>
       )}
+      {readOnly && (
+        <div style={{ background: "rgba(6,182,212,0.06)", border: "1px solid rgba(6,182,212,0.25)", color: "#06b6d4", fontFamily: "'JetBrains Mono', monospace", fontSize: 12, padding: "10px 14px", lineHeight: 1.7 }}>
+          READ-ONLY: You can view submitted project information, but submitting or updating project links requires participation access.
+        </div>
+      )}
       {!teamApproved && (
         <div style={{ background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.35)", color: "#eab308", fontFamily: "'JetBrains Mono', monospace", fontSize: 12, padding: "10px 14px" }}>
           Your team is not approved yet — submitting is disabled until a coordinator approves it.
+        </div>
+      )}
+      {teamApproved && !eventAllowsSubmit && (
+        <div style={{ background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.35)", color: "#3b82f6", fontFamily: "'JetBrains Mono', monospace", fontSize: 12, padding: "10px 14px" }}>
+          This event is not accepting submissions. You can view existing submission data only.
         </div>
       )}
 

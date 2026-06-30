@@ -165,6 +165,15 @@ export function ExistingTeamDashboard() {
             )}
 
             {/* SELF_SELECT track picker — leader chooses the team's track during SETUP */}
+            {!currentUser.is_active && (
+                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                    <PixelButton variant="secondary" onClick={() => navigate('/team/view')}>VIEW TEAM</PixelButton>
+                    {team.status === 'APPROVED' && (
+                        <PixelButton variant="secondary" onClick={() => navigate('/team/submit')}>VIEW SUBMISSION</PixelButton>
+                    )}
+                </div>
+            )}
+
             {needsTrackPick && currentUser.is_active && (
                 <PixelCard glow style={{ padding: 20 }}>
                     <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", marginBottom: 8 }}>// select_your_track</div>
