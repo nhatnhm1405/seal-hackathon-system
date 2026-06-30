@@ -61,6 +61,9 @@ public class ReadOnlyParticipantWriteFilter extends OncePerRequestFilter {
 
         String path = request.getRequestURI();
         return !(("POST".equals(request.getMethod()) && "/api/auth/logout".equals(path))
-                || ("POST".equals(request.getMethod()) && "/api/participation-requests".equals(path)));
+                || ("POST".equals(request.getMethod()) && "/api/participation-requests".equals(path))
+                || ("PUT".equals(request.getMethod()) && "/api/auth/me".equals(path))
+                || (("POST".equals(request.getMethod()) || "DELETE".equals(request.getMethod()))
+                && "/api/auth/me/avatar".equals(path)));
     }
 }

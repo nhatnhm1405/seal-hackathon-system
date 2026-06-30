@@ -50,6 +50,24 @@ public class TeamController {
                 teamService.getMyTeam(principal.getUserId())));
     }
 
+    @GetMapping("/my/history")
+    @PreAuthorize("hasRole('PARTICIPANT')")
+    public ResponseEntity<ApiResponse<List<MyTeamResponse>>> getMyTeamHistory(Authentication authentication) {
+        UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
+        return ResponseEntity.ok(ApiResponse.success("My team history retrieved successfully.",
+                teamService.getMyTeamHistory(principal.getUserId())));
+    }
+
+    @GetMapping("/my/event/{eventId}")
+    @PreAuthorize("hasRole('PARTICIPANT')")
+    public ResponseEntity<ApiResponse<MyTeamResponse>> getMyTeamByEvent(
+            @PathVariable Integer eventId,
+            Authentication authentication) {
+        UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
+        return ResponseEntity.ok(ApiResponse.success("My team retrieved successfully.",
+                teamService.getMyTeamByEvent(principal.getUserId(), eventId)));
+    }
+
     @GetMapping("/active-events")
     public ResponseEntity<ApiResponse<List<ActiveEventResponse>>> getActiveEvents() {
         return ResponseEntity.ok(ApiResponse.success("Active events retrieved successfully.",

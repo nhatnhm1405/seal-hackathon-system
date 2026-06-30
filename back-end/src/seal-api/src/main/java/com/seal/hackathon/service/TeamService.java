@@ -90,43 +90,35 @@ public class TeamService {
 
     @Transactional(readOnly = true)
     public MyTeamResponse getMyTeam(Integer userId) {
-        List<String> activeStatuses = List.of("OPEN", "SETUP", "IN_PROGRESS");
+        List<String> currentStatuses = List.of("OPEN", "SETUP", "IN_PROGRESS");
         List<TeamMember> myMemberships = teamMemberRepository
-                .findByUser_UserIdAndTeam_Event_StatusIn(userId, activeStatuses);
+                .findByUser_UserIdAndTeam_Event_StatusIn(userId, currentStatuses);
+        if (myMemberships.isEmpty()) {
+            myMemberships = teamMemberRepository.findByUser_UserIdOrderByIdDesc(userId);
+        }
 
         if (myMemberships.isEmpty()) {
-            throw new ResourceNotFoundException("You are not currently a member of any team in an active event.");
+            throw new ResourceNotFoundException("You are not currently a member of any team.");
         }
 
         TeamMember membership = myMemberships.get(0);
-        Team team = membership.getTeam();
-        List<TeamMember> allMembers = teamMemberRepository.findByTeam_TeamId(team.getTeamId());
+        return mapToMyTeamResponse(membership);
+    }
 
-        List<MyTeamResponse.TeamMemberInfo> memberInfos = allMembers.stream()
-                .map(m -> MyTeamResponse.TeamMemberInfo.builder()
-                        .userId(m.getUser().getUserId())
-                        .memberName(m.getUser().getFullName())
-                        .email(m.getUser().getEmail())
-                        .studentType(m.getUser().getUserType())
-                        .studentId(m.getUser().getStudentId())
-                        .role(m.getMemberRole())
-                        .joinedAt(m.getJoinedAt())
-                        .build())
+    @Transactional(readOnly = true)
+    public List<MyTeamResponse> getMyTeamHistory(Integer userId) {
+        return teamMemberRepository.findByUser_UserIdOrderByIdDesc(userId).stream()
+                .map(this::mapToMyTeamResponse)
                 .collect(Collectors.toList());
+    }
 
-        return MyTeamResponse.builder()
-                .teamId(team.getTeamId())
-                .eventId(team.getEvent().getEventId())
-                .eventName(team.getEvent().getName())
-                .trackId(team.getTrack() != null ? team.getTrack().getTrackId() : null)
-                .trackName(team.getTrack() != null ? team.getTrack().getName() : null)
-                .name(team.getName())
-                .eventStatus(team.getEvent().getStatus())
-                .trackSelectionMode(team.getEvent().getTrackSelectionMode())
-                .status(team.getStatus())
-                .myRole(membership.getMemberRole())
-                .members(memberInfos)
-                .build();
+    @Transactional(readOnly = true)
+    public MyTeamResponse getMyTeamByEvent(Integer userId, Integer eventId) {
+        return teamMemberRepository.findByUser_UserIdOrderByIdDesc(userId).stream()
+                .filter(m -> m.getTeam().getEvent().getEventId().equals(eventId))
+                .findFirst()
+                .map(this::mapToMyTeamResponse)
+                .orElseThrow(() -> new ResourceNotFoundException("You are not part of any team in this event."));
     }
 
     // ── Participant: team management (leader unless noted) ────────────
@@ -569,6 +561,37 @@ public class TeamService {
                 .description(team.getDescription())
                 .status(team.getStatus())
                 .createdAt(team.getCreatedAt())
+                .build();
+    }
+
+    private MyTeamResponse mapToMyTeamResponse(TeamMember membership) {
+        Team team = membership.getTeam();
+        List<TeamMember> allMembers = teamMemberRepository.findByTeam_TeamId(team.getTeamId());
+
+        List<MyTeamResponse.TeamMemberInfo> memberInfos = allMembers.stream()
+                .map(m -> MyTeamResponse.TeamMemberInfo.builder()
+                        .userId(m.getUser().getUserId())
+                        .memberName(m.getUser().getFullName())
+                        .email(m.getUser().getEmail())
+                        .studentType(m.getUser().getUserType())
+                        .studentId(m.getUser().getStudentId())
+                        .role(m.getMemberRole())
+                        .joinedAt(m.getJoinedAt())
+                        .build())
+                .collect(Collectors.toList());
+
+        return MyTeamResponse.builder()
+                .teamId(team.getTeamId())
+                .eventId(team.getEvent().getEventId())
+                .eventName(team.getEvent().getName())
+                .trackId(team.getTrack() != null ? team.getTrack().getTrackId() : null)
+                .trackName(team.getTrack() != null ? team.getTrack().getName() : null)
+                .name(team.getName())
+                .eventStatus(team.getEvent().getStatus())
+                .trackSelectionMode(team.getEvent().getTrackSelectionMode())
+                .status(team.getStatus())
+                .myRole(membership.getMemberRole())
+                .members(memberInfos)
                 .build();
     }
 
