@@ -21,7 +21,9 @@ import { ProfilePage } from "@/features/users/ProfilePage";
 import { TeamCreatePage } from "@/features/teams/TeamCreatePage";
 import { TeamSubmitPage } from "@/features/submissions/TeamSubmitPage";
 import { TeamViewPage } from "@/features/teams/TeamViewPage";
+import { HistoryPage } from "@/features/teams/HistoryPage";
 import { MentorTracksPage } from "@/features/tracks/MentorTracksPage";
+import { MentorHistoryPage } from "@/features/tracks/MentorHistoryPage";
 import { JudgeScoringPage } from "@/features/scoring/JudgeScoringPage";
 import { JudgeHistoryPage } from "@/features/scoring/JudgeHistoryPage";
 import { CoordEventsPage } from "@/features/events/CoordEventsPage";
@@ -29,6 +31,7 @@ import { CoordAccountsPage } from "@/features/users/CoordAccountsPage";
 import { CoordTeamsPage } from "@/features/teams/CoordTeamsPage";
 import { CoordJudgesPage } from "@/features/scoring/CoordJudgesPage";
 import { CoordScoringPage } from "@/features/scoring/CoordScoringPage";
+import { CoordPrizesPage } from "@/features/scoring/CoordPrizesPage";
 import { AdminEventsPage } from "@/features/events/AdminEventsPage";
 import { AdminAccountsPage } from "@/features/users/AdminAccountsPage";
 import { AdminParticipationRequestsPage } from "@/features/users/AdminParticipationRequestsPage";
@@ -197,6 +200,10 @@ export const router = createBrowserRouter([
                     path: "/team/submit",
                     Component: TeamSubmitPage,
                   },
+                  {
+                    path: "/history",
+                    Component: HistoryPage,
+                  },
                 ],
               },
               // Admin routes — SYSTEM_ADMIN is single-role, no RoleGate needed
@@ -255,6 +262,10 @@ export const router = createBrowserRouter([
                         path: "/mentor/tracks",
                         Component: MentorTracksPage,
                       },
+                      {
+                        path: "/mentor/history",
+                        Component: MentorHistoryPage,
+                      },
                     ],
                   },
                   {
@@ -300,6 +311,10 @@ export const router = createBrowserRouter([
                       {
                         path: "/coordinator/scoring",
                         Component: CoordScoringPage,
+                      },
+                      {
+                        path: "/coordinator/prizes",
+                        Component: CoordPrizesPage,
                       },
                     ],
                   },

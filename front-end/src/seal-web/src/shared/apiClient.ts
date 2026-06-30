@@ -699,6 +699,7 @@ export interface CreateRoundPayload {
 export interface UpdateRoundPayload {
   name?: string;
   topNAdvance?: number;
+  clearTopNAdvance?: boolean;
   status?: string;
   startTime?: string;
   endTime?: string;
@@ -725,6 +726,54 @@ export const roundsApi = {
     }),
 };
 
+export type TimerPhase = 'CONTEST' | 'JUDGING';
+export type TimerStatus = 'IDLE' | 'RUNNING' | 'PAUSED' | 'STOPPED' | 'EXPIRED';
+
+export interface RoundTimerState {
+  roundId: number;
+  phase: TimerPhase;
+  status: TimerStatus;
+  durationSeconds?: number | null;
+  startedAt?: string | null;
+  endsAt?: string | null;
+  remainingSeconds: number;
+  serverNow: string;
+  milestoneMinutes?: number[] | null;
+  notifyAtHalf?: boolean | null;
+}
+
+export interface StartTimerPayload {
+  durationSeconds: number;
+  milestoneMinutes?: number[];
+  notifyAtHalf?: boolean;
+}
+
+export const timersApi = {
+  get: (eventId: number, roundId: number, phase: TimerPhase) =>
+    apiFetch<ApiResponse<RoundTimerState>>(`/api/events/${eventId}/rounds/${roundId}/timer/${phase}`),
+
+  start: (eventId: number, roundId: number, phase: TimerPhase, payload: StartTimerPayload) =>
+    apiFetch<ApiResponse<RoundTimerState>>(`/api/events/${eventId}/rounds/${roundId}/timer/${phase}/start`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  pause: (eventId: number, roundId: number, phase: TimerPhase) =>
+    apiFetch<ApiResponse<RoundTimerState>>(`/api/events/${eventId}/rounds/${roundId}/timer/${phase}/pause`, { method: 'POST' }),
+
+  resume: (eventId: number, roundId: number, phase: TimerPhase) =>
+    apiFetch<ApiResponse<RoundTimerState>>(`/api/events/${eventId}/rounds/${roundId}/timer/${phase}/resume`, { method: 'POST' }),
+
+  stop: (eventId: number, roundId: number, phase: TimerPhase) =>
+    apiFetch<ApiResponse<RoundTimerState>>(`/api/events/${eventId}/rounds/${roundId}/timer/${phase}/stop`, { method: 'POST' }),
+
+  extend: (eventId: number, roundId: number, phase: TimerPhase, seconds: number) =>
+    apiFetch<ApiResponse<RoundTimerState>>(`/api/events/${eventId}/rounds/${roundId}/timer/${phase}/extend`, {
+      method: 'POST',
+      body: JSON.stringify({ seconds }),
+    }),
+};
+
 // ── Teams ─────────────────────────────────────────────────────────
 
 export interface Team {
@@ -744,7 +793,9 @@ export interface TeamMember {
   userId: number;
   fullName: string;
   email: string;
-  role: 'LEADER' | 'MEMBER';
+  role?: 'LEADER' | 'MEMBER';
+  memberRole?: 'LEADER' | 'MEMBER';
+  joinedAt?: string;
 }
 
 // GET /api/teams/my — the current user's team in the active event.
@@ -793,6 +844,23 @@ export interface CreateTeamPayload {
   description?: string;
 }
 
+export interface TeamHistoryEntry {
+  eventId: number;
+  eventName: string;
+  season?: string;
+  year?: number;
+  eventStatus: string;
+  teamId: number;
+  teamName: string;
+  trackName?: string | null;
+  teamStatus: string;
+  myRole?: string;
+  members: { fullName: string; role: string }[];
+  rounds: { roundName: string; isFinal: boolean; rankPosition: number; advanced: boolean; totalScore: number }[];
+  submissions: { roundName: string; repoUrl?: string; demoUrl?: string; slideUrl?: string; submittedAt?: string; status: string }[];
+  prize: { name: string; rankPosition: number; awardedAt?: string } | null;
+}
+
 export const teamsApi = {
   getActiveEvents: () =>
     apiFetch<ApiResponse<ActiveEventWithTracks[]>>('/api/teams/active-events'),
@@ -805,6 +873,12 @@ export const teamsApi = {
 
   getMy: () =>
     apiFetch<ApiResponse<MyTeam>>('/api/teams/my'),
+
+  getMyHistory: () =>
+    apiFetch<ApiResponse<TeamHistoryEntry[]>>('/api/teams/my/history'),
+
+  getMyForEvent: (eventId: number) =>
+    apiFetch<ApiResponse<MyTeam>>(`/api/teams/my/event/${eventId}`),
 
   getByEvent: (eventId: number) =>
     apiFetch<ApiResponse<Team[]>>(`/api/teams/event/${eventId}`),
@@ -1160,6 +1234,67 @@ export const resultsApi = {
 
 // ── Notifications ─────────────────────────────────────────────────
 
+export interface Prize {
+  prizeId: number;
+  eventId: number;
+  name: string;
+  description?: string;
+  rankPosition: number;
+  teamId?: number | null;
+  teamName?: string | null;
+  teamTrackName?: string | null;
+  finalScore?: number | null;
+  awardedAt?: string | null;
+  announced: boolean;
+}
+
+export interface CreatePrizePayload {
+  name: string;
+  description?: string;
+  rankPosition: number;
+  teamId?: number | null;
+}
+
+export interface UpdatePrizePayload {
+  name?: string;
+  description?: string;
+  rankPosition?: number;
+  teamId?: number | null;
+}
+
+export const prizesApi = {
+  getAll: (eventId: number) =>
+    apiFetch<ApiResponse<Prize[]>>(`/api/events/${eventId}/prizes`),
+
+  create: (eventId: number, payload: CreatePrizePayload) =>
+    apiFetch<ApiResponse<Prize>>(`/api/events/${eventId}/prizes`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  update: (eventId: number, prizeId: number, payload: UpdatePrizePayload) =>
+    apiFetch<ApiResponse<Prize>>(`/api/events/${eventId}/prizes/${prizeId}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
+
+  remove: (eventId: number, prizeId: number) =>
+    apiFetch<ApiResponse<void>>(`/api/events/${eventId}/prizes/${prizeId}`, {
+      method: 'DELETE',
+    }),
+
+  autoGenerate: (eventId: number, topN: number) =>
+    apiFetch<ApiResponse<Prize[]>>(`/api/events/${eventId}/prizes/auto-generate`, {
+      method: 'POST',
+      body: JSON.stringify({ topN }),
+    }),
+
+  announce: (eventId: number) =>
+    apiFetch<ApiResponse<Prize[]>>(`/api/events/${eventId}/prizes/announce`, {
+      method: 'POST',
+    }),
+};
+
 export interface Notification {
   notificationId: number;
   title: string;
@@ -1245,9 +1380,25 @@ export interface JudgeAssignment {
   teams: JudgeAssignedTeam[];
 }
 
+export interface MentorHistoryEntry {
+  eventId: number;
+  eventName: string;
+  season?: string;
+  year?: number;
+  eventStatus: string;
+  tracks: {
+    trackId: number;
+    trackName: string;
+    teams: { teamId: number; teamName: string; teamStatus: string; finalRank?: number | null; prizeName?: string | null }[];
+  }[];
+}
+
 export const assignmentsApi = {
   getMentorAssignments: () =>
     apiFetch<ApiResponse<MentorAssignment>>('/api/mentor/assignments'),
+
+  getMentorHistory: () =>
+    apiFetch<ApiResponse<MentorHistoryEntry[]>>('/api/mentor/assignments/history'),
 
   getJudgeAssignments: () =>
     apiFetch<ApiResponse<JudgeAssignment>>('/api/judge/assignments'),

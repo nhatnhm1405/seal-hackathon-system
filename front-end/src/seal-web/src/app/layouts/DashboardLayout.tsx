@@ -12,6 +12,15 @@ import sealLogo from "@/imports/image.png";
 
 const NAVBAR_H = 60;
 
+const DASHBOARD_PATHS = new Set([
+  "/dashboard",
+  "/coordinator/dashboard",
+  "/admin/dashboard",
+  "/dashboard/coordinator",
+  "/dashboard/judge",
+  "/dashboard/mentor",
+]);
+
 interface NavItem {
   path: string;
   label: string;
@@ -21,8 +30,8 @@ interface NavItem {
 function buildNav(role: string, isLeader: boolean, teamId: number | null, pendingCount: number): NavItem[] {
   if (role === "PARTICIPANT") {
     if (teamId === null) {
-      const base: NavItem[] = [{ path: "/dashboard", label: "Dashboard" }, { path: "/leaderboard", label: "Leaderboard" }, { path: "/profile", label: "Profile" }];
-      if (isLeader) return [{ path: "/dashboard", label: "Dashboard" }, { path: "/team/create", label: "Create Team" }, { path: "/leaderboard", label: "Leaderboard" }, { path: "/profile", label: "Profile" }];
+      const base: NavItem[] = [{ path: "/dashboard", label: "Dashboard" }, { path: "/leaderboard", label: "Leaderboard" }, { path: "/history", label: "History" }, { path: "/profile", label: "Profile" }];
+      if (isLeader) return [{ path: "/dashboard", label: "Dashboard" }, { path: "/team/create", label: "Create Team" }, { path: "/leaderboard", label: "Leaderboard" }, { path: "/history", label: "History" }, { path: "/profile", label: "Profile" }];
       return base;
     }
     if (isLeader) {
@@ -31,6 +40,7 @@ function buildNav(role: string, isLeader: boolean, teamId: number | null, pendin
         { path: "/team/view",   label: "My Team"        },
         { path: "/team/submit", label: "Submit Project" },
         { path: "/leaderboard", label: "Leaderboard"    },
+        { path: "/history",     label: "History"        },
         { path: "/profile",     label: "Profile"        },
       ];
     }
@@ -38,6 +48,7 @@ function buildNav(role: string, isLeader: boolean, teamId: number | null, pendin
       { path: "/dashboard",   label: "Dashboard"  },
       { path: "/team/view",   label: "My Team"     },
       { path: "/leaderboard", label: "Leaderboard" },
+      { path: "/history",     label: "History"     },
       { path: "/profile",     label: "Profile"     },
     ];
   }
@@ -45,6 +56,7 @@ function buildNav(role: string, isLeader: boolean, teamId: number | null, pendin
     return [
       { path: "/dashboard",     label: "Dashboard"  },
       { path: "/mentor/tracks", label: "My Tracks"  },
+      { path: "/mentor/history",label: "History"    },
       { path: "/leaderboard",   label: "Leaderboard"},
       { path: "/profile",       label: "Profile"    },
     ];
@@ -59,7 +71,7 @@ function buildNav(role: string, isLeader: boolean, teamId: number | null, pendin
   }
   if (role === "ADMIN") {
     return [
-      { path: "/admin/dashboard", label: "Dashboard"   },
+      { path: "/dashboard",       label: "Dashboard"   },
       { path: "/admin/events",    label: "Events"      },
       { path: "/admin/accounts",  label: "Accounts"    },
       { path: "/admin/roles",     label: "Role Grants" },
@@ -69,22 +81,30 @@ function buildNav(role: string, isLeader: boolean, teamId: number | null, pendin
   }
   if (role === "COORDINATOR") {
     return [
-      { path: "/coordinator/dashboard", label: "Dashboard"         },
+      { path: "/dashboard",             label: "Dashboard"         },
       { path: "/coordinator/events",    label: "Events"            },
       { path: "/coordinator/accounts",  label: "Accounts", badge: pendingCount },
       { path: "/coordinator/teams",     label: "Teams"             },
       { path: "/coordinator/judges",    label: "Assignments"       },
       { path: "/coordinator/scoring",   label: "Scoring & Results" },
+      { path: "/coordinator/prizes",    label: "Awards"            },
       { path: "/profile",               label: "Profile"           },
     ];
   }
   return [{ path: "/dashboard", label: "Dashboard" }];
 }
 
+function isDashboardPath(pathname: string): boolean {
+  return DASHBOARD_PATHS.has(pathname);
+}
+
 function getPageTitle(pathname: string): string {
   const map: Record<string, string> = {
     "/": "Home",
     "/dashboard": "Dashboard",
+    "/dashboard/judge": "Dashboard",
+    "/dashboard/mentor": "Dashboard",
+    "/dashboard/coordinator": "Dashboard",
     "/admin/dashboard": "Dashboard",
     "/admin/events": "Events",
     "/admin/accounts": "Accounts",
@@ -92,12 +112,14 @@ function getPageTitle(pathname: string): string {
     "/admin/roles": "Role Grants",
     "/admin/logs": "System Logs",
     "/leaderboard": "Leaderboard",
+    "/history": "History",
     "/profile": "Profile",
     "/team/create": "Create Team",
     "/team/view": "My Team",
     "/team/manage": "My Team",
     "/team/submit": "Submit Project",
     "/mentor/tracks": "My Tracks",
+    "/mentor/history": "Mentoring History",
     "/judge/score": "Score Submissions",
     "/judge/history": "Scoring History",
     "/coordinator/dashboard": "Dashboard",
@@ -106,6 +128,7 @@ function getPageTitle(pathname: string): string {
     "/coordinator/teams": "Teams",
     "/coordinator/judges": "Assignments",
     "/coordinator/scoring": "Scoring & Results",
+    "/coordinator/prizes": "Awards",
   };
   return map[pathname] || "Console";
 }
@@ -389,10 +412,10 @@ function TopNavbar({ pageTitle, collapsed, onToggleCollapse, currentUser, onLogo
           type="button"
           onClick={() => onNavigate("/")}
           title="Về trang chủ"
-          style={{ display: "flex", alignItems: "center", gap: 10, background: "transparent", border: "none", padding: 0, cursor: "pointer" }}
+          style={{ display: "flex", alignItems: "center", gap: 10, height: 44, overflow: "hidden", background: "transparent", border: "none", padding: 0, cursor: "pointer" }}
         >
-          <div style={{ height: 72, overflow: "visible", flexShrink: 0, display: "flex", alignItems: "center" }}>
-            <img src={sealLogo} alt="SEAL" style={{ height: 144, width: "auto", objectFit: "contain", filter: "drop-shadow(0 0 6px rgba(34,197,94,0.4))" }} />
+          <div style={{ width: 96, height: 44, overflow: "hidden", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <img src={sealLogo} alt="SEAL" style={{ height: 96, width: "auto", objectFit: "contain", filter: "drop-shadow(0 0 6px rgba(34,197,94,0.4))", pointerEvents: "none" }} />
           </div>
           <span style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 13, letterSpacing: "0.06em", background: "linear-gradient(135deg, #22c55e 0%, #3b82f6 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", whiteSpace: "nowrap" }}>
             SEAL Hackathon
@@ -554,8 +577,6 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
     navigate('/');
   }
 
-  const isDashboardRoute = location.pathname !== '/';
-
   return (
     <div style={{ minHeight: "100vh", background: C.bg, display: "flex", flexDirection: "column", color: C.text }}>
       {/* Full-width top navbar */}
@@ -587,7 +608,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
         >
           <nav style={{ flex: 1, overflowY: "auto", padding: collapsed ? "12px 6px" : "16px 10px", display: "flex", flexDirection: "column", gap: 2 }}>
             {nav.map((item) => {
-              const active = isDashboardRoute && location.pathname === item.path;
+              const active = item.label === "Dashboard" ? isDashboardPath(location.pathname) : location.pathname === item.path;
               return (
                 <button
                   key={item.path}
