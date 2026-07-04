@@ -9,6 +9,8 @@ import com.seal.hackathon.dto.response.TeamDetailResponse;
 import com.seal.hackathon.dto.response.TeamResponse;
 import com.seal.hackathon.dto.response.UserResponse;
 import com.seal.hackathon.entity.HackathonEvent;
+import com.seal.hackathon.entity.Round;
+import com.seal.hackathon.entity.RoundResult;
 import com.seal.hackathon.entity.Team;
 import com.seal.hackathon.entity.TeamMember;
 import com.seal.hackathon.entity.Track;
@@ -16,6 +18,10 @@ import com.seal.hackathon.entity.User;
 import com.seal.hackathon.exception.BadRequestException;
 import com.seal.hackathon.exception.ResourceNotFoundException;
 import com.seal.hackathon.repository.HackathonEventRepository;
+import com.seal.hackathon.repository.PrizeRepository;
+import com.seal.hackathon.repository.RoundRepository;
+import com.seal.hackathon.repository.RoundResultRepository;
+import com.seal.hackathon.repository.SubmissionRepository;
 import com.seal.hackathon.repository.TeamMemberRepository;
 import com.seal.hackathon.repository.TeamRepository;
 import com.seal.hackathon.repository.TrackRepository;
@@ -26,6 +32,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -61,6 +68,18 @@ class TeamServiceTest {
 
     @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private SubmissionRepository submissionRepository;
+
+    @Mock
+    private RoundResultRepository roundResultRepository;
+
+    @Mock
+    private PrizeRepository prizeRepository;
+
+    @Mock
+    private RoundRepository roundRepository;
 
     @Mock
     private NotificationService notificationService;
@@ -107,6 +126,21 @@ class TeamServiceTest {
 
         assertThrows(BadRequestException.class, () -> teamService.createTeam(100, request));
 
+        verify(teamRepository, never()).save(any());
+        verify(teamMemberRepository, never()).save(any());
+    }
+
+    @Test
+    void createTeam_shouldThrowBadRequest_whenUserIsReadOnly() {
+        CreateTeamRequest request = createTeamRequest("Seal Team");
+        User user = user(100, "Leader");
+        user.setIsActive(false);
+
+        when(userRepository.findById(100)).thenReturn(Optional.of(user));
+
+        assertThrows(BadRequestException.class, () -> teamService.createTeam(100, request));
+
+        verify(eventRepository, never()).findById(anyInt());
         verify(teamRepository, never()).save(any());
         verify(teamMemberRepository, never()).save(any());
     }
@@ -179,6 +213,55 @@ class TeamServiceTest {
         assertEquals("Seal Team", response.getName());
         assertEquals("LEADER", response.getMyRole());
         assertEquals(2, response.getMembers().size());
+    }
+
+    @Test
+    void getMyTeam_shouldReturnRound_whenTeamCanParticipateInActiveRound() {
+        HackathonEvent event = event(1, "IN_PROGRESS");
+        Team team = team(99, event, track(10, event), "Seal Team", "APPROVED");
+        TeamMember leader = member(1, team, user(100, "Leader"), "LEADER");
+        Round round1 = round(11, event, 1, "Round 1", "FINALIZED");
+        round1.setTopNAdvance(3);
+        Round round2 = round(12, event, 2, "Round 2", "ACTIVE");
+
+        when(teamMemberRepository.findByUser_UserIdAndTeam_Event_StatusIn(eq(100), anyList()))
+                .thenReturn(List.of(leader));
+        when(teamMemberRepository.findByTeam_TeamId(99)).thenReturn(List.of(leader));
+        when(roundRepository.findAllByEvent_EventIdOrderByOrderNumber(1)).thenReturn(List.of(round1, round2));
+        when(roundResultRepository.findByTeam_TeamIdAndRound_RoundId(99, 11))
+                .thenReturn(Optional.of(roundResult(team, round1, 2)));
+
+        MyTeamResponse response = teamService.getMyTeam(100);
+
+        assertNotNull(response.getRound());
+        assertEquals(12, response.getRound().getRoundId());
+        assertEquals("Round 2", response.getRound().getName());
+    }
+
+    @Test
+    void getMyTeam_shouldReturnDisqualifiedRound_whenTeamWasDisqualified() {
+        HackathonEvent event = event(1, "IN_PROGRESS");
+        Team team = team(99, event, track(10, event), "Seal Team", "DISQUALIFIED");
+        LocalDateTime disqualifiedAt = LocalDateTime.of(2026, 7, 4, 10, 30);
+        team.setDisqualifiedAt(disqualifiedAt);
+        TeamMember leader = member(1, team, user(100, "Leader"), "LEADER");
+        Round round1 = round(11, event, 1, "Round 1", "FINALIZED");
+        round1.setStartTime(LocalDateTime.of(2026, 7, 4, 8, 0));
+        round1.setEndTime(LocalDateTime.of(2026, 7, 4, 9, 0));
+        Round round2 = round(12, event, 2, "Round 2", "ACTIVE");
+        round2.setStartTime(LocalDateTime.of(2026, 7, 4, 10, 0));
+        round2.setEndTime(LocalDateTime.of(2026, 7, 4, 12, 0));
+
+        when(teamMemberRepository.findByUser_UserIdAndTeam_Event_StatusIn(eq(100), anyList()))
+                .thenReturn(List.of(leader));
+        when(teamMemberRepository.findByTeam_TeamId(99)).thenReturn(List.of(leader));
+        when(roundRepository.findAllByEvent_EventIdOrderByOrderNumber(1)).thenReturn(List.of(round1, round2));
+
+        MyTeamResponse response = teamService.getMyTeam(100);
+
+        assertNotNull(response.getRound());
+        assertEquals(12, response.getRound().getRoundId());
+        assertEquals("Round 2", response.getRound().getName());
     }
 
     @Test
@@ -1179,6 +1262,32 @@ class TeamServiceTest {
                 .event(event)
                 .name("AI")
                 .description("AI track")
+                .build();
+    }
+
+    private static Round round(Integer roundId, HackathonEvent event, Integer orderNumber, String name, String status) {
+        LocalDateTime start = LocalDateTime.of(2026, 7, 4, 8, 0).plusDays(orderNumber - 1L);
+        return Round.builder()
+                .roundId(roundId)
+                .event(event)
+                .name(name)
+                .orderNumber(orderNumber)
+                .startTime(start)
+                .endTime(start.plusHours(2))
+                .submissionDeadline(start.plusHours(3))
+                .isFinal(false)
+                .status(status)
+                .build();
+    }
+
+    private static RoundResult roundResult(Team team, Round round, Integer rankPosition) {
+        return RoundResult.builder()
+                .resultId(700 + round.getRoundId())
+                .team(team)
+                .round(round)
+                .rankPosition(rankPosition)
+                .totalScore(BigDecimal.valueOf(90))
+                .isPublished(true)
                 .build();
     }
 

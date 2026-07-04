@@ -6,13 +6,21 @@ import {
   C, GradientText, PixelCard, PixelButton, PixelBadge, PixelInput,
 } from "@/shared/components/PixelComponents";
 import { teamsApi, invitesApi, joinRequestsApi, ApiError, apiErrorMessage, MyTeam, MyTeamMember, UserItem, JoinRequest } from "@/shared/apiClient";
-import { isTeamEditable, MIN_TEAM_SIZE, MAX_TEAM_SIZE } from "@/shared/teamPhase";
+import { isTeamEditable, teamLockReason, MIN_TEAM_SIZE, MAX_TEAM_SIZE } from "@/shared/teamPhase";
 
 function statusBadgeColor(status?: string): "green" | "yellow" | "red" | "gray" {
   const s = (status ?? "").toUpperCase();
   if (s === "APPROVED") return "green";
   if (s === "PENDING") return "yellow";
   if (s === "REJECTED" || s === "DISQUALIFIED") return "red";
+  return "gray";
+}
+
+function roundStatusColor(status?: string): "green" | "yellow" | "red" | "gray" {
+  const s = (status ?? "").toUpperCase();
+  if (["ACTIVE", "OPEN", "IN_PROGRESS"].includes(s)) return "green";
+  if (["UPCOMING", "PENDING", "DRAFT"].includes(s)) return "yellow";
+  if (["CLOSED", "CANCELLED"].includes(s)) return "red";
   return "gray";
 }
 
@@ -44,6 +52,8 @@ export function TeamViewPage() {
   const [showInvite, setShowInvite] = useState(false);
   const [inviteQuery, setInviteQuery] = useState("");
   const [inviteResults, setInviteResults] = useState<UserItem[]>([]);
+  const [inviteSearchMessage, setInviteSearchMessage] = useState<string | null>(null);
+  const [inviteSendingId, setInviteSendingId] = useState<number | null>(null);
   const [searching, setSearching] = useState(false);
 
   const [transferTarget, setTransferTarget] = useState<MyTeamMember | null>(null);
@@ -96,6 +106,7 @@ export function TeamViewPage() {
     setNotice(null);
     setEditingName(false);
     setShowInvite(false);
+    setInviteSearchMessage(null);
     try {
       const res = await teamsApi.getMyForEvent(eventId);
       applyTeam(res.data);
@@ -154,26 +165,51 @@ export function TeamViewPage() {
 
   async function doSearch() {
     const q = inviteQuery.trim();
-    if (q.length < 2) { setInviteResults([]); return; }
+    setActionError(null);
+    setNotice(null);
+    setInviteSearchMessage(null);
+    if (q.length < 2) {
+      const message = "Enter at least 2 characters to search for an eligible participant.";
+      setInviteResults([]);
+      setInviteSearchMessage(message);
+      addToast({ type: "warning", title: "Search needed", message });
+      return;
+    }
     setSearching(true);
     try {
       const res = await teamsApi.searchUsers(q);
-      setInviteResults(res.data ?? []);
-    } catch { setInviteResults([]); }
+      const results = res.data ?? [];
+      setInviteResults(results);
+      if (results.length === 0) {
+        const message = "No eligible participant found. The account may be inactive, unapproved, not a student participant, or already unavailable for invitation.";
+        setInviteSearchMessage(message);
+        addToast({ type: "warning", title: "No eligible participant", message });
+      }
+    } catch (err) {
+      const message = apiErrorMessage(err, "Failed to search participants.");
+      setInviteResults([]);
+      setInviteSearchMessage(message);
+      addToast({ type: "warning", title: "Search failed", message });
+    }
     finally { setSearching(false); }
   }
 
   async function sendInvite(user: UserItem) {
     if (!team) return;
-    setActionError(null); setNotice(null);
+    setActionError(null); setNotice(null); setInviteSearchMessage(null);
+    setInviteSendingId(user.userId);
     try {
       await invitesApi.send(team.teamId, { invitedUserId: user.userId });
       setNotice(`Invitation sent to ${user.fullName}. They will appear once they accept.`);
       addToast({ type: "success", title: "Invitation sent", message: `${user.fullName} has been invited to your team.` });
       setInviteQuery(""); setInviteResults([]); setShowInvite(false);
     } catch (err) {
-      setActionError(err instanceof ApiError ? err.message : "Failed to send invite.");
-      addToast({ type: "warning", title: "Invite failed", message: apiErrorMessage(err, "Failed to send invite.") });
+      const message = apiErrorMessage(err, "Failed to send invite.");
+      setActionError(message);
+      setInviteSearchMessage(message);
+      addToast({ type: "warning", title: "Invite failed", message });
+    } finally {
+      setInviteSendingId(null);
     }
   }
 
@@ -347,6 +383,7 @@ export function TeamViewPage() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 16 }}>
           <InfoCell label="Event" value={team.eventName ?? "—"} />
           <InfoCell label="Track" value={team.trackName ?? "—"} />
+          <InfoCell label={team.status === 'DISQUALIFIED' ? "Disqualified round" : "Current round"} value={team.round?.name ?? "—"} badge={team.round?.status} />
           <InfoCell label="Members" value={`${memberRows.length}/${MAX_TEAM_SIZE}`} accent />
           <InfoCell label="Your role" value={team.myRole ?? "—"} />
         </div>
@@ -370,10 +407,16 @@ export function TeamViewPage() {
                 <PixelInput label="Search by name, email or student ID" placeholder="min 2 characters"
                   value={inviteQuery}
                   onChange={e => setInviteQuery(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') doSearch(); }}
                 />
               </div>
-              <PixelButton size="sm" variant="secondary" onClick={doSearch} disabled={searching}>{searching ? "…" : "SEARCH"}</PixelButton>
+              <PixelButton size="sm" variant="secondary" onClick={doSearch} disabled={searching || inviteSendingId != null}>{searching ? "…" : "SEARCH"}</PixelButton>
             </div>
+            {inviteSearchMessage && (
+              <div style={{ marginTop: 10, color: "#eab308", fontFamily: "'JetBrains Mono', monospace", fontSize: 11, lineHeight: 1.6 }}>
+                {inviteSearchMessage}
+              </div>
+            )}
             {inviteResults.length > 0 && (
               <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
                 {inviteResults.map(u => (
@@ -382,7 +425,9 @@ export function TeamViewPage() {
                       <span style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>{u.fullName}</span>
                       <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 10 }}>{u.email}{u.studentId ? ` · ${u.studentId}` : ""}</div>
                     </div>
-                    <PixelButton size="sm" variant="cyber" onClick={() => sendInvite(u)}>INVITE</PixelButton>
+                    <PixelButton size="sm" variant="cyber" onClick={() => sendInvite(u)} disabled={inviteSendingId != null}>
+                      {inviteSendingId === u.userId ? "SENDING..." : "INVITE"}
+                    </PixelButton>
                   </div>
                 ))}
               </div>
@@ -557,11 +602,14 @@ export function TeamViewPage() {
   );
 }
 
-function InfoCell({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
+function InfoCell({ label, value, accent, badge }: { label: string; value: string; accent?: boolean; badge?: string }) {
   return (
     <div>
       <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 }}>{label}</div>
-      <div style={{ color: accent ? C.green : C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 600 }}>{value}</div>
+      <div style={{ color: accent ? C.green : C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 600, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        {value}
+        {badge && <PixelBadge color={roundStatusColor(badge)}>{badge}</PixelBadge>}
+      </div>
     </div>
   );
 }

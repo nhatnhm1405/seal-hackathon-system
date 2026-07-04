@@ -123,7 +123,6 @@ function getPageTitle(pathname: string): string {
     "/team/view": "My Team",
     "/team/manage": "My Team",
     "/team/submit": "Submit Project",
-    "/history": "History",
     "/mentor/tracks": "My Tracks",
     "/mentor/history": "Mentoring History",
     "/judge/score": "Score Submissions",

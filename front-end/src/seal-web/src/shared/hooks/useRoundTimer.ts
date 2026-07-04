@@ -186,4 +186,44 @@ export function useRoundTimer(
             key: "EXPIRED",
             seconds: 0,
             title: "Time's up",
+            message: `The ${word} window has closed.`,
+            type: "warning",
+          });
+
+          for (const mark of marks) {
+            if (
+              previousRemaining > mark.seconds
+              && nextRemaining <= mark.seconds
+              && !firedRef.current.has(mark.key)
+            ) {
+              firedRef.current.add(mark.key);
+              addToast({ type: mark.type, title: mark.title, message: mark.message });
+            }
+          }
+        }
+      }
+
+      prevRemainingRef.current = nextRemaining;
+    };
+
+    tick();
+    const intervalId = window.setInterval(tick, 1000);
+    return () => window.clearInterval(intervalId);
+  }, [enabled, state, fireBanners, phase, addToast]);
+
+  const status: TimerStatus = state?.status ?? "IDLE";
+  const isRunning = status === "RUNNING" && remaining > 0;
+
+  return {
+    status,
+    remainingSeconds: remaining,
+    durationSeconds: state?.durationSeconds ?? 0,
+    endsAt: state?.endsAt ?? null,
+    isConfigured: status !== "IDLE",
+    isRunning,
+    isPaused: status === "PAUSED",
+    isExpired: status === "EXPIRED" || (status === "RUNNING" && remaining <= 0),
+    loading,
+    refetch,
+  };
 }

@@ -11,6 +11,7 @@ import com.seal.hackathon.entity.User;
 import com.seal.hackathon.exception.BadRequestException;
 import com.seal.hackathon.exception.ForbiddenException;
 import com.seal.hackathon.exception.ResourceNotFoundException;
+import com.seal.hackathon.repository.RoundResultRepository;
 import com.seal.hackathon.repository.RoundRepository;
 import com.seal.hackathon.repository.SubmissionRepository;
 import com.seal.hackathon.repository.TeamMemberRepository;
@@ -55,7 +56,13 @@ class SubmissionServiceTest {
     private RoundRepository roundRepository;
 
     @Mock
+    private RoundResultRepository resultRepository;
+
+    @Mock
     private UserRepository userRepository;
+
+    @Mock
+    private RoundTimerService roundTimerService;
 
     @InjectMocks
     private SubmissionService submissionService;
