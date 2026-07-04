@@ -300,7 +300,7 @@ function BannerContainer({
 
 // ── Provider ────────────────────────────────────────────────────────
 export function NotificationProvider({ children }: { children: ReactNode }) {
-  const { currentUser } = useAuth();
+  const { currentUser, patchCurrentUser } = useAuth();
   const [notifications, setNotifications] = useState<UINotification[]>([]);
   const [banners, setBanners] = useState<Banner[]>([]);
   // Welcome-style splash for freshly-arrived announcement messages.
@@ -364,6 +364,9 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         [...fresh].reverse().forEach(n => {
           seenIdsRef.current.add(n.notification_id);
           if (n.is_read) return;
+          if (n.rawType === "PARTICIPATION_ACCESS_APPROVED") {
+            patchCurrentUser({ is_active: true, team_id: null, is_leader: false });
+          }
           if (n.from) {
             freshAnnouncements.push(n);
           } else if (n.rawType === "TIMER") {

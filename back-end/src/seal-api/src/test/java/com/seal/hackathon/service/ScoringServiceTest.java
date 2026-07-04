@@ -68,6 +68,9 @@ class ScoringServiceTest {
     @Mock
     private RoundRepository roundRepository;
 
+    @Mock
+    private RoundTimerService roundTimerService;
+
     @InjectMocks
     private ScoringService scoringService;
 

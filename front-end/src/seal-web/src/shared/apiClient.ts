@@ -812,6 +812,17 @@ export interface MyTeamMember {
   role: 'LEADER' | 'MEMBER';
 }
 
+export interface MyTeamRound {
+  roundId: number;
+  name: string;
+  orderNumber: number;
+  status?: string;
+  isFinal: boolean;
+  startTime: string;
+  endTime: string;
+  submissionDeadline: string;
+}
+
 export interface MyTeam {
   teamId: number;
   eventId?: number;
@@ -822,6 +833,7 @@ export interface MyTeam {
   eventStatus?: 'DRAFT' | 'OPEN' | 'SETUP' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
   trackSelectionMode?: 'SELF_SELECT' | 'RANDOM';
   status?: 'PENDING' | 'APPROVED' | 'REJECTED' | 'DISQUALIFIED';
+  round?: MyTeamRound | null;
   myRole?: 'LEADER' | 'MEMBER';
   members: MyTeamMember[];
 }
@@ -872,9 +884,6 @@ export interface TeamHistoryEntry {
 export const teamsApi = {
   getActiveEvents: () =>
     apiFetch<ApiResponse<ActiveEventWithTracks[]>>('/api/teams/active-events'),
-
-  getMyHistory: () =>
-    apiFetch<ApiResponse<TeamHistoryEntry[]>>('/api/teams/my/history'),
 
   create: (payload: CreateTeamPayload) =>
     apiFetch<ApiResponse<Team>>('/api/teams', {

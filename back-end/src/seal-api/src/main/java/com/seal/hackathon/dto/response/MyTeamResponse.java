@@ -36,11 +36,37 @@ public class MyTeamResponse {
     /** PENDING | APPROVED | REJECTED | DISQUALIFIED */
     private String status;
 
+    /** Current participating round, or the round where the team was disqualified. */
+    private RoundInfo round;
+
     /** The CURRENT user's role in this team: LEADER or MEMBER */
     private String myRole;
 
     /** All members of this team, including the current user */
     private List<TeamMemberInfo> members;
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class RoundInfo {
+
+        private Integer roundId;
+
+        private String name;
+
+        private Integer orderNumber;
+
+        private String status;
+
+        private Boolean isFinal;
+
+        private LocalDateTime startTime;
+
+        private LocalDateTime endTime;
+
+        private LocalDateTime submissionDeadline;
+    }
 
     @Data
     @Builder

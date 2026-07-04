@@ -316,13 +316,13 @@ public class AuthService {
             return;
         }
 
-        TeamMember membership = memberships.stream()
+        memberships.stream()
                 .filter(this::isCurrentEventMembership)
                 .findFirst()
-                .orElse(memberships.get(0));
-
-        response.setTeamId(membership.getTeam().getTeamId());
-        response.setIsLeader(normalizeTeamRole(membership));
+                .ifPresent(membership -> {
+                    response.setTeamId(membership.getTeam().getTeamId());
+                    response.setIsLeader(normalizeTeamRole(membership));
+                });
     }
 
     private boolean isCurrentEventMembership(TeamMember membership) {

@@ -43,9 +43,6 @@ public class TeamService {
     private final NotificationService notificationService;
     private final AuditLogService auditLogService;
     private final RoundRepository roundRepository;
-    private final RoundResultRepository roundResultRepository;
-    private final SubmissionRepository submissionRepository;
-    private final PrizeRepository prizeRepository;
 
     // ── Participant: Create team ──────────────────────────────────────
 
@@ -53,6 +50,9 @@ public class TeamService {
     public TeamResponse createTeam(Integer userId, CreateTeamRequest request) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
+        if (!Boolean.TRUE.equals(user.getIsApproved()) || !Boolean.TRUE.equals(user.getIsActive())) {
+            throw new BadRequestException("Your account is not approved or is read-only.");
+        }
 
         HackathonEvent event = eventRepository.findById(request.getEventId())
                 .orElseThrow(() -> new ResourceNotFoundException("Event not found: " + request.getEventId()));
@@ -102,15 +102,16 @@ public class TeamService {
         List<String> currentStatuses = List.of("OPEN", "SETUP", "IN_PROGRESS");
         List<TeamMember> myMemberships = teamMemberRepository
                 .findByUser_UserIdAndTeam_Event_StatusIn(userId, currentStatuses);
-        if (myMemberships.isEmpty()) {
-            myMemberships = teamMemberRepository.findByUser_UserIdOrderByIdDesc(userId);
-        }
 
         if (myMemberships.isEmpty()) {
             throw new ResourceNotFoundException("You are not currently a member of any team.");
         }
 
-        TeamMember membership = myMemberships.get(0);
+        TeamMember membership = myMemberships.stream()
+                .max(Comparator.comparing(
+                        TeamMember::getId,
+                        Comparator.nullsLast(Comparator.naturalOrder())))
+                .orElseThrow(() -> new ResourceNotFoundException("You are not currently a member of any team."));
         return mapToMyTeamResponse(membership);
     }
 
@@ -157,14 +158,14 @@ public class TeamService {
                     .collect(Collectors.toList());
 
             // Published per-round standing, in round order. Unpublished rounds stay hidden.
-            List<TeamHistoryResponse.RoundResultInfo> rounds = new ArrayList<>();
+            List<TeamHistoryResponse.RoundInfo> rounds = new ArrayList<>();
             for (Round round : roundRepository.findAllByEvent_EventIdOrderByOrderNumber(event.getEventId())) {
                 roundResultRepository.findByTeam_TeamIdAndRound_RoundId(team.getTeamId(), round.getRoundId())
                         .filter(r -> Boolean.TRUE.equals(r.getIsPublished()))
                         .ifPresent(r -> {
                             Integer topN = round.getTopNAdvance();
                             boolean advanced = topN != null && r.getRankPosition() <= topN;
-                            rounds.add(TeamHistoryResponse.RoundResultInfo.builder()
+                            rounds.add(TeamHistoryResponse.RoundInfo.builder()
                                     .roundName(round.getName())
                                     .isFinal(round.getIsFinal())
                                     .rankPosition(r.getRankPosition())
@@ -689,8 +690,98 @@ public class TeamService {
                 .eventStatus(team.getEvent().getStatus())
                 .trackSelectionMode(team.getEvent().getTrackSelectionMode())
                 .status(team.getStatus())
+                .round(resolveTeamRound(team))
                 .myRole(membership.getMemberRole())
                 .members(memberInfos)
+                .build();
+    }
+
+    private MyTeamResponse.RoundInfo resolveTeamRound(Team team) {
+        List<Round> rounds = roundRepository.findAllByEvent_EventIdOrderByOrderNumber(team.getEvent().getEventId());
+        if (rounds == null || rounds.isEmpty()) {
+            return null;
+        }
+
+        if ("DISQUALIFIED".equalsIgnoreCase(team.getStatus())) {
+            return resolveDisqualificationRound(team, rounds);
+        }
+
+        if (!"APPROVED".equalsIgnoreCase(team.getStatus())) {
+            return null;
+        }
+
+        return rounds.stream()
+                .filter(round -> isActiveRound(round.getStatus()))
+                .filter(round -> teamCanParticipateInRound(team, round, rounds))
+                .findFirst()
+                .map(this::mapToMyTeamRoundInfo)
+                .orElse(null);
+    }
+
+    private MyTeamResponse.RoundInfo resolveDisqualificationRound(Team team, List<Round> rounds) {
+        LocalDateTime disqualifiedAt = team.getDisqualifiedAt();
+        if (disqualifiedAt != null) {
+            return rounds.stream()
+                    .filter(round -> contains(round, disqualifiedAt))
+                    .findFirst()
+                    .or(() -> rounds.stream()
+                            .filter(round -> round.getStartTime() != null && !round.getStartTime().isAfter(disqualifiedAt))
+                            .max(Comparator.comparing(Round::getOrderNumber, Comparator.nullsLast(Comparator.naturalOrder()))))
+                    .map(this::mapToMyTeamRoundInfo)
+                    .orElseGet(() -> mapToMyTeamRoundInfo(rounds.get(0)));
+        }
+
+        return rounds.stream()
+                .filter(round -> isActiveRound(round.getStatus()))
+                .findFirst()
+                .map(this::mapToMyTeamRoundInfo)
+                .orElseGet(() -> mapToMyTeamRoundInfo(rounds.get(rounds.size() - 1)));
+    }
+
+    private boolean teamCanParticipateInRound(Team team, Round round, List<Round> rounds) {
+        Round previous = rounds.stream()
+                .filter(candidate -> candidate.getOrderNumber() != null && round.getOrderNumber() != null)
+                .filter(candidate -> candidate.getOrderNumber() < round.getOrderNumber())
+                .max(Comparator.comparing(Round::getOrderNumber))
+                .orElse(null);
+
+        if (previous == null || !"FINALIZED".equalsIgnoreCase(previous.getStatus())
+                || previous.getTopNAdvance() == null) {
+            return true;
+        }
+
+        return roundResultRepository
+                .findByTeam_TeamIdAndRound_RoundId(team.getTeamId(), previous.getRoundId())
+                .map(result -> result.getRankPosition() != null
+                        && result.getRankPosition() <= previous.getTopNAdvance())
+                .orElse(false);
+    }
+
+    private boolean contains(Round round, LocalDateTime at) {
+        LocalDateTime start = round.getStartTime();
+        LocalDateTime end = round.getEndTime();
+        if (start == null || end == null) {
+            return false;
+        }
+        return !at.isBefore(start) && !at.isAfter(end);
+    }
+
+    private boolean isActiveRound(String status) {
+        return "ACTIVE".equalsIgnoreCase(status)
+                || "OPEN".equalsIgnoreCase(status)
+                || "IN_PROGRESS".equalsIgnoreCase(status);
+    }
+
+    private MyTeamResponse.RoundInfo mapToMyTeamRoundInfo(Round round) {
+        return MyTeamResponse.RoundInfo.builder()
+                .roundId(round.getRoundId())
+                .name(round.getName())
+                .orderNumber(round.getOrderNumber())
+                .status(round.getStatus())
+                .isFinal(round.getIsFinal())
+                .startTime(round.getStartTime())
+                .endTime(round.getEndTime())
+                .submissionDeadline(round.getSubmissionDeadline())
                 .build();
     }
 
