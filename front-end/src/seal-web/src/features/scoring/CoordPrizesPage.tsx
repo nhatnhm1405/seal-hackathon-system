@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
   C, GradientText, PixelCard, PixelButton, PixelBadge, PixelInput,
 } from "@/shared/components/PixelComponents";
+import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
 import {
   eventsApi, roundsApi, teamsApi, prizesApi, ApiError, apiErrorMessage,
   HackathonEvent, Round, Team, Prize,
@@ -53,6 +54,10 @@ export function CoordPrizesPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [topNInput, setTopNInput] = useState(3);
+  // Announcing notifies every winner and cannot be undone → type-to-confirm gated.
+  const [confirmAnnounce, setConfirmAnnounce] = useState(false);
+  // Prize slot queued for deletion (regular danger confirm).
+  const [confirmDelete, setConfirmDelete] = useState<Prize | null>(null);
 
   // Events on mount.
   useEffect(() => {
@@ -119,16 +124,25 @@ export function CoordPrizesPage() {
   const updatePrize = (prizeId: number, patch: Partial<Pick<Prize, 'name' | 'description'>> & { teamId?: number | null }) =>
     run(() => prizesApi.update(selectedEventId!, prizeId, patch));
 
-  const deletePrize = (prizeId: number) => run(() => prizesApi.remove(selectedEventId!, prizeId), 'Slot removed.');
+  const deletePrize = async (prizeId: number) => {
+    await run(() => prizesApi.remove(selectedEventId!, prizeId), 'Slot removed.');
+    setConfirmDelete(null);
+  };
 
-  const announce = () => {
+  // Pre-check, then hand over to the type-to-confirm dialog.
+  const requestAnnounce = () => {
     if (selectedEventId == null) return;
     if (!allHaveTeam) {
       addToast({ type: 'warning', title: 'INCOMPLETE', message: 'Every prize must have a winning team first.' });
       return;
     }
-    if (!window.confirm('Announce these prizes? Each winning team will be notified. This cannot be undone.')) return;
-    run(() => prizesApi.announce(selectedEventId), 'Prizes announced — winners notified.');
+    setConfirmAnnounce(true);
+  };
+
+  const announce = async () => {
+    if (selectedEventId == null) return;
+    await run(() => prizesApi.announce(selectedEventId), 'Prizes announced — winners notified.');
+    setConfirmAnnounce(false);
   };
 
   const eventSlug = (selectedEvent?.name ?? "event").replace(/\s+/g, "_");
@@ -221,7 +235,7 @@ export function CoordPrizesPage() {
                 <PixelButton variant="cyber" onClick={autoGenerate} disabled={busy}>AUTO-GENERATE FROM FINAL</PixelButton>
                 <PixelButton variant="ghost" onClick={addSlot} disabled={busy}>+ ADD SLOT</PixelButton>
                 <div style={{ marginLeft: "auto" }}>
-                  <PixelButton variant="primary" onClick={announce} disabled={busy || prizes.length === 0 || !allHaveTeam}>📣 ANNOUNCE</PixelButton>
+                  <PixelButton variant="primary" onClick={requestAnnounce} disabled={busy || prizes.length === 0 || !allHaveTeam}>📣 ANNOUNCE</PixelButton>
                 </div>
               </>
             )}
@@ -266,7 +280,7 @@ export function CoordPrizesPage() {
               {sortedPrizes.map(p => {
                 const locked = p.announced;
                 return (
-                  <div key={p.prizeId} style={{ padding: 16, borderBottom: `1px solid ${C.border}`, display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
+                  <div key={p.prizeId} className="row-actionable" style={{ padding: 16, borderBottom: `1px solid ${C.border}`, display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
                     <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: "50%", background: medalColor(p.rankPosition), color: "#0d1117", fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", fontSize: 13 }}>{p.rankPosition}</span>
 
                     <div style={{ minWidth: 160, flex: "1 1 180px" }}>
@@ -299,9 +313,14 @@ export function CoordPrizesPage() {
                     <PixelBadge color={p.announced ? "green" : "gray"}>{p.announced ? "ANNOUNCED" : "DRAFT"}</PixelBadge>
 
                     {!locked && (
-                      <div style={{ display: "flex", gap: 8 }}>
+                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                        {/* SAVE stays visible — the row is a perpetually-open inline form
+                            and SAVE is its commit. DELETE is a direct danger button revealed
+                            on row hover/focus (kept visible on touch by CSS) — no 1-item menu. */}
                         <PixelButton variant="ghost" onClick={() => updatePrize(p.prizeId, { name: p.name })} disabled={busy}>SAVE</PixelButton>
-                        <PixelButton variant="danger" onClick={() => deletePrize(p.prizeId)} disabled={busy}>DELETE</PixelButton>
+                        <span className="row-action">
+                          <PixelButton variant="danger" onClick={() => setConfirmDelete(p)} disabled={busy}>DELETE</PixelButton>
+                        </span>
                       </div>
                     )}
                   </div>
@@ -310,6 +329,31 @@ export function CoordPrizesPage() {
             </PixelCard>
           )}
         </>
+      )}
+
+      {confirmAnnounce && selectedEvent && (
+        <ConfirmDialog
+          title="Announce these prizes?"
+          message={`Publish all ${prizes.length} prize${prizes.length === 1 ? "" : "s"} of "${selectedEvent.name}" and notify every winning team.`}
+          warning="Cannot be undone — every winning team is notified immediately and the prize list locks."
+          confirmLabel="ANNOUNCE PRIZES"
+          variant="cyber"
+          requireTypedText={selectedEvent.name}
+          working={busy}
+          onConfirm={announce}
+          onClose={() => { if (!busy) setConfirmAnnounce(false); }}
+        />
+      )}
+      {confirmDelete && (
+        <ConfirmDialog
+          title="Delete this prize slot?"
+          message={`"${confirmDelete.name}" (rank #${confirmDelete.rankPosition}) will be removed from the prize list.`}
+          confirmLabel="DELETE SLOT"
+          variant="danger"
+          working={busy}
+          onConfirm={() => deletePrize(confirmDelete.prizeId)}
+          onClose={() => { if (!busy) setConfirmDelete(null); }}
+        />
       )}
     </div>
   );
