@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import {
   C, GradientText, PixelCard, PixelButton, PixelBadge,
 } from "@/shared/components/PixelComponents";
+import { PixelMenu } from "@/shared/components/PixelMenu";
+import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
 import { accountApprovalsApi, ApiError, apiErrorMessage, PendingAccount } from "@/shared/apiClient";
 import { usePendingAccounts } from "@/app/providers/PendingAccountsProvider";
 import { useNotifications } from "@/app/providers/NotificationProvider";
@@ -10,6 +12,14 @@ import { useNotifications } from "@/app/providers/NotificationProvider";
 // approval queue. Full account management (list-all, edit, activate/deactivate,
 // role grants) belongs to the System Admin under /api/admin. This page therefore
 // talks ONLY to /api/account-approvals.
+//
+// Pending approvals is a "waiting on you" queue, so amber (the PENDING colour) is
+// this screen's accent. Per-row actions live in a hover ⋯ menu (like the Event
+// track/round rows); bulk selection + APPROVE/REJECT SELECTED clears the queue fast.
+
+const MONO = "'JetBrains Mono', monospace";
+const AMBER = "#eab308";        // C.yellow — frame / headers / selection accent
+const AMBER_BRIGHT = "#facc15"; // title highlight
 
 function fmtDate(iso?: string) {
   if (!iso) return "—";
@@ -23,7 +33,7 @@ function studentTypeBadge(userType: string) {
   return <PixelBadge color="gray">{userType}</PixelBadge>;
 }
 
-// ── Approve / Reject confirmation modal ──────────────────────────────
+// ── Approve / Reject confirmation modal (single account) ─────────────
 function ApprovalModal({ account, reject, onClose, onConfirm, working, error }: {
   account: PendingAccount;
   reject: boolean;
@@ -43,16 +53,16 @@ function ApprovalModal({ account, reject, onClose, onConfirm, working, error }: 
         boxShadow: `0 0 40px ${accent}22, 0 16px 48px rgba(0,0,0,0.4)`, padding: 32,
       }}>
         <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${accent}, transparent)` }} />
-        <h2 style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 20, fontWeight: 800, color: C.text, marginBottom: 12, lineHeight: 1.2 }}>
+        <h2 style={{ fontFamily: MONO, fontSize: 20, fontWeight: 800, color: C.text, marginBottom: 12, lineHeight: 1.2 }}>
           {reject ? "Reject this account?" : "Approve this account?"}
         </h2>
-        <p style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, lineHeight: 1.8, marginBottom: 24 }}>
+        <p style={{ color: C.textMuted, fontFamily: MONO, fontSize: 12, lineHeight: 1.8, marginBottom: 24 }}>
           {reject
             ? <>You are about to reject {name} ({account.email}). Their account will be deactivated and they will not be able to log in.</>
             : <>You are about to approve {name} ({account.email}). They will be able to log in once approved.</>}
         </p>
         {error && (
-          <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.35)", color: C.red, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, padding: "8px 12px", marginBottom: 16 }}>
+          <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.35)", color: C.red, fontFamily: MONO, fontSize: 11, padding: "8px 12px", marginBottom: 16 }}>
             ERROR: {error}
           </div>
         )}
@@ -67,6 +77,8 @@ function ApprovalModal({ account, reject, onClose, onConfirm, working, error }: 
   );
 }
 
+const HEADERS = ["Full Name", "Email", "Student Type", "Student ID", "University", "Applied"];
+
 export function CoordAccountsPage() {
   const [accounts, setAccounts] = useState<PendingAccount[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,6 +87,10 @@ export function CoordAccountsPage() {
   const [confirmTarget, setConfirmTarget] = useState<{ account: PendingAccount; reject: boolean } | null>(null);
   const [working, setWorking] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  // Bulk selection (fast queue clearing).
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [bulkAction, setBulkAction] = useState<null | "approve" | "reject">(null);
+  const [bulkWorking, setBulkWorking] = useState(false);
 
   const { setPendingCount } = usePendingAccounts();
   const { addToast } = useNotifications();
@@ -97,23 +113,47 @@ export function CoordAccountsPage() {
     ? accounts.filter(a => a.fullName.toLowerCase().includes(query) || a.email.toLowerCase().includes(query))
     : accounts;
 
+  // Selection derived state (over the currently-visible rows).
+  const selectedCount = rows.reduce((n, a) => n + (selectedIds.has(a.userId) ? 1 : 0), 0);
+  const allSelected = rows.length > 0 && selectedCount === rows.length;
+  const someSelected = selectedCount > 0 && !allSelected;
+
+  function toggleOne(id: number) {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+  function toggleAll() {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (allSelected) rows.forEach(a => next.delete(a.userId));
+      else rows.forEach(a => next.add(a.userId));
+      return next;
+    });
+  }
+
+  // Remove processed accounts from the queue + keep the sidebar badge in sync.
+  function dropFromQueue(ids: Set<number>) {
+    setAccounts(prev => {
+      const next = prev.filter(a => !ids.has(a.userId));
+      setPendingCount(next.length);
+      return next;
+    });
+  }
+
+  // ── Single approve / reject (from a row's ⋯ menu) ──
   async function handleConfirm() {
     if (!confirmTarget) return;
     const { account, reject } = confirmTarget;
     setActionError(null);
     setWorking(true);
     try {
-      if (reject) {
-        await accountApprovalsApi.reject(account.userId);
-      } else {
-        await accountApprovalsApi.approve(account.userId);
-      }
-      // Either way the user leaves the pending queue.
-      setAccounts(prev => {
-        const next = prev.filter(a => a.userId !== account.userId);
-        setPendingCount(next.length);
-        return next;
-      });
+      if (reject) await accountApprovalsApi.reject(account.userId);
+      else await accountApprovalsApi.approve(account.userId);
+      dropFromQueue(new Set([account.userId]));
+      setSelectedIds(prev => { const n = new Set(prev); n.delete(account.userId); return n; });
       addToast({
         type: reject ? "info" : "success",
         title: reject ? "ACCOUNT REJECTED" : "ACCOUNT APPROVED",
@@ -128,11 +168,39 @@ export function CoordAccountsPage() {
     }
   }
 
+  // ── Bulk approve / reject the selected rows ──
+  async function runBulk() {
+    if (!bulkAction) return;
+    const ids = rows.filter(a => selectedIds.has(a.userId)).map(a => a.userId);
+    if (ids.length === 0) { setBulkAction(null); return; }
+    const reject = bulkAction === "reject";
+    setBulkWorking(true);
+    try {
+      const results = await Promise.allSettled(
+        ids.map(id => reject ? accountApprovalsApi.reject(id) : accountApprovalsApi.approve(id)),
+      );
+      const okIds = new Set(ids.filter((_, i) => results[i].status === "fulfilled"));
+      const failed = ids.length - okIds.size;
+      dropFromQueue(okIds);
+      setSelectedIds(new Set());
+      setBulkAction(null);
+      addToast({
+        type: failed ? "warning" : reject ? "info" : "success",
+        title: reject ? "ACCOUNTS REJECTED" : "ACCOUNTS APPROVED",
+        message: `${okIds.size} account(s) ${reject ? "rejected" : "approved"}${failed ? ` · ${failed} failed` : ""}.`,
+      });
+    } finally {
+      setBulkWorking(false);
+    }
+  }
+
+  const cellMuted: React.CSSProperties = { color: C.textMuted, fontSize: 11, padding: "12px 14px" };
+
   return (
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
       <div>
-        <h1 style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 28, fontWeight: 800 }}>
-          <GradientText>Account Approvals</GradientText>
+        <h1 style={{ fontFamily: MONO, fontSize: 28, fontWeight: 800 }}>
+          <GradientText from={AMBER_BRIGHT} to="#f59e0b">Account Approvals</GradientText>
         </h1>
       </div>
 
@@ -142,48 +210,99 @@ export function CoordAccountsPage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search by name or email..."
-          style={{ width: 240, padding: "8px 12px", background: C.surface2, border: `1px solid ${C.border}`, color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, outline: "none", borderRadius: 0 }}
+          style={{ width: 240, padding: "8px 12px", background: C.surface2, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 12, outline: "none", borderRadius: 0 }}
         />
       </div>
 
-      <PixelCard style={{ padding: 0, overflow: "hidden" }}>
+      {/* Bulk action bar — appears once at least one row is selected. */}
+      {selectedCount > 0 && (
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", padding: "10px 14px", background: "rgba(234,179,8,0.08)", border: `1px solid rgba(234,179,8,0.4)` }}>
+          <span style={{ color: AMBER, fontFamily: MONO, fontSize: 12, fontWeight: 700 }}>{selectedCount} selected</span>
+          <div style={{ flex: 1 }} />
+          <PixelButton size="sm" variant="cyber" onClick={() => setBulkAction("approve")}>APPROVE SELECTED ({selectedCount})</PixelButton>
+          <PixelButton size="sm" variant="danger" onClick={() => setBulkAction("reject")}>REJECT SELECTED ({selectedCount})</PixelButton>
+          <PixelButton size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>CLEAR</PixelButton>
+        </div>
+      )}
+
+      <PixelCard glow glowColor="amber" style={{ padding: 0, overflow: "hidden" }}>
         <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'JetBrains Mono', monospace" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: MONO }}>
             <thead>
-              <tr style={{ background: C.surface2, borderBottom: `1px solid ${C.border}` }}>
-                {["Full Name", "Email", "Student Type", "Student ID", "University", "Applied", "Actions"].map(h => (
-                  <th key={h} style={{ color: C.green, fontSize: 10, letterSpacing: "0.12em", textAlign: "left", padding: "12px 14px", fontWeight: 600, textTransform: "uppercase" }}>
+              <tr style={{ background: C.surface2, borderBottom: `1px solid rgba(234,179,8,0.3)` }}>
+                <th style={{ width: 44, padding: "12px 14px", textAlign: "left" }}>
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    ref={(el) => { if (el) el.indeterminate = someSelected; }}
+                    onChange={toggleAll}
+                    aria-label="Select all"
+                    style={{ width: 15, height: 15, accentColor: AMBER, cursor: "pointer" }}
+                  />
+                </th>
+                {HEADERS.map(h => (
+                  <th key={h} style={{ color: AMBER, fontSize: 10, letterSpacing: "0.12em", textAlign: "left", padding: "12px 14px", fontWeight: 600, textTransform: "uppercase" }}>
                     {h}
                   </th>
                 ))}
+                <th style={{ width: 48, padding: "12px 14px" }} />
               </tr>
             </thead>
             <tbody>
               {loading && (
-                <tr><td colSpan={7} style={{ padding: 20, color: C.textMuted, fontSize: 12, textAlign: "center" }}>Loading...</td></tr>
+                <tr><td colSpan={8} style={{ padding: 20, color: C.textMuted, fontSize: 12, textAlign: "center" }}>Loading...</td></tr>
               )}
               {!loading && fetchError && (
-                <tr><td colSpan={7} style={{ padding: 20, color: C.red, fontSize: 12, textAlign: "center" }}>{fetchError}</td></tr>
+                <tr><td colSpan={8} style={{ padding: 20, color: C.red, fontSize: 12, textAlign: "center" }}>{fetchError}</td></tr>
               )}
               {!loading && !fetchError && rows.length === 0 && (
-                <tr><td colSpan={7} style={{ padding: 20, color: C.textMuted, fontSize: 12, textAlign: "center" }}>No pending accounts</td></tr>
+                <tr><td colSpan={8} style={{ padding: 20, color: C.textMuted, fontSize: 12, textAlign: "center" }}>No pending accounts</td></tr>
               )}
-              {!loading && rows.map((a, i) => (
-                <tr key={a.userId} style={{ borderBottom: `1px solid rgba(34,197,94,0.06)`, background: i % 2 === 0 ? C.surface : C.surface2 }}>
-                  <td style={{ color: C.text, fontSize: 12, padding: "12px 14px" }}>{a.fullName}</td>
-                  <td style={{ color: C.textMuted, fontSize: 11, padding: "12px 14px" }}>{a.email}</td>
-                  <td style={{ padding: "12px 14px" }}>{studentTypeBadge(a.userType)}</td>
-                  <td style={{ color: C.textMuted, fontSize: 11, padding: "12px 14px" }}>{a.studentId ?? "—"}</td>
-                  <td style={{ color: C.textMuted, fontSize: 11, padding: "12px 14px" }}>{a.university ?? "—"}</td>
-                  <td style={{ color: C.textMuted, fontSize: 11, padding: "12px 14px" }}>{fmtDate(a.createdAt)}</td>
-                  <td style={{ padding: "12px 14px" }}>
-                    <div style={{ display: "flex", gap: 6 }}>
-                      <PixelButton size="sm" variant="cyber" onClick={() => { setActionError(null); setConfirmTarget({ account: a, reject: false }); }}>APPROVE</PixelButton>
-                      <PixelButton size="sm" variant="danger" onClick={() => { setActionError(null); setConfirmTarget({ account: a, reject: true }); }}>REJECT</PixelButton>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {!loading && rows.map((a, i) => {
+                const selected = selectedIds.has(a.userId);
+                return (
+                  <tr
+                    key={a.userId}
+                    className="row-actionable"
+                    onClick={() => toggleOne(a.userId)}
+                    style={{
+                      cursor: "pointer",
+                      background: selected ? "rgba(234,179,8,0.10)" : (i % 2 === 0 ? C.surface : C.surface2),
+                      transition: "background-color 0.2s ease",
+                    }}
+                  >
+                    {/* Checkbox — stopPropagation so its own toggle isn't doubled by the row click */}
+                    <td onClick={(e) => e.stopPropagation()} style={{ padding: "12px 14px", borderLeft: `3px solid ${selected ? AMBER : "transparent"}`, transition: "border-color 0.2s ease" }}>
+                      <input
+                        type="checkbox"
+                        checked={selected}
+                        onChange={() => toggleOne(a.userId)}
+                        aria-label={`Select ${a.fullName}`}
+                        style={{ width: 15, height: 15, accentColor: AMBER, cursor: "pointer" }}
+                      />
+                    </td>
+                    <td style={{ color: C.text, fontSize: 12, padding: "12px 14px" }}>{a.fullName}</td>
+                    <td style={cellMuted}>{a.email}</td>
+                    <td style={{ padding: "12px 14px" }}>{studentTypeBadge(a.userType)}</td>
+                    <td style={cellMuted}>{a.studentId ?? "—"}</td>
+                    <td style={cellMuted}>{a.university ?? "—"}</td>
+                    <td style={cellMuted}>{fmtDate(a.createdAt)}</td>
+                    {/* Per-row actions in a hover ⋯ menu (like the Event track/round rows) */}
+                    <td onClick={(e) => e.stopPropagation()} style={{ padding: "12px 14px", width: 48 }}>
+                      <span className="row-action">
+                        <PixelMenu
+                          ariaLabel={`Actions for ${a.fullName}`}
+                          items={[
+                            { label: "Approve", onClick: () => { setActionError(null); setConfirmTarget({ account: a, reject: false }); } },
+                            "divider",
+                            { label: "Reject", danger: true, onClick: () => { setActionError(null); setConfirmTarget({ account: a, reject: true }); } },
+                          ]}
+                        />
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -197,6 +316,21 @@ export function CoordAccountsPage() {
           error={actionError}
           onClose={() => { setConfirmTarget(null); setActionError(null); }}
           onConfirm={handleConfirm}
+        />
+      )}
+
+      {bulkAction && (
+        <ConfirmDialog
+          title={bulkAction === "approve" ? `Approve ${selectedCount} account(s)?` : `Reject ${selectedCount} account(s)?`}
+          message={bulkAction === "approve"
+            ? `${selectedCount} selected account(s) will be able to log in.`
+            : `${selectedCount} selected account(s) will be deactivated and will not be able to log in.`}
+          warning={bulkAction === "reject" ? "This deactivates every selected account at once." : undefined}
+          confirmLabel={bulkAction === "approve" ? `APPROVE ${selectedCount}` : `REJECT ${selectedCount}`}
+          variant={bulkAction === "approve" ? "cyber" : "danger"}
+          working={bulkWorking}
+          onConfirm={runBulk}
+          onClose={() => { if (!bulkWorking) setBulkAction(null); }}
         />
       )}
     </div>
