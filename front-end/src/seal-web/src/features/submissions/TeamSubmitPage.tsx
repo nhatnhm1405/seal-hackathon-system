@@ -25,7 +25,7 @@ function eventOptionLabel(team: MyTeam): string {
 
 export function TeamSubmitPage() {
   const { addToast } = useNotifications();
-  const { currentUser } = useAuth();
+  const { currentUser, clearTeam } = useAuth();
 
   const [team, setTeam] = useState<MyTeam | null>(null);
   const [teamHistory, setTeamHistory] = useState<MyTeam[]>([]);
@@ -103,6 +103,7 @@ export function TeamSubmitPage() {
         if (!cancelled) {
           if (err instanceof ApiError && err.status === 404) {
             setLoadError("You are not part of any team yet.");
+            clearTeam();
           } else {
             setLoadError(err instanceof ApiError ? err.message : "Failed to load.");
           }
@@ -115,7 +116,7 @@ export function TeamSubmitPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [clearTeam]);
 
   async function handleEventChange(eventId: number) {
     setLoading(true);

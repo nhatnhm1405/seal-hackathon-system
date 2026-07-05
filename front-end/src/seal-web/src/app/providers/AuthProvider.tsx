@@ -177,13 +177,15 @@ function mapApiUser(profile: ApiUserProfile): AuthUser {
 // which only PARTICIPANTs may call. Until the backend adds member userId / a
 // myRole field to MyTeamResponse, leadership is inferred by matching the full
 // name (temporary — see deferred backend note).
-async function fetchTeamContext(role: AuthUser['role'], fullName: string): Promise<{ teamId: number | null; isLeader: boolean }> {
+async function fetchTeamContext(role: AuthUser['role'], fullName: string, userId?: number): Promise<{ teamId: number | null; isLeader: boolean }> {
   if (role !== 'PARTICIPANT') return { teamId: null, isLeader: false };
   try {
     const res = await teamsApi.getMy();
     const t = res.data;
     if (!t || t.teamId == null) return { teamId: null, isLeader: false };
-    const myRole = t.myRole ?? t.members?.find(m => m.memberName === fullName)?.role;
+    const myRole = t.myRole
+      ?? t.members?.find(m => userId != null && m.userId === userId)?.role
+      ?? t.members?.find(m => m.memberName === fullName)?.role;
     return { teamId: t.teamId, isLeader: (myRole ?? '').toString().toUpperCase() === 'LEADER' };
   } catch {
     return { teamId: null, isLeader: false };
@@ -234,7 +236,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setActiveRoleState(resolvedActive);
         const authUser = mapApiUser(res.data);
         if (resolvedActive) authUser.role = mapBackendRole(resolvedActive);
-        const tc = await fetchTeamContext(authUser.role, authUser.full_name);
+        const tc = await fetchTeamContext(authUser.role, authUser.full_name, authUser.user_id);
         authUser.team_id = tc.teamId;
         authUser.is_leader = tc.isLeader;
         setCurrentUser(authUser);
@@ -288,7 +290,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setActiveRoleState(resolvedActive);
       const authUser = mapApiUser(meRes.data);
       if (resolvedActive) authUser.role = mapBackendRole(resolvedActive);
-      const tc = await fetchTeamContext(authUser.role, authUser.full_name);
+      const tc = await fetchTeamContext(authUser.role, authUser.full_name, authUser.user_id);
       authUser.team_id = tc.teamId;
       authUser.is_leader = tc.isLeader;
       setCurrentUser(authUser);
@@ -338,7 +340,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // joins, or leaves a team — keeps routing and the sidebar in sync.
   async function refreshTeamContext() {
     if (!currentUser) return;
-    const tc = await fetchTeamContext(currentUser.role, currentUser.full_name);
+    const tc = await fetchTeamContext(currentUser.role, currentUser.full_name, currentUser.user_id);
     setCurrentUser(prev => prev ? { ...prev, team_id: tc.teamId, is_leader: tc.isLeader } : prev);
   }
 

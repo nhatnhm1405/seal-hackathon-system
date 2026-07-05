@@ -15,7 +15,7 @@ import { fmtDate, roundStatusColor, teamStatusColor } from "../utils/formatters"
 
 export function ExistingTeamDashboard() {
     const navigate = useNavigate();
-    const { currentUser } = useAuth();
+    const { currentUser, clearTeam } = useAuth();
     const { addToast } = useNotifications();
 
     const [team, setTeam] = useState<MyTeam | null>(null);
@@ -66,11 +66,15 @@ export function ExistingTeamDashboard() {
                 } catch { /* round not published yet */ }
             }
         } catch (err) {
-            if (!(err instanceof ApiError && err.status === 404)) {
+            if (err instanceof ApiError && err.status === 404) {
+                setTeam(null);
+                clearTeam();
+                addToast({ type: "info", title: "Team context updated", message: "Your current team membership has changed." });
+            } else {
                 setError(err instanceof ApiError ? err.message : "Failed to load your team.");
             }
         }
-    }, []);
+    }, [addToast, clearTeam]);
 
     useEffect(() => { reload(); }, [reload]);
 
