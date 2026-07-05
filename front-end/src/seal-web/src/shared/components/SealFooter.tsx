@@ -5,7 +5,7 @@ import { useRules } from "@/app/providers/RulesProvider";
 import sealLogo from "@/imports/image.png";
 
 const GITHUB_URL = "https://github.com/nhatnhm1405/seal-hackathon-system.git";
-const CONTACT_EMAIL = "contact@sealhackathon.com";
+const CONTACT_EMAIL = "sealhackathon.system@gmail.com";
 const mono = "'JetBrains Mono', monospace";
 
 type FooterLink = {
@@ -160,7 +160,7 @@ export function SealFooter() {
                   whiteSpace: "nowrap",
                 }}
               >
-                Software Engineering Agile League
+                Software Engineering Agile League HACKATHON
               </span>
             </div>
           </div>
