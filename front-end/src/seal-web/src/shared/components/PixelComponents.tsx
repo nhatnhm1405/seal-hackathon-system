@@ -96,11 +96,16 @@ interface PixelButtonProps {
   disabled?: boolean;
   type?: "button" | "submit" | "reset";
   fullWidth?: boolean;
+  // Accessibility passthroughs (used by menu triggers such as PixelMenu).
+  ariaLabel?: string;
+  ariaHasPopup?: React.AriaAttributes["aria-haspopup"];
+  ariaExpanded?: boolean;
 }
 
 export function PixelButton({
   children, onClick, variant = "primary", size = "md",
   className = "", disabled = false, type = "button", fullWidth = false,
+  ariaLabel, ariaHasPopup, ariaExpanded,
 }: PixelButtonProps) {
   const sizeClasses = { sm: "px-3 py-1.5 text-xs", md: "px-5 py-2.5 text-sm", lg: "px-8 py-3.5 text-base" };
 
@@ -164,6 +169,9 @@ export function PixelButton({
       type={type}
       onClick={onClick}
       disabled={disabled}
+      aria-label={ariaLabel}
+      aria-haspopup={ariaHasPopup}
+      aria-expanded={ariaExpanded}
       style={{ ...baseStyle, ...variantStyles[variant], ...(fullWidth ? { width: "100%", display: "flex", justifyContent: "center" } : {}) }}
       className={`inline-flex items-center justify-center gap-2 font-mono ${sizeClasses[size]} ${className}`}
       onMouseEnter={(e) => { if (!disabled) Object.assign((e.currentTarget as HTMLElement).style, hoverStyles[variant]); }}
@@ -177,7 +185,7 @@ interface PixelCardProps {
   children: React.ReactNode;
   className?: string;
   glow?: boolean;
-  glowColor?: "green" | "blue" | "cyan" | "purple";
+  glowColor?: "green" | "blue" | "cyan" | "purple" | "amber";
   gradient?: boolean;
   style?: React.CSSProperties;
   onClick?: () => void;
@@ -189,8 +197,9 @@ export function PixelCard({ children, className = "", glow = false, glowColor = 
     blue:   `0 0 0 1px rgba(59,130,246,0.15), 0 0 24px rgba(59,130,246,0.12), inset 0 0 40px rgba(59,130,246,0.03)`,
     cyan:   `0 0 0 1px rgba(6,182,212,0.15), 0 0 20px rgba(6,182,212,0.14)`,
     purple: `0 0 0 1px rgba(139,92,246,0.15), 0 0 20px rgba(139,92,246,0.14)`,
+    amber:  `0 0 0 1px rgba(234,179,8,0.18), 0 0 24px rgba(234,179,8,0.14), inset 0 0 40px rgba(234,179,8,0.03)`,
   };
-  const accentMap = { green: C.green, blue: C.blue, cyan: C.cyan, purple: C.purple };
+  const accentMap = { green: C.green, blue: C.blue, cyan: C.cyan, purple: C.purple, amber: C.yellow };
 
   return (
     <div
