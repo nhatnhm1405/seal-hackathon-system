@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
-  C, GradientText, PixelCard, PixelBadge, PixelButton, PixelTabs,
+  C, GradientText, PixelCard, PixelBadge, PixelButton,
 } from "@/shared/components/PixelComponents";
 import { AnnouncementComposerModal } from "@/shared/components/AnnouncementComposerModal";
-import { assignmentsApi, announcementsApi, ApiError, MentorAssignedTeam, AnnouncementItem } from "@/shared/apiClient";
+import { assignmentsApi, announcementsApi, ApiError, MentorAssignedTeam, MentorAssignedTrack, AnnouncementItem } from "@/shared/apiClient";
 
 const mono = "'JetBrains Mono', monospace";
 
@@ -14,6 +14,41 @@ function fmtDateTime(iso: string | null): string {
   });
 }
 
+/** One event the mentor is assigned to, derived from the flat team list. */
+interface MentorEvent {
+  eventId: number;
+  eventName: string;
+  season?: string;
+  year?: number;
+  eventStatus?: string;
+}
+
+/** Fields every event-bearing row (track or team) shares. */
+type EventBearing = { eventId: number; eventName: string; season?: string; year?: number; eventStatus?: string };
+
+/** Distinct events across the mentor's assigned rows, newest-ish first. */
+function deriveEvents(rows: EventBearing[]): MentorEvent[] {
+  const map = new Map<number, MentorEvent>();
+  rows.forEach(r => {
+    if (!map.has(r.eventId)) {
+      map.set(r.eventId, {
+        eventId: r.eventId, eventName: r.eventName,
+        season: r.season, year: r.year, eventStatus: r.eventStatus,
+      });
+    }
+  });
+  return [...map.values()].sort((a, b) => (b.year ?? 0) - (a.year ?? 0) || b.eventId - a.eventId);
+}
+
+/** Default to the event the mentor is most likely working on right now. */
+function pickDefaultEvent(events: MentorEvent[]): number | null {
+  if (events.length === 0) return null;
+  const up = (s?: string) => (s ?? "").toUpperCase();
+  const active = events.find(e => up(e.eventStatus) === "IN_PROGRESS")
+    ?? events.find(e => up(e.eventStatus) === "OPEN");
+  return (active ?? events[0]).eventId;
+}
+
 /** Badge "đã nộp / chưa nộp" cho 1 team. */
 function SubmissionBadge({ team }: { team: MentorAssignedTeam }) {
   return team.submissionCount > 0
@@ -21,15 +56,31 @@ function SubmissionBadge({ team }: { team: MentorAssignedTeam }) {
     : <PixelBadge color="orange">NOT SUBMITTED</PixelBadge>;
 }
 
+/** Vòng team đang tham gia — hoặc "đã bị loại" tại vòng đó. */
+function RoundStatus({ team }: { team: MentorAssignedTeam }) {
+  if (!team.currentRoundName) return <span style={{ color: C.textDim, fontFamily: mono, fontSize: 11 }}>—</span>;
+  if (team.eliminated) {
+    return (
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+        <PixelBadge color="red">ELIMINATED</PixelBadge>
+        <span style={{ color: C.textDim, fontFamily: mono, fontSize: 10 }}>{team.currentRoundName}</span>
+      </span>
+    );
+  }
+  return <PixelBadge color="cyan">{team.currentRoundName}</PixelBadge>;
+}
+
 export function MentorTracksPage() {
   const [teams, setTeams] = useState<MentorAssignedTeam[]>([]);
+  const [tracks, setTracks] = useState<MentorAssignedTrack[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [activeTrack, setActiveTrack] = useState<string>("");
-  const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
+  const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
+  const [expandedTeamId, setExpandedTeamId] = useState<number | null>(null);
 
-  const [composerOpen, setComposerOpen] = useState(false);
+  // The track whose announcement composer is currently open (null = closed).
+  const [composerTrack, setComposerTrack] = useState<{ trackId: number; trackName: string; teamCount: number } | null>(null);
   const [history, setHistory] = useState<AnnouncementItem[]>([]);
 
   const loadHistory = useCallback(() => {
@@ -43,25 +94,57 @@ export function MentorTracksPage() {
     setError(null);
     assignmentsApi.getMentorAssignments()
       .then(res => {
-        const list = res.data?.teams ?? [];
-        setTeams(list);
-        setActiveTrack(list[0]?.trackName ?? "");
+        setTeams(res.data?.teams ?? []);
+        setTracks(res.data?.tracks ?? []);
       })
       .catch(err => setError(err instanceof ApiError ? err.message : "Failed to load mentor assignments."))
       .finally(() => setLoading(false));
     loadHistory();
   }, [loadHistory]);
 
-  const trackNames = [...new Set(teams.map(t => t.trackName))];
-  const trackTeams = teams.filter(t => t.trackName === activeTrack);
-  const activeTrackId = trackTeams[0]?.trackId ?? null;
-  const selectedTeam = selectedTeamId != null ? teams.find(t => t.teamId === selectedTeamId) ?? null : null;
-  // History entries for the track currently in view.
-  const trackHistory = history.filter(h => h.scope === "TRACK" && h.scopeLabel === activeTrack);
+  // All assigned tracks (incl. empty ones). Fall back to synthesising them from
+  // the team list if an older backend doesn't return the `tracks` field.
+  const assignedTracks = useMemo<MentorAssignedTrack[]>(() => {
+    if (tracks.length > 0) return tracks;
+    const map = new Map<number, MentorAssignedTrack>();
+    teams.forEach(t => {
+      if (!map.has(t.trackId)) {
+        map.set(t.trackId, {
+          trackId: t.trackId, trackName: t.trackName,
+          eventId: t.eventId, eventName: t.eventName,
+          season: t.season, year: t.year, eventStatus: t.eventStatus,
+        });
+      }
+    });
+    return [...map.values()];
+  }, [tracks, teams]);
 
-  function switchTrack(name: string) {
-    setActiveTrack(name);
-    setSelectedTeamId(null);
+  // Events come from the assigned tracks, so an event whose track has no approved
+  // team yet still shows up in the dropdown.
+  const events = useMemo(() => deriveEvents(assignedTracks), [assignedTracks]);
+
+  // Pick a sensible default event once assignments arrive.
+  useEffect(() => {
+    if (selectedEventId == null && events.length > 0) {
+      setSelectedEventId(pickDefaultEvent(events));
+    }
+  }, [events, selectedEventId]);
+
+  // Tracks in the selected event, each with its (possibly empty) team list.
+  const trackGroups = useMemo(() => {
+    if (selectedEventId == null) return [];
+    return assignedTracks
+      .filter(tr => tr.eventId === selectedEventId)
+      .map(tr => ({
+        trackId: tr.trackId,
+        trackName: tr.trackName,
+        teams: teams.filter(t => t.trackId === tr.trackId),
+      }));
+  }, [assignedTracks, teams, selectedEventId]);
+
+  function switchEvent(id: number) {
+    setSelectedEventId(id);
+    setExpandedTeamId(null);
   }
 
   if (loading) {
@@ -76,7 +159,7 @@ export function MentorTracksPage() {
     </div>;
   }
 
-  if (trackNames.length === 0) {
+  if (events.length === 0) {
     return <div style={{ padding: 24 }}><PixelCard style={{ padding: 32, textAlign: "center" }}>
       <p style={{ color: C.textMuted, fontFamily: mono, fontSize: 13 }}>No tracks assigned to you.</p>
     </PixelCard></div>;
@@ -84,109 +167,185 @@ export function MentorTracksPage() {
 
   return (
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", gap: 12, flexWrap: "wrap" }}>
         <h1 style={{ fontFamily: mono, fontSize: 28, fontWeight: 800 }}>
           <GradientText>My Tracks</GradientText>
         </h1>
-        <PixelButton
-          variant="cyber"
-          onClick={() => setComposerOpen(true)}
-          disabled={activeTrackId == null || trackTeams.length === 0}
-        >
-          ANNOUNCE TO {activeTrack || "TRACK"}
+        <div>
+          <label style={{ color: C.greenMuted, fontFamily: mono, fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase" }}>Event</label>
+          <select
+            value={selectedEventId ?? 0}
+            onChange={e => switchEvent(Number(e.target.value))}
+            style={{ marginTop: 6, padding: "10px 12px", background: C.surface2, border: `1px solid ${C.border}`, color: C.text, fontFamily: mono, fontSize: 12, width: 260, display: "block", outline: "none", borderRadius: 0 }}
+          >
+            {events.map(ev => (
+              <option key={ev.eventId} value={ev.eventId}>
+                {ev.eventName}{ev.eventStatus ? ` · ${ev.eventStatus}` : ""}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {trackGroups.length === 0 && (
+        <PixelCard style={{ padding: 28, textAlign: "center" }}>
+          <p style={{ color: C.textMuted, fontFamily: mono, fontSize: 13 }}>No tracks assigned to you in this event.</p>
+        </PixelCard>
+      )}
+
+      {trackGroups.map(group => (
+        <TrackSection
+          key={group.trackId}
+          trackName={group.trackName}
+          teams={group.teams}
+          history={history}
+          expandedTeamId={expandedTeamId}
+          onToggleTeam={id => setExpandedTeamId(prev => prev === id ? null : id)}
+          onAnnounce={() => setComposerTrack({ trackId: group.trackId, trackName: group.trackName, teamCount: group.teams.length })}
+        />
+      ))}
+
+      {composerTrack && (
+        <AnnouncementComposerModal
+          open
+          scopeLabel={composerTrack.trackName}
+          audienceHint={`${composerTrack.teamCount} team(s) in this track`}
+          onSend={(title, content, linkUrl) =>
+            announcementsApi.createMentor({ trackId: composerTrack.trackId, title, content, linkUrl })
+              .then(res => res.data?.recipientCount ?? 0)}
+          onSent={loadHistory}
+          onClose={() => setComposerTrack(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+/** One track: header + team table + this track's sent-announcement history. */
+function TrackSection({
+  trackName, teams, history, expandedTeamId, onToggleTeam, onAnnounce,
+}: {
+  trackName: string;
+  teams: MentorAssignedTeam[];
+  history: AnnouncementItem[];
+  expandedTeamId: number | null;
+  onToggleTeam: (id: number) => void;
+  onAnnounce: () => void;
+}) {
+  const submittedCount = teams.filter(t => t.submissionCount > 0).length;
+  const trackHistory = history.filter(h => h.scope === "TRACK" && h.scopeLabel === trackName);
+
+  return (
+    <PixelCard style={{ padding: 0, overflow: "hidden" }}>
+      {/* Section header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", padding: "16px 18px", borderBottom: `1px solid ${C.border}`, background: C.surface2 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <span style={{ color: C.text, fontFamily: mono, fontSize: 16, fontWeight: 700 }}>{trackName}</span>
+          <PixelBadge color="blue">{teams.length} TEAM{teams.length === 1 ? "" : "S"}</PixelBadge>
+          <span style={{ color: C.textMuted, fontFamily: mono, fontSize: 11 }}>{submittedCount}/{teams.length} submitted</span>
+        </div>
+        <PixelButton variant="cyber" disabled={teams.length === 0} onClick={onAnnounce}>
+          ANNOUNCE TO {trackName}
         </PixelButton>
       </div>
 
-      <PixelTabs
-        tabs={trackNames.map(t => ({ id: t, label: t }))}
-        active={activeTrack}
-        onChange={switchTrack}
-      />
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
-        {/* Team list */}
-        <PixelCard style={{ padding: 18 }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {trackTeams.length === 0 && (
-              <div style={{ color: C.textMuted, fontFamily: mono, fontSize: 12 }}>No teams in this track.</div>
+      {/* Team table */}
+      <div style={{ overflowX: "auto" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: mono }}>
+          <thead>
+            <tr style={{ background: C.surface, borderBottom: `1px solid ${C.border}` }}>
+              {["Team", "Leader", "Members", "Round", "Submission"].map(h => (
+                <th key={h} style={{ color: C.green, fontSize: 10, letterSpacing: "0.12em", textAlign: "left", padding: "11px 16px", fontWeight: 600, textTransform: "uppercase" }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {teams.length === 0 && (
+              <tr><td colSpan={5} style={{ padding: 18, color: C.textMuted, fontSize: 12, textAlign: "center" }}>No teams in this track.</td></tr>
             )}
-            {trackTeams.map(team => {
-              const active = selectedTeamId === team.teamId;
+            {teams.map((team, i) => {
+              const leader = team.members.find(m => m.memberRole === "LEADER");
+              const expanded = expandedTeamId === team.teamId;
               return (
-                <button key={team.teamId} onClick={() => setSelectedTeamId(team.teamId)}
-                  style={{
-                    background: active ? "rgba(34,197,94,0.1)" : C.surface2,
-                    border: active ? `1px solid ${C.green}` : `1px solid ${C.border}`,
-                    padding: "12px 14px", textAlign: "left", cursor: "pointer", borderRadius: 0,
-                    display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10,
-                    fontFamily: mono, color: C.text,
-                  }}>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600 }}>{team.teamName}</div>
-                    <div style={{ color: C.textMuted, fontSize: 11, marginTop: 4 }}>{team.members.length} members</div>
-                  </div>
-                  <SubmissionBadge team={team} />
-                </button>
+                <React.Fragment key={team.teamId}>
+                  <tr
+                    onClick={() => onToggleTeam(team.teamId)}
+                    style={{ borderBottom: `1px solid rgba(34,197,94,0.06)`, background: i % 2 === 0 ? C.surface : C.surface2, cursor: "pointer" }}
+                  >
+                    <td style={{ color: C.text, fontSize: 13, padding: "12px 16px" }}>
+                      <span style={{ color: C.textMuted, marginRight: 8 }}>{expanded ? "▾" : "▸"}</span>{team.teamName}
+                    </td>
+                    <td style={{ color: C.textMuted, fontSize: 12, padding: "12px 16px" }}>{leader?.fullName ?? "—"}</td>
+                    <td style={{ color: C.textMuted, fontSize: 12, padding: "12px 16px" }}>{team.members.length}</td>
+                    <td style={{ padding: "12px 16px" }}><RoundStatus team={team} /></td>
+                    <td style={{ padding: "12px 16px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                        <SubmissionBadge team={team} />
+                        {team.submissionCount > 0 && team.lastSubmittedAt && (
+                          <span style={{ color: C.textDim, fontSize: 10 }}>last {fmtDateTime(team.lastSubmittedAt)}</span>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                  {expanded && (
+                    <tr>
+                      <td colSpan={5} style={{ padding: 16, background: "rgba(34,197,94,0.04)" }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                          {/* Members */}
+                          <div>
+                            <div style={{ color: C.green, fontFamily: mono, fontSize: 10, letterSpacing: "0.1em", marginBottom: 8 }}>MEMBERS</div>
+                            {team.members.length === 0 && (
+                              <div style={{ color: C.textMuted, fontSize: 11 }}>No members</div>
+                            )}
+                            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                              {team.members.map(m => (
+                                <div key={m.userId} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "8px 10px", background: C.surface2, border: `1px solid ${C.border}` }}>
+                                  <div style={{ minWidth: 0 }}>
+                                    <span style={{ color: C.text, fontFamily: mono, fontSize: 12 }}>
+                                      {m.fullName}{m.memberRole === "LEADER" ? " (Leader)" : ""}
+                                    </span>
+                                    <div style={{ color: C.textMuted, fontFamily: mono, fontSize: 10, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.email}</div>
+                                  </div>
+                                  <PixelBadge color={m.memberRole === "LEADER" ? "green" : "gray"}>{m.memberRole}</PixelBadge>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                          {/* Submission status */}
+                          <div>
+                            <div style={{ color: C.green, fontFamily: mono, fontSize: 10, letterSpacing: "0.1em", marginBottom: 8 }}>SUBMISSION STATUS</div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
+                              <SubmissionBadge team={team} />
+                            </div>
+                            {team.submissionCount > 0 ? (
+                              <div style={{ color: C.textMuted, fontFamily: mono, fontSize: 11, lineHeight: 1.7 }}>
+                                {team.submissionCount} submission{team.submissionCount > 1 ? "s" : ""}
+                                {team.lastSubmittedAt ? ` · last ${fmtDateTime(team.lastSubmittedAt)}` : ""}
+                              </div>
+                            ) : (
+                              <div style={{ color: C.textMuted, fontFamily: mono, fontSize: 11, lineHeight: 1.7 }}>
+                                This team has not submitted yet.
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
               );
             })}
-          </div>
-        </PixelCard>
-
-        {/* Team detail */}
-        <PixelCard glow glowColor="blue" style={{ padding: 18 }}>
-          {!selectedTeam ? (
-            <p style={{ color: C.textMuted, fontFamily: mono, fontSize: 12 }}>Select a team to view details.</p>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              <div style={{ color: C.text, fontFamily: mono, fontSize: 16, fontWeight: 700 }}>
-                {selectedTeam.teamName}
-              </div>
-              <div>
-                <div style={{ color: C.textMuted, fontFamily: mono, fontSize: 10, letterSpacing: "0.1em", marginBottom: 6 }}>MEMBERS</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  {selectedTeam.members.map(m => (
-                    <div key={m.userId} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 10px", background: C.surface2, border: `1px solid ${C.border}` }}>
-                      <div style={{ minWidth: 0 }}>
-                        <span style={{ color: C.text, fontFamily: mono, fontSize: 12 }}>
-                          {m.fullName}{m.memberRole === 'LEADER' ? " (Leader)" : ""}
-                        </span>
-                        <div style={{ color: C.textMuted, fontFamily: mono, fontSize: 10, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.email}</div>
-                      </div>
-                      <PixelBadge color={m.memberRole === 'LEADER' ? 'green' : 'gray'}>{m.memberRole}</PixelBadge>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Submission status */}
-              <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 12 }}>
-                <div style={{ color: C.textMuted, fontFamily: mono, fontSize: 10, letterSpacing: "0.1em", marginBottom: 8 }}>SUBMISSION STATUS</div>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                  <SubmissionBadge team={selectedTeam} />
-                  {selectedTeam.submissionCount > 0 ? (
-                    <span style={{ color: C.textMuted, fontFamily: mono, fontSize: 11 }}>
-                      {selectedTeam.submissionCount} submission{selectedTeam.submissionCount > 1 ? "s" : ""}
-                      {selectedTeam.lastSubmittedAt ? ` · last ${fmtDateTime(selectedTeam.lastSubmittedAt)}` : ""}
-                    </span>
-                  ) : (
-                    <span style={{ color: C.textMuted, fontFamily: mono, fontSize: 11 }}>
-                      This team has not submitted yet.
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-        </PixelCard>
+          </tbody>
+        </table>
       </div>
 
-      {/* Sent announcements (this track) */}
-      <PixelCard style={{ padding: 20 }}>
-        <div style={{ color: C.green, fontFamily: mono, fontSize: 13, fontWeight: 700, letterSpacing: "0.05em", marginBottom: 12 }}>
-          SENT ANNOUNCEMENTS · {activeTrack || "—"}
+      {/* Sent announcements for this track */}
+      <div style={{ padding: "14px 18px", borderTop: `1px solid ${C.border}` }}>
+        <div style={{ color: C.green, fontFamily: mono, fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", marginBottom: 10 }}>
+          SENT ANNOUNCEMENTS · {trackName}
         </div>
         {trackHistory.length === 0 ? (
-          <div style={{ color: C.textMuted, fontFamily: mono, fontSize: 12 }}>
+          <div style={{ color: C.textMuted, fontFamily: mono, fontSize: 11 }}>
             No announcements sent to this track yet.
           </div>
         ) : (
@@ -203,20 +362,7 @@ export function MentorTracksPage() {
             ))}
           </div>
         )}
-      </PixelCard>
-
-      {activeTrackId != null && (
-        <AnnouncementComposerModal
-          open={composerOpen}
-          scopeLabel={activeTrack}
-          audienceHint={`${trackTeams.length} team(s) in this track`}
-          onSend={(title, content, linkUrl) =>
-            announcementsApi.createMentor({ trackId: activeTrackId, title, content, linkUrl })
-              .then(res => res.data?.recipientCount ?? 0)}
-          onSent={loadHistory}
-          onClose={() => setComposerOpen(false)}
-        />
-      )}
-    </div>
+      </div>
+    </PixelCard>
   );
 }

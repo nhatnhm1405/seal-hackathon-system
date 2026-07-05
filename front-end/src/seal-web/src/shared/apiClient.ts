@@ -1379,9 +1379,19 @@ export interface MentorAssignedTeam {
   teamName: string;
   trackId: number;
   trackName: string;
+  // Event that this track/team belongs to — lets the mentor view group tracks
+  // per event (a mentor may be assigned across multiple hackathon seasons).
+  eventId: number;
+  eventName: string;
+  season?: string;
+  year?: number;
+  eventStatus?: string;
   members: AssignmentMember[];
   submissionCount: number;
   lastSubmittedAt: string | null;
+  // Furthest round the team is still in; eliminated = knocked out at that round.
+  currentRoundName?: string | null;
+  eliminated?: boolean;
 }
 
 export interface JudgeAssignedTeam {
@@ -1392,11 +1402,24 @@ export interface JudgeAssignedTeam {
   members: AssignmentMember[];
 }
 
+export interface MentorAssignedTrack {
+  trackId: number;
+  trackName: string;
+  eventId: number;
+  eventName: string;
+  season?: string;
+  year?: number;
+  eventStatus?: string;
+}
+
 export interface MentorAssignment {
   mentorId: number;
   mentorName: string;
   eventName: string;
   teams: MentorAssignedTeam[];
+  // Every track the mentor is assigned to, including tracks with no approved teams
+  // yet — lets the UI list all assigned events/tracks, not only populated ones.
+  tracks?: MentorAssignedTrack[];
 }
 
 export interface JudgeAssignment {
