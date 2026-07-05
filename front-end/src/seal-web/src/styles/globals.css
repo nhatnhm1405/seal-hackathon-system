@@ -290,6 +290,53 @@ body {
 .fade-slide-up    { animation: fadeSlideUp 0.5s ease-out forwards; }
 .flicker          { animation: flicker 6s ease-in-out infinite; }
 
+/* Seamless marquee — the track's content is duplicated (×2) in markup, so
+   translating by -50% lands copy #2 exactly where copy #1 began → gapless loop.
+   Kept separate from `dataFlow` (a sweep-and-fade used elsewhere). */
+@keyframes marqueeScroll {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.seal-marquee { animation: marqueeScroll 60s linear infinite; }
+
+/* Section "boot" — a neon line sweeps top→bottom once when a section reveals. */
+@keyframes sealSweep {
+  0%   { top: 0;                opacity: 0; }
+  15%  { opacity: 1; }
+  85%  { opacity: 1; }
+  100% { top: calc(100% - 2px); opacity: 0; }
+}
+.seal-sweep { animation: sealSweep 0.9s ease-out forwards; }
+
+/* Gallery photos glitch into view (RGB/hue jitter + clip-path wipe). */
+@keyframes glitchIn {
+  0%   { opacity: 0; transform: translateX(-10px); clip-path: inset(0 0 100% 0); filter: hue-rotate(80deg) saturate(1.4); }
+  35%  { opacity: 1; clip-path: inset(0 0 0 0); }
+  45%  { transform: translateX(7px);  filter: hue-rotate(-50deg); }
+  60%  { transform: translateX(-4px); }
+  78%  { transform: translateX(2px);  filter: none; }
+  100% { opacity: 1; transform: translateX(0); filter: none; }
+}
+.seal-glitch-in { animation: glitchIn 0.65s ease-out both; }
+
+/* Gallery hero-tile RGB-ish glitch while hovered (keeps the hover zoom). */
+@keyframes imgGlitch {
+  0%, 100% { filter: none;                            transform: translate(0,0)   scale(1.06); }
+  20%      { filter: hue-rotate(40deg) saturate(1.35); transform: translate(-2px,1px) scale(1.06); }
+  40%      { filter: hue-rotate(-30deg);              transform: translate(2px,-1px) scale(1.06); }
+  60%      { filter: saturate(1.2);                   transform: translate(-1px,0) scale(1.06); }
+  80%      { filter: none;                            transform: translate(1px,1px) scale(1.06); }
+}
+.seal-img-glitch { animation: imgGlitch 0.5s steps(2, end) infinite; }
+
+/* Honour OS-level reduced-motion: stop every landing animation and reveal
+   content immediately, so nothing animates for motion-sensitive visitors. */
+@media (prefers-reduced-motion: reduce) {
+  .seal-marquee { animation: none; }
+  .seal-reveal  { opacity: 1 !important; transform: none !important; transition: none !important; }
+  .seal-sweep, .seal-glitch-in, .seal-img-glitch { animation: none !important; }
+}
+
 /* Glitch — animated RGB-split + jitter for event cards */
 @keyframes glitchText {
   0%, 100% { text-shadow: 2px 0 rgba(6,182,212,0.8), -2px 0 rgba(239,68,68,0.8); transform: translate(0, 0); }
