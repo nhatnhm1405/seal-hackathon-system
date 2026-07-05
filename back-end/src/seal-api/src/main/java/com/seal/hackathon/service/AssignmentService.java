@@ -14,6 +14,7 @@ import com.seal.hackathon.entity.JudgeAssignment;
 import com.seal.hackathon.entity.MentorAssignment;
 import com.seal.hackathon.entity.Role;
 import com.seal.hackathon.entity.Round;
+import com.seal.hackathon.entity.RoundResult;
 import com.seal.hackathon.entity.Submission;
 import com.seal.hackathon.entity.Team;
 import com.seal.hackathon.entity.TeamMember;
@@ -44,6 +45,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -116,38 +119,125 @@ public class AssignmentService {
         String eventName = assignments.isEmpty() ? "N/A"
                 : assignments.get(0).getTrack().getEvent().getName();
 
-        List<MentorAssignmentResponse.AssignedTeamInfo> teamInfos = assignments.stream()
-                .flatMap(ma -> teamRepository
-                        .findAllByTrack_TrackIdAndStatus(ma.getTrack().getTrackId(), "APPROVED").stream()
-                        .map(team -> {
-                            // Submissions thực sự đã nộp (bỏ DRAFT) để biết team nộp chưa.
-                            List<Submission> submitted = submissionRepository
-                                    .findAllByTeam_TeamId(team.getTeamId()).stream()
-                                    .filter(s -> !"DRAFT".equalsIgnoreCase(s.getStatus()))
-                                    .collect(Collectors.toList());
-                            LocalDateTime lastAt = submitted.stream()
-                                    .map(Submission::getSubmittedAt)
-                                    .filter(Objects::nonNull)
-                                    .max(Comparator.naturalOrder())
-                                    .orElse(null);
-                            return MentorAssignmentResponse.AssignedTeamInfo.builder()
-                                    .teamId(team.getTeamId())
-                                    .teamName(team.getName())
-                                    .trackId(ma.getTrack().getTrackId())
-                                    .trackName(ma.getTrack().getName())
-                                    .members(mapMentorMembers(team))
-                                    .submissionCount(submitted.size())
-                                    .lastSubmittedAt(lastAt)
-                                    .build();
-                        }))
-                .collect(Collectors.toList());
+        // Rounds được cache theo event để không truy vấn lại cho mỗi team.
+        Map<Integer, List<Round>> roundsByEvent = new HashMap<>();
+        List<MentorAssignmentResponse.AssignedTeamInfo> teamInfos = new ArrayList<>();
+        // Track được phân công (kể cả rỗng); dedupe phòng trường hợp trùng.
+        List<MentorAssignmentResponse.AssignedTrackInfo> trackInfos = new ArrayList<>();
+        Set<Integer> seenTracks = new HashSet<>();
+
+        for (MentorAssignment ma : assignments) {
+            Track track = ma.getTrack();
+            HackathonEvent trackEvent = track.getEvent();
+            List<Round> orderedRounds = roundsByEvent.computeIfAbsent(
+                    trackEvent.getEventId(),
+                    roundRepository::findAllByEvent_EventIdOrderByOrderNumber);
+
+            if (seenTracks.add(track.getTrackId())) {
+                trackInfos.add(MentorAssignmentResponse.AssignedTrackInfo.builder()
+                        .trackId(track.getTrackId())
+                        .trackName(track.getName())
+                        .eventId(trackEvent.getEventId())
+                        .eventName(trackEvent.getName())
+                        .season(trackEvent.getSeason())
+                        .year(trackEvent.getYear())
+                        .eventStatus(trackEvent.getStatus())
+                        .build());
+            }
+
+            for (Team team : teamRepository.findAllByTrack_TrackIdAndStatus(track.getTrackId(), "APPROVED")) {
+                // Submissions thực sự đã nộp (bỏ DRAFT) để biết team nộp chưa.
+                List<Submission> submitted = submissionRepository
+                        .findAllByTeam_TeamId(team.getTeamId()).stream()
+                        .filter(s -> !"DRAFT".equalsIgnoreCase(s.getStatus()))
+                        .collect(Collectors.toList());
+                LocalDateTime lastAt = submitted.stream()
+                        .map(Submission::getSubmittedAt)
+                        .filter(Objects::nonNull)
+                        .max(Comparator.naturalOrder())
+                        .orElse(null);
+
+                Map<Integer, RoundResult> resultByRound = roundResultRepository
+                        .findAllByTeamIdOrderByRoundOrder(team.getTeamId()).stream()
+                        .collect(Collectors.toMap(rr -> rr.getRound().getRoundId(), rr -> rr, (a, b) -> a));
+                TeamRoundStatus roundStatus = resolveCurrentRound(orderedRounds, resultByRound);
+
+                teamInfos.add(MentorAssignmentResponse.AssignedTeamInfo.builder()
+                        .teamId(team.getTeamId())
+                        .teamName(team.getName())
+                        .trackId(track.getTrackId())
+                        .trackName(track.getName())
+                        .eventId(trackEvent.getEventId())
+                        .eventName(trackEvent.getName())
+                        .season(trackEvent.getSeason())
+                        .year(trackEvent.getYear())
+                        .eventStatus(trackEvent.getStatus())
+                        .members(mapMentorMembers(team))
+                        .submissionCount(submitted.size())
+                        .lastSubmittedAt(lastAt)
+                        .currentRoundName(roundStatus.roundName)
+                        .eliminated(roundStatus.eliminated)
+                        .build());
+            }
+        }
 
         return MentorAssignmentResponse.builder()
                 .mentorId(user.getUserId())
                 .mentorName(user.getFullName())
                 .eventName(eventName)
                 .teams(teamInfos)
+                .tracks(trackInfos)
                 .build();
+    }
+
+    /**
+     * Xác định round xa nhất mà team còn trụ lại, đi qua các round theo thứ tự:
+     * - Round chưa FINALIZED → team đang thi ở round này (round hiện tại).
+     * - Round đã FINALIZED, không có cut-off (topNAdvance null) → mọi team qua vòng.
+     * - Round đã FINALIZED, có cut-off → chỉ qua vòng nếu rankPosition <= topNAdvance;
+     *   nếu không, team dừng lại tại round này với eliminated = true.
+     */
+    private TeamRoundStatus resolveCurrentRound(List<Round> orderedRounds,
+                                                Map<Integer, RoundResult> resultByRound) {
+        if (orderedRounds.isEmpty()) {
+            return new TeamRoundStatus(null, false);
+        }
+        Round current = orderedRounds.get(0);
+        boolean eliminated = false;
+        for (int i = 0; i < orderedRounds.size(); i++) {
+            Round r = orderedRounds.get(i);
+            current = r;
+            if (i == orderedRounds.size() - 1) {
+                break; // đã tới round cuối cùng
+            }
+            if ("FINALIZED".equalsIgnoreCase(r.getStatus())) {
+                Integer cutoff = r.getTopNAdvance();
+                if (cutoff != null) {
+                    RoundResult rr = resultByRound.get(r.getRoundId());
+                    boolean advanced = rr != null && rr.getRankPosition() != null
+                            && rr.getRankPosition() <= cutoff;
+                    if (!advanced) {
+                        eliminated = true;
+                        break;
+                    }
+                }
+                // cut-off null hoặc đã đậu → đi tiếp sang round kế tiếp
+            } else {
+                break; // round chưa finalized → team đang ở đây
+            }
+        }
+        return new TeamRoundStatus(current.getName(), eliminated);
+    }
+
+    /** Kết quả tính round hiện tại của một team. */
+    private static final class TeamRoundStatus {
+        final String roundName;
+        final boolean eliminated;
+
+        TeamRoundStatus(String roundName, boolean eliminated) {
+            this.roundName = roundName;
+            this.eliminated = eliminated;
+        }
     }
 
     /**
