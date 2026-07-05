@@ -6,6 +6,11 @@ const TOKEN_KEY = 'seal_auth_token';
 export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY) ?? sessionStorage.getItem(TOKEN_KEY);
 }
+export function getTokenStorage(): 'local' | 'session' | null {
+  if (localStorage.getItem(TOKEN_KEY)) return 'local';
+  if (sessionStorage.getItem(TOKEN_KEY)) return 'session';
+  return null;
+}
 export function setToken(token: string, remember = true): void {
   // Clear the *other* store first. getToken() reads localStorage before
   // sessionStorage, so a leftover token in localStorage (e.g. a previous
@@ -91,6 +96,24 @@ export interface LoginPayload {
   password: string;
 }
 
+export interface ForgotPasswordPayload {
+  email: string;
+}
+
+export interface VerifyResetOtpPayload {
+  email: string;
+  otp: string;
+}
+
+export interface VerifyResetOtpData {
+  resetToken: string;
+}
+
+export interface ResetPasswordPayload {
+  resetToken: string;
+  newPassword: string;
+}
+
 export interface AuthTokenData {
   token: string;
   userId?: number;
@@ -101,6 +124,8 @@ export interface UserProfile {
   email: string;
   fullName: string;
   userType: string;
+  studentId?: string | null;
+  university?: string | null;
   isApproved: boolean;
   isActive: boolean;
   avatarUrl?: string | null;
@@ -147,6 +172,24 @@ export const authApi = {
 
   logout: () =>
     apiFetch<void>('/api/auth/logout', { method: 'POST' }),
+
+  requestPasswordReset: (payload: ForgotPasswordPayload) =>
+    apiFetch<ApiResponse<null>>('/api/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  verifyResetOtp: (payload: VerifyResetOtpPayload) =>
+    apiFetch<ApiResponse<VerifyResetOtpData>>('/api/auth/verify-reset-otp', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  resetPassword: (payload: ResetPasswordPayload) =>
+    apiFetch<ApiResponse<null>>('/api/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
 
   // Upload a new profile picture (multipart). Returns the updated profile.
   uploadAvatar: (file: File) => {
@@ -287,12 +330,6 @@ export const adminApi = {
       body: JSON.stringify(payload),
     }),
 
-  activateUser: (userId: number) =>
-    apiFetch<ApiResponse<UserItem>>(`/api/admin/users/${userId}/activate`, { method: 'PUT' }),
-
-  deactivateUser: (userId: number) =>
-    apiFetch<ApiResponse<UserItem>>(`/api/admin/users/${userId}/deactivate`, { method: 'PUT' }),
-
   // Role grants
   getRoleGrants: () =>
     apiFetch<ApiResponse<RoleGrantItem[]>>('/api/admin/roles'),
@@ -312,6 +349,38 @@ export const adminApi = {
   // System log
   getSystemLogs: () =>
     apiFetch<ApiResponse<SystemLogItem[]>>('/api/admin/system-logs'),
+};
+
+export interface ParticipationAccessRequest {
+  requestId: number;
+  userId: number;
+  email: string;
+  fullName: string;
+  userType: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  requestedAt: string;
+  resolvedAt?: string;
+  resolvedBy?: number;
+}
+
+export const participationRequestsApi = {
+  request: () =>
+    apiFetch<ApiResponse<ParticipationAccessRequest>>('/api/participation-requests', {
+      method: 'POST',
+    }),
+
+  getPending: () =>
+    apiFetch<ApiResponse<ParticipationAccessRequest[]>>('/api/admin/participation-requests'),
+
+  approve: (requestId: number) =>
+    apiFetch<ApiResponse<ParticipationAccessRequest>>(`/api/admin/participation-requests/${requestId}/approve`, {
+      method: 'POST',
+    }),
+
+  reject: (requestId: number) =>
+    apiFetch<ApiResponse<ParticipationAccessRequest>>(`/api/admin/participation-requests/${requestId}/reject`, {
+      method: 'POST',
+    }),
 };
 
 // ── Events ────────────────────────────────────────────────────────
@@ -743,6 +812,17 @@ export interface MyTeamMember {
   role: 'LEADER' | 'MEMBER';
 }
 
+export interface MyTeamRound {
+  roundId: number;
+  name: string;
+  orderNumber: number;
+  status?: string;
+  isFinal: boolean;
+  startTime: string;
+  endTime: string;
+  submissionDeadline: string;
+}
+
 export interface MyTeam {
   teamId: number;
   eventId?: number;
@@ -753,6 +833,7 @@ export interface MyTeam {
   eventStatus?: 'DRAFT' | 'OPEN' | 'SETUP' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
   trackSelectionMode?: 'SELF_SELECT' | 'RANDOM';
   status?: 'PENDING' | 'APPROVED' | 'REJECTED' | 'DISQUALIFIED';
+  round?: MyTeamRound | null;
   myRole?: 'LEADER' | 'MEMBER';
   members: MyTeamMember[];
 }
@@ -804,9 +885,6 @@ export const teamsApi = {
   getActiveEvents: () =>
     apiFetch<ApiResponse<ActiveEventWithTracks[]>>('/api/teams/active-events'),
 
-  getMyHistory: () =>
-    apiFetch<ApiResponse<TeamHistoryEntry[]>>('/api/teams/my/history'),
-
   create: (payload: CreateTeamPayload) =>
     apiFetch<ApiResponse<Team>>('/api/teams', {
       method: 'POST',
@@ -815,6 +893,15 @@ export const teamsApi = {
 
   getMy: () =>
     apiFetch<ApiResponse<MyTeam>>('/api/teams/my'),
+
+  getMyHistory: () =>
+    apiFetch<ApiResponse<MyTeam[]>>('/api/teams/my/history'),
+
+  getMyResultHistory: () =>
+    apiFetch<ApiResponse<TeamHistoryEntry[]>>('/api/teams/my/result-history'),
+
+  getMyForEvent: (eventId: number) =>
+    apiFetch<ApiResponse<MyTeam>>(`/api/teams/my/event/${eventId}`),
 
   getByEvent: (eventId: number) =>
     apiFetch<ApiResponse<Team[]>>(`/api/teams/event/${eventId}`),
@@ -1292,9 +1379,19 @@ export interface MentorAssignedTeam {
   teamName: string;
   trackId: number;
   trackName: string;
+  // Event that this track/team belongs to — lets the mentor view group tracks
+  // per event (a mentor may be assigned across multiple hackathon seasons).
+  eventId: number;
+  eventName: string;
+  season?: string;
+  year?: number;
+  eventStatus?: string;
   members: AssignmentMember[];
   submissionCount: number;
   lastSubmittedAt: string | null;
+  // Furthest round the team is still in; eliminated = knocked out at that round.
+  currentRoundName?: string | null;
+  eliminated?: boolean;
 }
 
 export interface JudgeAssignedTeam {
@@ -1305,11 +1402,24 @@ export interface JudgeAssignedTeam {
   members: AssignmentMember[];
 }
 
+export interface MentorAssignedTrack {
+  trackId: number;
+  trackName: string;
+  eventId: number;
+  eventName: string;
+  season?: string;
+  year?: number;
+  eventStatus?: string;
+}
+
 export interface MentorAssignment {
   mentorId: number;
   mentorName: string;
   eventName: string;
   teams: MentorAssignedTeam[];
+  // Every track the mentor is assigned to, including tracks with no approved teams
+  // yet — lets the UI list all assigned events/tracks, not only populated ones.
+  tracks?: MentorAssignedTrack[];
 }
 
 export interface JudgeAssignment {

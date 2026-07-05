@@ -16,9 +16,7 @@ public class AccountApprovalEmailListener {
 
     private final EmailService emailService;
 
-    // Runs on the emailExecutor pool (see AsyncConfig), AFTER the approve/reject
-    // transaction commits — so the slow SMTP send never blocks the HTTP request.
-    @Async("emailExecutor")
+    @Async("mailTaskExecutor")
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
     public void handleAccountApprovalEmail(AccountApprovalEmailEvent event) {
         try {

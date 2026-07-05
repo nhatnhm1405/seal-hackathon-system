@@ -128,14 +128,24 @@ public class RoundResultService {
         List<RoundResult> results = new ArrayList<>();
         Map<Integer, Submission> subByTeam = submissions.stream()
                 .collect(Collectors.toMap(s -> s.getTeam().getTeamId(), s -> s));
+        // Team lookup by id — seeded from submissions, extended below with finalists
+        // who never submitted (so we can still rank and name them).
+        Map<Integer, Team> teamById = new HashMap<>();
+        submissions.forEach(s -> teamById.put(s.getTeam().getTeamId(), s.getTeam()));
 
         if (Boolean.TRUE.equals(round.getIsFinal())) {
-            // Final round — one global ranking across all teams (no per-track split).
+            // Final round — one global ranking across ALL finalists (no per-track split).
+            // Finalists = every team that advanced from the previous round, not only the
+            // ones that submitted here: a team that reached the final but never submitted
+            // must still appear (scored 0, ranked last) so the leaderboard lists everyone.
+            for (Integer finalistTeamId : resolveFinalistTeamIds(round, teamById)) {
+                teamScores.putIfAbsent(finalistTeamId, BigDecimal.ZERO);
+            }
             List<Map.Entry<Integer, BigDecimal>> ranked = new ArrayList<>(teamScores.entrySet());
             ranked.sort(rankingComparator(subByTeam));
             for (int i = 0; i < ranked.size(); i++) {
                 Map.Entry<Integer, BigDecimal> e = ranked.get(i);
-                results.add(saveResult(round, coordinator, subByTeam.get(e.getKey()), e.getValue(), i + 1));
+                results.add(saveResult(round, coordinator, teamById.get(e.getKey()), e.getValue(), i + 1));
             }
         } else {
             // Per-track round — rank teams within each track separately so the cut-off
@@ -143,7 +153,7 @@ public class RoundResultService {
             // with no track fall into a single null bucket. Preserves track encounter order.
             Map<Integer, List<Map.Entry<Integer, BigDecimal>>> byTrack = new LinkedHashMap<>();
             for (Map.Entry<Integer, BigDecimal> entry : teamScores.entrySet()) {
-                Track track = subByTeam.get(entry.getKey()).getTeam().getTrack();
+                Track track = teamById.get(entry.getKey()).getTrack();
                 Integer trackId = track != null ? track.getTrackId() : null;
                 byTrack.computeIfAbsent(trackId, k -> new ArrayList<>()).add(entry);
             }
@@ -151,7 +161,7 @@ public class RoundResultService {
                 group.sort(rankingComparator(subByTeam));
                 for (int i = 0; i < group.size(); i++) {
                     Map.Entry<Integer, BigDecimal> e = group.get(i);
-                    results.add(saveResult(round, coordinator, subByTeam.get(e.getKey()), e.getValue(), i + 1));
+                    results.add(saveResult(round, coordinator, teamById.get(e.getKey()), e.getValue(), i + 1));
                 }
             }
         }
@@ -197,10 +207,10 @@ public class RoundResultService {
 
     // ── Helper ────────────────────────────────────────────────────────
 
-    private RoundResult saveResult(Round round, User coordinator, Submission sub,
+    private RoundResult saveResult(Round round, User coordinator, Team team,
                                    BigDecimal score, int rank) {
         RoundResult result = RoundResult.builder()
-                .team(sub.getTeam())
+                .team(team)
                 .round(round)
                 .totalScore(score)
                 .rankPosition(rank)
@@ -209,6 +219,35 @@ public class RoundResultService {
                 .finalizedBy(coordinator)
                 .build();
         return resultRepository.save(result);
+    }
+
+    /**
+     * The finalist team set for a final round: every team that advanced from the
+     * immediately-preceding round (rank_position &lt;= that round's top_n_advance), which
+     * mirrors the submission advancement gate in {@code SubmissionService}. Teams are
+     * sourced from the previous round's results so we have their {@link Team} even when
+     * they never submitted in the final; each is registered in {@code teamById}.
+     *
+     * <p>If there is no preceding round, or it is not yet FINALIZED, or it has no cut-off,
+     * no extra finalists are added — the ranking then falls back to whoever submitted.
+     */
+    private Set<Integer> resolveFinalistTeamIds(Round finalRound, Map<Integer, Team> teamById) {
+        Set<Integer> finalistIds = new LinkedHashSet<>();
+        roundRepository.findAllByEvent_EventIdOrderByOrderNumber(finalRound.getEvent().getEventId()).stream()
+                .filter(r -> r.getOrderNumber() < finalRound.getOrderNumber())
+                .max(Comparator.comparingInt(Round::getOrderNumber))
+                .ifPresent(prev -> {
+                    Integer cutoff = prev.getTopNAdvance();
+                    if ("FINALIZED".equalsIgnoreCase(prev.getStatus()) && cutoff != null) {
+                        resultRepository.findAllByRound_RoundIdOrderByRankPosition(prev.getRoundId()).stream()
+                                .filter(rr -> rr.getRankPosition() != null && rr.getRankPosition() <= cutoff)
+                                .forEach(rr -> {
+                                    finalistIds.add(rr.getTeam().getTeamId());
+                                    teamById.putIfAbsent(rr.getTeam().getTeamId(), rr.getTeam());
+                                });
+                    }
+                });
+        return finalistIds;
     }
 
     /**

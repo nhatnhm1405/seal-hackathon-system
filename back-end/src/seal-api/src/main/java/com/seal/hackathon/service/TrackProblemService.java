@@ -46,6 +46,10 @@ public class TrackProblemService {
     private static final Set<String> PROBLEM_MUTATION_ALLOWED_EVENT_STATUSES =
             Set.of("SETUP", "IN_PROGRESS");
 
+    // Releasing ("phát đề") hands the problem to participants, so it is only allowed
+    // once the event has actually STARTED (IN_PROGRESS) — never during SETUP.
+    private static final String PROBLEM_RELEASE_REQUIRED_EVENT_STATUS = "IN_PROGRESS";
+
     // Allowed problem file extensions (PDF / Word / ZIP-with-assets).
     private static final Set<String> ALLOWED_EXTENSIONS = Set.of("pdf", "doc", "docx", "zip");
     private static final long MAX_FILE_SIZE = 20L * 1024 * 1024; // 20MB (mirrors multipart limit)
@@ -114,6 +118,7 @@ public class TrackProblemService {
     @Transactional
     public TrackProblemResponse releaseProblem(Integer actorUserId, Integer eventId, Integer trackId) {
         Track track = requireTrackInEvent(eventId, trackId);
+        requireEventStartedForRelease(track.getEvent());
         if (track.getProblemStorageKey() == null) {
             throw new BadRequestException("Upload a problem file before releasing it.");
         }
@@ -258,6 +263,14 @@ public class TrackProblemService {
         if (!PROBLEM_MUTATION_ALLOWED_EVENT_STATUSES.contains(status)) {
             throw new BadRequestException("Cannot " + action + " when event status is " + status
                     + ". The event must be in SETUP or IN_PROGRESS.");
+        }
+    }
+
+    private void requireEventStartedForRelease(HackathonEvent event) {
+        String status = normalizeEventStatus(event.getStatus());
+        if (!PROBLEM_RELEASE_REQUIRED_EVENT_STATUS.equals(status)) {
+            throw new BadRequestException("Cannot release a problem when event status is " + status
+                    + ". The event must be started (IN_PROGRESS) before the problem can be handed to participants.");
         }
     }
 

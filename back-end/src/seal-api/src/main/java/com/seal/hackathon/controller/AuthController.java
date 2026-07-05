@@ -1,11 +1,16 @@
 package com.seal.hackathon.controller;
 
 import com.seal.hackathon.dto.request.LoginRequest;
+import com.seal.hackathon.dto.request.ForgotPasswordRequest;
 import com.seal.hackathon.dto.request.RegisterRequest;
+import com.seal.hackathon.dto.request.ResetPasswordRequest;
+import com.seal.hackathon.dto.request.VerifyResetOtpRequest;
 import com.seal.hackathon.dto.response.ApiResponse;
 import com.seal.hackathon.dto.response.AuthResponse;
+import com.seal.hackathon.dto.response.ResetOtpResponse;
 import com.seal.hackathon.dto.response.UserResponse;
 import com.seal.hackathon.service.AuthService;
+import com.seal.hackathon.service.PasswordResetService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -22,6 +27,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class AuthController {
 
     private final AuthService authService;
+    private final PasswordResetService passwordResetService;
 
     /**
      * POST /api/auth/register
@@ -42,6 +48,37 @@ public class AuthController {
     public ResponseEntity<ApiResponse<AuthResponse>> login(@Valid @RequestBody LoginRequest request) {
         AuthResponse response = authService.login(request);
         return ResponseEntity.ok(ApiResponse.success("Login successful.", response));
+    }
+
+    /**
+     * POST /api/auth/forgot-password
+     * Public. Validates a local, active, approved account and sends a short-lived OTP.
+     */
+    @PostMapping("/forgot-password")
+    public ResponseEntity<ApiResponse<?>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        passwordResetService.requestOtp(request);
+        return ResponseEntity.ok(ApiResponse.success("OTP sent to your email."));
+    }
+
+    /**
+     * POST /api/auth/verify-reset-otp
+     * Public. Checks the email OTP and returns a temporary reset token when valid.
+     */
+    @PostMapping("/verify-reset-otp")
+    public ResponseEntity<ApiResponse<ResetOtpResponse>> verifyResetOtp(
+            @Valid @RequestBody VerifyResetOtpRequest request) {
+        ResetOtpResponse response = passwordResetService.verifyOtp(request);
+        return ResponseEntity.ok(ApiResponse.success("OTP verified successfully.", response));
+    }
+
+    /**
+     * POST /api/auth/reset-password
+     * Public. Uses the temporary reset token to update the local password.
+     */
+    @PostMapping("/reset-password")
+    public ResponseEntity<ApiResponse<?>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        passwordResetService.resetPassword(request);
+        return ResponseEntity.ok(ApiResponse.success("Password reset successful."));
     }
 
     /**

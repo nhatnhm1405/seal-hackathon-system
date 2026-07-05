@@ -214,14 +214,14 @@ public class TeamInviteService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException(label + " not found: " + userId));
         if (!Boolean.TRUE.equals(user.getIsApproved()) || !Boolean.TRUE.equals(user.getIsActive())) {
-            throw new BadRequestException(label + " account is not approved or active.");
+            throw new BadRequestException(label + " account is not approved or is read-only.");
         }
         return user;
     }
 
     private void validateInvitableUser(User user) {
         if (!Boolean.TRUE.equals(user.getIsApproved()) || !Boolean.TRUE.equals(user.getIsActive())) {
-            throw new BadRequestException("Cannot invite a user whose account is not approved or active.");
+            throw new BadRequestException("Cannot invite a user whose account is not approved or is read-only.");
         }
         if (user.getUserType() == null || !INVITABLE_USER_TYPES.contains(user.getUserType().toUpperCase(Locale.ROOT))) {
             throw new BadRequestException("Only student participant accounts can be invited to a team.");
@@ -232,15 +232,9 @@ public class TeamInviteService {
         if (team.getEvent() == null) {
             throw new BadRequestException("This team is not linked to an event.");
         }
-        if (!"OPEN".equalsIgnoreCase(team.getEvent().getStatus())) {
-            throw new BadRequestException("This event is not open for team registration.");
-        }
-        LocalDateTime now = LocalDateTime.now();
-        if (team.getEvent().getRegistrationStart() != null && now.isBefore(team.getEvent().getRegistrationStart())) {
-            throw new BadRequestException("Registration has not started yet.");
-        }
-        if (team.getEvent().getRegistrationEnd() != null && now.isAfter(team.getEvent().getRegistrationEnd())) {
-            throw new BadRequestException("Registration deadline has passed.");
+        String eventStatus = team.getEvent().getStatus();
+        if (!"OPEN".equalsIgnoreCase(eventStatus) && !"SETUP".equalsIgnoreCase(eventStatus)) {
+            throw new BadRequestException("Team invitations are only allowed during registration or setup.");
         }
         if (!"APPROVED".equalsIgnoreCase(team.getStatus())) {
             throw new BadRequestException("Only approved teams can receive invitations.");

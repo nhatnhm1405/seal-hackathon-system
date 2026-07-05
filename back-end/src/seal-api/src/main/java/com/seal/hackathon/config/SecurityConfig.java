@@ -2,6 +2,7 @@ package com.seal.hackathon.config;
 
 import com.seal.hackathon.security.JwtAuthenticationEntryPoint;
 import com.seal.hackathon.security.JwtAuthenticationFilter;
+import com.seal.hackathon.security.ReadOnlyParticipantWriteFilter;
 import com.seal.hackathon.security.oauth2.CustomOAuth2UserService;
 import com.seal.hackathon.security.oauth2.OAuth2LoginFailureHandler;
 import com.seal.hackathon.security.oauth2.OAuth2LoginSuccessHandler;
@@ -40,6 +41,7 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final ReadOnlyParticipantWriteFilter readOnlyParticipantWriteFilter;
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
     private final CustomOAuth2UserService customOAuth2UserService;
     private final OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
@@ -83,6 +85,7 @@ public class SecurityConfig {
                 .requestMatchers("/api/events/**").permitAll()
                 // Admin runs the PLATFORM: global users, role grants, system logs
                 .requestMatchers("/api/admin/**").hasRole("SYSTEM_ADMIN")
+                .requestMatchers("/api/participation-requests/**").hasRole("PARTICIPANT")
                 // Coordinator runs the COMPETITION: events, rounds, approvals, assignments
                 .requestMatchers("/api/coordinator/**").hasRole("EVENT_COORDINATOR")
                 .requestMatchers("/api/account-approvals/**").hasRole("EVENT_COORDINATOR")
@@ -128,7 +131,8 @@ public class SecurityConfig {
             )
 
             // JWT validation runs before Spring Security's default auth filter
-            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterAfter(readOnlyParticipantWriteFilter, JwtAuthenticationFilter.class);
 
         return http.build();
     }

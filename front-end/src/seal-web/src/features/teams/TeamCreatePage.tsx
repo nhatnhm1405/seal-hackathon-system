@@ -47,6 +47,22 @@ export function TeamCreatePage() {
     );
   }
 
+  if (currentUser && !currentUser.is_active) {
+    return (
+      <div style={{ padding: 24, display: "flex", justifyContent: "center" }}>
+        <PixelCard style={{ padding: 32, maxWidth: 520, width: "100%", textAlign: "center" }}>
+          <h2 style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 22, fontWeight: 800, lineHeight: 1.2, marginBottom: 12 }}>
+            <GradientText>Read-only account</GradientText>
+          </h2>
+          <p style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, lineHeight: 1.7, marginBottom: 20 }}>
+            You can view previous participation data, but creating a new team requires System Admin approval.
+          </p>
+          <PixelButton variant="secondary" onClick={() => navigate('/dashboard')}>BACK TO DASHBOARD</PixelButton>
+        </PixelCard>
+      </div>
+    );
+  }
+
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     setError(null);

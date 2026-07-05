@@ -17,7 +17,7 @@ import java.util.List;
 /**
  * Called after a successful OAuth2 login.
  *
- * Checks is_approved and is_active before issuing a JWT.
+ * Checks is_approved before issuing a JWT.
  * On success: redirects to {frontend}/oauth2/redirect?token=JWT_TOKEN
  * On failure: redirects to {frontend}/login?error=REASON
  */
@@ -45,10 +45,6 @@ public class OAuth2LoginSuccessHandler implements AuthenticationSuccessHandler {
         boolean profileIncomplete = "PENDING_PROFILE".equals(principal.getUserType());
 
         if (!profileIncomplete) {
-            if (!principal.isEnabled()) {
-                response.sendRedirect(frontendUrl + "/login?error=ACCOUNT_INACTIVE");
-                return;
-            }
             if (!principal.isApproved()) {
                 // Account created but not yet approved by a coordinator
                 response.sendRedirect(frontendUrl + "/login?error=ACCOUNT_NOT_APPROVED");

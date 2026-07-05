@@ -30,7 +30,7 @@ public class AccountService {
 
     @Transactional(readOnly = true)
     public List<UserResponse> getPendingApprovals() {
-        return userRepository.findAllByIsApprovedFalseAndIsActiveTrue().stream()
+        return userRepository.findAllByIsApprovedFalse().stream()
                 .map(authService::mapToUserResponse)
                 .collect(Collectors.toList());
     }
@@ -48,6 +48,7 @@ public class AccountService {
         }
 
         user.setIsApproved(true);
+        user.setIsActive(true);
         userRepository.save(user);
         // Rejected users have is_active=false and cannot log in, so an in-app
         // notification only makes sense for approvals (they get an email either way).
@@ -68,7 +69,7 @@ public class AccountService {
 
     // ---------------------------------------------------------------
     // Reject a user
-    // Rejection sets is_active = false so the user cannot log in.
+    // Rejection keeps the account unapproved; login remains blocked by is_approved.
     // Recorded in AuditLog (REJECT_ACCOUNT) with the optional reason.
     // ---------------------------------------------------------------
 
@@ -76,12 +77,7 @@ public class AccountService {
     public UserResponse rejectUser(Integer userId, Integer actorUserId, String reason) {
         User user = getUserOrThrow(userId);
 
-        if (!Boolean.TRUE.equals(user.getIsActive())) {
-            throw new BadRequestException("User is already inactive/rejected.");
-        }
-
         user.setIsApproved(false);
-        user.setIsActive(false);
         userRepository.save(user);
         eventPublisher.publishEvent(new AccountApprovalEmailEvent(
                 user.getEmail(),
@@ -90,26 +86,6 @@ public class AccountService {
         ));
         auditLogService.record(actorUserId, "REJECT_ACCOUNT", "USER", user.getUserId(),
                 (reason != null && !reason.isBlank()) ? reason.trim() : null, null);
-        return authService.mapToUserResponse(user);
-    }
-
-    // ---------------------------------------------------------------
-    // Activate / deactivate (for UserController)
-    // ---------------------------------------------------------------
-
-    @Transactional
-    public UserResponse activateUser(Integer userId) {
-        User user = getUserOrThrow(userId);
-        user.setIsActive(true);
-        userRepository.save(user);
-        return authService.mapToUserResponse(user);
-    }
-
-    @Transactional
-    public UserResponse deactivateUser(Integer userId) {
-        User user = getUserOrThrow(userId);
-        user.setIsActive(false);
-        userRepository.save(user);
         return authService.mapToUserResponse(user);
     }
 

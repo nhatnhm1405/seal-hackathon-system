@@ -24,14 +24,20 @@ public class MentorHistoryResponse {
     private String eventStatus;
     private List<TrackGroup> tracks;
 
-    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class TrackGroup {
         private Integer trackId;
         private String trackName;
         private List<TeamResult> teams;
     }
 
-    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class TeamResult {
         private Integer teamId;
         private String teamName;

@@ -49,8 +49,7 @@ public class AccountApprovalController {
 
     /**
      * PUT /api/account-approvals/{userId}/reject
-     * Sets is_approved = false and is_active = false.
-     * The user cannot log in and will not appear in pending list again.
+     * Sets is_approved = false. The user cannot log in until approved.
      */
     @PutMapping("/{userId}/reject")
     @PreAuthorize("hasRole('EVENT_COORDINATOR')")
@@ -60,6 +59,6 @@ public class AccountApprovalController {
             Authentication authentication) {
         UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
         UserResponse user = approvalService.rejectUser(userId, principal.getUserId(), reason);
-        return ResponseEntity.ok(ApiResponse.success("User rejected and account deactivated.", user));
+        return ResponseEntity.ok(ApiResponse.success("User rejected.", user));
     }
 }

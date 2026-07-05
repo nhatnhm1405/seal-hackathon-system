@@ -105,7 +105,7 @@ public class AiJudgeAssistantService {
         if (d == null || !d.isAnalyzed()) {
             return AiInsightResponse.RepoAnalysis.builder()
                     .analyzed(false)
-                    .note(d == null ? "Không phân tích được repository." : d.getNote())
+                    .note(d == null ? "Could not analyze the repository." : d.getNote())
                     .techStack(List.of())
                     .signals(List.of())
                     .redFlags(List.of())
@@ -113,39 +113,39 @@ public class AiJudgeAssistantService {
         }
 
         List<String> signals = new ArrayList<>();
-        if (d.isHasReadme()) signals.add("Có README");
-        if (d.isHasTests()) signals.add("Có bộ test tự động");
-        if (d.isHasCi()) signals.add("Có CI/CD (tự động build/kiểm thử)");
-        if (d.isHasDocs()) signals.add("Có tài liệu (thư mục docs hoặc nhiều file .md)");
+        if (d.isHasReadme()) signals.add("Has a README");
+        if (d.isHasTests()) signals.add("Has automated tests");
+        if (d.isHasCi()) signals.add("Has CI/CD (automated build/test)");
+        if (d.isHasDocs()) signals.add("Has documentation (a docs folder or multiple .md files)");
         if (d.getManifests() != null && !d.getManifests().isEmpty()) {
-            signals.add("Quản lý dependency: " + String.join(", ", d.getManifests()));
+            signals.add("Dependency management: " + String.join(", ", d.getManifests()));
         }
-        if (d.getLicense() != null) signals.add("Giấy phép: " + d.getLicense());
+        if (d.getLicense() != null) signals.add("License: " + d.getLicense());
         if (d.getCommitCount() != null) {
             signals.add(commitSignal(d));
         }
-        if (d.getFileCount() > 0) signals.add(d.getFileCount() + " file trong repo");
+        if (d.getFileCount() > 0) signals.add(d.getFileCount() + " files in the repo");
 
         List<String> redFlags = new ArrayList<>();
         if (d.isFork()) {
-            redFlags.add("Repo là một bản FORK — cần xác minh phần code do đội tự viết.");
+            redFlags.add("The repo is a FORK — verify how much code the team actually wrote.");
         }
         if (d.isArchived()) {
-            redFlags.add("Repo đã được ARCHIVE (đóng băng).");
+            redFlags.add("The repo is ARCHIVED (frozen).");
         }
         if (d.getFileCount() <= 2 || d.getSizeKb() == 0) {
-            redFlags.add("Repo gần như TRỐNG — rất ít nội dung mã nguồn.");
+            redFlags.add("The repo is nearly EMPTY — very little source code.");
         }
         if (!d.isHasReadme()) {
-            redFlags.add("Không có README mô tả dự án.");
+            redFlags.add("No README describing the project.");
         }
         if (d.getCommitCount() != null && d.getCommitCount() <= 2) {
-            redFlags.add("Toàn bộ code dồn trong " + d.getCommitCount()
-                    + " commit — có thể là upload một lần, không phản ánh quá trình làm việc.");
+            redFlags.add("All code is squeezed into " + d.getCommitCount()
+                    + " commit(s) — possibly a one-time upload that does not reflect the working process.");
         } else if (d.getCommitCount() != null && d.getCommitCount() > 2
                 && d.getFirstCommitDate() != null
                 && d.getFirstCommitDate().equals(d.getLastCommitDate())) {
-            redFlags.add("Tất cả commit nằm trong cùng một ngày (" + d.getLastCommitDate() + ").");
+            redFlags.add("All commits are on the same day (" + d.getLastCommitDate() + ").");
         }
 
         return AiInsightResponse.RepoAnalysis.builder()
@@ -158,7 +158,7 @@ public class AiJudgeAssistantService {
     }
 
     private static String commitSignal(RepoDigest d) {
-        StringBuilder sb = new StringBuilder(d.getCommitCount() + " commit");
+        StringBuilder sb = new StringBuilder(d.getCommitCount() + " commits");
         if (d.getFirstCommitDate() != null && d.getLastCommitDate() != null) {
             if (d.getFirstCommitDate().equals(d.getLastCommitDate())) {
                 sb.append(" (").append(d.getLastCommitDate()).append(")");
@@ -174,27 +174,27 @@ public class AiJudgeAssistantService {
 
     private String buildPrompt(Submission s, List<ScoringCriteria> criteria, RepoDigest digest) {
         StringBuilder sb = new StringBuilder();
-        sb.append("Bạn là trợ lý chấm điểm cho một cuộc thi hackathon kỹ thuật phần mềm. ")
-          .append("Hãy đọc bài nộp dưới đây — GỒM CẢ DỮ LIỆU MÃ NGUỒN TỪ REPOSITORY — và đưa ra nhận định ")
-          .append("khách quan, ngắn gọn, bằng tiếng Việt, giúp giám khảo định hướng trước khi tự chấm điểm.\n\n")
-          .append("QUAN TRỌNG:\n")
-          .append("- Việc chấm điểm là ẩn danh: KHÔNG suy đoán hay bịa ra tên đội, tên thành viên, trường học. ")
-          .append("Nếu README hay code có chứa tên người, TUYỆT ĐỐI không nhắc lại trong câu trả lời.\n")
-          .append("- KHÔNG tự quyết định điểm cuối cùng; chỉ gợi ý khoảng điểm tham khảo.\n")
-          .append("- Hãy bám vào DỮ LIỆU REPOSITORY thật được cung cấp (cấu trúc thư mục, tech stack, README). ")
-          .append("Nếu mã nguồn có vẻ KHÔNG khớp với mô tả dự án, hãy nêu trong phần 'concerns'.\n")
-          .append("- Nếu thông tin thiếu hoặc không đọc được repo, hãy nói rõ là chưa đủ dữ liệu thay vì bịa đặt.\n\n");
+        sb.append("You are a scoring assistant for a software-engineering hackathon. ")
+          .append("Read the submission below — INCLUDING THE SOURCE-CODE DATA FROM THE REPOSITORY — and give an ")
+          .append("objective, concise assessment in English to help the judge orient before scoring.\n\n")
+          .append("IMPORTANT:\n")
+          .append("- Judging is anonymous: do NOT guess or invent team names, member names, or schools. ")
+          .append("If the README or code contains people's names, never repeat them in your answer.\n")
+          .append("- Do NOT decide the final scores; only suggest reference score ranges.\n")
+          .append("- Ground your reading in the real REPOSITORY DATA provided (folder structure, tech stack, README). ")
+          .append("If the code does NOT seem to match the project description, raise it under 'concerns'.\n")
+          .append("- If information is missing or the repo could not be read, say clearly that there is not enough data instead of making things up.\n\n");
 
-        sb.append("THÔNG TIN BÀI NỘP\n");
-        sb.append("Vòng thi: ").append(safe(s.getRound().getName())).append("\n");
-        sb.append("Mô tả dự án: ").append(isBlank(s.getDescription()) ? "(không có)" : s.getDescription().trim()).append("\n");
-        sb.append("Repository: ").append(isBlank(s.getRepoUrl()) ? "(không có)" : s.getRepoUrl()).append("\n");
-        sb.append("Demo: ").append(isBlank(s.getDemoUrl()) ? "(không có)" : s.getDemoUrl()).append("\n");
-        sb.append("Slide/Báo cáo: ").append(isBlank(s.getSlideUrl()) ? "(không có)" : s.getSlideUrl()).append("\n\n");
+        sb.append("SUBMISSION INFO\n");
+        sb.append("Round: ").append(safe(s.getRound().getName())).append("\n");
+        sb.append("Project description: ").append(isBlank(s.getDescription()) ? "(none)" : s.getDescription().trim()).append("\n");
+        sb.append("Repository: ").append(isBlank(s.getRepoUrl()) ? "(none)" : s.getRepoUrl()).append("\n");
+        sb.append("Demo: ").append(isBlank(s.getDemoUrl()) ? "(none)" : s.getDemoUrl()).append("\n");
+        sb.append("Slides/Report: ").append(isBlank(s.getSlideUrl()) ? "(none)" : s.getSlideUrl()).append("\n\n");
 
         appendRepoSection(sb, digest);
 
-        sb.append("TIÊU CHÍ CHẤM ĐIỂM CỦA VÒNG NÀY\n");
+        sb.append("SCORING CRITERIA FOR THIS ROUND\n");
         if (criteria.isEmpty()) {
             sb.append("(No criteria configured for this round — skip the per-criteria suggestions.)\n");
         } else {
@@ -225,42 +225,42 @@ public class AiJudgeAssistantService {
 
     /** Append the anonymized GitHub repo digest so the model grounds its reading in real code. */
     private void appendRepoSection(StringBuilder sb, RepoDigest d) {
-        sb.append("DỮ LIỆU MÃ NGUỒN TỪ REPOSITORY (đã ẩn danh — không chứa tên tác giả)\n");
+        sb.append("SOURCE-CODE DATA FROM THE REPOSITORY (anonymized — contains no author names)\n");
         if (d == null || !d.isAnalyzed()) {
-            sb.append("(Không đọc được mã nguồn: ")
-              .append(d == null || isBlank(d.getNote()) ? "không rõ lý do" : d.getNote())
-              .append(". Chỉ phân tích dựa trên mô tả và liên kết.)\n\n");
+            sb.append("(Could not read the source code: ")
+              .append(d == null || isBlank(d.getNote()) ? "reason unknown" : d.getNote())
+              .append(". Analysis is based only on the description and links.)\n\n");
             return;
         }
 
         if (!isBlank(d.getDescription())) {
-            sb.append("Mô tả trên GitHub: ").append(d.getDescription().trim()).append("\n");
+            sb.append("GitHub description: ").append(d.getDescription().trim()).append("\n");
         }
         if (d.getLanguages() != null && !d.getLanguages().isEmpty()) {
-            sb.append("Ngôn ngữ/tech stack: ").append(String.join(", ", d.getLanguages())).append("\n");
+            sb.append("Languages/tech stack: ").append(String.join(", ", d.getLanguages())).append("\n");
         }
         if (d.getManifests() != null && !d.getManifests().isEmpty()) {
-            sb.append("Manifest dependency: ").append(String.join(", ", d.getManifests())).append("\n");
+            sb.append("Dependency manifests: ").append(String.join(", ", d.getManifests())).append("\n");
         }
-        sb.append("Cấu trúc: ")
-          .append(d.isHasTests() ? "có test, " : "không thấy test, ")
-          .append(d.isHasCi() ? "có CI/CD, " : "không có CI/CD, ")
-          .append(d.isHasDocs() ? "có docs, " : "ít/không có docs, ")
-          .append(d.isHasReadme() ? "có README" : "không có README").append("\n");
-        if (d.isFork()) sb.append("LƯU Ý: repo này là một bản FORK.\n");
+        sb.append("Structure: ")
+          .append(d.isHasTests() ? "has tests, " : "no tests found, ")
+          .append(d.isHasCi() ? "has CI/CD, " : "no CI/CD, ")
+          .append(d.isHasDocs() ? "has docs, " : "little/no docs, ")
+          .append(d.isHasReadme() ? "has a README" : "no README").append("\n");
+        if (d.isFork()) sb.append("NOTE: this repo is a FORK.\n");
         if (d.getCommitCount() != null) {
-            sb.append("Số commit: ").append(d.getCommitCount());
+            sb.append("Commits: ").append(d.getCommitCount());
             if (d.getFirstCommitDate() != null && d.getLastCommitDate() != null) {
-                sb.append(" (từ ").append(d.getFirstCommitDate())
-                  .append(" đến ").append(d.getLastCommitDate()).append(")");
+                sb.append(" (from ").append(d.getFirstCommitDate())
+                  .append(" to ").append(d.getLastCommitDate()).append(")");
             }
             sb.append("\n");
         }
         if (d.getTopLevelEntries() != null && !d.getTopLevelEntries().isEmpty()) {
-            sb.append("Thư mục/file gốc: ").append(String.join(", ", d.getTopLevelEntries())).append("\n");
+            sb.append("Top-level entries: ").append(String.join(", ", d.getTopLevelEntries())).append("\n");
         }
         if (!isBlank(d.getReadmeExcerpt())) {
-            sb.append("\n--- TRÍCH README ---\n").append(d.getReadmeExcerpt()).append("\n--- HẾT README ---\n");
+            sb.append("\n--- README EXCERPT ---\n").append(d.getReadmeExcerpt()).append("\n--- END README ---\n");
         }
         sb.append("\n");
     }

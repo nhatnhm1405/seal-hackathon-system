@@ -11,7 +11,7 @@ import { fmtShort } from "../utils/formatters";
 const mono = "'JetBrains Mono', monospace";
 
 export function InvitationsDrawer({ onClose }: { onClose: () => void }) {
-    const { refreshTeamContext } = useAuth();
+    const { currentUser, refreshTeamContext } = useAuth();
     const { addToast } = useNotifications();
 
     const [invites, setInvites] = useState<TeamInvite[]>([]);
@@ -25,6 +25,7 @@ export function InvitationsDrawer({ onClose }: { onClose: () => void }) {
     const [myRequests, setMyRequests] = useState<JoinRequest[]>([]);
     const [searching, setSearching] = useState(false);
     const [searched, setSearched] = useState(false);
+    const readOnly = currentUser?.is_active === false;
 
     const loadInvites = useCallback(() => {
         invitesApi.getPending().then(r => setInvites(r.data ?? [])).catch(() => setInvites([]));
@@ -42,6 +43,10 @@ export function InvitationsDrawer({ onClose }: { onClose: () => void }) {
     }
 
     async function handleAccept(inv: TeamInvite) {
+        if (readOnly) {
+            setError("Your account is read-only. Request participation access before accepting invites.");
+            return;
+        }
         setBusy(inv.inviteId); setError(null);
         try {
             await invitesApi.accept(inv.inviteId);
@@ -55,6 +60,10 @@ export function InvitationsDrawer({ onClose }: { onClose: () => void }) {
     }
 
     async function handleDecline(inv: TeamInvite) {
+        if (readOnly) {
+            setError("Your account is read-only. Request participation access before declining invites.");
+            return;
+        }
         setBusy(inv.inviteId); setError(null);
         try {
             await invitesApi.decline(inv.inviteId);
@@ -78,12 +87,16 @@ export function InvitationsDrawer({ onClose }: { onClose: () => void }) {
     }
 
     async function requestToJoin(team: JoinableTeam) {
+        if (readOnly) {
+            setError("Your account is read-only. Request participation access before sending join requests.");
+            return;
+        }
         setBusy(team.teamId); setError(null);
         try {
             await joinRequestsApi.send(team.teamId);
             setResults(prev => prev.map(t => t.teamId === team.teamId ? { ...t, alreadyRequested: true } : t));
             loadRequests();
-            addToast({ type: "success", title: "Request sent", message: `Your request to join "${team.name}" was sent.` });
+            addToast({ type: "success", title: "Request sent", message: `Your request to join "${team.teamName}" was sent.` });
         } catch (err) {
             setError(err instanceof ApiError ? err.message : "Failed to send join request.");
             addToast({ type: "warning", title: "Request failed", message: apiErrorMessage(err, "Failed to send join request.") });
@@ -134,6 +147,11 @@ export function InvitationsDrawer({ onClose }: { onClose: () => void }) {
                 <div style={{ padding: "24px", display: "flex", flexDirection: "column", gap: 20 }}>
                     {error && (
                         <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.35)", color: C.red, fontFamily: mono, fontSize: 11, padding: "10px 14px" }}>ERROR: {error}</div>
+                    )}
+                    {readOnly && (
+                        <div style={{ background: "rgba(6,182,212,0.06)", border: "1px solid rgba(6,182,212,0.25)", color: "#06b6d4", fontFamily: mono, fontSize: 11, padding: "10px 14px", lineHeight: 1.7 }}>
+                            READ-ONLY: You can view invitations and teams, but accepting, declining, or sending join requests requires participation access.
+                        </div>
                     )}
 
                     {/* Info banner */}
@@ -206,15 +224,15 @@ export function InvitationsDrawer({ onClose }: { onClose: () => void }) {
                                         <div style={{ display: "flex", gap: 10 }}>
                                             <button
                                                 onClick={() => handleAccept(inv)}
-                                                disabled={busy === inv.inviteId}
-                                                style={{ flex: 1, padding: "9px 12px", background: "rgba(34,197,94,0.1)", border: `1px solid rgba(34,197,94,0.4)`, color: C.green, fontFamily: mono, fontSize: 11, letterSpacing: "0.06em", cursor: "pointer", borderRadius: 0, fontWeight: 700 }}
+                                                disabled={readOnly || busy === inv.inviteId}
+                                                style={{ flex: 1, padding: "9px 12px", background: "rgba(34,197,94,0.1)", border: `1px solid rgba(34,197,94,0.4)`, color: C.green, fontFamily: mono, fontSize: 11, letterSpacing: "0.06em", cursor: readOnly ? "not-allowed" : "pointer", borderRadius: 0, fontWeight: 700 }}
                                             >
                                                 ACCEPT INVITE
                                             </button>
                                             <button
                                                 onClick={() => handleDecline(inv)}
-                                                disabled={busy === inv.inviteId}
-                                                style={{ padding: "9px 16px", background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.25)", color: "#ef4444", fontFamily: mono, fontSize: 11, letterSpacing: "0.06em", cursor: "pointer", borderRadius: 0 }}
+                                                disabled={readOnly || busy === inv.inviteId}
+                                                style={{ padding: "9px 16px", background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.25)", color: "#ef4444", fontFamily: mono, fontSize: 11, letterSpacing: "0.06em", cursor: readOnly ? "not-allowed" : "pointer", borderRadius: 0 }}
                                             >
                                                 DECLINE
                                             </button>
@@ -261,9 +279,9 @@ export function InvitationsDrawer({ onClose }: { onClose: () => void }) {
                                                     {t.eventName} · {t.trackName ?? "—"} · {t.memberCount}/5{t.leaderName ? ` · ${t.leaderName}` : ""}
                                                 </div>
                                             </div>
-                                            <PixelButton size="sm" variant={requested ? "ghost" : "cyber"} disabled={requested || busy === t.teamId} onClick={() => requestToJoin(t)}>
-                                                {requested ? "REQUESTED" : busy === t.teamId ? "…" : "REQUEST TO JOIN"}
-                                            </PixelButton>
+                                <PixelButton size="sm" variant={requested || readOnly ? "ghost" : "cyber"} disabled={readOnly || requested || busy === t.teamId} onClick={() => requestToJoin(t)}>
+                                    {readOnly ? "READ-ONLY" : requested ? "REQUESTED" : busy === t.teamId ? "…" : "REQUEST TO JOIN"}
+                                </PixelButton>
                                         </div>
                                     );
                                 })}

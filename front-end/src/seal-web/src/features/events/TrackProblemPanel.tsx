@@ -21,7 +21,10 @@ function formatSize(bytes?: number | null): string {
 }
 
 // ── Container: the whole Problems tab ───────────────────────────────────────
-export function TrackProblemsTab({ eventId, canManage }: { eventId: number; canManage: boolean }) {
+// `canRelease` is narrower than `canManage`: a problem can be uploaded/replaced/removed
+// during SETUP, but only RELEASED ("phát đề") once the event has STARTED (IN_PROGRESS),
+// matching the backend gate. Retract stays available whenever something is released.
+export function TrackProblemsTab({ eventId, canManage, canRelease }: { eventId: number; canManage: boolean; canRelease: boolean }) {
   const { addToast } = useNotifications();
   const [items, setItems] = useState<TrackProblem[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -95,13 +98,18 @@ export function TrackProblemsTab({ eventId, canManage }: { eventId: number; canM
       {canManage && (
         <div style={{ padding: 14, background: C.surface, border: `1px solid ${C.border}` }}>
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-            <PixelButton variant="cyber" disabled={releasableCount === 0 || bulkBusy} onClick={() => setConfirm("release")}>
+            <PixelButton variant="cyber" disabled={releasableCount === 0 || bulkBusy || !canRelease} onClick={() => setConfirm("release")}>
               RELEASE ALL
             </PixelButton>
             <PixelButton variant="secondary" disabled={releasedCount === 0 || bulkBusy} onClick={() => setConfirm("retract")}>
               RETRACT ALL
             </PixelButton>
           </div>
+          {!canRelease && (
+            <div style={{ marginTop: 10, color: C.textMuted, fontFamily: MONO, fontSize: 11, lineHeight: 1.5 }}>
+              You can upload problems now, but they can only be <strong>released</strong> once the event has started (IN_PROGRESS).
+            </div>
+          )}
         </div>
       )}
 
@@ -115,6 +123,7 @@ export function TrackProblemsTab({ eventId, canManage }: { eventId: number; canM
             trackId={t.trackId}
             problem={t}
             canManage={canManage}
+            canRelease={canRelease}
             disabled={bulkBusy}
             onChange={patch}
             onRemoved={() => clearProblem(t.trackId)}
@@ -153,12 +162,13 @@ export function TrackProblemsTab({ eventId, canManage }: { eventId: number; canM
 
 // ── Controlled row: one track's problem, data driven by the parent ──────────
 export function TrackProblemPanel({
-  eventId, trackId, problem, canManage, disabled = false, onChange, onRemoved,
+  eventId, trackId, problem, canManage, canRelease = true, disabled = false, onChange, onRemoved,
 }: {
   eventId: number;
   trackId: number;
   problem: TrackProblem;
   canManage: boolean;
+  canRelease?: boolean;
   disabled?: boolean;
   onChange: (updated: TrackProblem) => void;
   onRemoved: () => void;
@@ -267,9 +277,20 @@ export function TrackProblemPanel({
           )}
           {has && canManage && (
             <>
-              <PixelButton size="sm" variant={problem.released ? "secondary" : "cyber"} onClick={() => setConfirmAction("toggle")} disabled={locked}>
-                {problem.released ? "RETRACT" : "RELEASE"}
-              </PixelButton>
+              {/* develop's canRelease gate (release only after event IN_PROGRESS)
+                  + our confirm-before-toggle and hover overflow menu. */}
+              <span title={!problem.released && !canRelease
+                ? "Problems can only be released after the event has started (IN_PROGRESS)."
+                : undefined}>
+                <PixelButton
+                  size="sm"
+                  variant={problem.released ? "secondary" : "cyber"}
+                  onClick={() => setConfirmAction("toggle")}
+                  disabled={locked || (!problem.released && !canRelease)}
+                >
+                  {problem.released ? "RETRACT" : "RELEASE"}
+                </PixelButton>
+              </span>
               <span className="row-action">
                 <PixelMenu
                   label="MANAGE"

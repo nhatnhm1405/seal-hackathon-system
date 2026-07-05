@@ -34,6 +34,7 @@ import { CoordScoringPage } from "@/features/scoring/CoordScoringPage";
 import { CoordPrizesPage } from "@/features/scoring/CoordPrizesPage";
 import { AdminEventsPage } from "@/features/events/AdminEventsPage";
 import { AdminAccountsPage } from "@/features/users/AdminAccountsPage";
+import { AdminParticipationRequestsPage } from "@/features/users/AdminParticipationRequestsPage";
 import { AdminRolesPage } from "@/features/users/AdminRolesPage";
 import { AdminSystemLogsPage } from "@/features/users/AdminSystemLogsPage";
 import { ForgotPasswordPage } from "@/features/auth/ForgotPasswordPage";
@@ -220,6 +221,10 @@ export const router = createBrowserRouter([
                   {
                     path: "/admin/accounts",
                     Component: AdminAccountsPage,
+                  },
+                  {
+                    path: "/admin/participation-requests",
+                    Component: AdminParticipationRequestsPage,
                   },
                   {
                     path: "/admin/roles",

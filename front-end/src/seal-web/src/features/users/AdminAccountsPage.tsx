@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router";
 import {
   C, GradientText, PixelCard, PixelButton, PixelBadge, PixelTabs,
 } from "@/shared/components/PixelComponents";
@@ -31,10 +32,10 @@ function approvedBadge(isApproved: boolean) {
     : <PixelBadge color="yellow">PENDING</PixelBadge>;
 }
 
-function activeBadge(isActive: boolean) {
+function isActiveBadge(isActive: boolean) {
   return isActive
-    ? <PixelBadge color="cyan">ACTIVE</PixelBadge>
-    : <PixelBadge color="gray">INACTIVE</PixelBadge>;
+    ? <PixelBadge color="green">TRUE</PixelBadge>
+    : <PixelBadge color="gray">FALSE</PixelBadge>;
 }
 
 const inputStyle: React.CSSProperties = {
@@ -235,63 +236,10 @@ function EditAccountModal({ user, onClose, onUpdated }: { user: UserItem; onClos
   );
 }
 
-// ── Activate / Deactivate confirm modal ──────────────────────────────
-function ToggleActiveModal({ user, deactivate, onClose, onDone }: {
-  user: UserItem; deactivate: boolean; onClose: () => void; onDone: (u: UserItem) => void;
-}) {
-  const { addToast } = useNotifications();
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const accent = deactivate ? "#ef4444" : "#22c55e";
-
-  async function confirm() {
-    setError(null);
-    setSaving(true);
-    try {
-      const res = deactivate
-        ? await adminApi.deactivateUser(user.userId)
-        : await adminApi.activateUser(user.userId);
-      addToast({
-        type: deactivate ? "info" : "success",
-        title: deactivate ? "ACCOUNT DEACTIVATED" : "ACCOUNT ACTIVATED",
-        message: `"${user.fullName}" ${deactivate ? "can no longer log in." : "can log in again."}`,
-      });
-      onDone(res.data);
-      onClose();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Action failed.");
-      addToast({ type: "warning", title: "ACTION FAILED", message: apiErrorMessage(err, "Action failed.") });
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <ModalShell accent={accent} tag={deactivate ? "deactivate_user" : "activate_user"}
-      title={deactivate ? "Deactivate this account?" : "Reactivate this account?"} onCancel={onClose}>
-      <p style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, lineHeight: 1.8, marginBottom: 20 }}>
-        {deactivate
-          ? <>Deactivate <span style={{ color: C.text, fontWeight: 700 }}>"{user.fullName}"</span> ({user.email})? They will not be able to log in until reactivated.</>
-          : <>Reactivate <span style={{ color: C.text, fontWeight: 700 }}>"{user.fullName}"</span> ({user.email})? They will be able to log in again.</>}
-      </p>
-      {error && (
-        <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.35)", color: C.red, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, padding: "8px 12px", marginBottom: 16 }}>
-          ERROR: {error}
-        </div>
-      )}
-      <div style={{ display: "flex", gap: 10 }}>
-        <PixelButton variant={deactivate ? "danger" : "cyber"} onClick={confirm} disabled={saving}>
-          {saving ? "WORKING…" : deactivate ? "DEACTIVATE" : "REACTIVATE"}
-        </PixelButton>
-        <PixelButton variant="secondary" onClick={onClose} disabled={saving}>CANCEL</PixelButton>
-      </div>
-    </ModalShell>
-  );
-}
-
-type Tab = 'ALL' | 'STUDENTS' | 'STAFF' | 'PENDING' | 'INACTIVE';
+type Tab = 'ALL' | 'STUDENTS' | 'STAFF' | 'PENDING' | 'IS_ACTIVE';
 
 export function AdminAccountsPage() {
+  const navigate = useNavigate();
   const [users, setUsers] = useState<UserItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -300,7 +248,6 @@ export function AdminAccountsPage() {
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<UserItem | null>(null);
-  const [toggleTarget, setToggleTarget] = useState<{ user: UserItem; deactivate: boolean } | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -325,14 +272,14 @@ export function AdminAccountsPage() {
   const studentCount  = users.filter(u => u.userType !== 'STAFF').length;
   const staffCount    = users.filter(u => u.userType === 'STAFF').length;
   const pendingCount  = users.filter(u => !u.isApproved).length;
-  const inactiveCount = users.filter(u => !u.isActive).length;
+  const isActiveCount = users.filter(u => u.isActive).length;
 
   const tabFiltered = users.filter(u => {
     switch (activeTab) {
       case 'STUDENTS': return u.userType !== 'STAFF';
       case 'STAFF':    return u.userType === 'STAFF';
       case 'PENDING':  return !u.isApproved;
-      case 'INACTIVE': return !u.isActive;
+      case 'IS_ACTIVE': return u.isActive;
       default:         return true;
     }
   });
@@ -347,7 +294,10 @@ export function AdminAccountsPage() {
         <h1 style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 28, fontWeight: 800 }}>
           <GradientText>Accounts</GradientText>
         </h1>
-        <PixelButton variant="cyber" size="sm" onClick={() => setCreateOpen(true)}>+ CREATE ACCOUNT</PixelButton>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <PixelButton variant="secondary" size="sm" onClick={() => navigate("/admin/participation-requests")}>PARTICIPATION REQUESTS</PixelButton>
+          <PixelButton variant="cyber" size="sm" onClick={() => setCreateOpen(true)}>+ CREATE ACCOUNT</PixelButton>
+        </div>
       </div>
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "center", justifyContent: "space-between" }}>
@@ -357,7 +307,7 @@ export function AdminAccountsPage() {
             { id: "STUDENTS", label: `Students (${studentCount})` },
             { id: "STAFF",    label: `Staff (${staffCount})` },
             { id: "PENDING",  label: `Pending (${pendingCount})` },
-            { id: "INACTIVE", label: `Inactive (${inactiveCount})` },
+            { id: "IS_ACTIVE", label: `isActive (${isActiveCount})` },
           ]}
           active={activeTab}
           onChange={(id) => setActiveTab(id as Tab)}
@@ -375,7 +325,7 @@ export function AdminAccountsPage() {
           <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'JetBrains Mono', monospace" }}>
             <thead>
               <tr style={{ background: C.surface2, borderBottom: `1px solid ${C.border}` }}>
-                {["Full Name", "Email", "Type", "Judge", "Roles", "Status", "Active", "Created", "Actions"].map(h => (
+                {["Full Name", "Email", "Type", "Judge", "Roles", "Status", "isActive", "Created", "Actions"].map(h => (
                   <th key={h} style={{ color: C.green, fontSize: 10, letterSpacing: "0.12em", textAlign: "left", padding: "12px 14px", fontWeight: 600, textTransform: "uppercase" }}>
                     {h}
                   </th>
@@ -400,14 +350,11 @@ export function AdminAccountsPage() {
                   <td style={{ padding: "12px 14px" }}>{judgeTypeBadge(u.judgeType)}</td>
                   <td style={{ color: C.textMuted, fontSize: 11, padding: "12px 14px" }}>{u.roles && u.roles.length > 0 ? u.roles.join(", ") : "—"}</td>
                   <td style={{ padding: "12px 14px" }}>{approvedBadge(u.isApproved)}</td>
-                  <td style={{ padding: "12px 14px" }}>{activeBadge(u.isActive)}</td>
+                  <td style={{ padding: "12px 14px" }}>{isActiveBadge(u.isActive)}</td>
                   <td style={{ color: C.textMuted, fontSize: 11, padding: "12px 14px" }}>{fmtDate(u.createdAt)}</td>
                   <td style={{ padding: "12px 14px" }}>
                     <div style={{ display: "flex", gap: 6 }}>
                       <PixelButton size="sm" variant="secondary" onClick={() => setEditTarget(u)}>EDIT</PixelButton>
-                      {u.isActive
-                        ? <PixelButton size="sm" variant="danger" onClick={() => setToggleTarget({ user: u, deactivate: true })}>DEACTIVATE</PixelButton>
-                        : <PixelButton size="sm" variant="cyber" onClick={() => setToggleTarget({ user: u, deactivate: false })}>ACTIVATE</PixelButton>}
                     </div>
                   </td>
                 </tr>
@@ -419,14 +366,6 @@ export function AdminAccountsPage() {
 
       {createOpen && <CreateAccountModal onClose={() => setCreateOpen(false)} onCreated={upsert} />}
       {editTarget && <EditAccountModal user={editTarget} onClose={() => setEditTarget(null)} onUpdated={upsert} />}
-      {toggleTarget && (
-        <ToggleActiveModal
-          user={toggleTarget.user}
-          deactivate={toggleTarget.deactivate}
-          onClose={() => setToggleTarget(null)}
-          onDone={upsert}
-        />
-      )}
     </div>
   );
 }

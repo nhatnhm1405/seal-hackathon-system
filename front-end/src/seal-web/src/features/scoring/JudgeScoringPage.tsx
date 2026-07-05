@@ -385,7 +385,7 @@ export function JudgeScoringPage() {
 
                             {!aiInsight.repo.analyzed && (
                               <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, lineHeight: 1.5 }}>
-                                {aiInsight.repo.note || "Không phân tích được mã nguồn."}
+                                {aiInsight.repo.note || "Could not analyze the source code."}
                               </div>
                             )}
 
