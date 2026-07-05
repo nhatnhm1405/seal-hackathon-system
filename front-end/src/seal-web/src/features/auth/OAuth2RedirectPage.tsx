@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
-import { setToken, authApi, PENDING_PROFILE } from "@/shared/apiClient";
+import { setToken, clearToken, authApi, PENDING_PROFILE } from "@/shared/apiClient";
 import { useNotifications } from "@/app/providers/NotificationProvider";
 import { C, GradientText, FloatingParticles } from "@/shared/components/PixelComponents";
 
@@ -24,6 +24,9 @@ export function OAuth2RedirectPage() {
       return;
     }
 
+    clearToken();
+    localStorage.removeItem("activeRole");
+    sessionStorage.removeItem("activeRole");
     setToken(token, true);
 
     // Mirror the email/password login UX: greet the user with a toast. Fetch the

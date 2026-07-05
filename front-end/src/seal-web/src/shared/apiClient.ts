@@ -809,7 +809,11 @@ export interface TeamMember {
 export interface MyTeamMember {
   userId: number;
   memberName: string;
+  email?: string;
+  studentType?: string;
+  studentId?: string;
   role: 'LEADER' | 'MEMBER';
+  joinedAt?: string;
 }
 
 export interface MyTeamRound {

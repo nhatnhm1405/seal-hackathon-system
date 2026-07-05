@@ -21,43 +21,78 @@ const MEDAL: Record<number, { name: string; metal: string; soft: string; glow: s
 
 export function LeaderboardPage() {
   const { currentUser } = useAuth();
+  const canSeeInternalEvents = currentUser?.role === "COORDINATOR" || currentUser?.role === "ADMIN";
 
   const [events, setEvents] = useState<HackathonEvent[]>([]);
   const [eventId, setEventId] = useState<number | null>(null);
   const [rounds, setRounds] = useState<Round[]>([]);
   const [selectedRoundId, setSelectedRoundId] = useState<number | null>(null);
   const [results, setResults] = useState<RoundResult[]>([]);
+  const [publishedRoundIdsByEvent, setPublishedRoundIdsByEvent] = useState<Record<number, Set<number>>>({});
   const [trackFilter, setTrackFilter] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Load the event list and pick a sensible default: the participant's team
-  // event, else the active one, else the most recent completed season (so the
-  // previous season's champions are visible even before the running event has
-  // any published results).
+  // Load only events visible to this role. Public users see completed seasons
+  // with published results, plus their own participated events once results are
+  // published. Coordinators/admins keep the full event list, including drafts.
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      setLoading(true);
+      setError(null);
       const evs = await eventsApi.getAll().then(r => r.data ?? []).catch(() => []);
-      let teamEventId: number | null = null;
+      let joinedEventIds = new Set<number>();
       try {
-        const my = await teamsApi.getMy().then(r => r.data).catch(() => null);
-        if (my?.eventId != null) teamEventId = my.eventId;
+        const history = await teamsApi.getMyResultHistory().then(r => r.data ?? []).catch(() => []);
+        joinedEventIds = new Set(history.map(h => h.eventId));
       } catch { /* not in a team */ }
       if (cancelled) return;
-      // Newest first (by year then season order) for the dropdown.
+
       const ordered = [...evs].sort((a, b) => b.year - a.year || b.eventId - a.eventId);
-      setEvents(ordered);
+      if (canSeeInternalEvents) {
+        setPublishedRoundIdsByEvent({});
+        setEvents(ordered);
+        const defaultEv =
+          ordered.find(e => e.status === 'IN_PROGRESS' || e.status === 'OPEN') ||
+          ordered.find(e => e.status === 'COMPLETED') ||
+          ordered[0];
+        setEventId(defaultEv?.eventId ?? null);
+        if (defaultEv == null) setLoading(false);
+        return;
+      }
+
+      const visible: HackathonEvent[] = [];
+      const publishedByEvent: Record<number, Set<number>> = {};
+      for (const ev of ordered) {
+        if (ev.status === "DRAFT") continue;
+        const joined = joinedEventIds.has(ev.eventId);
+        const publicCompleted = ev.status === "COMPLETED";
+        if (!joined && !publicCompleted) continue;
+
+        const eventRounds = await roundsApi.getAll(ev.eventId).then(r => r.data ?? []).catch(() => []);
+        const publishedRoundIds = new Set<number>();
+        for (const round of eventRounds) {
+          const published = await resultsApi.getPublished(ev.eventId, round.roundId).then(r => r.data ?? []).catch(() => []);
+          if (published.length > 0) publishedRoundIds.add(round.roundId);
+        }
+        if (publishedRoundIds.size === 0) continue;
+        publishedByEvent[ev.eventId] = publishedRoundIds;
+        visible.push(ev);
+      }
+
+      if (cancelled) return;
+      setPublishedRoundIdsByEvent(publishedByEvent);
+      setEvents(visible);
       const defaultEv =
-        (teamEventId != null && ordered.find(e => e.eventId === teamEventId)) ||
-        ordered.find(e => e.status === 'IN_PROGRESS' || e.status === 'OPEN') ||
-        ordered.find(e => e.status === 'COMPLETED') ||
-        ordered[0];
+        visible.find(e => joinedEventIds.has(e.eventId)) ||
+        visible.find(e => e.status === 'COMPLETED') ||
+        visible[0];
       setEventId(defaultEv?.eventId ?? null);
       if (defaultEv == null) setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [canSeeInternalEvents]);
 
   // Load rounds whenever the selected event changes.
   useEffect(() => {
@@ -67,7 +102,11 @@ export function LeaderboardPage() {
     roundsApi.getAll(eventId).then(r => r.data ?? []).catch(() => [])
       .then(rs => {
         if (cancelled) return;
-        const sorted = [...rs].sort((a, b) => (a.orderNumber ?? a.roundId) - (b.orderNumber ?? b.roundId));
+        const publishedRoundIds = publishedRoundIdsByEvent[eventId];
+        const visibleRounds = canSeeInternalEvents || !publishedRoundIds
+          ? rs
+          : rs.filter(r => publishedRoundIds.has(r.roundId));
+        const sorted = [...visibleRounds].sort((a, b) => (a.orderNumber ?? a.roundId) - (b.orderNumber ?? b.roundId));
         setRounds(sorted);
         // Prefer the final round so champions show first; else the first round.
         setSelectedRoundId((sorted.find(r => r.isFinal) ?? sorted[0])?.roundId ?? null);
@@ -75,7 +114,7 @@ export function LeaderboardPage() {
         setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [eventId]);
+  }, [eventId, canSeeInternalEvents, publishedRoundIdsByEvent]);
 
   // Load published results for the selected round.
   useEffect(() => {

@@ -1,9 +1,45 @@
 import { useState, useEffect } from "react";
-import { C, GradientText, PixelButton, PixelBadge, PixelCard } from "@/shared/components/PixelComponents";
+import { C, PixelButton, PixelBadge, PixelCard } from "@/shared/components/PixelComponents";
 import { teamsApi, roundsApi, HackathonEvent, ActiveEventWithTracks, Round } from "@/shared/apiClient";
 import { useTour } from "@/app/providers/TourProvider";
 import { ParticipantJourneyBar } from "@/shared/components/ParticipantJourneyBar";
 import { fmtShort } from "../utils/formatters";
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+function registrationDeadlineLabel(ev: ActiveEventWithTracks) {
+    const deadlineIso = ev.registrationEnd || ev.startDate;
+    if (!deadlineIso) {
+        return { primary: "Deadline TBA", secondary: "Registration deadline not set" };
+    }
+
+    const deadline = new Date(deadlineIso);
+    const now = new Date();
+    const diffDays = Math.ceil((deadline.getTime() - now.getTime()) / MS_PER_DAY);
+
+    if (Number.isNaN(deadline.getTime())) {
+        return { primary: "Deadline TBA", secondary: "Registration deadline not set" };
+    }
+
+    if (diffDays <= 0) {
+        return { primary: "Closes today", secondary: `Deadline: ${fmtShort(deadlineIso)}` };
+    }
+
+    return {
+        primary: `${diffDays} day${diffDays === 1 ? "" : "s"} left`,
+        secondary: `Deadline: ${fmtShort(deadlineIso)}`,
+    };
+}
+
+function trackSummary(track: { name: string; description?: string }) {
+    if (track.description?.trim()) return track.description.trim();
+    const name = track.name.toLowerCase();
+    if (name.includes("ai")) return "Build intelligent solutions with data, automation, or machine learning.";
+    if (name.includes("green")) return "Create sustainable products for energy, environment, or climate impact.";
+    if (name.includes("social")) return "Solve community problems with accessible, practical technology.";
+    if (name.includes("web")) return "Deliver a polished web product with strong UX and reliable engineering.";
+    return "Explore this challenge track and shape a focused hackathon solution.";
+}
 
 export function NoTeamDashboard({
     onCreateTeam,
@@ -29,6 +65,7 @@ export function NoTeamDashboard({
     const { openTour } = useTour();
     const [events, setEvents] = useState<ActiveEventWithTracks[]>([]);
     const [roundsByEvent, setRoundsByEvent] = useState<Record<number, Round[]>>({});
+    const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
     useEffect(() => {
         teamsApi.getActiveEvents().then(res => {
@@ -51,127 +88,203 @@ export function NoTeamDashboard({
         };
     }
 
+    function toggleExpanded(key: string) {
+        setExpanded(previous => ({ ...previous, [key]: !previous[key] }));
+    }
+
     return (
         <div style={{ padding: "24px", display: "flex", flexDirection: "column", gap: 20 }}>
             {/* Live journey progress */}
             <ParticipantJourneyBar team={null} />
 
-            {/* Header hero card */}
-            <div style={{
-                position: "relative",
-                background: `linear-gradient(${C.surface}, ${C.surface}) padding-box, linear-gradient(135deg, rgba(34,197,94,0.45), rgba(59,130,246,0.35), rgba(34,197,94,0.15)) border-box`,
-                border: "1px solid transparent", padding: 28, overflow: "hidden",
-                boxShadow: "0 0 32px rgba(34,197,94,0.08), 0 0 60px rgba(59,130,246,0.05)",
-            }}>
-                <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${C.green}, ${C.blue}, transparent)`, opacity: 0.7 }} />
-                <div style={{ position: "absolute", top: 0, left: 0, width: 14, height: 14, borderTop: `2px solid ${C.green}`, borderLeft: `2px solid ${C.green}` }} />
-                <div style={{ position: "absolute", bottom: 0, right: 0, width: 14, height: 14, borderBottom: `2px solid rgba(59,130,246,0.5)`, borderRight: `2px solid rgba(59,130,246,0.5)` }} />
+            {/* Open events */}
+            <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                <div>
+                    <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 22, fontWeight: 900, letterSpacing: "0.02em" }}>Open Events</div>
+                </div>
+                <PixelBadge color="green">{events.length} OPEN</PixelBadge>
+            </div>
 
-                <h1 style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 900, fontSize: 28, lineHeight: 1.15, marginBottom: 10 }}>
-                    <GradientText>Join an Event</GradientText>
-                </h1>
+            {readOnly && (
+                <PixelCard style={{ padding: 16 }}>
+                    <div style={{ display: "flex", gap: 12, alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" }}>
+                        <p style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, margin: 0 }}>
+                            Creating or joining teams requires System Admin approval.
+                        </p>
+                        <PixelButton variant="cyber" disabled={requestingAccess || accessRequested} onClick={onRequestAccess}>
+                            {accessRequested ? "REQUEST SENT" : requestingAccess ? "SENDING..." : "REQUEST PARTICIPATION ACCESS"}
+                        </PixelButton>
+                    </div>
+                </PixelCard>
+            )}
 
-                {readOnly ? (
-                    <p style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, marginBottom: 16, lineHeight: 1.8, maxWidth: 560 }}>
-                        Your account is currently read-only. You can view events and existing participation records, but creating or joining teams requires System Admin approval.
-                    </p>
-                ) : pendingTeamName ? (
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
+            {pendingTeamName && !readOnly && (
+                <PixelCard style={{ padding: 16 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                         <span style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>
                             Your team <strong style={{ color: C.text }}>{pendingTeamName}</strong> is waiting for coordinator approval.
                         </span>
                         <span style={{ background: "rgba(234,179,8,0.1)", border: "1px solid rgba(234,179,8,0.4)", color: "#eab308", fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.12em", padding: "2px 10px", flexShrink: 0 }}>PENDING</span>
                     </div>
-                ) : (
-                    <p style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, marginBottom: 16, lineHeight: 1.8, maxWidth: 520 }}>
-                        You are not yet part of a team. Create your own team to compete, or wait for a team leader to invite you.
-                    </p>
-                )}
-
-                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                    {readOnly ? (
-                        <PixelButton variant="cyber" disabled={requestingAccess || accessRequested} onClick={onRequestAccess}>
-                            {accessRequested ? "REQUEST SENT" : requestingAccess ? "SENDING..." : "REQUEST PARTICIPATION ACCESS"}
-                        </PixelButton>
-                    ) : (
-                        <PixelButton variant="cyber" onClick={() => onCreateTeam()}>CREATE A TEAM</PixelButton>
-                    )}
-                    <div style={{ position: "relative", display: "inline-flex" }}>
-                        <PixelButton variant="ghost" onClick={onWaitForInvite}>{readOnly ? "VIEW INVITES" : "WAIT FOR INVITE"}</PixelButton>
-                        {pendingInviteCount > 0 && (
-                            <span style={{ position: "absolute", top: -8, right: -8, minWidth: 18, height: 18, borderRadius: "50%", background: C.blue, color: "#fff", fontFamily: "'JetBrains Mono', monospace", fontSize: 10, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: `0 0 8px rgba(59,130,246,0.6)`, pointerEvents: "none" }}>
-                                {pendingInviteCount}
-                            </span>
-                        )}
-                    </div>
-                    <button
-                        onClick={openTour}
-                        style={{ background: "transparent", border: "none", cursor: "pointer", color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, letterSpacing: "0.04em", display: "inline-flex", alignItems: "center", gap: 6, padding: "0 6px", transition: "color 0.15s" }}
-                        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = C.green; }}
-                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = C.textMuted; }}
-                    >
-                        ? How it works
-                    </button>
-                </div>
-            </div>
-
-            {/* Open events */}
-            <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 18, fontWeight: 700 }}>Open Events</div>
+                </PixelCard>
+            )}
 
             {events.length === 0 ? (
                 <PixelCard style={{ padding: 20 }}>
                     <p style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>No open events at this time. Check back later.</p>
                 </PixelCard>
             ) : (
-                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
                     {events.map(ev => {
                         const evTracks = ev.tracks ?? [];
                         const evRounds = roundsByEvent[ev.eventId] ?? [];
                         const activeRound = evRounds.find(r => ["ACTIVE", "OPEN", "IN_PROGRESS"].includes((r.status ?? "").toUpperCase()));
+                        const registrationDeadline = registrationDeadlineLabel(ev);
+                        const tracksKey = `${ev.eventId}:tracks`;
+                        const roundsKey = `${ev.eventId}:rounds`;
+                        const tracksOpen = Boolean(expanded[tracksKey]);
+                        const roundsOpen = Boolean(expanded[roundsKey]);
                         return (
-                            <div key={ev.eventId}
-                                style={{ background: C.surface, border: `1px solid ${C.border}`, padding: "20px 24px", position: "relative", overflow: "hidden", transition: "border-color 0.2s" }}
-                                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(34,197,94,0.35)"; }}
-                                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = C.border; }}
+                            <PixelCard key={ev.eventId}
+                                glow
+                                gradient
+                                style={{ padding: "28px 30px", minHeight: 236, display: "flex", flexDirection: "column", gap: 22, borderColor: "rgba(34,197,94,0.35)" }}
                             >
-                                <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${C.green}, transparent)`, opacity: 0.5 }} />
-                                <div style={{ position: "absolute", top: 0, left: 0, width: 10, height: 10, borderTop: `2px solid ${C.green}`, borderLeft: `2px solid ${C.green}` }} />
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 18, flexWrap: "wrap" }}>
+                                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                                        <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 24, fontWeight: 900, lineHeight: 1.15 }}>{ev.name}</div>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                                            <span style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 800 }}>
+                                                {fmtShort(ev.startDate)} - {fmtShort(ev.endDate)}
+                                            </span>
 
-                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6, gap: 10 }}>
-                                    <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 16, fontWeight: 700 }}>{ev.name}</div>
+                                        </div>
+                                    </div>
                                     <PixelBadge color="green">OPEN</PixelBadge>
                                 </div>
 
-                                <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginBottom: 10 }}>
-                                    {fmtShort(ev.startDate)} — {fmtShort(ev.endDate)}
+                                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14, flexWrap: "wrap", background: "linear-gradient(90deg, rgba(34,197,94,0.18), rgba(59,130,246,0.12))", border: "1px solid rgba(34,197,94,0.45)", padding: "14px 16px", boxShadow: "0 0 24px rgba(34,197,94,0.12)" }}>
+                                    <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                                        <span style={{ color: C.greenBright, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 900, letterSpacing: "0.12em" }}>
+                                            REGISTRATION OPEN
+                                        </span>
+                                    </div>
+                                    <div style={{ textAlign: "right" }}>
+                                        <div style={{ color: "#ffffff", fontFamily: "'JetBrains Mono', monospace", fontSize: 22, fontWeight: 900, lineHeight: 1.1 }}>
+                                            {registrationDeadline.primary}
+                                        </div>
+                                        <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginTop: 4 }}>
+                                            {registrationDeadline.secondary}
+                                        </div>
+                                    </div>
                                 </div>
 
-                                <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: C.textMuted, marginBottom: 12 }}>
-                                    {evTracks.length} tracks · {evRounds.length} rounds ·{" "}
-                                    {activeRound ? (
-                                        <span>Qualifier <span style={{ color: C.green, fontWeight: 700 }}>ACTIVE</span></span>
-                                    ) : (
-                                        <span>No active round</span>
-                                    )}
+                                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
+                                    <div
+                                        role="button"
+                                        tabIndex={0}
+                                        onClick={() => toggleExpanded(tracksKey)}
+                                        onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") toggleExpanded(tracksKey); }}
+                                        style={{ background: tracksOpen ? "rgba(6,182,212,0.12)" : C.surface2, border: `1px solid ${tracksOpen ? "rgba(6,182,212,0.55)" : C.border}`, padding: "12px 14px", cursor: "pointer", transition: "all 0.2s ease" }}
+                                    >
+                                        <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase" }}>Tracks</div>
+                                        <div style={{ color: C.cyan, fontFamily: "'JetBrains Mono', monospace", fontSize: 22, fontWeight: 900, marginTop: 4 }}>{evTracks.length}</div>
+                                    </div>
+                                    <div
+                                        role="button"
+                                        tabIndex={0}
+                                        onClick={() => toggleExpanded(roundsKey)}
+                                        onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") toggleExpanded(roundsKey); }}
+                                        style={{ background: roundsOpen ? "rgba(59,130,246,0.12)" : C.surface2, border: `1px solid ${roundsOpen ? "rgba(59,130,246,0.55)" : C.border}`, padding: "12px 14px", cursor: "pointer", transition: "all 0.2s ease" }}
+                                    >
+                                        <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase" }}>Rounds</div>
+                                        <div style={{ color: C.blueBright, fontFamily: "'JetBrains Mono', monospace", fontSize: 22, fontWeight: 900, marginTop: 4 }}>{evRounds.length}</div>
+                                    </div>
+                                    <div style={{ background: C.surface2, border: `1px solid ${C.border}`, padding: "12px 14px" }}>
+                                        <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase" }}>Current Round</div>
+                                        <div style={{ color: activeRound ? C.green : C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 900, marginTop: 7 }}>
+                                            {activeRound ? `${activeRound.name ?? "Qualifier"} ACTIVE` : "No active round"}
+                                        </div>
+                                    </div>
                                 </div>
 
-                                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 18 }}>
-                                    {evTracks.map(t => (
-                                        <span key={t.trackId} style={{ background: "rgba(6,182,212,0.08)", border: "1px solid rgba(6,182,212,0.25)", color: "#06b6d4", fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: "0.06em", padding: "3px 10px" }}>{t.name}</span>
-                                    ))}
+                                <div style={{ display: "flex", flexDirection: "column", gap: tracksOpen && roundsOpen ? 10 : 0 }}>
+                                    <div style={{ maxHeight: tracksOpen ? 220 : 0, opacity: tracksOpen ? 1 : 0, transform: tracksOpen ? "translateY(0)" : "translateY(-8px)", overflow: "hidden", transition: "max-height 0.28s ease, opacity 0.2s ease, transform 0.25s ease" }}>
+                                        <div style={{ background: C.surface2, border: "1px solid rgba(6,182,212,0.35)", padding: "14px 16px" }}>
+                                            <div style={{ color: C.cyan, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 10 }}>
+                                                Tracks
+                                            </div>
+                                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
+                                                {evTracks.length === 0 ? (
+                                                    <span style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>No tracks configured.</span>
+                                                ) : evTracks.map(t => (
+                                                    <div key={t.trackId} style={{ background: "linear-gradient(135deg, rgba(6,182,212,0.16), rgba(59,130,246,0.1))", border: "1px solid rgba(6,182,212,0.42)", padding: "12px 14px", minHeight: 82, display: "flex", flexDirection: "column", justifyContent: "center", gap: 6 }}>
+                                                        <div style={{ color: "#e0faff", fontFamily: "'JetBrains Mono', monospace", fontSize: 13, letterSpacing: "0.03em", fontWeight: 900 }}>
+                                                            {t.name}
+                                                        </div>
+                                                        <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, lineHeight: 1.45 }}>
+                                                            {trackSummary(t)}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div style={{ maxHeight: roundsOpen ? 260 : 0, opacity: roundsOpen ? 1 : 0, transform: roundsOpen ? "translateY(0)" : "translateY(-8px)", overflow: "hidden", transition: "max-height 0.28s ease, opacity 0.2s ease, transform 0.25s ease" }}>
+                                        <div style={{ background: C.surface2, border: "1px solid rgba(59,130,246,0.35)", padding: "14px 16px" }}>
+                                            <div style={{ color: C.blueBright, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 10 }}>
+                                                Rounds
+                                            </div>
+                                            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 10 }}>
+                                                {evRounds.length === 0 ? (
+                                                    <span style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>No rounds configured.</span>
+                                                ) : evRounds.map(round => (
+                                                    <div key={round.roundId} style={{ background: "linear-gradient(135deg, rgba(59,130,246,0.14), rgba(34,197,94,0.08))", border: "1px solid rgba(59,130,246,0.38)", padding: "10px 12px", minHeight: 58 }}>
+                                                        <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 800 }}>
+                                                            {round.name}
+                                                        </div>
+                                                        <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginTop: 5 }}>
+                                                            {round.status ?? "TBA"} · Deadline {fmtShort(round.submissionDeadline)}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
 
-                                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                                    <PixelButton variant="cyber" disabled={readOnly} onClick={() => onCreateTeam(ev.eventId)}>
+                                <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center", marginTop: "auto" }}>
+                                    <PixelButton variant="cyber" size="lg" disabled={readOnly} onClick={() => onCreateTeam(ev.eventId)}>
                                         {readOnly ? "READ-ONLY" : "REGISTER & CREATE TEAM"}
                                     </PixelButton>
-                                    <PixelButton variant="secondary" onClick={() => onViewDetails(toEvent(ev))}>VIEW DETAILS →</PixelButton>
+                                    <PixelButton variant="secondary" size="lg" onClick={() => onViewDetails(toEvent(ev))}>{"VIEW DETAILS"}</PixelButton>
+                                    <div style={{ position: "relative", display: "inline-flex" }}>
+                                        <PixelButton variant="ghost" size="lg" onClick={onWaitForInvite}>{readOnly ? "VIEW INVITES" : "WAIT FOR INVITE"}</PixelButton>
+                                        {pendingInviteCount > 0 && (
+                                            <span style={{ position: "absolute", top: -8, right: -8, minWidth: 20, height: 20, borderRadius: "50%", background: C.blue, color: "#fff", fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: `0 0 10px rgba(59,130,246,0.75)`, pointerEvents: "none" }}>
+                                                {pendingInviteCount}
+                                            </span>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
+                            </PixelCard>
                         );
                     })}
                 </div>
             )}
+
+            <button
+                type="button"
+                aria-label="How it works"
+                title="How it works"
+                onClick={openTour}
+                style={{ position: "fixed", right: 24, bottom: 24, zIndex: 50, width: 52, height: 52, borderRadius: "50%", background: `linear-gradient(135deg, ${C.green}, ${C.blue})`, border: "1px solid rgba(255,255,255,0.28)", cursor: "pointer", color: "#fff", fontFamily: "'JetBrains Mono', monospace", fontSize: 24, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 0 18px rgba(34,197,94,0.55), 0 0 34px rgba(59,130,246,0.35)" }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.transform = "translateY(-2px) scale(1.04)"; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.transform = "none"; }}
+            >
+                ?
+            </button>
         </div>
     );
 }
