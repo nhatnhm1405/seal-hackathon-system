@@ -49,6 +49,8 @@ public class AccountService {
 
         user.setIsApproved(true);
         userRepository.save(user);
+        // Rejected users have is_active=false and cannot log in, so an in-app
+        // notification only makes sense for approvals (they get an email either way).
         notificationService.createNotification(
                 user.getUserId(),
                 "Account approved",
@@ -60,13 +62,6 @@ public class AccountService {
                 user.getFullName(),
                 true
         ));
-        // Rejected users have is_active=false and cannot log in, so an in-app
-        // notification only makes sense for approvals (they get an email either way).
-        notificationService.createNotification(
-                user.getUserId(),
-                "Account approved",
-                "Your account has been approved. Welcome to SEAL Hackathon!",
-                "ACCOUNT");
         auditLogService.record(actorUserId, "APPROVE_ACCOUNT", "USER", user.getUserId());
         return authService.mapToUserResponse(user);
     }
