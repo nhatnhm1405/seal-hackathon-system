@@ -441,7 +441,12 @@ export function CoordTeamsPage() {
                     <tr onClick={() => setExpandedTeamId(expanded ? null : t.teamId)}
                       className="row-actionable"
                       style={{ borderBottom: `1px solid rgba(34,197,94,0.06)`, background: i % 2 === 0 ? C.surface : C.surface2, cursor: "pointer" }}>
-                      <td style={{ color: C.text, fontSize: 13, padding: "12px 14px" }}>{t.name}</td>
+                      <td style={{ color: C.text, fontSize: 13, padding: "12px 14px" }}>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, width: 10, flexShrink: 0 }}>{expanded ? "▾" : "▸"}</span>
+                          {t.name}
+                        </span>
+                      </td>
                       <td style={{ color: C.textMuted, fontSize: 12, padding: "12px 14px" }}>{trackName(t.trackId)}</td>
                       <td style={{ color: C.textMuted, fontSize: 12, padding: "12px 14px" }}>{leader?.fullName ?? "—"}</td>
                       <td style={{ color: C.textMuted, fontSize: 12, padding: "12px 14px" }}>{t.members.length}</td>
