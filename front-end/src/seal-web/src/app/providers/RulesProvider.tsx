@@ -31,7 +31,7 @@ const ROLE_GUIDE_LABEL: Record<string, string> = {
 const seenKey = (role: string) => `sealRulesSeen:${role}`;
 
 export function RulesProvider({ children }: { children: ReactNode }) {
-  const { currentUser } = useAuth();
+  const { currentUser, availableRoles, activeRole } = useAuth();
   const { maybeAutoStartTour } = useTour();
   const [open, setOpen] = useState(false);
   // True only while the currently-open popup was auto-shown on login (not the
@@ -40,6 +40,13 @@ export function RulesProvider({ children }: { children: ReactNode }) {
 
   const role = currentUser?.role ?? "";
   const hasGuide = role in ROLE_GUIDE_LABEL;
+  // A multi-role staff member (e.g. an FPT Lecturer with Judge + Mentor) has not
+  // committed to a role until they pick one on the Select Role screen. While
+  // uncommitted, currentUser.role is a transient default (JUDGE / PARTICIPANT),
+  // so suppress the auto-guide until they actually choose — this stops the guide
+  // (and the participant rules) from popping on every role switch. Each chosen
+  // role still shows its own guide exactly once per login (keyed in sessionStorage).
+  const awaitingRoleChoice = availableRoles.length > 1 && activeRole === null;
 
   const openRules = useCallback(() => setOpen(true), []);
 
@@ -61,12 +68,13 @@ export function RulesProvider({ children }: { children: ReactNode }) {
       Object.keys(ROLE_GUIDE_LABEL).forEach(r => sessionStorage.removeItem(seenKey(r)));
       return;
     }
+    if (awaitingRoleChoice) return;
     if (hasGuide && !sessionStorage.getItem(seenKey(role))) {
       sessionStorage.setItem(seenKey(role), "1");
       autoShownRef.current = true;
       setOpen(true);
     }
-  }, [currentUser, role, hasGuide]);
+  }, [currentUser, role, hasGuide, awaitingRoleChoice]);
 
   return (
     <RulesContext.Provider value={{ openRules, closeRules, rulesLinkLabel: ROLE_GUIDE_LABEL[role] ?? "Competition Rules" }}>
