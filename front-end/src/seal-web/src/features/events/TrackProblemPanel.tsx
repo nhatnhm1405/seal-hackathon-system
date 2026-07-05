@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { C, PixelButton, PixelBadge } from "@/shared/components/PixelComponents";
+import { PixelMenu } from "@/shared/components/PixelMenu";
 import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
 import { problemsApi, apiErrorMessage, type TrackProblem } from "@/shared/apiClient";
 import { useNotifications } from "@/app/providers/NotificationProvider";
@@ -113,7 +114,7 @@ export function TrackProblemsTab({ eventId, canManage, canRelease }: { eventId: 
       )}
 
       {tracks.map(t => (
-        <div key={t.trackId} style={{ background: C.surface2, border: `1px solid ${C.border}` }}>
+        <div key={t.trackId} className="row-actionable" style={{ background: C.surface2, border: `1px solid ${C.border}` }}>
           <div style={{ padding: "12px 14px" }}>
             <div style={{ color: C.text, fontFamily: MONO, fontSize: 14, fontWeight: 700 }}>{t.trackName}</div>
           </div>
@@ -174,19 +175,9 @@ export function TrackProblemPanel({
 }) {
   const { addToast } = useNotifications();
   const [busy, setBusy] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
+  // Which destructive/publish action is awaiting confirmation for this row.
+  const [confirmAction, setConfirmAction] = useState<null | "remove" | "toggle">(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const menuRef = useRef<HTMLDivElement | null>(null);
-
-  // Close the Manage dropdown on any outside click.
-  useEffect(() => {
-    if (!menuOpen) return;
-    function onDocClick(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
-    }
-    document.addEventListener("mousedown", onDocClick);
-    return () => document.removeEventListener("mousedown", onDocClick);
-  }, [menuOpen]);
 
   const locked = busy || disabled;
 
@@ -216,6 +207,7 @@ export function TrackProblemPanel({
       addToast(problem.released
         ? { type: 'success', title: 'PROBLEM HIDDEN', message: 'Participants can no longer download it.' }
         : { type: 'success', title: 'PROBLEM RELEASED', message: 'Teams in this track can now download it.' });
+      setConfirmAction(null);
     } catch (err) {
       addToast({ type: 'warning', title: 'ACTION FAILED', message: apiErrorMessage(err, 'Failed to update the problem.') });
     } finally {
@@ -224,12 +216,12 @@ export function TrackProblemPanel({
   }
 
   async function onRemove() {
-    setMenuOpen(false);
     setBusy(true);
     try {
       await problemsApi.remove(eventId, trackId);
       onRemoved();
       addToast({ type: 'success', title: 'PROBLEM REMOVED', message: 'The problem file was removed from this track.' });
+      setConfirmAction(null);
     } catch (err) {
       addToast({ type: 'warning', title: 'REMOVE FAILED', message: apiErrorMessage(err, 'Failed to remove the problem.') });
     } finally {
@@ -285,55 +277,62 @@ export function TrackProblemPanel({
           )}
           {has && canManage && (
             <>
+              {/* develop's canRelease gate (release only after event IN_PROGRESS)
+                  + our confirm-before-toggle and hover overflow menu. */}
               <span title={!problem.released && !canRelease
                 ? "Problems can only be released after the event has started (IN_PROGRESS)."
                 : undefined}>
                 <PixelButton
                   size="sm"
                   variant={problem.released ? "secondary" : "cyber"}
-                  onClick={toggleRelease}
+                  onClick={() => setConfirmAction("toggle")}
                   disabled={locked || (!problem.released && !canRelease)}
                 >
                   {problem.released ? "RETRACT" : "RELEASE"}
                 </PixelButton>
               </span>
-              <div ref={menuRef} style={{ position: "relative" }}>
-                <PixelButton size="sm" variant="secondary" onClick={() => setMenuOpen(o => !o)} disabled={locked}>
-                  MANAGE ▾
-                </PixelButton>
-                {menuOpen && (
-                  <div style={{
-                    position: "absolute", top: "calc(100% + 4px)", right: 0, zIndex: 20, minWidth: 150,
-                    background: C.surface2, border: `1px solid ${C.border}`, boxShadow: "0 6px 18px rgba(0,0,0,0.4)",
-                  }}>
-                    <MenuItem label="Replace file" onClick={() => { setMenuOpen(false); fileInputRef.current?.click(); }} />
-                    <MenuItem label="Remove file" danger onClick={onRemove} />
-                  </div>
-                )}
-              </div>
+              <span className="row-action">
+                <PixelMenu
+                  label="MANAGE"
+                  triggerVariant="secondary"
+                  disabled={locked}
+                  ariaLabel="Manage problem file"
+                  items={[
+                    { label: "Replace file", onClick: () => fileInputRef.current?.click() },
+                    "divider",
+                    { label: "Remove file", danger: true, onClick: () => setConfirmAction("remove") },
+                  ]}
+                />
+              </span>
             </>
           )}
         </div>
       </div>
-    </div>
-  );
-}
 
-// One row inside the Manage dropdown.
-function MenuItem({ label, onClick, danger = false }: { label: string; onClick: () => void; danger?: boolean }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{
-        display: "block", width: "100%", textAlign: "left", cursor: "pointer",
-        background: "none", border: "none", padding: "8px 12px",
-        color: danger ? "#f87171" : C.text, fontFamily: MONO, fontSize: 12,
-      }}
-      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"; }}
-      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "none"; }}
-    >
-      {label}
-    </button>
+      {confirmAction === "toggle" && (
+        <ConfirmDialog
+          title={problem.released ? "Retract this problem?" : "Release this problem?"}
+          message={problem.released
+            ? `Hide "${problem.fileName}" from this track. Teams lose access immediately — retracting mid-contest is disruptive, so only do it when something is wrong with the file.`
+            : `Publish "${problem.fileName}" for this track. Every team in the track can download it immediately.`}
+          confirmLabel={problem.released ? "RETRACT" : "RELEASE"}
+          variant={problem.released ? "danger" : "cyber"}
+          working={busy}
+          onConfirm={toggleRelease}
+          onClose={() => { if (!busy) setConfirmAction(null); }}
+        />
+      )}
+      {confirmAction === "remove" && (
+        <ConfirmDialog
+          title="Remove this problem file?"
+          message={`"${problem.fileName}" will be removed from this track. Teams will have nothing to download until a new file is uploaded.`}
+          confirmLabel="REMOVE FILE"
+          variant="danger"
+          working={busy}
+          onConfirm={onRemove}
+          onClose={() => { if (!busy) setConfirmAction(null); }}
+        />
+      )}
+    </div>
   );
 }

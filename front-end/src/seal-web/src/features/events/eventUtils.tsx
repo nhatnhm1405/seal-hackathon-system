@@ -64,8 +64,21 @@ export function eventStatusBadge(status: EventStatus) {
   return <PixelBadge color="gray">DRAFT</PixelBadge>;
 }
 
+// Render a stored datetime ("2026-08-14T15:00:00", no zone → treated as the
+// event's local wall-clock) as "14 Aug 2026, 15:00". Falls back to the raw
+// string if it can't be parsed so a bad value is never hidden.
+function fmtDateTime(s?: string): string {
+  if (!s) return "";
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return s;
+  return d.toLocaleString("en-GB", {
+    day: "numeric", month: "short", year: "numeric",
+    hour: "2-digit", minute: "2-digit", hour12: false,
+  });
+}
+
 export function eventMeta(ev: EventRow): string {
-  const period = [ev.startDate, ev.endDate].filter(Boolean).join(" → ");
+  const period = [ev.startDate, ev.endDate].map(fmtDateTime).filter(Boolean).join(" → ");
   return [ev.season, ev.year, period].filter(Boolean).join(" · ");
 }
 

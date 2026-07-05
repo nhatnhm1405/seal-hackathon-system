@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { C, GradientText, PixelBadge, PixelButton, PixelCard, PixelInput } from "@/shared/components/PixelComponents";
 import { ApiError, apiErrorMessage, eventsApi, HackathonEvent, Prize, prizesApi, Round, roundsApi, Team, teamsApi } from "@/shared/apiClient";
+import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
 import { useNotifications } from "@/app/providers/NotificationProvider";
 
 const mono = "'JetBrains Mono', monospace";
@@ -63,6 +64,8 @@ export function CoordPrizesPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [topNInput, setTopNInput] = useState(3);
+  const [confirmAnnounce, setConfirmAnnounce] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<Prize | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -154,13 +157,15 @@ export function CoordPrizesPage() {
     run(() => prizesApi.update(selectedEventId, prizeId, patch));
   }
 
-  function deletePrize(prizeId: number) {
+  async function deletePrize(prizeId: number) {
     if (selectedEventId == null) return;
 
-    run(() => prizesApi.remove(selectedEventId, prizeId), "Slot removed.");
+    await run(() => prizesApi.remove(selectedEventId, prizeId), "Slot removed.");
+    setConfirmDelete(null);
   }
 
-  function announce() {
+  // Pre-check, then hand over to the type-to-confirm dialog.
+  function requestAnnounce() {
     if (selectedEventId == null) return;
 
     if (!allHaveTeam) {
@@ -168,9 +173,14 @@ export function CoordPrizesPage() {
       return;
     }
 
-    if (!window.confirm("Announce these prizes? Each winning team will be notified. This cannot be undone.")) return;
+    setConfirmAnnounce(true);
+  }
 
-    run(() => prizesApi.announce(selectedEventId), "Prizes announced - winners notified.");
+  async function announce() {
+    if (selectedEventId == null) return;
+
+    await run(() => prizesApi.announce(selectedEventId), "Prizes announced - winners notified.");
+    setConfirmAnnounce(false);
   }
 
   const eventSlug = (selectedEvent?.name ?? "event").replace(/\s+/g, "_");
@@ -293,7 +303,7 @@ export function CoordPrizesPage() {
                 <PixelButton variant="cyber" onClick={autoGenerate} disabled={busy}>AUTO-GENERATE FROM FINAL</PixelButton>
                 <PixelButton variant="ghost" onClick={addSlot} disabled={busy}>ADD SLOT</PixelButton>
                 <div style={{ marginLeft: "auto" }}>
-                  <PixelButton variant="primary" onClick={announce} disabled={busy || sortedPrizes.length === 0 || !allHaveTeam}>ANNOUNCE</PixelButton>
+                  <PixelButton variant="primary" onClick={requestAnnounce} disabled={busy || sortedPrizes.length === 0 || !allHaveTeam}>ANNOUNCE</PixelButton>
                 </div>
               </>
             )}
@@ -340,7 +350,7 @@ export function CoordPrizesPage() {
                 const locked = prize.announced;
 
                 return (
-                  <div key={prize.prizeId} style={{ padding: 16, borderBottom: `1px solid ${C.border}`, display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
+                  <div key={prize.prizeId} className="row-actionable" style={{ padding: 16, borderBottom: `1px solid ${C.border}`, display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
                     <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: "50%", background: medalColor(prize.rankPosition), color: "#0d1117", fontWeight: 800, fontFamily: mono, fontSize: 13 }}>
                       {prize.rankPosition}
                     </span>
@@ -378,9 +388,11 @@ export function CoordPrizesPage() {
                     <PixelBadge color={prize.announced ? "green" : "gray"}>{prize.announced ? "ANNOUNCED" : "DRAFT"}</PixelBadge>
 
                     {!locked && (
-                      <div style={{ display: "flex", gap: 8 }}>
+                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                         <PixelButton variant="ghost" onClick={() => updatePrize(prize.prizeId, { name: prize.name })} disabled={busy}>SAVE</PixelButton>
-                        <PixelButton variant="danger" onClick={() => deletePrize(prize.prizeId)} disabled={busy}>DELETE</PixelButton>
+                        <span className="row-action">
+                          <PixelButton variant="danger" onClick={() => setConfirmDelete(prize)} disabled={busy}>DELETE</PixelButton>
+                        </span>
                       </div>
                     )}
                   </div>
@@ -389,6 +401,31 @@ export function CoordPrizesPage() {
             </PixelCard>
           )}
         </>
+      )}
+
+      {confirmAnnounce && selectedEvent && (
+        <ConfirmDialog
+          title="Announce these prizes?"
+          message={`Publish all ${sortedPrizes.length} prize(s) of "${selectedEvent.name}" and notify every winning team.`}
+          warning="Cannot be undone - every winning team is notified immediately and the prize list locks."
+          confirmLabel="ANNOUNCE PRIZES"
+          variant="cyber"
+          requireTypedText={selectedEvent.name}
+          working={busy}
+          onConfirm={announce}
+          onClose={() => { if (!busy) setConfirmAnnounce(false); }}
+        />
+      )}
+      {confirmDelete && (
+        <ConfirmDialog
+          title="Delete this prize slot?"
+          message={`"${confirmDelete.name}" (rank #${confirmDelete.rankPosition}) will be removed from the prize list.`}
+          confirmLabel="DELETE SLOT"
+          variant="danger"
+          working={busy}
+          onConfirm={() => deletePrize(confirmDelete.prizeId)}
+          onClose={() => { if (!busy) setConfirmDelete(null); }}
+        />
       )}
     </div>
   );

@@ -2,6 +2,7 @@ import { useEffect, useState, ReactNode } from "react";
 import {
   C, GradientText, PixelCard, PixelButton, PixelBadge, PixelInput, PixelTabs,
 } from "@/shared/components/PixelComponents";
+import { PixelMenu, type PixelMenuEntry } from "@/shared/components/PixelMenu";
 import { apiFetch, ApiError, apiErrorMessage, reopenRequestsApi, type ReopenRequest, auditLogsApi, type AuditLogEntry, teamsApi, type Team } from "@/shared/apiClient";
 import { ConfirmDialog, type ConfirmVariant } from "@/shared/components/ConfirmDialog";
 import { usePermissions } from "@/shared/permissions";
@@ -181,11 +182,14 @@ function DraggableTeamRow({ team, fromTrackId, enabled }: { team: Team; fromTrac
 // A drop zone (a track body or the unassigned pool) that accepts dragged teams.
 // targetTrackId = null means the unassigned pool. Dropping onto the team's current
 // location is rejected so a no-op drag doesn't fire a request.
-function TeamDropZone({ enabled, targetTrackId, onDropTeam, children }: {
+function TeamDropZone({ enabled, targetTrackId, onDropTeam, children, flush = false }: {
   enabled: boolean;
   targetTrackId: number | null;
   onDropTeam: (item: TeamDragItem, targetTrackId: number | null) => void;
   children: ReactNode;
+  // flush: no top border — used when the zone wraps a whole card (so a collapsed
+  // track card still accepts drops) rather than sitting below a header.
+  flush?: boolean;
 }) {
   const [{ isOver, canDrop }, dropRef] = useDrop(() => ({
     accept: TEAM_DND_TYPE,
@@ -198,7 +202,7 @@ function TeamDropZone({ enabled, targetTrackId, onDropTeam, children }: {
   return (
     <div ref={(node) => { if (enabled) dropRef(node); }}
       style={{
-        borderTop: `1px solid ${C.border}`,
+        borderTop: flush ? "none" : `1px solid ${C.border}`,
         background: active ? "rgba(34,197,94,0.10)" : "transparent",
         outline: active ? `1px dashed ${C.green}` : "none",
         transition: "background 0.12s",
@@ -211,7 +215,7 @@ function TeamDropZone({ enabled, targetTrackId, onDropTeam, children }: {
 // A small framed chip used in the track header (team count + status). `tone` drives
 // the border / background / text colour. Text is NOT uppercased (unlike PixelBadge),
 // so labels read as "Ready" / "Needs 2 teams to run".
-function TrackChip({ tone, children }: { tone: "green" | "red" | "amber"; children: ReactNode }) {
+function TrackChip({ tone, children, title }: { tone: "green" | "red" | "amber"; children: ReactNode; title?: string }) {
   const tones = {
     green: { border: "rgba(34,197,94,0.45)", bg: "rgba(34,197,94,0.08)", color: "#4ade80" },
     red:   { border: "rgba(239,68,68,0.45)", bg: "rgba(239,68,68,0.08)", color: "#f87171" },
@@ -219,7 +223,7 @@ function TrackChip({ tone, children }: { tone: "green" | "red" | "amber"; childr
   };
   const t = tones[tone];
   return (
-    <span style={{
+    <span title={title} style={{
       display: "inline-flex", alignItems: "center", whiteSpace: "nowrap",
       border: `1px solid ${t.border}`, background: t.bg, color: t.color,
       borderRadius: 0, padding: "4px 10px",
@@ -237,6 +241,7 @@ interface PendingAction {
   variant: ConfirmVariant;
   withReason?: boolean;          // show optional reason textarea (reopen request / redraw)
   reasonPlaceholder?: string;    // placeholder for the reason textarea when withReason
+  requireTypedText?: string;     // type-to-confirm gate for the highest-impact irreversible actions
   run: (reason?: string) => Promise<void>;
 }
 
@@ -295,7 +300,14 @@ export function CoordEventsPage() {
   const [auditError, setAuditError] = useState<string | null>(null);
   const [expandedAudit, setExpandedAudit] = useState<Record<number, boolean>>({});
 
-  // Track form
+  // Per-track expand/collapse. Cards default to EXPANDED (description + team
+  // list visible); tracking the collapsed ones means the empty map = all open,
+  // so no per-track init is needed when the list loads. Clicking a card header
+  // collapses it to a single line when the coordinator wants to focus elsewhere.
+  const [collapsedTracks, setCollapsedTracks] = useState<Record<number, boolean>>({});
+
+  // Track form (collapsed behind "+ ADD TRACK" until needed)
+  const [showAddTrack, setShowAddTrack] = useState(false);
   const [trkName, setTrkName] = useState("");
   const [trkDesc, setTrkDesc] = useState("");
   // Inline track edit (separate from the create form so the two never clash)
@@ -303,7 +315,8 @@ export function CoordEventsPage() {
   const [etName, setEtName] = useState("");
   const [etDesc, setEtDesc] = useState("");
 
-  // Round form
+  // Round form (collapsed behind "+ ADD ROUND"; also opens for inline edits)
+  const [showAddRound, setShowAddRound] = useState(false);
   const [rdName, setRdName] = useState("");
   const [rdOrder, setRdOrder] = useState(1);
   const [rdStart, setRdStart] = useState("");
@@ -312,7 +325,8 @@ export function CoordEventsPage() {
   const [rdTopN, setRdTopN] = useState<number | null>(3); // null = no cut-off (no elimination)
   const [editingRoundId, setEditingRoundId] = useState<number | null>(null);
 
-  // Criteria form
+  // Criteria form (collapsed behind "+ ADD CRITERIA" until needed)
+  const [showAddCriteria, setShowAddCriteria] = useState(false);
   const [crName, setCrName] = useState("");
   const [crDesc, setCrDesc] = useState("");
   const [crMax, setCrMax] = useState(10);
@@ -512,6 +526,8 @@ export function CoordEventsPage() {
       warning: copy.warning,
       confirmLabel: copy.confirmLabel,
       variant: copy.variant,
+      // Cancelling stops the whole event — gate it behind typing the event name.
+      requireTypedText: next === 'CANCELLED' ? selectedEvent.name : undefined,
       run: async () => { await doUpdateStatus(next); },
     });
   }
@@ -668,6 +684,8 @@ export function CoordEventsPage() {
   async function performAssign(teamId: number, targetTrackId: number | null) {
     try {
       await teamsApi.assignTrack(teamId, targetTrackId);
+      // Make sure the receiving card is open so the drop's result is visible.
+      if (targetTrackId != null) setCollapsedTracks(p => ({ ...p, [targetTrackId]: false }));
       refreshTeams();
       addToast({
         type: 'success',
@@ -732,6 +750,9 @@ export function CoordEventsPage() {
         : undefined,
       confirmLabel: 'DELETE TRACK',
       variant: 'danger',
+      // Deleting a track that already has registered teams is high-impact —
+      // require typing the track name; an empty track keeps the plain confirm.
+      requireTypedText: trackTeams.length > 0 ? track.name : undefined,
       run: async () => {
         await apiFetch(`/api/events/${eventId}/tracks/${track.trackId}`, { method: 'DELETE' });
         setTracks(prev => prev.filter(t => t.trackId !== track.trackId));
@@ -837,6 +858,23 @@ export function CoordEventsPage() {
         if (selectedRoundId === r.roundId) setSelectedRoundId(null);
         addToast({ type: 'success', title: 'ROUND DELETED', message: `"${r.name}" removed.` });
       },
+    });
+  }
+
+  // Closing a round cuts teams off from submitting immediately, so unlike the
+  // reversible ACTIVATE/REOPEN it is confirmed first.
+  function requestCloseRound(r: RoundRow) {
+    openConfirm({
+      title: 'Close this round?',
+      message: (
+        <div>
+          Round <span style={{ color: C.text, fontWeight: 700 }}>"{r.name}"</span> will be closed — teams can no longer submit to it.
+        </div>
+      ),
+      warning: 'Teams are cut off immediately. You can REOPEN the round later if needed.',
+      confirmLabel: 'CLOSE ROUND',
+      variant: 'danger',
+      run: async () => { await changeRoundStatus(r.roundId, 'CLOSED'); },
     });
   }
 
@@ -1011,6 +1049,9 @@ export function CoordEventsPage() {
   const maxPerTrack = maxTeamsPerTrack(totalTeams, trackCount);
   const assignedCount = countAssigned(approvedTeams);
   const unassignedCount = countUnassigned(approvedTeams);
+  // How many tracks already meet the minimum team count — one aggregate number
+  // on the stats bar instead of a warning chip repeated on every card.
+  const readyTracks = tracks.filter(t => isTrackValid(teamsForTrack(approvedTeams, t.trackId).length)).length;
   const unassignedTeams = approvedTeams.filter(t => t.trackId == null);
   const isSelfSelect = selectedEvent?.trackSelectionMode === 'SELF_SELECT';
   const showTrackStats = !!selectedEvent
@@ -1087,17 +1128,37 @@ export function CoordEventsPage() {
               </div>
             </div>
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-              {/* Forward / cancel lifecycle transitions — each confirmed first.
-                  COMPLETE is filtered out for non-admins: only System Admin may
-                  complete an event (backend enforces it too). */}
-              {canChangeEventStatus && nextStatusActions(selectedEvent.status)
-                .filter(action => action.next !== 'COMPLETED' || canCompleteEvent)
-                .map(action => (
-                  <PixelButton key={action.next + action.label} variant={action.variant}
-                    onClick={() => requestStatusChange(action.next, action.label, action.variant)}>
-                    {action.label}
-                  </PixelButton>
-                ))}
+              {/* Lifecycle transitions — each confirmed first. COMPLETE is filtered
+                  out for non-admins: only System Admin may complete an event (backend
+                  enforces it too). Only the forward "next step" renders as a button;
+                  the reverse transition and CANCEL live in the ⋯ overflow menu so a
+                  destructive option is never one stray click away. */}
+              {canChangeEventStatus && (() => {
+                const actions = nextStatusActions(selectedEvent.status)
+                  .filter(action => action.next !== 'COMPLETED' || canCompleteEvent);
+                if (actions.length === 0) return null;
+                const [primary, ...overflow] = actions;
+                const overflowItems: PixelMenuEntry[] = [];
+                overflow.forEach((action, i) => {
+                  if (action.next === 'CANCELLED' && i > 0) overflowItems.push("divider");
+                  overflowItems.push({
+                    label: action.label,
+                    danger: action.variant === 'danger',
+                    onClick: () => requestStatusChange(action.next, action.label, action.variant),
+                  });
+                });
+                return (
+                  <>
+                    <PixelButton variant={primary.variant}
+                      onClick={() => requestStatusChange(primary.next, primary.label, primary.variant)}>
+                      {primary.label}
+                    </PixelButton>
+                    {overflowItems.length > 0 && (
+                      <PixelMenu size="md" ariaLabel="More event actions" items={overflowItems} />
+                    )}
+                  </>
+                );
+              })()}
 
               {/* COMPLETED: coordinators can only REQUEST a reopen. */}
               {selectedEvent.status === 'COMPLETED' && canRequestReopen && (
@@ -1171,6 +1232,7 @@ export function CoordEventsPage() {
                         <StatCell label="Max / track" value={teamsLoading ? "…" : maxPerTrack} />
                         {isSelfSelect && <StatCell label="Assigned" value={teamsLoading ? "…" : assignedCount} />}
                         {isSelfSelect && <StatCell label="Unassigned" value={teamsLoading ? "…" : unassignedCount} accent={unassignedCount > 0} />}
+                        <StatCell label="Tracks ready" value={teamsLoading ? "…" : `${readyTracks}/${trackCount}`} accent={readyTracks < trackCount} />
                       </div>
                     )}
                   </div>
@@ -1196,18 +1258,18 @@ export function CoordEventsPage() {
                       )}
                     </div>
                   );
-                  return (
-                    <div key={t.trackId} style={{
-                      background: C.surface2,
-                      border: `1px solid ${C.border}`,
-                      // PHẦN 2 — track validity now reads as a left accent bar (green = ready,
-                      // red = under MIN_TEAMS_PER_TRACK) instead of a full red outline + badges.
-                      // Neutral before SETUP, when no team is assigned yet.
-                      borderLeft: `3px solid ${showTrackStats ? (invalid ? C.red : C.green) : C.border}`,
-                    }}>
-                      <div style={{ padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+                  const isEditingThis = editingTrackId === t.trackId;
+                  const expanded = isEditingThis || !collapsedTracks[t.trackId];
+                  // Collapsed = one line: caret + name + readiness chip + ⋯ menu.
+                  // Expanded adds the description and (from SETUP) the team list.
+                  const cardInner = (
+                    <>
+                      <div
+                        onClick={() => { if (!isEditingThis) setCollapsedTracks(p => ({ ...p, [t.trackId]: !p[t.trackId] })); }}
+                        style={{ padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: isEditingThis ? "flex-start" : "center", gap: 12, cursor: isEditingThis ? "default" : "pointer" }}
+                      >
                         <div style={{ minWidth: 0, flex: 1 }}>
-                          {editingTrackId === t.trackId ? (
+                          {isEditingThis ? (
                             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                               <PixelInput label="Name" value={etName} onChange={(e) => setEtName(e.target.value)} placeholder="Track name" />
                               <PixelInput label="Description" value={etDesc} onChange={(e) => setEtDesc(e.target.value)} placeholder="What is this track about?" />
@@ -1217,44 +1279,65 @@ export function CoordEventsPage() {
                               </div>
                             </div>
                           ) : (
-                            <>
-                              <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 14, fontWeight: 700 }}>{t.name}</div>
-                              <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, marginTop: 3 }}>{t.description || "—"}</div>
-                            </>
+                            <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+                              <span style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, width: 10, flexShrink: 0 }}>{expanded ? "▾" : "▸"}</span>
+                              <span style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 14, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.name}</span>
+                            </div>
                           )}
                         </div>
-                        {/* Right column — team-count + status chips (from SETUP onward, once the
-                            roster is frozen) stacked above a unified EDIT / DELETE action group.
-                            The actions show in DRAFT/OPEN/SETUP (trackMutationAllowed) and hide
-                            while this card is in edit mode (SAVE/CANCEL live in the left form). */}
-                        {(showTrackStats || (trackMutationAllowed && editingTrackId !== t.trackId)) && (
-                          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
+                        {/* Right side — ONE readiness chip (x/min teams) + the ⋯ menu.
+                            stopPropagation so chip/menu clicks don't toggle the card. */}
+                        {(showTrackStats || (trackMutationAllowed && !isEditingThis)) && (
+                          <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
                             {showTrackStats && (
-                              <>
-                                <TrackChip tone={invalid ? "red" : "green"}>
-                                  <b style={{ fontWeight: 800, fontSize: 13 }}>{trackTeams.length}</b>
-                                  <span style={{ color: C.textMuted, marginLeft: 5 }}>{trackTeams.length === 1 ? "team" : "teams"}</span>
-                                </TrackChip>
-                                <TrackChip tone={invalid ? "amber" : "green"}>
-                                  {invalid ? `Needs ${MIN_TEAMS_PER_TRACK} teams to run` : "Ready"}
-                                </TrackChip>
-                              </>
+                              <TrackChip
+                                tone={invalid ? "red" : "green"}
+                                title={`Minimum ${MIN_TEAMS_PER_TRACK} teams per track to start the event`}
+                              >
+                                <b style={{ fontWeight: 800, fontSize: 13 }}>{trackTeams.length}/{MIN_TEAMS_PER_TRACK}</b>
+                                <span style={{ marginLeft: 5 }}>teams</span>
+                              </TrackChip>
                             )}
-                            {trackMutationAllowed && editingTrackId !== t.trackId && (
-                              <div style={{ display: "flex", gap: 8 }}>
-                                <PixelButton size="sm" variant="ghost" onClick={() => startEditTrack(t)}>EDIT</PixelButton>
-                                <PixelButton size="sm" variant="danger" onClick={() => requestDeleteTrack(t)}>DELETE</PixelButton>
-                              </div>
+                            {trackMutationAllowed && !isEditingThis && (
+                              <span className="row-action">
+                                <PixelMenu
+                                  ariaLabel={`Actions for track ${t.name}`}
+                                  items={[
+                                    { label: "Edit", onClick: () => startEditTrack(t) },
+                                    "divider",
+                                    { label: "Delete", danger: true, onClick: () => requestDeleteTrack(t) },
+                                  ]}
+                                />
+                              </span>
                             )}
                           </div>
                         )}
                       </div>
-                      {/* Per-track team list (NV2). In SETUP it is also a drop target (PHẦN 4). */}
-                      {showTrackStats && (
-                        isSetup
-                          ? <TeamDropZone enabled targetTrackId={t.trackId} onDropTeam={onDropTeam}>{teamList}</TeamDropZone>
-                          : <div style={{ borderTop: `1px solid ${C.border}` }}>{teamList}</div>
+                      {expanded && !isEditingThis && (
+                        <div style={{ padding: "0 14px 12px 34px", color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>
+                          {t.description || "—"}
+                        </div>
                       )}
+                      {/* Per-track team list (NV2), only while expanded. */}
+                      {expanded && showTrackStats && (
+                        <div style={{ borderTop: `1px solid ${C.border}` }}>{teamList}</div>
+                      )}
+                    </>
+                  );
+                  return (
+                    <div key={t.trackId} className="row-actionable" style={{
+                      background: C.surface2,
+                      border: `1px solid ${C.border}`,
+                      // PHẦN 2 — track validity now reads as a left accent bar (green = ready,
+                      // red = under MIN_TEAMS_PER_TRACK) instead of a full red outline + badges.
+                      // Neutral before SETUP, when no team is assigned yet.
+                      borderLeft: `3px solid ${showTrackStats ? (invalid ? C.red : C.green) : C.border}`,
+                    }}>
+                      {/* In SETUP the WHOLE card is the drop target, so a collapsed
+                          card still accepts a dragged team (it auto-expands on drop). */}
+                      {isSetup && showTrackStats
+                        ? <TeamDropZone flush enabled targetTrackId={t.trackId} onDropTeam={onDropTeam}>{cardInner}</TeamDropZone>
+                        : cardInner}
                     </div>
                   );
                 })}
@@ -1290,15 +1373,24 @@ export function CoordEventsPage() {
                 ))}
                 {/* Create-track form — NV3: locked once registration closes. Shown only
                     in DRAFT/OPEN. PHẦN 1: in SETUP we render nothing (no helper text);
-                    other locked phases keep a short explanation. */}
+                    other locked phases keep a short explanation. Collapsed behind
+                    "+ ADD TRACK" so the list stays clean; kept open after a successful
+                    ADD since tracks are usually created in batches. */}
                 {trackCreationAllowed ? (
-                  <div style={{ padding: 14, background: C.surface, border: `1px solid ${C.border}` }}>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr auto", gap: 10, alignItems: "end" }}>
-                      <PixelInput label="Name" value={trkName} onChange={(e) => setTrkName(e.target.value)} placeholder="Track name" />
-                      <PixelInput label="Description" value={trkDesc} onChange={(e) => setTrkDesc(e.target.value)} placeholder="What is this track about?" />
-                      <PixelButton variant="secondary" onClick={addTrack}>ADD</PixelButton>
+                  showAddTrack ? (
+                    <div style={{ padding: 14, background: C.surface, border: `1px solid ${C.border}` }}>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr auto auto", gap: 10, alignItems: "end" }}>
+                        <PixelInput label="Name" value={trkName} onChange={(e) => setTrkName(e.target.value)} placeholder="Track name" />
+                        <PixelInput label="Description" value={trkDesc} onChange={(e) => setTrkDesc(e.target.value)} placeholder="What is this track about?" />
+                        <PixelButton variant="secondary" onClick={addTrack}>ADD</PixelButton>
+                        <PixelButton variant="ghost" onClick={() => { setShowAddTrack(false); setTrkName(""); setTrkDesc(""); }}>CANCEL</PixelButton>
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div>
+                      <PixelButton variant="secondary" onClick={() => setShowAddTrack(true)}>+ ADD TRACK</PixelButton>
+                    </div>
+                  )
                 ) : selectedEvent.status === 'SETUP' ? null : (
                   <div style={{ padding: 12, background: C.surface, border: `1px dashed ${C.border}`, color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, lineHeight: 1.6 }}>
                     {`Tracks can only be created while the event is in DRAFT or OPEN (current: ${selectedEvent.status}).`}
@@ -1331,60 +1423,90 @@ export function CoordEventsPage() {
                   const topNLabel = r.topNAdvance != null
                     ? (r.isFinal ? ` · Top ${r.topNAdvance} overall (winners)` : ` · Top ${r.topNAdvance} per track advance`)
                     : "";
+                  // Status reads from the left accent bar + the transition button
+                  // (ACTIVATE ⇒ pending, CLOSE ⇒ running) instead of a separate badge.
+                  const roundAccent =
+                    r.status === 'ACTIVE' ? C.green :
+                    r.status === 'PENDING' ? C.yellow :
+                    r.status === 'FINALIZED' ? C.blue : C.red;
                   return (
-                  <div key={r.roundId} style={{ padding: 12, background: C.surface2, border: `1px solid ${isEditing ? C.green : C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+                  <div key={r.roundId} className="row-actionable" style={{ padding: 12, background: C.surface2, border: `1px solid ${isEditing ? C.green : C.border}`, borderLeft: `3px solid ${isEditing ? C.green : roundAccent}`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
                     <div style={{ minWidth: 0, flex: 1 }}>
-                      <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 600 }}>{r.orderNumber}. {r.name}{r.isFinal ? " · FINAL" : ""}</div>
+                      <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 600 }}>
+                        {r.orderNumber}. {r.name}{r.isFinal ? " · FINAL" : ""}
+                        {/* Only the terminal state (no transition button) is spelled out. */}
+                        {r.status === 'FINALIZED' && <span style={{ color: C.blue, fontWeight: 700 }}> · FINALIZED</span>}
+                        {r.status === 'CLOSED' && <span style={{ color: C.red, fontWeight: 700 }}> · CLOSED</span>}
+                      </div>
                       <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginTop: 2 }}>Deadline: {r.submissionDeadline || "—"}{topNLabel}</div>
                       {noCutoff && (
                         <div style={{ color: C.yellow, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginTop: 4 }}>⚠ No cut-off set — no team is marked. Click EDIT to set Top N.</div>
                       )}
                     </div>
-                    {/* Action group — fixed-width slots so every row's buttons line up:
-                        [ EDIT ][ DELETE ][ transition ][ status badge ] */}
+                    {/* Action group: [ transition ][ ⋯ (Edit/Delete) ]. The row's "next
+                        step" stays a visible button (mirrors the header pattern); the
+                        status badge is gone — the accent bar + button already carry it.
+                        CLOSE is confirmed first. */}
                     <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
-                      <PixelButton size="sm" variant="ghost" onClick={() => isEditing ? cancelRoundEdit() : startEditRound(r)}>{isEditing ? 'EDITING…' : 'EDIT'}</PixelButton>
-                      <div style={{ width: 72, display: "flex", justifyContent: "center" }}>
-                        {r.status !== 'FINALIZED' && !isEditing && (
-                          <PixelButton size="sm" variant="danger" onClick={() => requestDeleteRound(r)}>DELETE</PixelButton>
-                        )}
-                      </div>
                       <div style={{ width: 84, display: "flex", justifyContent: "center" }}>
                         {r.status === 'PENDING' && <PixelButton size="sm" variant="secondary" onClick={() => changeRoundStatus(r.roundId, 'ACTIVE')}>ACTIVATE</PixelButton>}
-                        {r.status === 'ACTIVE' && <PixelButton size="sm" variant="danger" onClick={() => changeRoundStatus(r.roundId, 'CLOSED')}>CLOSE</PixelButton>}
+                        {r.status === 'ACTIVE' && <PixelButton size="sm" variant="danger" onClick={() => requestCloseRound(r)}>CLOSE</PixelButton>}
                         {r.status === 'CLOSED' && <PixelButton size="sm" variant="secondary" onClick={() => changeRoundStatus(r.roundId, 'ACTIVE')}>REOPEN</PixelButton>}
                       </div>
-                      <div style={{ width: 86, display: "flex", justifyContent: "flex-end" }}>
-                        <PixelBadge color={r.status === 'ACTIVE' ? 'green' : r.status === 'PENDING' ? 'yellow' : r.status === 'FINALIZED' ? 'blue' : 'red'}>{r.status}</PixelBadge>
-                      </div>
+                      {isEditing ? (
+                        <PixelButton size="sm" variant="ghost" onClick={cancelRoundEdit}>EDITING…</PixelButton>
+                      ) : (
+                        <span className="row-action">
+                          <PixelMenu
+                            ariaLabel={`Actions for round ${r.name}`}
+                            items={[
+                              { label: "Edit", onClick: () => startEditRound(r) },
+                              ...(r.status !== 'FINALIZED'
+                                ? ["divider" as const, { label: "Delete", danger: true, onClick: () => requestDeleteRound(r) }]
+                                : []),
+                            ]}
+                          />
+                        </span>
+                      )}
                     </div>
                   </div>
                   );
                 })}
-                <div style={{ padding: 14, background: C.surface, border: `1px solid ${editingRoundId != null ? C.green : C.border}` }}>
-                  <div style={{ color: editingRoundId != null ? C.green : C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600, marginBottom: 10 }}>
-                    {editingRoundId != null ? "EDIT ROUND" : "ADD ROUND"}
+                {/* Add/edit form — collapsed behind "+ ADD ROUND"; editing a row
+                    (via its ⋯ menu) opens the same form pre-filled. */}
+                {(editingRoundId != null || showAddRound) ? (
+                  <div style={{ padding: 14, background: C.surface, border: `1px solid ${editingRoundId != null ? C.green : C.border}` }}>
+                    <div style={{ color: editingRoundId != null ? C.green : C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600, marginBottom: 10 }}>
+                      {editingRoundId != null ? "EDIT ROUND" : "ADD ROUND"}
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "2fr 70px 1fr 1fr 1fr 70px auto", gap: 10, alignItems: "end" }}>
+                      <PixelInput label="Name" value={rdName} onChange={(e) => setRdName(e.target.value)} />
+                      <PixelInput label="Order" type="number" value={String(rdOrder)} onChange={(e) => setRdOrder(Number(e.target.value))} />
+                      <PixelInput label="Start" type="datetime-local" value={rdStart} onChange={(e) => setRdStart(e.target.value)} />
+                      <PixelInput label="End" type="datetime-local" value={rdEnd} onChange={(e) => setRdEnd(e.target.value)} />
+                      <PixelInput label="Deadline" type="datetime-local" value={rdDeadline} onChange={(e) => setRdDeadline(e.target.value)} />
+                      <PixelInput label="Top N" type="number" placeholder="Empty = no cut-off" value={rdTopN == null ? "" : String(rdTopN)} onChange={(e) => setRdTopN(e.target.value === "" ? null : Number(e.target.value))} />
+                      {editingRoundId != null ? (
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <PixelButton variant="cyber" onClick={saveRoundEdit}>SAVE</PixelButton>
+                          <PixelButton variant="ghost" onClick={cancelRoundEdit}>CANCEL</PixelButton>
+                        </div>
+                      ) : (
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <PixelButton variant="secondary" onClick={addRound}>ADD</PixelButton>
+                          <PixelButton variant="ghost" onClick={() => { cancelRoundEdit(); setShowAddRound(false); }}>CANCEL</PixelButton>
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, marginTop: 8, lineHeight: 1.5 }}>
+                      Top N = teams advancing <b>per track</b> for normal rounds (each track ranked separately), or <b>overall winners</b> for the Final round (all tracks combined into one ranking).
+                    </div>
                   </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "2fr 70px 1fr 1fr 1fr 70px auto", gap: 10, alignItems: "end" }}>
-                    <PixelInput label="Name" value={rdName} onChange={(e) => setRdName(e.target.value)} />
-                    <PixelInput label="Order" type="number" value={String(rdOrder)} onChange={(e) => setRdOrder(Number(e.target.value))} />
-                    <PixelInput label="Start" type="datetime-local" value={rdStart} onChange={(e) => setRdStart(e.target.value)} />
-                    <PixelInput label="End" type="datetime-local" value={rdEnd} onChange={(e) => setRdEnd(e.target.value)} />
-                    <PixelInput label="Deadline" type="datetime-local" value={rdDeadline} onChange={(e) => setRdDeadline(e.target.value)} />
-                    <PixelInput label="Top N" type="number" placeholder="Empty = no cut-off" value={rdTopN == null ? "" : String(rdTopN)} onChange={(e) => setRdTopN(e.target.value === "" ? null : Number(e.target.value))} />
-                    {editingRoundId != null ? (
-                      <div style={{ display: "flex", gap: 8 }}>
-                        <PixelButton variant="cyber" onClick={saveRoundEdit}>SAVE</PixelButton>
-                        <PixelButton variant="ghost" onClick={cancelRoundEdit}>CANCEL</PixelButton>
-                      </div>
-                    ) : (
-                      <PixelButton variant="secondary" onClick={addRound}>ADD</PixelButton>
-                    )}
+                ) : (
+                  <div>
+                    <PixelButton variant="secondary" onClick={() => setShowAddRound(true)}>+ ADD ROUND</PixelButton>
                   </div>
-                  <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, marginTop: 8, lineHeight: 1.5 }}>
-                    Top N = teams advancing <b>per track</b> for normal rounds (each track ranked separately), or <b>overall winners</b> for the Final round (all tracks combined into one ranking).
-                  </div>
-                </div>
+                )}
               </div>
             )}
 
@@ -1475,7 +1597,7 @@ export function CoordEventsPage() {
                       <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>No criteria for this round yet</div>
                     )}
                     {criteria.map(c => (
-                      <div key={c.criteriaId} style={{ padding: 12, background: C.surface2, border: `1px solid ${editingCriteriaId === c.criteriaId ? C.green : C.border}` }}>
+                      <div key={c.criteriaId} className="row-actionable" style={{ padding: 12, background: C.surface2, border: `1px solid ${editingCriteriaId === c.criteriaId ? C.green : C.border}` }}>
                         {editingCriteriaId === c.criteriaId ? (
                           <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr 80px 80px auto", gap: 10, alignItems: "end" }}>
                             <PixelInput label="Name" value={ecName} onChange={(e) => setEcName(e.target.value)} />
@@ -1493,26 +1615,44 @@ export function CoordEventsPage() {
                               <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 600 }}>{c.name}</div>
                               <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginTop: 2 }}>{c.description || "—"}</div>
                             </div>
-                            {/* Fixed-width cells so MAX / W / EDIT / DELETE line up across every row */}
+                            {/* Fixed-width cells so MAX / W / ⋯ line up across every row */}
                             <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
                               <div style={{ width: 84, display: "flex", justifyContent: "center" }}><PixelBadge color="cyan">MAX {c.maxScore}</PixelBadge></div>
                               <div style={{ width: 64, display: "flex", justifyContent: "center" }}><PixelBadge color="blue">W {c.weight}</PixelBadge></div>
-                              <div style={{ width: 64, display: "flex", justifyContent: "flex-end" }}><PixelButton size="sm" variant="ghost" onClick={() => startEditCriteria(c)}>EDIT</PixelButton></div>
-                              <div style={{ width: 88, display: "flex", justifyContent: "flex-end" }}><PixelButton size="sm" variant="danger" onClick={() => requestDeleteCriteria(c)}>DELETE</PixelButton></div>
+                              <div className="row-action" style={{ width: 44, display: "flex", justifyContent: "flex-end" }}>
+                                <PixelMenu
+                                  ariaLabel={`Actions for criteria ${c.name}`}
+                                  items={[
+                                    { label: "Edit", onClick: () => startEditCriteria(c) },
+                                    "divider",
+                                    { label: "Delete", danger: true, onClick: () => requestDeleteCriteria(c) },
+                                  ]}
+                                />
+                              </div>
                             </div>
                           </div>
                         )}
                       </div>
                     ))}
-                    <div style={{ padding: 14, background: C.surface, border: `1px solid ${C.border}` }}>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr 80px 80px auto", gap: 10, alignItems: "end" }}>
-                        <PixelInput label="Name" value={crName} onChange={(e) => setCrName(e.target.value)} />
-                        <PixelInput label="Description" value={crDesc} onChange={(e) => setCrDesc(e.target.value)} />
-                        <PixelInput label="Max" type="number" value={String(crMax)} onChange={(e) => setCrMax(Number(e.target.value))} />
-                        <PixelInput label="Weight" type="number" value={String(crWeight)} onChange={(e) => setCrWeight(Number(e.target.value))} />
-                        <PixelButton variant="secondary" onClick={addCriteria}>ADD</PixelButton>
+                    {/* Add form — collapsed behind "+ ADD CRITERIA" so the list stays clean. */}
+                    {showAddCriteria ? (
+                      <div style={{ padding: 14, background: C.surface, border: `1px solid ${C.border}` }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr 80px 80px auto", gap: 10, alignItems: "end" }}>
+                          <PixelInput label="Name" value={crName} onChange={(e) => setCrName(e.target.value)} />
+                          <PixelInput label="Description" value={crDesc} onChange={(e) => setCrDesc(e.target.value)} />
+                          <PixelInput label="Max" type="number" value={String(crMax)} onChange={(e) => setCrMax(Number(e.target.value))} />
+                          <PixelInput label="Weight" type="number" value={String(crWeight)} onChange={(e) => setCrWeight(Number(e.target.value))} />
+                          <div style={{ display: "flex", gap: 8 }}>
+                            <PixelButton variant="secondary" onClick={addCriteria}>ADD</PixelButton>
+                            <PixelButton variant="ghost" onClick={() => { setShowAddCriteria(false); setCrName(""); setCrDesc(""); }}>CANCEL</PixelButton>
+                          </div>
+                        </div>
                       </div>
-                    </div>
+                    ) : (
+                      <div>
+                        <PixelButton variant="secondary" onClick={() => setShowAddCriteria(true)}>+ ADD CRITERIA</PixelButton>
+                      </div>
+                    )}
                   </>
                 )}
               </div>
@@ -1592,6 +1732,7 @@ export function CoordEventsPage() {
           variant={pendingAction.variant}
           working={actionWorking}
           error={dialogError}
+          requireTypedText={pendingAction.requireTypedText}
           onConfirm={handleConfirmAction}
           onClose={closeConfirm}
         >

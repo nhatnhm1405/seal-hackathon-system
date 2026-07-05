@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { C, PixelButton, PixelCard } from "@/shared/components/PixelComponents";
+import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
 import { CountdownDisplay } from "@/shared/components/CountdownDisplay";
 import { WheelTimePicker } from "@/shared/components/WheelTimePicker";
 import { useRoundTimer } from "@/shared/hooks/useRoundTimer";
@@ -51,6 +52,7 @@ function PhaseTimerControl({
   const [extendSec, setExtendSec] = useState(5 * 60);
   const [showExtend, setShowExtend] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [confirmStop, setConfirmStop] = useState(false);
 
   const idle = !timer.isConfigured || timer.status === "STOPPED" || timer.status === "EXPIRED";
 
@@ -71,7 +73,10 @@ function PhaseTimerControl({
     run(() => timersApi.start(eventId, roundId, phase, { durationSeconds: durationSec }), "TIMER STARTED", `${title} is now running.`);
   const pause = () => run(() => timersApi.pause(eventId, roundId, phase), "TIMER PAUSED", "The countdown is frozen.");
   const resume = () => run(() => timersApi.resume(eventId, roundId, phase), "TIMER RESUMED", "The countdown is running again.");
-  const stop = () => run(() => timersApi.stop(eventId, roundId, phase), "TIMER STOPPED", "The window is now closed.");
+  const stop = async () => {
+    await run(() => timersApi.stop(eventId, roundId, phase), "TIMER STOPPED", "The window is now closed.");
+    setConfirmStop(false);
+  };
   const extend = (sec: number) =>
     run(() => timersApi.extend(eventId, roundId, phase, sec), "TIME EXTENDED", `Added ${Math.round(sec / 60)} min.`);
 
@@ -110,7 +115,8 @@ function PhaseTimerControl({
               )}
               <PixelButton size="sm" variant="secondary" disabled={busy} onClick={() => extend(5 * 60)}>+5 MIN</PixelButton>
               <PixelButton size="sm" variant="ghost" disabled={busy} onClick={() => setShowExtend(v => !v)}>EXTEND…</PixelButton>
-              <PixelButton size="sm" variant="danger" disabled={busy} onClick={stop}>STOP</PixelButton>
+              {/* STOP ends the window for everyone at once — confirmed first. */}
+              <PixelButton size="sm" variant="danger" disabled={busy} onClick={() => setConfirmStop(true)}>STOP</PixelButton>
             </div>
             {showExtend && (
               <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
@@ -124,6 +130,19 @@ function PhaseTimerControl({
           </div>
         )}
       </div>
+
+      {confirmStop && (
+        <ConfirmDialog
+          title="Stop this timer?"
+          message={`"${title}" ends immediately for everyone.`}
+          warning="A stopped timer cannot be resumed — you would have to start a new countdown."
+          confirmLabel="STOP TIMER"
+          variant="danger"
+          working={busy}
+          onConfirm={stop}
+          onClose={() => { if (!busy) setConfirmStop(false); }}
+        />
+      )}
     </PixelCard>
   );
 }

@@ -143,3 +143,22 @@ html.theme-transitioning *::after {
 :root[data-theme="light"] .pixel-badge--gray   { background:#eef1f4 !important; border-color:#cbd3db !important; color:#475569 !important; }
 :root[data-theme="light"] .pixel-badge--cyan   { background:#def4f8 !important; border-color:#95d6e2 !important; color:#0e7490 !important; }
 :root[data-theme="light"] .pixel-badge--purple { background:#f0eafe !important; border-color:#c9b6f3 !important; color:#6d28d9 !important; }
+
+/* ── Row overflow-menu affordance (hover/focus reveal) ──
+   Repeated per-row action menus (track/round/criteria cards) are hidden at
+   rest so long lists stay clean, and appear when the row is hovered OR any
+   control inside it is keyboard-focused. Space is reserved (opacity, not
+   display) so revealing never shifts the layout. Touch devices report no
+   hover, so there the menu stays permanently visible — the action is never
+   unreachable. Matches Carbon / Primer / Linear guidance. */
+.row-action {
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.row-actionable:hover .row-action,
+.row-actionable:focus-within .row-action {
+  opacity: 1;
+}
+@media (hover: none) {
+  .row-action { opacity: 1; }
+}

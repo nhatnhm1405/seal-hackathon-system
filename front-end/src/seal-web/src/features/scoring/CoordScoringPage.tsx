@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, Fragment } from "react";
 import {
   C, GradientText, PixelCard, PixelButton, PixelBadge,
 } from "@/shared/components/PixelComponents";
+import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
 import {
   eventsApi, roundsApi, submissionsApi, scoringApi, resultsApi, coordinatorApi, ApiError, apiErrorMessage,
   HackathonEvent, Round, Submission, RoundResult,
@@ -37,6 +38,9 @@ export function CoordScoringPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  // Which footer action is awaiting confirmation. Publishing is irreversible
+  // (participants see the results immediately) so it is type-to-confirm gated.
+  const [confirmAction, setConfirmAction] = useState<null | "finalize" | "publish">(null);
 
   // Events on mount.
   useEffect(() => {
@@ -135,6 +139,7 @@ export function CoordScoringPage() {
       await loadResults(selectedEventId, selectedRoundId);
       setNotice("Rankings calculated.");
       addToast({ type: 'success', title: 'RANKINGS CALCULATED', message: 'Round rankings have been calculated.' });
+      setConfirmAction(null);
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Failed to finalize results.");
       addToast({ type: 'warning', title: 'CALCULATE FAILED', message: apiErrorMessage(err, 'Failed to finalize results.') });
@@ -151,6 +156,7 @@ export function CoordScoringPage() {
       await loadResults(selectedEventId, selectedRoundId);
       setNotice("Results published.");
       addToast({ type: 'success', title: 'RESULTS PUBLISHED', message: 'Round results are now visible to participants.' });
+      setConfirmAction(null);
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Failed to publish results.");
       addToast({ type: 'warning', title: 'PUBLISH FAILED', message: apiErrorMessage(err, 'Failed to publish results.') });
@@ -263,16 +269,44 @@ export function CoordScoringPage() {
         </div>
       </PixelCard>
 
-      {/* Actions */}
+      {/* Actions — both lifecycle actions are confirmed first; publish is
+          additionally type-to-confirm gated since participants see the results
+          the moment it lands. */}
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-        <PixelButton variant="cyber" disabled={busy || selectedRoundId == null} onClick={finalize}>
+        <PixelButton variant="cyber" disabled={busy || selectedRoundId == null} onClick={() => setConfirmAction("finalize")}>
           {busy ? "WORKING…" : "CALCULATE RANKINGS"}
         </PixelButton>
-        <PixelButton variant="secondary" disabled={busy || results.length === 0 || allPublished} onClick={publish}>
+        <PixelButton variant="secondary" disabled={busy || results.length === 0 || allPublished} onClick={() => setConfirmAction("publish")}>
           {allPublished ? "PUBLISHED" : "PUBLISH RESULTS"}
         </PixelButton>
         <PixelButton variant="ghost" disabled={results.length === 0} onClick={exportCsv}>EXPORT CSV</PixelButton>
       </div>
+
+      {confirmAction === "finalize" && (
+        <ConfirmDialog
+          title="Calculate rankings?"
+          message={`Compute the ranking for "${selectedRound?.name ?? 'this round'}" from the submitted scores.`}
+          warning={results.length > 0 ? "Recalculating overwrites the current ranking. You can run it again later." : undefined}
+          confirmLabel="CALCULATE"
+          variant="cyber"
+          working={busy}
+          onConfirm={finalize}
+          onClose={() => { if (!busy) setConfirmAction(null); }}
+        />
+      )}
+      {confirmAction === "publish" && (
+        <ConfirmDialog
+          title="Publish these results?"
+          message={`Publish the ranking of "${selectedRound?.name ?? 'this round'}" (${results.length} team${results.length === 1 ? "" : "s"}).`}
+          warning="Results become visible to all participants immediately."
+          confirmLabel="PUBLISH RESULTS"
+          variant="danger"
+          requireTypedText={selectedRound?.name}
+          working={busy}
+          onConfirm={publish}
+          onClose={() => { if (!busy) setConfirmAction(null); }}
+        />
+      )}
 
       {/* Results table */}
       {results.length > 0 && (

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
   C, GradientText, PixelBadge,
 } from "@/shared/components/PixelComponents";
+import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
 import {
   eventsApi, roundsApi, tracksApi, teamsApi, coordinatorApi, ApiError, apiErrorMessage,
   HackathonEvent, Round, Track, UserItem, JudgeRosterItem, MentorRosterItem, Team,
@@ -54,6 +55,9 @@ export function CoordJudgesPage() {
   const [active, setActive] = useState<Active>(null);
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
+  // Unassign queued behind a confirm — the ✕ chips are small and easy to mis-hit.
+  const [confirmRemove, setConfirmRemove] = useState<null | { kind: 'mentor' | 'judge'; id: number; name: string }>(null);
+  const [removeBusy, setRemoveBusy] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -118,6 +122,27 @@ export function CoordJudgesPage() {
     setActionError(null);
     try { await coordinatorApi.removeJudgeAssignment(id); setJudges(prev => prev.filter(j => j.id !== id)); addToast({ type: 'info', title: 'JUDGE REMOVED', message: 'Judge unassigned.' }); }
     catch (err) { setActionError(err instanceof ApiError ? err.message : "Failed to remove."); addToast({ type: 'warning', title: 'REMOVE FAILED', message: apiErrorMessage(err, 'Failed to remove.') }); }
+  }
+
+  // The chip ✕ only queues the removal; the shared dialog below commits it.
+  function requestRemoveMentor(id: number) {
+    const m = mentors.find(x => x.id === id);
+    setConfirmRemove({ kind: 'mentor', id, name: m?.mentorName ?? 'this mentor' });
+  }
+  function requestRemoveJudge(id: number) {
+    const j = judges.find(x => x.id === id);
+    setConfirmRemove({ kind: 'judge', id, name: j?.judgeName ?? 'this judge' });
+  }
+  async function runConfirmedRemove() {
+    if (!confirmRemove) return;
+    setRemoveBusy(true);
+    try {
+      if (confirmRemove.kind === 'mentor') await removeMentor(confirmRemove.id);
+      else await removeJudge(confirmRemove.id);
+    } finally {
+      setRemoveBusy(false);
+      setConfirmRemove(null);
+    }
   }
 
   const addedIds = assignedUserIds();
@@ -234,7 +259,7 @@ export function CoordJudgesPage() {
                 cellBase={cellBase} mentorCellBg={MENTOR_CELL_BG} mentorsOf={mentorsOf} judgesOf={judgesOf}
                 active={active} setActive={(a) => { setActive(a); setQuery(""); }}
                 Chip={Chip} AddButton={AddButton} AddPopover={AddPopover}
-                removeMentor={removeMentor} removeJudge={removeJudge}
+                removeMentor={requestRemoveMentor} removeJudge={requestRemoveJudge}
               />
             ))}
           </div>
@@ -250,7 +275,7 @@ export function CoordJudgesPage() {
                   {fr.status && <PixelBadge color={["ACTIVE", "OPEN", "IN_PROGRESS"].includes((fr.status).toUpperCase()) ? "green" : "gray"}>{fr.status}</PixelBadge>}
                 </div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "flex-start" }}>
-                  {fJudges.map(j => <Chip key={j.id} name={j.judgeName} judgeType={j.judgeType} onRemove={() => removeJudge(j.id)} />)}
+                  {fJudges.map(j => <Chip key={j.id} name={j.judgeName} judgeType={j.judgeType} onRemove={() => requestRemoveJudge(j.id)} />)}
                   <div style={{ position: "relative" }}>
                     <AddButton isActive={isActive} onClick={() => { setActive(isActive ? null : { kind: 'final', roundId: fr.roundId }); setQuery(""); }} />
                     {isActive && <AddPopover title={`${fr.name} · all tracks`} />}
@@ -263,6 +288,18 @@ export function CoordJudgesPage() {
       )}
 
       {active && <div onClick={() => setActive(null)} style={{ position: "fixed", inset: 0, zIndex: 40 }} />}
+
+      {confirmRemove && (
+        <ConfirmDialog
+          title={confirmRemove.kind === 'mentor' ? "Remove this mentor?" : "Remove this judge?"}
+          message={`Remove ${confirmRemove.name} from this assignment. If this is a mistake, re-adding takes one click.`}
+          confirmLabel="REMOVE"
+          variant="danger"
+          working={removeBusy}
+          onConfirm={runConfirmedRemove}
+          onClose={() => { if (!removeBusy) setConfirmRemove(null); }}
+        />
+      )}
     </div>
   );
 }

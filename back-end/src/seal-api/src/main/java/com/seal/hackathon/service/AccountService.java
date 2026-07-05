@@ -50,6 +50,8 @@ public class AccountService {
         user.setIsApproved(true);
         user.setIsActive(true);
         userRepository.save(user);
+        // Rejected users have is_active=false and cannot log in, so an in-app
+        // notification only makes sense for approvals (they get an email either way).
         notificationService.createNotification(
                 user.getUserId(),
                 "Account approved",

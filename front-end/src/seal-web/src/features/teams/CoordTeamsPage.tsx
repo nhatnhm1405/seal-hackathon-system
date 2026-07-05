@@ -439,6 +439,7 @@ export function CoordTeamsPage() {
                 return (
                   <React.Fragment key={t.teamId}>
                     <tr onClick={() => setExpandedTeamId(expanded ? null : t.teamId)}
+                      className="row-actionable"
                       style={{ borderBottom: `1px solid rgba(34,197,94,0.06)`, background: i % 2 === 0 ? C.surface : C.surface2, cursor: "pointer" }}>
                       <td style={{ color: C.text, fontSize: 13, padding: "12px 14px" }}>{t.name}</td>
                       <td style={{ color: C.textMuted, fontSize: 12, padding: "12px 14px" }}>{trackName(t.trackId)}</td>
@@ -446,14 +447,18 @@ export function CoordTeamsPage() {
                       <td style={{ color: C.textMuted, fontSize: 12, padding: "12px 14px" }}>{t.members.length}</td>
                       <td style={{ padding: "12px 14px" }}>{statusBadge(t.status)}</td>
                       <td style={{ padding: "12px 14px" }} onClick={(e) => e.stopPropagation()}>
+                        {/* Queue decision: APPROVE stays one click; REJECT is a direct
+                            danger button revealed on row hover/focus (kept visible on
+                            touch by CSS). An already-approved team's DISQUALIFY is a rare,
+                            heavy action, so it lives inside the expanded detail below —
+                            not on the row. Both still confirm via TeamActionModal. */}
                         {t.status === 'PENDING' && (
-                          <div style={{ display: "flex", gap: 6 }}>
+                          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                             <PixelButton size="sm" variant="cyber" onClick={() => requestAction('approve', t)}>APPROVE</PixelButton>
-                            <PixelButton size="sm" variant="danger" onClick={() => requestAction('reject', t)}>REJECT</PixelButton>
+                            <span className="row-action">
+                              <PixelButton size="sm" variant="danger" onClick={() => requestAction('reject', t)}>REJECT</PixelButton>
+                            </span>
                           </div>
-                        )}
-                        {t.status === 'APPROVED' && (
-                          <PixelButton size="sm" variant="danger" onClick={() => requestAction('disqualify', t)}>DISQUALIFY</PixelButton>
                         )}
                       </td>
                     </tr>
@@ -494,6 +499,14 @@ export function CoordTeamsPage() {
                               )}
                             </div>
                           </div>
+                          {/* Disqualify lives here (not on the row): a rare, destructive
+                              action shown only once the coordinator has opened the team
+                              to look at it. Confirms via TeamActionModal (reason required). */}
+                          {t.status === 'APPROVED' && (
+                            <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${C.border}`, display: "flex", justifyContent: "flex-end" }}>
+                              <PixelButton size="sm" variant="danger" onClick={() => requestAction('disqualify', t)}>DISQUALIFY TEAM</PixelButton>
+                            </div>
+                          )}
                         </td>
                       </tr>
                     )}
