@@ -263,8 +263,6 @@ export function CyberStatCard({ value, label, icon, trend, accent = "green", sub
     >
       {/* Gradient fill bottom accent */}
       <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${a.main}, transparent)`, opacity: 0.6 }} />
-      {/* BG radial blob */}
-      <div style={{ position: "absolute", bottom: -20, right: -20, width: 80, height: 80, borderRadius: "50%", background: `radial-gradient(circle, ${a.glow} 0%, transparent 70%)`, pointerEvents: "none" }} />
 
       <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", gap: 4 }}>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>

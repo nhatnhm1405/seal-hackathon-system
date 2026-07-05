@@ -89,6 +89,11 @@ export function CoordAccountsPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   // Bulk selection (fast queue clearing).
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  // Accounts approved in this session are kept in the list (floated to the top
+  // with an APPROVED badge) instead of vanishing, so the coordinator sees what
+  // they just did. They leave the queue naturally on the next reload (getPending
+  // is pending-only).
+  const [approvedIds, setApprovedIds] = useState<Set<number>>(new Set());
   const [bulkAction, setBulkAction] = useState<null | "approve" | "reject">(null);
   const [bulkWorking, setBulkWorking] = useState(false);
 
@@ -113,9 +118,13 @@ export function CoordAccountsPage() {
     ? accounts.filter(a => a.fullName.toLowerCase().includes(query) || a.email.toLowerCase().includes(query))
     : accounts;
 
-  // Selection derived state (over the currently-visible rows).
-  const selectedCount = rows.reduce((n, a) => n + (selectedIds.has(a.userId) ? 1 : 0), 0);
-  const allSelected = rows.length > 0 && selectedCount === rows.length;
+  // Local pending total — approved rows stay in `accounts` but no longer count.
+  const pendingTotal = accounts.filter(a => !approvedIds.has(a.userId)).length;
+
+  // Selection + bulk actions only ever apply to still-pending rows.
+  const selectableRows = rows.filter(a => !approvedIds.has(a.userId));
+  const selectedCount = selectableRows.reduce((n, a) => n + (selectedIds.has(a.userId) ? 1 : 0), 0);
+  const allSelected = selectableRows.length > 0 && selectedCount === selectableRows.length;
   const someSelected = selectedCount > 0 && !allSelected;
 
   function toggleOne(id: number) {
@@ -128,19 +137,39 @@ export function CoordAccountsPage() {
   function toggleAll() {
     setSelectedIds(prev => {
       const next = new Set(prev);
-      if (allSelected) rows.forEach(a => next.delete(a.userId));
-      else rows.forEach(a => next.add(a.userId));
+      if (allSelected) selectableRows.forEach(a => next.delete(a.userId));
+      else selectableRows.forEach(a => next.add(a.userId));
       return next;
     });
   }
 
-  // Remove processed accounts from the queue + keep the sidebar badge in sync.
-  function dropFromQueue(ids: Set<number>) {
-    setAccounts(prev => {
-      const next = prev.filter(a => !ids.has(a.userId));
-      setPendingCount(next.length);
+  // Approve locally: keep the account in the list but float it to the top (most
+  // recently approved first) with an APPROVED badge, and drop the sidebar count.
+  function approveLocally(ids: Set<number>) {
+    setApprovedIds(prev => {
+      const next = new Set(prev);
+      ids.forEach(id => next.add(id));
       return next;
     });
+    setAccounts(prev => {
+      const moved = prev.filter(a => ids.has(a.userId));
+      const rest = prev.filter(a => !ids.has(a.userId));
+      const next = [...moved, ...rest];
+      // Pending = rows neither just-approved (ids) nor previously approved.
+      setPendingCount(next.filter(a => !ids.has(a.userId) && !approvedIds.has(a.userId)).length);
+      return next;
+    });
+    setSelectedIds(prev => { const n = new Set(prev); ids.forEach(id => n.delete(id)); return n; });
+  }
+
+  // Reject: drop the account from the queue entirely + keep the sidebar badge in sync.
+  function removeFromQueue(ids: Set<number>) {
+    setAccounts(prev => {
+      const next = prev.filter(a => !ids.has(a.userId));
+      setPendingCount(next.filter(a => !approvedIds.has(a.userId)).length);
+      return next;
+    });
+    setSelectedIds(prev => { const n = new Set(prev); ids.forEach(id => n.delete(id)); return n; });
   }
 
   // ── Single approve / reject (from a row's ⋯ menu) ──
@@ -150,10 +179,13 @@ export function CoordAccountsPage() {
     setActionError(null);
     setWorking(true);
     try {
-      if (reject) await accountApprovalsApi.reject(account.userId);
-      else await accountApprovalsApi.approve(account.userId);
-      dropFromQueue(new Set([account.userId]));
-      setSelectedIds(prev => { const n = new Set(prev); n.delete(account.userId); return n; });
+      if (reject) {
+        await accountApprovalsApi.reject(account.userId);
+        removeFromQueue(new Set([account.userId]));
+      } else {
+        await accountApprovalsApi.approve(account.userId);
+        approveLocally(new Set([account.userId]));
+      }
       addToast({
         type: reject ? "info" : "success",
         title: reject ? "ACCOUNT REJECTED" : "ACCOUNT APPROVED",
@@ -181,7 +213,8 @@ export function CoordAccountsPage() {
       );
       const okIds = new Set(ids.filter((_, i) => results[i].status === "fulfilled"));
       const failed = ids.length - okIds.size;
-      dropFromQueue(okIds);
+      if (reject) removeFromQueue(okIds);
+      else approveLocally(okIds);
       setSelectedIds(new Set());
       setBulkAction(null);
       addToast({
@@ -205,7 +238,7 @@ export function CoordAccountsPage() {
       </div>
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "center", justifyContent: "space-between" }}>
-        <PixelBadge color="yellow">{accounts.length} PENDING</PixelBadge>
+        <PixelBadge color="yellow">{pendingTotal} PENDING</PixelBadge>
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -260,45 +293,59 @@ export function CoordAccountsPage() {
               )}
               {!loading && rows.map((a, i) => {
                 const selected = selectedIds.has(a.userId);
+                const approved = approvedIds.has(a.userId);
                 return (
                   <tr
                     key={a.userId}
-                    className="row-actionable"
-                    onClick={() => toggleOne(a.userId)}
+                    className={approved ? undefined : "row-actionable"}
+                    onClick={approved ? undefined : () => toggleOne(a.userId)}
                     style={{
-                      cursor: "pointer",
-                      background: selected ? "rgba(234,179,8,0.10)" : (i % 2 === 0 ? C.surface : C.surface2),
+                      cursor: approved ? "default" : "pointer",
+                      background: approved
+                        ? "rgba(34,197,94,0.08)"
+                        : (selected ? "rgba(234,179,8,0.10)" : (i % 2 === 0 ? C.surface : C.surface2)),
                       transition: "background-color 0.2s ease",
                     }}
                   >
-                    {/* Checkbox — stopPropagation so its own toggle isn't doubled by the row click */}
-                    <td onClick={(e) => e.stopPropagation()} style={{ padding: "12px 14px", borderLeft: `3px solid ${selected ? AMBER : "transparent"}`, transition: "border-color 0.2s ease" }}>
-                      <input
-                        type="checkbox"
-                        checked={selected}
-                        onChange={() => toggleOne(a.userId)}
-                        aria-label={`Select ${a.fullName}`}
-                        style={{ width: 15, height: 15, accentColor: AMBER, cursor: "pointer" }}
-                      />
+                    {/* Checkbox — stopPropagation so its own toggle isn't doubled by the row
+                        click. Approved rows are done: green rail, no checkbox. */}
+                    <td onClick={(e) => e.stopPropagation()} style={{ padding: "12px 14px", borderLeft: `3px solid ${approved ? "#22c55e" : (selected ? AMBER : "transparent")}`, transition: "border-color 0.2s ease" }}>
+                      {!approved && (
+                        <input
+                          type="checkbox"
+                          checked={selected}
+                          onChange={() => toggleOne(a.userId)}
+                          aria-label={`Select ${a.fullName}`}
+                          style={{ width: 15, height: 15, accentColor: AMBER, cursor: "pointer" }}
+                        />
+                      )}
                     </td>
-                    <td style={{ color: C.text, fontSize: 12, padding: "12px 14px" }}>{a.fullName}</td>
+                    <td style={{ color: C.text, fontSize: 12, padding: "12px 14px" }}>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                        {a.fullName}
+                        {approved && <PixelBadge color="green">APPROVED</PixelBadge>}
+                      </span>
+                    </td>
                     <td style={cellMuted}>{a.email}</td>
                     <td style={{ padding: "12px 14px" }}>{studentTypeBadge(a.userType)}</td>
                     <td style={cellMuted}>{a.studentId ?? "—"}</td>
                     <td style={cellMuted}>{a.university ?? "—"}</td>
                     <td style={cellMuted}>{fmtDate(a.createdAt)}</td>
-                    {/* Per-row actions in a hover ⋯ menu (like the Event track/round rows) */}
+                    {/* Per-row actions in a hover ⋯ menu (like the Event track/round rows).
+                        Approved rows have no actions left. */}
                     <td onClick={(e) => e.stopPropagation()} style={{ padding: "12px 14px", width: 48 }}>
-                      <span className="row-action">
-                        <PixelMenu
-                          ariaLabel={`Actions for ${a.fullName}`}
-                          items={[
-                            { label: "Approve", onClick: () => { setActionError(null); setConfirmTarget({ account: a, reject: false }); } },
-                            "divider",
-                            { label: "Reject", danger: true, onClick: () => { setActionError(null); setConfirmTarget({ account: a, reject: true }); } },
-                          ]}
-                        />
-                      </span>
+                      {!approved && (
+                        <span className="row-action">
+                          <PixelMenu
+                            ariaLabel={`Actions for ${a.fullName}`}
+                            items={[
+                              { label: "Approve", onClick: () => { setActionError(null); setConfirmTarget({ account: a, reject: false }); } },
+                              "divider",
+                              { label: "Reject", danger: true, onClick: () => { setActionError(null); setConfirmTarget({ account: a, reject: true }); } },
+                            ]}
+                          />
+                        </span>
+                      )}
                     </td>
                   </tr>
                 );

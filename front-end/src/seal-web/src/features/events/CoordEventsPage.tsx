@@ -1,4 +1,4 @@
-import { useEffect, useState, ReactNode } from "react";
+import { useEffect, useRef, useState, ReactNode } from "react";
 import {
   C, GradientText, PixelCard, PixelButton, PixelBadge, PixelInput, PixelTabs,
 } from "@/shared/components/PixelComponents";
@@ -245,6 +245,42 @@ interface PendingAction {
   run: (reason?: string) => Promise<void>;
 }
 
+// Audit metadata is persisted as a JSON blob; render it as readable "Label value"
+// rows instead of dumping the raw JSON string. Falls back to the raw text for
+// anything that isn't a flat object.
+function humanizeAuditKey(key: string): string {
+  const s = key.replace(/[_-]+/g, " ").trim();
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function formatAuditValue(value: unknown): string {
+  if (value == null) return "—";
+  if (typeof value === "object") return JSON.stringify(value);
+  return String(value);
+}
+
+function AuditMetadata({ json }: { json: string }) {
+  const mono = "'JetBrains Mono', monospace";
+  let parsed: unknown = null;
+  try { parsed = JSON.parse(json); } catch { /* not JSON — fall through to raw */ }
+  if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+    const entries = Object.entries(parsed as Record<string, unknown>);
+    if (entries.length > 0) {
+      return (
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          {entries.map(([k, v]) => (
+            <div key={k} style={{ display: "flex", gap: 10, fontFamily: mono, fontSize: 11, lineHeight: 1.5 }}>
+              <span style={{ color: C.textMuted, minWidth: 130, flexShrink: 0 }}>{humanizeAuditKey(k)}</span>
+              <span style={{ color: C.text, wordBreak: "break-word" }}>{formatAuditValue(v)}</span>
+            </div>
+          ))}
+        </div>
+      );
+    }
+  }
+  return <div style={{ color: C.textMuted, fontFamily: mono, fontSize: 10, opacity: 0.8, wordBreak: "break-all" }}>{json}</div>;
+}
+
 export function CoordEventsPage() {
   const { canChangeEventStatus, canCompleteEvent, canRequestReopen } = usePermissions();
   const { addToast } = useNotifications();
@@ -298,7 +334,6 @@ export function CoordEventsPage() {
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditError, setAuditError] = useState<string | null>(null);
-  const [expandedAudit, setExpandedAudit] = useState<Record<number, boolean>>({});
 
   // Per-track expand/collapse. Cards default to EXPANDED (description + team
   // list visible); tracking the collapsed ones means the empty map = all open,
@@ -324,6 +359,14 @@ export function CoordEventsPage() {
   const [rdDeadline, setRdDeadline] = useState("");
   const [rdTopN, setRdTopN] = useState<number | null>(3); // null = no cut-off (no elimination)
   const [editingRoundId, setEditingRoundId] = useState<number | null>(null);
+  // The shared add/edit form sits below the round list, so an Edit click on the
+  // first row is easy to miss — scroll the form into view whenever it opens.
+  const roundFormRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (editingRoundId != null || showAddRound) {
+      roundFormRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }, [editingRoundId, showAddRound]);
 
   // Criteria form (collapsed behind "+ ADD CRITERIA" until needed)
   const [showAddCriteria, setShowAddCriteria] = useState(false);
@@ -861,8 +904,25 @@ export function CoordEventsPage() {
     });
   }
 
-  // Closing a round cuts teams off from submitting immediately, so unlike the
-  // reversible ACTIVATE/REOPEN it is confirmed first.
+  // Both sides of the OPEN/CLOSE toggle are confirmed first — opening starts
+  // accepting submissions immediately, closing cuts teams off immediately.
+  function requestOpenRound(r: RoundRow) {
+    openConfirm({
+      title: 'Open this round?',
+      message: (
+        <div>
+          Round <span style={{ color: C.text, fontWeight: 700 }}>"{r.name}"</span> will be opened — teams can submit to it until the deadline.
+        </div>
+      ),
+      warning: r.status === 'CLOSED'
+        ? 'This round was closed — opening it lets teams submit again.'
+        : undefined,
+      confirmLabel: 'OPEN ROUND',
+      variant: 'cyber',
+      run: async () => { await changeRoundStatus(r.roundId, 'ACTIVE'); },
+    });
+  }
+
   function requestCloseRound(r: RoundRow) {
     openConfirm({
       title: 'Close this round?',
@@ -871,7 +931,7 @@ export function CoordEventsPage() {
           Round <span style={{ color: C.text, fontWeight: 700 }}>"{r.name}"</span> will be closed — teams can no longer submit to it.
         </div>
       ),
-      warning: 'Teams are cut off immediately. You can REOPEN the round later if needed.',
+      warning: 'Teams are cut off immediately. You can OPEN the round again later if needed.',
       confirmLabel: 'CLOSE ROUND',
       variant: 'danger',
       run: async () => { await changeRoundStatus(r.roundId, 'CLOSED'); },
@@ -1418,13 +1478,12 @@ export function CoordEventsPage() {
                 {detailLoading && <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>Loading...</div>}
                 {!detailLoading && rounds.length === 0 && <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>No rounds yet</div>}
                 {rounds.map(r => {
-                  const noCutoff = r.topNAdvance == null;
                   const isEditing = editingRoundId === r.roundId;
                   const topNLabel = r.topNAdvance != null
                     ? (r.isFinal ? ` · Top ${r.topNAdvance} overall (winners)` : ` · Top ${r.topNAdvance} per track advance`)
                     : "";
                   // Status reads from the left accent bar + the transition button
-                  // (ACTIVATE ⇒ pending, CLOSE ⇒ running) instead of a separate badge.
+                  // (OPEN ⇒ not running, CLOSE ⇒ running) instead of a separate badge.
                   const roundAccent =
                     r.status === 'ACTIVE' ? C.green :
                     r.status === 'PENDING' ? C.yellow :
@@ -1439,22 +1498,18 @@ export function CoordEventsPage() {
                         {r.status === 'CLOSED' && <span style={{ color: C.red, fontWeight: 700 }}> · CLOSED</span>}
                       </div>
                       <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginTop: 2 }}>Deadline: {r.submissionDeadline || "—"}{topNLabel}</div>
-                      {noCutoff && (
-                        <div style={{ color: C.yellow, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginTop: 4 }}>⚠ No cut-off set — no team is marked. Click EDIT to set Top N.</div>
-                      )}
                     </div>
-                    {/* Action group: [ transition ][ ⋯ (Edit/Delete) ]. The row's "next
-                        step" stays a visible button (mirrors the header pattern); the
-                        status badge is gone — the accent bar + button already carry it.
-                        CLOSE is confirmed first. */}
+                    {/* Action group: [ OPEN/CLOSE toggle ][ ⋯ (Edit/Delete) ]. A round is
+                        either open for submissions or not: OPEN shows when it isn't
+                        running yet / was closed, CLOSE while it runs. Both transitions
+                        are confirmed first. FINALIZED is terminal — no toggle. */}
                     <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
                       <div style={{ width: 84, display: "flex", justifyContent: "center" }}>
-                        {r.status === 'PENDING' && <PixelButton size="sm" variant="secondary" onClick={() => changeRoundStatus(r.roundId, 'ACTIVE')}>ACTIVATE</PixelButton>}
+                        {(r.status === 'PENDING' || r.status === 'CLOSED') && <PixelButton size="sm" variant="secondary" onClick={() => requestOpenRound(r)}>OPEN</PixelButton>}
                         {r.status === 'ACTIVE' && <PixelButton size="sm" variant="danger" onClick={() => requestCloseRound(r)}>CLOSE</PixelButton>}
-                        {r.status === 'CLOSED' && <PixelButton size="sm" variant="secondary" onClick={() => changeRoundStatus(r.roundId, 'ACTIVE')}>REOPEN</PixelButton>}
                       </div>
                       {isEditing ? (
-                        <PixelButton size="sm" variant="ghost" onClick={cancelRoundEdit}>EDITING…</PixelButton>
+                        <PixelButton size="sm" variant="ghost" onClick={cancelRoundEdit}>CANCEL</PixelButton>
                       ) : (
                         <span className="row-action">
                           <PixelMenu
@@ -1475,31 +1530,32 @@ export function CoordEventsPage() {
                 {/* Add/edit form — collapsed behind "+ ADD ROUND"; editing a row
                     (via its ⋯ menu) opens the same form pre-filled. */}
                 {(editingRoundId != null || showAddRound) ? (
-                  <div style={{ padding: 14, background: C.surface, border: `1px solid ${editingRoundId != null ? C.green : C.border}` }}>
+                  <div ref={roundFormRef} style={{ padding: 14, background: C.surface, border: `1px solid ${editingRoundId != null ? C.green : C.border}` }}>
                     <div style={{ color: editingRoundId != null ? C.green : C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600, marginBottom: 10 }}>
                       {editingRoundId != null ? "EDIT ROUND" : "ADD ROUND"}
                     </div>
-                    <div style={{ display: "grid", gridTemplateColumns: "2fr 70px 1fr 1fr 1fr 70px auto", gap: 10, alignItems: "end" }}>
+                    {/* auto-fit + minmax lets fields wrap instead of squeezing Name
+                        (datetime inputs have a large intrinsic min-width). */}
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10, alignItems: "end" }}>
                       <PixelInput label="Name" value={rdName} onChange={(e) => setRdName(e.target.value)} />
                       <PixelInput label="Order" type="number" value={String(rdOrder)} onChange={(e) => setRdOrder(Number(e.target.value))} />
                       <PixelInput label="Start" type="datetime-local" value={rdStart} onChange={(e) => setRdStart(e.target.value)} />
                       <PixelInput label="End" type="datetime-local" value={rdEnd} onChange={(e) => setRdEnd(e.target.value)} />
                       <PixelInput label="Deadline" type="datetime-local" value={rdDeadline} onChange={(e) => setRdDeadline(e.target.value)} />
                       <PixelInput label="Top N" type="number" placeholder="Empty = no cut-off" value={rdTopN == null ? "" : String(rdTopN)} onChange={(e) => setRdTopN(e.target.value === "" ? null : Number(e.target.value))} />
+                    </div>
+                    <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
                       {editingRoundId != null ? (
-                        <div style={{ display: "flex", gap: 8 }}>
+                        <>
                           <PixelButton variant="cyber" onClick={saveRoundEdit}>SAVE</PixelButton>
                           <PixelButton variant="ghost" onClick={cancelRoundEdit}>CANCEL</PixelButton>
-                        </div>
+                        </>
                       ) : (
-                        <div style={{ display: "flex", gap: 8 }}>
+                        <>
                           <PixelButton variant="secondary" onClick={addRound}>ADD</PixelButton>
                           <PixelButton variant="ghost" onClick={() => { cancelRoundEdit(); setShowAddRound(false); }}>CANCEL</PixelButton>
-                        </div>
+                        </>
                       )}
-                    </div>
-                    <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, marginTop: 8, lineHeight: 1.5 }}>
-                      Top N = teams advancing <b>per track</b> for normal rounds (each track ranked separately), or <b>overall winners</b> for the Final round (all tracks combined into one ranking).
                     </div>
                   </div>
                 ) : (
@@ -1665,23 +1721,12 @@ export function CoordEventsPage() {
                 {!auditLoading && !auditError && auditLogs.length === 0 && (
                   <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>No audit entries for this event yet.</div>
                 )}
-                {auditLogs.length > 0 && (
-                  <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-                    <PixelButton size="sm" variant="ghost" onClick={() => setExpandedAudit(Object.fromEntries(auditLogs.map(l => [l.logId, true])))}>EXPAND ALL</PixelButton>
-                    <PixelButton size="sm" variant="ghost" onClick={() => setExpandedAudit({})}>COLLAPSE ALL</PixelButton>
-                  </div>
-                )}
                 {auditLogs.map(log => {
                   const hasDetail = Boolean(log.reason || log.metadataJson);
-                  const open = !!expandedAudit[log.logId];
                   return (
                   <div key={log.logId} style={{ padding: 12, background: C.surface2, border: `1px solid ${C.border}` }}>
-                    <div
-                      onClick={() => hasDetail && setExpandedAudit(p => ({ ...p, [log.logId]: !open }))}
-                      style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", cursor: hasDetail ? "pointer" : "default" }}
-                    >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-                        <span style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, width: 10, display: "inline-block", flexShrink: 0 }}>{hasDetail ? (open ? "▾" : "▸") : ""}</span>
                         <PixelBadge color="cyan">{log.action}</PixelBadge>
                         <span style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>
                           {log.actorName ?? `User#${log.actorUserId}`}
@@ -1694,14 +1739,12 @@ export function CoordEventsPage() {
                         {new Date(log.createdAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
                       </span>
                     </div>
-                    {open && hasDetail && (
-                      <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${C.border}` }}>
+                    {hasDetail && (
+                      <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${C.border}`, display: "flex", flexDirection: "column", gap: 6 }}>
                         {log.reason && (
                           <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontStyle: "italic" }}>"{log.reason}"</div>
                         )}
-                        {log.metadataJson && (
-                          <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, marginTop: 4, opacity: 0.8, wordBreak: "break-all" }}>{log.metadataJson}</div>
-                        )}
+                        {log.metadataJson && <AuditMetadata json={log.metadataJson} />}
                       </div>
                     )}
                   </div>
