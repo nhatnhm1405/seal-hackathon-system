@@ -334,9 +334,11 @@ interface TopNavbarProps {
   currentUser: { user_id: number; full_name: string; role: string; is_leader: boolean; team_id: number | null; avatar_url: string | null };
   onLogout: () => void;
   onNavigate: (path: string) => void;
+  canSwitchRole: boolean;
+  onSwitchRole: () => void;
 }
 
-function TopNavbar({ pageTitle, collapsed, onToggleCollapse, currentUser, onLogout, onNavigate }: TopNavbarProps) {
+function TopNavbar({ pageTitle, collapsed, onToggleCollapse, currentUser, onLogout, onNavigate, canSwitchRole, onSwitchRole }: TopNavbarProps) {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -535,12 +537,32 @@ function TopNavbar({ pageTitle, collapsed, onToggleCollapse, currentUser, onLogo
             }}>
               <button
                 onClick={() => { onNavigate("/profile"); setUserMenuOpen(false); }}
-                style={{ width: "100%", padding: "10px 14px", background: "transparent", border: "none", cursor: "pointer", textAlign: "left", color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, borderRadius: 0 }}
+                style={{ width: "100%", padding: "10px 14px", background: "transparent", border: "none", cursor: "pointer", textAlign: "left", color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, borderRadius: 0, display: "flex", alignItems: "center", gap: 10 }}
                 onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(34,197,94,0.06)"; }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
               >
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, pointerEvents: "none" }}>
+                  <circle cx="12" cy="8" r="4" />
+                  <path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1" />
+                </svg>
                 Profile
               </button>
+              {canSwitchRole && (
+                <button
+                  onClick={() => { onSwitchRole(); setUserMenuOpen(false); }}
+                  style={{ width: "100%", padding: "10px 14px", background: "transparent", border: "none", cursor: "pointer", textAlign: "left", color: "#3b82f6", fontFamily: "'JetBrains Mono', monospace", fontSize: 13, borderRadius: 0, display: "flex", alignItems: "center", gap: 10 }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(59,130,246,0.08)"; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, pointerEvents: "none" }}>
+                    <polyline points="17 1 21 5 17 9" />
+                    <path d="M3 11V9a4 4 0 0 1 4-4h14" />
+                    <polyline points="7 23 3 19 7 15" />
+                    <path d="M21 13v2a4 4 0 0 1-4 4H3" />
+                  </svg>
+                  Switch Role
+                </button>
+              )}
               <div style={{ height: 1, background: C.border, margin: "0 14px" }} />
               <button
                 onClick={() => { onLogout(); setUserMenuOpen(false); }}
@@ -565,6 +587,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
   const { currentUser, logout, availableRoles, setActiveRole } = useAuth();
   const { addAuthToast } = useNotifications();
   const [collapsed, setCollapsed] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   // Coordinator badge reads the shared pending count so it stays in sync with
   // approve/reject actions on the Accounts page (single source of truth).
   const { pendingCount } = usePendingAccounts();
@@ -575,11 +598,23 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
   const sidebarWidth = collapsed ? 0 : 248;
   const pageTitle = getPageTitle(location.pathname);
 
+  // Logout is confirmed through a themed modal — handleLogout only opens it, the
+  // real sign-out happens in performLogout once the user confirms.
   function handleLogout() {
+    setShowLogoutConfirm(true);
+  }
+
+  function performLogout() {
     const name = currentUser?.full_name ?? 'User';
+    setShowLogoutConfirm(false);
     addAuthToast({ type: 'info', title: 'LOGGED OUT', message: `Goodbye, ${name}. See you next time!` });
     logout();
     navigate('/');
+  }
+
+  function handleSwitchRole() {
+    setActiveRole(null);
+    navigate('/select-role');
   }
 
   return (
@@ -592,6 +627,8 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
         currentUser={currentUser}
         onLogout={handleLogout}
         onNavigate={navigate}
+        canSwitchRole={availableRoles.length > 1}
+        onSwitchRole={handleSwitchRole}
       />
 
       {/* Sidebar + main content row */}
@@ -700,50 +737,30 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
                 </div>
               </div>
             )}
-            {availableRoles.length > 1 && (
-              <button
-                onClick={() => { setActiveRole(null); navigate("/select-role"); }}
-                title={collapsed ? "Switch Role" : undefined}
-                style={{
-                  padding: collapsed ? "8px 4px" : "8px 10px",
-                  background: "transparent",
-                  border: `1px solid rgba(59,130,246,0.35)`,
-                  color: "#3b82f6",
-                  cursor: "pointer",
-                  fontFamily: "'JetBrains Mono', monospace",
-                  fontSize: 10,
-                  letterSpacing: "0.1em",
-                  textTransform: "uppercase",
-                  borderRadius: 0,
-                  width: "100%",
-                  textAlign: "center",
-                }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(59,130,246,0.12)"; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
-              >
-                {collapsed ? "⇄" : "SWITCH ROLE"}
-              </button>
-            )}
             <button
               onClick={handleLogout}
+              title="Đăng xuất"
               style={{
-                padding: collapsed ? "8px 4px" : "8px 10px",
+                padding: "8px",
                 background: "transparent",
                 border: `1px solid rgba(239,68,68,0.35)`,
                 color: C.red,
                 cursor: "pointer",
-                fontFamily: "'JetBrains Mono', monospace",
-                fontSize: 10,
-                letterSpacing: "0.1em",
-                textTransform: "uppercase",
                 borderRadius: 0,
                 width: "100%",
-                textAlign: "center",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                transition: "all 0.15s",
               }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.12)"; }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
             >
-              LOGOUT
+              {/* Power icon */}
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: "none" }}>
+                <path d="M18.36 6.64a9 9 0 1 1-12.73 0" />
+                <line x1="12" y1="2" x2="12" y2="12" />
+              </svg>
             </button>
           </div>
         </aside>
@@ -756,6 +773,85 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
 
       {/* Full-width footer — outside the sidebar+content row */}
       <SealFooter />
+
+      <LogoutConfirmModal
+        open={showLogoutConfirm}
+        userName={currentUser.full_name}
+        onCancel={() => setShowLogoutConfirm(false)}
+        onConfirm={performLogout}
+      />
+    </div>
+  );
+}
+
+// ── Logout confirmation modal ──────────────────────────────────────
+function LogoutConfirmModal({ open, userName, onCancel, onConfirm }: { open: boolean; userName: string; onCancel: () => void; onConfirm: () => void }) {
+  useEffect(() => {
+    if (!open) return;
+    function onKey(e: KeyboardEvent) { if (e.key === "Escape") onCancel(); }
+    document.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.removeEventListener("keydown", onKey); document.body.style.overflow = prev; };
+  }, [open, onCancel]);
+
+  if (!open) return null;
+
+  const mono = "'JetBrains Mono', monospace";
+
+  return (
+    <div
+      onClick={onCancel}
+      style={{
+        position: "fixed", inset: 0, zIndex: 1000,
+        background: "rgba(7,12,15,0.85)", backdropFilter: "blur(4px)",
+        display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          position: "relative", width: "100%", maxWidth: 400,
+          background: C.surface, border: `1px solid ${C.border}`,
+          boxShadow: "0 0 40px rgba(239,68,68,0.1), 0 20px 60px rgba(0,0,0,0.6)",
+          padding: "26px 26px 22px",
+        }}
+      >
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${C.red}, transparent)`, opacity: 0.7 }} />
+
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+          <div style={{ width: 40, height: 40, borderRadius: "50%", border: `1px solid rgba(239,68,68,0.4)`, background: "rgba(239,68,68,0.06)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={C.red} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18.36 6.64a9 9 0 1 1-12.73 0" />
+              <line x1="12" y1="2" x2="12" y2="12" />
+            </svg>
+          </div>
+          <h2 style={{ fontFamily: mono, fontWeight: 800, fontSize: 18, letterSpacing: "0.04em", color: C.text, margin: 0 }}>Log out?</h2>
+        </div>
+
+        <p style={{ color: C.textMuted, fontFamily: mono, fontSize: 12, lineHeight: 1.7, margin: "0 0 22px" }}>
+          You're signed in as <span style={{ color: C.text, fontWeight: 700 }}>{userName}</span>. You'll need to log in again to continue.
+        </p>
+
+        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          <button
+            onClick={onCancel}
+            style={{ padding: "9px 18px", background: "transparent", border: `1px solid ${C.border}`, color: C.textMuted, cursor: "pointer", fontFamily: mono, fontSize: 12, letterSpacing: "0.06em", borderRadius: 0, transition: "all 0.15s" }}
+            onMouseEnter={(e) => { const el = e.currentTarget as HTMLElement; el.style.color = C.text; el.style.borderColor = C.borderBright; }}
+            onMouseLeave={(e) => { const el = e.currentTarget as HTMLElement; el.style.color = C.textMuted; el.style.borderColor = C.border; }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            style={{ padding: "9px 18px", background: "rgba(239,68,68,0.1)", border: `1px solid rgba(239,68,68,0.5)`, color: C.red, cursor: "pointer", fontFamily: mono, fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", borderRadius: 0, transition: "all 0.15s" }}
+            onMouseEnter={(e) => { const el = e.currentTarget as HTMLElement; el.style.background = "rgba(239,68,68,0.2)"; }}
+            onMouseLeave={(e) => { const el = e.currentTarget as HTMLElement; el.style.background = "rgba(239,68,68,0.1)"; }}
+          >
+            Logout
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
