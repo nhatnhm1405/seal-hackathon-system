@@ -15,9 +15,9 @@ import { useNotifications } from "@/app/providers/NotificationProvider";
 const MONO = "'JetBrains Mono', monospace";
 const MIN_DURATION = 30; // mirrors backend MIN_DURATION_SECONDS
 
-const PHASES: { phase: TimerPhase; title: string; blurb: string }[] = [
-  { phase: "CONTEST", title: "Contest — Submission window", blurb: "While running, teams can submit. Ends → submissions are locked." },
-  { phase: "JUDGING", title: "Judging — Scoring window", blurb: "While running, judges can score. Ends → scoring is locked." },
+const PHASES: { phase: TimerPhase; title: string }[] = [
+  { phase: "CONTEST", title: "Contest — Submission window" },
+  { phase: "JUDGING", title: "Judging — Scoring window" },
 ];
 
 export function ContestTimerPanel({ eventId, roundId }: { eventId: number; roundId: number | null }) {
@@ -31,25 +31,24 @@ export function ContestTimerPanel({ eventId, roundId }: { eventId: number; round
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       {PHASES.map(p => (
-        <PhaseTimerControl key={p.phase} eventId={eventId} roundId={roundId} phase={p.phase} title={p.title} blurb={p.blurb} />
+        <PhaseTimerControl key={p.phase} eventId={eventId} roundId={roundId} phase={p.phase} title={p.title} />
       ))}
     </div>
   );
 }
 
 function PhaseTimerControl({
-  eventId, roundId, phase, title, blurb,
+  eventId, roundId, phase, title,
 }: {
   eventId: number;
   roundId: number;
   phase: TimerPhase;
   title: string;
-  blurb: string;
 }) {
   const { addToast } = useNotifications();
   const timer = useRoundTimer(eventId, roundId, phase, { fireBanners: false });
   const [durationSec, setDurationSec] = useState(30 * 60);
-  const [extendSec, setExtendSec] = useState(5 * 60);
+  const [extendMin, setExtendMin] = useState(5);
   const [showExtend, setShowExtend] = useState(false);
   const [busy, setBusy] = useState(false);
   const [confirmStop, setConfirmStop] = useState(false);
@@ -85,44 +84,50 @@ function PhaseTimerControl({
       <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
         {/* Header: title + live read-out */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-          <div>
-            <div style={{ color: C.text, fontFamily: MONO, fontSize: 14, fontWeight: 700 }}>{title}</div>
-            <div style={{ color: C.textMuted, fontFamily: MONO, fontSize: 11, marginTop: 2 }}>{blurb}</div>
-          </div>
-          <CountdownDisplay remainingSeconds={timer.remainingSeconds} status={timer.status} />
+          <div style={{ color: C.text, fontFamily: MONO, fontSize: 15, fontWeight: 700 }}>{title}</div>
+          <CountdownDisplay remainingSeconds={timer.remainingSeconds} status={timer.status} size="lg" />
         </div>
 
         {/* Controls */}
         {idle ? (
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          // Compact drum picker (hours/min, 3 rows) centered in the card.
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
             <WheelTimePicker valueSeconds={durationSec} onChange={setDurationSec} maxHours={99} disabled={busy} />
-            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-              <PixelButton variant="cyber" disabled={busy || durationSec < MIN_DURATION} onClick={start}>
-                {timer.status === "STOPPED" || timer.status === "EXPIRED" ? "START AGAIN" : "START"}
-              </PixelButton>
-              {durationSec < MIN_DURATION && (
-                <span style={{ color: C.yellow, fontFamily: MONO, fontSize: 11 }}>Minimum {MIN_DURATION}s.</span>
-              )}
-            </div>
+            <PixelButton variant="cyber" disabled={busy || durationSec < MIN_DURATION} onClick={start}>
+              START
+            </PixelButton>
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {/* One button per job: PAUSE/RESUME · EXTEND · STOP. */}
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
               {timer.status === "PAUSED" ? (
                 <PixelButton size="sm" variant="cyber" disabled={busy} onClick={resume}>RESUME</PixelButton>
               ) : (
                 <PixelButton size="sm" variant="secondary" disabled={busy} onClick={pause}>PAUSE</PixelButton>
               )}
-              <PixelButton size="sm" variant="secondary" disabled={busy} onClick={() => extend(5 * 60)}>+5 MIN</PixelButton>
-              <PixelButton size="sm" variant="ghost" disabled={busy} onClick={() => setShowExtend(v => !v)}>EXTEND…</PixelButton>
+              <PixelButton size="sm" variant="secondary" disabled={busy} onClick={() => setShowExtend(v => !v)}>EXTEND</PixelButton>
               {/* STOP ends the window for everyone at once — confirmed first. */}
               <PixelButton size="sm" variant="danger" disabled={busy} onClick={() => setConfirmStop(true)}>STOP</PixelButton>
             </div>
             {showExtend && (
               <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-                <WheelTimePicker valueSeconds={extendSec} onChange={setExtendSec} maxHours={12} disabled={busy} />
-                <PixelButton size="sm" variant="cyber" disabled={busy || extendSec <= 0}
-                  onClick={() => { extend(extendSec); setShowExtend(false); }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 8, color: C.textMuted, fontFamily: MONO, fontSize: 11 }}>
+                  Add
+                  <input
+                    type="number"
+                    min={1}
+                    max={720}
+                    value={extendMin}
+                    disabled={busy}
+                    onFocus={(e) => e.currentTarget.select()}
+                    onChange={(e) => setExtendMin(Math.min(720, Math.max(1, parseInt(e.target.value, 10) || 1)))}
+                    style={{ width: 64, background: C.surface2, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 13, padding: "5px 6px", borderRadius: 0, outline: "none", textAlign: "center" }}
+                  />
+                  min
+                </label>
+                <PixelButton size="sm" variant="cyber" disabled={busy}
+                  onClick={() => { extend(extendMin * 60); setShowExtend(false); }}>
                   ADD TIME
                 </PixelButton>
               </div>
