@@ -245,6 +245,42 @@ interface PendingAction {
   run: (reason?: string) => Promise<void>;
 }
 
+// Audit metadata is persisted as a JSON blob; render it as readable "Label value"
+// rows instead of dumping the raw JSON string. Falls back to the raw text for
+// anything that isn't a flat object.
+function humanizeAuditKey(key: string): string {
+  const s = key.replace(/[_-]+/g, " ").trim();
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function formatAuditValue(value: unknown): string {
+  if (value == null) return "—";
+  if (typeof value === "object") return JSON.stringify(value);
+  return String(value);
+}
+
+function AuditMetadata({ json }: { json: string }) {
+  const mono = "'JetBrains Mono', monospace";
+  let parsed: unknown = null;
+  try { parsed = JSON.parse(json); } catch { /* not JSON — fall through to raw */ }
+  if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+    const entries = Object.entries(parsed as Record<string, unknown>);
+    if (entries.length > 0) {
+      return (
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          {entries.map(([k, v]) => (
+            <div key={k} style={{ display: "flex", gap: 10, fontFamily: mono, fontSize: 11, lineHeight: 1.5 }}>
+              <span style={{ color: C.textMuted, minWidth: 130, flexShrink: 0 }}>{humanizeAuditKey(k)}</span>
+              <span style={{ color: C.text, wordBreak: "break-word" }}>{formatAuditValue(v)}</span>
+            </div>
+          ))}
+        </div>
+      );
+    }
+  }
+  return <div style={{ color: C.textMuted, fontFamily: mono, fontSize: 10, opacity: 0.8, wordBreak: "break-all" }}>{json}</div>;
+}
+
 export function CoordEventsPage() {
   const { canChangeEventStatus, canCompleteEvent, canRequestReopen } = usePermissions();
   const { addToast } = useNotifications();
@@ -298,7 +334,6 @@ export function CoordEventsPage() {
   const [auditLogs, setAuditLogs] = useState<AuditLogEntry[]>([]);
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditError, setAuditError] = useState<string | null>(null);
-  const [expandedAudit, setExpandedAudit] = useState<Record<number, boolean>>({});
 
   // Per-track expand/collapse. Cards default to EXPANDED (description + team
   // list visible); tracking the collapsed ones means the empty map = all open,
@@ -1686,23 +1721,12 @@ export function CoordEventsPage() {
                 {!auditLoading && !auditError && auditLogs.length === 0 && (
                   <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>No audit entries for this event yet.</div>
                 )}
-                {auditLogs.length > 0 && (
-                  <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-                    <PixelButton size="sm" variant="ghost" onClick={() => setExpandedAudit(Object.fromEntries(auditLogs.map(l => [l.logId, true])))}>EXPAND ALL</PixelButton>
-                    <PixelButton size="sm" variant="ghost" onClick={() => setExpandedAudit({})}>COLLAPSE ALL</PixelButton>
-                  </div>
-                )}
                 {auditLogs.map(log => {
                   const hasDetail = Boolean(log.reason || log.metadataJson);
-                  const open = !!expandedAudit[log.logId];
                   return (
                   <div key={log.logId} style={{ padding: 12, background: C.surface2, border: `1px solid ${C.border}` }}>
-                    <div
-                      onClick={() => hasDetail && setExpandedAudit(p => ({ ...p, [log.logId]: !open }))}
-                      style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap", cursor: hasDetail ? "pointer" : "default" }}
-                    >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-                        <span style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, width: 10, display: "inline-block", flexShrink: 0 }}>{hasDetail ? (open ? "▾" : "▸") : ""}</span>
                         <PixelBadge color="cyan">{log.action}</PixelBadge>
                         <span style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>
                           {log.actorName ?? `User#${log.actorUserId}`}
@@ -1715,14 +1739,12 @@ export function CoordEventsPage() {
                         {new Date(log.createdAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
                       </span>
                     </div>
-                    {open && hasDetail && (
-                      <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${C.border}` }}>
+                    {hasDetail && (
+                      <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${C.border}`, display: "flex", flexDirection: "column", gap: 6 }}>
                         {log.reason && (
                           <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontStyle: "italic" }}>"{log.reason}"</div>
                         )}
-                        {log.metadataJson && (
-                          <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, marginTop: 4, opacity: 0.8, wordBreak: "break-all" }}>{log.metadataJson}</div>
-                        )}
+                        {log.metadataJson && <AuditMetadata json={log.metadataJson} />}
                       </div>
                     )}
                   </div>
