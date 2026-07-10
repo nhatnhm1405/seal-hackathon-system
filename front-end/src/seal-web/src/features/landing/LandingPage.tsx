@@ -834,6 +834,16 @@ function EventsSection({ data }: { data: LandingData }) {
   const activeRound = currentRounds.find(r => r.status === "ACTIVE");
   const cur = eventStatusBadge(current?.status);
 
+  // The whole ongoing card is a single link while registration is OPEN.
+  // Logged-in users land on their role dashboard (RoleDashboardPage routes by role);
+  // visitors go to login (which links onward to register).
+  const registrationOpen = current?.status === "OPEN";
+  const routerNavigate = useNavigate();
+  const { isAuthenticated } = useAuth();
+  function goRegister() {
+    routerNavigate(isAuthenticated ? "/dashboard" : "/login");
+  }
+
   return (
     <section id="events" style={{ background: "#070b12", padding: "100px 0", borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}` }}>
       <div style={{ maxWidth: 1160, margin: "0 auto", padding: "0 24px" }}>
@@ -854,6 +864,10 @@ function EventsSection({ data }: { data: LandingData }) {
               ) : (
                 <Tilt max={6}>
                 <div
+                  onClick={registrationOpen ? goRegister : undefined}
+                  role={registrationOpen ? "button" : undefined}
+                  tabIndex={registrationOpen ? 0 : undefined}
+                  onKeyDown={registrationOpen ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); goRegister(); } } : undefined}
                   style={{
                     background: C.surface,
                     border: `1px solid ${accent}33`,
@@ -861,6 +875,7 @@ function EventsSection({ data }: { data: LandingData }) {
                     position: "relative",
                     overflow: "hidden",
                     boxShadow: `0 0 20px ${accent}10`,
+                    cursor: registrationOpen ? "pointer" : "default",
                   }}
                 >
                   <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${accent}, transparent)` }} />
@@ -875,6 +890,14 @@ function EventsSection({ data }: { data: LandingData }) {
                   <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 13 }}>
                     {current.season} · {current.year}{activeRound ? ` · Current round: ${activeRound.name}` : ""}
                   </div>
+
+                  {/* Single, subtle CTA line — the whole card is the link. */}
+                  {registrationOpen && (
+                    <div style={{ marginTop: 16, paddingTop: 14, borderTop: `1px solid ${accent}22`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                      <span style={{ color: accent, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, fontWeight: 700, letterSpacing: "0.06em" }}>Register for this event</span>
+                      <span style={{ color: accent, fontFamily: "'JetBrains Mono', monospace", fontSize: 15 }}>→</span>
+                    </div>
+                  )}
                 </div>
                 </Tilt>
               )}
