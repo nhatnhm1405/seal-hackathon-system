@@ -7,12 +7,15 @@ import com.seal.hackathon.dto.request.SelectTrackRequest;
 import com.seal.hackathon.dto.request.UpdateTeamRequest;
 import com.seal.hackathon.dto.response.ActiveEventResponse;
 import com.seal.hackathon.dto.response.ApiResponse;
+import com.seal.hackathon.dto.response.GroupingCommitResponse;
+import com.seal.hackathon.dto.response.GroupingPreviewResponse;
 import com.seal.hackathon.dto.response.MyTeamResponse;
 import com.seal.hackathon.dto.response.TeamDetailResponse;
 import com.seal.hackathon.dto.response.TeamHistoryResponse;
 import com.seal.hackathon.dto.response.TeamResponse;
 import com.seal.hackathon.dto.response.UserResponse;
 import com.seal.hackathon.security.UserPrincipal;
+import com.seal.hackathon.service.LeftoverGroupingService;
 import com.seal.hackathon.service.TeamService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +32,7 @@ import java.util.List;
 public class TeamController {
 
     private final TeamService teamService;
+    private final LeftoverGroupingService leftoverGroupingService;
 
     // ── Participant endpoints ────────────────────────────────────────
 
@@ -161,6 +165,27 @@ public class TeamController {
     public ResponseEntity<ApiResponse<TeamDetailResponse>> getTeamById(@PathVariable Integer teamId) {
         return ResponseEntity.ok(ApiResponse.success("Team retrieved successfully.",
                 teamService.getTeamById(teamId)));
+    }
+
+    // Leftover-team grouping — SETUP phase, run BEFORE the track draw. Preview is a
+    // read-only dry run; commit applies the (deterministic) plan.
+    @GetMapping("/event/{eventId}/leftover-grouping/preview")
+    @PreAuthorize("hasRole('EVENT_COORDINATOR')")
+    public ResponseEntity<ApiResponse<GroupingPreviewResponse>> previewLeftoverGrouping(
+            @PathVariable Integer eventId) {
+        return ResponseEntity.ok(ApiResponse.success("Leftover grouping preview generated.",
+                leftoverGroupingService.preview(eventId)));
+    }
+
+    @PostMapping("/event/{eventId}/leftover-grouping/commit")
+    @PreAuthorize("hasRole('EVENT_COORDINATOR')")
+    public ResponseEntity<ApiResponse<GroupingCommitResponse>> commitLeftoverGrouping(
+            @PathVariable Integer eventId,
+            @RequestParam(required = false) String reason,
+            Authentication authentication) {
+        UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
+        return ResponseEntity.ok(ApiResponse.success("Leftover grouping applied.",
+                leftoverGroupingService.commit(eventId, principal.getUserId(), reason)));
     }
 
     @PostMapping("/event/{eventId}/draw-tracks")
