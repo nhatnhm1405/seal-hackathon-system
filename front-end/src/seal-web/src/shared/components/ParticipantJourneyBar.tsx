@@ -22,7 +22,7 @@ const PULSE = `@keyframes pjPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(34,197,9
  * Pass the loaded MyTeam on the team console; pass null/undefined on the no-team
  * screen (membership is then read from the auth user's team_id).
  */
-export function ParticipantJourneyBar({ team }: { team?: MyTeam | null }) {
+export function ParticipantJourneyBar({ team, highlight = false }: { team?: MyTeam | null; highlight?: boolean }) {
   const { currentUser } = useAuth();
   if (!currentUser) return null;
 
@@ -30,14 +30,31 @@ export function ParticipantJourneyBar({ team }: { team?: MyTeam | null }) {
   const last = STEPS.length - 1;
   const allDone = active >= STEPS.length;
 
+  // Dark no-team screen: match the "pending approval" gradient card + white text.
+  const boxBg = highlight ? "linear-gradient(135deg, rgba(34,197,94,0.06) 0%, rgba(59,130,246,0.04) 100%)" : C.surface;
+  const boxBorder = highlight ? "rgba(59,130,246,0.2)" : C.border;
+  // Same blue glow halo as the "pending approval" PixelCard.
+  const boxShadow = highlight ? "0 0 0 1px rgba(59,130,246,0.15), 0 0 24px rgba(59,130,246,0.12), inset 0 0 40px rgba(59,130,246,0.03)" : undefined;
+  const headText = highlight ? "#ffffff" : C.green;
+  const strongText = highlight ? "#ffffff" : C.text;
+  const mutedText = highlight ? "rgba(255,255,255,0.85)" : C.textMuted;
+
   return (
-    <div style={{ position: "relative", background: C.surface, border: `1px solid ${C.border}`, padding: "18px 20px 14px", overflow: "hidden" }}>
+    <div style={{ position: "relative", background: boxBg, border: `1px solid ${boxBorder}`, boxShadow, padding: "18px 20px 14px", overflow: "hidden" }}>
       <style>{PULSE}</style>
       <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${C.green}, ${C.blue}, transparent)`, opacity: 0.7 }} />
+      {highlight && (
+        <>
+          <div style={{ position: "absolute", top: 0, left: 0, width: 10, height: 10, borderTop: "2px solid #3b82f6", borderLeft: "2px solid #3b82f6", opacity: 0.7 }} />
+          <div style={{ position: "absolute", top: 0, right: 0, width: 10, height: 10, borderTop: "2px solid #3b82f6", borderRight: "2px solid #3b82f6", opacity: 0.7 }} />
+          <div style={{ position: "absolute", bottom: 0, left: 0, width: 10, height: 10, borderBottom: "2px solid #3b82f6", borderLeft: "2px solid #3b82f6", opacity: 0.4 }} />
+          <div style={{ position: "absolute", bottom: 0, right: 0, width: 10, height: 10, borderBottom: "2px solid #3b82f6", borderRight: "2px solid #3b82f6", opacity: 0.4 }} />
+        </>
+      )}
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, gap: 10, flexWrap: "wrap" }}>
-        <span style={{ color: C.green, fontFamily: mono, fontSize: 11, fontWeight: 800, letterSpacing: "0.16em", textTransform: "uppercase" }}>Your Progress</span>
-        <span style={{ color: C.textMuted, fontFamily: mono, fontSize: 10, letterSpacing: "0.08em" }}>
+        <span style={{ color: headText, fontFamily: mono, fontSize: 11, fontWeight: 800, letterSpacing: "0.16em", textTransform: "uppercase" }}>Your Progress</span>
+        <span style={{ color: mutedText, fontFamily: mono, fontSize: 10, letterSpacing: "0.08em" }}>
           {allDone ? "All steps complete" : `Step ${active + 1} of ${STEPS.length} · ${STEPS[active].hint}`}
         </span>
       </div>
@@ -72,7 +89,7 @@ export function ParticipantJourneyBar({ team }: { team?: MyTeam | null }) {
                 <span style={{ flex: 1, height: 2, background: i < last ? (rightOn ? C.green : C.border) : "transparent" }} />
               </div>
               {/* label */}
-              <span style={{ marginTop: 8, color: done || isActive ? C.text : C.textMuted, fontFamily: mono, fontSize: 10.5, fontWeight: isActive ? 700 : 500, letterSpacing: "0.04em", textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "100%" }}>
+              <span style={{ marginTop: 8, color: done || isActive ? strongText : mutedText, fontFamily: mono, fontSize: 10.5, fontWeight: isActive ? 700 : 500, letterSpacing: "0.04em", textAlign: "center", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "100%" }}>
                 {s.label}
               </span>
             </div>
