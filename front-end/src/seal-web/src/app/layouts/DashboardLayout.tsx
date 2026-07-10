@@ -649,9 +649,14 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
           style={{
             width: sidebarWidth,
             flexShrink: 0,
-            background: sealNoTeam ? sealSidebarBg : C.surface,
-            borderRight: collapsed ? "none" : `1px solid ${sealNoTeam ? "rgba(59,130,246,0.2)" : C.border}`,
-            boxShadow: sealNoTeam ? "inset 0 0 70px rgba(59,130,246,0.05), 0 0 24px rgba(59,130,246,0.08)" : undefined,
+            // A soft central spotlight + a grid that is bright in the middle and dissolves
+            // toward the edges — a same-colour radial vignette (transparent centre → surface
+            // at the rim) erases the grid lines near the borders, so the rail reads as a lit
+            // panel instead of a flat, uniformly-meshed block. All static, under the nav.
+            backgroundColor: C.surface,
+            backgroundImage: `radial-gradient(100% 46% at 50% 20%, rgba(34,197,94,0.10) 0%, transparent 72%), radial-gradient(130% 60% at 50% 46%, transparent 0%, transparent 32%, ${C.surface} 92%), linear-gradient(rgba(59,130,246,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(34,197,94,0.05) 1px, transparent 1px)`,
+            backgroundSize: "100% 100%, 100% 100%, 28px 28px, 28px 28px",
+            borderRight: collapsed ? "none" : `1px solid ${C.border}`,
             display: "flex",
             flexDirection: "column",
             transition: "width 0.25s ease",
@@ -779,7 +784,16 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
         </aside>
 
         {/* Main content */}
-        <main style={{ flex: 1, overflow: "auto", minWidth: 0 }}>
+        <main style={{
+          flex: 1, overflow: "auto", minWidth: 0,
+          // One cohesive lit backdrop shared with the sidebar: a soft central spotlight and a
+          // grid that is brightest in the middle and dissolves toward the edges (a same-colour
+          // radial vignette erases the grid at the rim). Cards paint opaquely on top; the
+          // backdrop stays fixed as the content scrolls.
+          backgroundColor: C.bg,
+          backgroundImage: `radial-gradient(60% 50% at 50% 34%, rgba(34,197,94,0.06) 0%, transparent 72%), radial-gradient(85% 75% at 50% 40%, transparent 0%, transparent 42%, ${C.bg} 90%), linear-gradient(rgba(59,130,246,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(34,197,94,0.05) 1px, transparent 1px)`,
+          backgroundSize: "100% 100%, 100% 100%, 28px 28px, 28px 28px",
+        }}>
           {children}
         </main>
       </div>

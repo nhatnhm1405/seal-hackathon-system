@@ -265,36 +265,6 @@ function DecodeHeading({ title, subtitle, align = "center" }: { title: string; s
   );
 }
 
-// Neon top-of-page bar that tracks reading progress through the landing page.
-function ScrollProgressBar() {
-  const [pct, setPct] = useState(0);
-  useEffect(() => {
-    let raf = 0;
-    const update = () => {
-      cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(() => {
-        const el = document.documentElement;
-        const max = el.scrollHeight - el.clientHeight;
-        setPct(max > 0 ? Math.min(100, (el.scrollTop / max) * 100) : 0);
-      });
-    };
-    update();
-    window.addEventListener("scroll", update, { passive: true });
-    window.addEventListener("resize", update);
-    return () => { window.removeEventListener("scroll", update); window.removeEventListener("resize", update); cancelAnimationFrame(raf); };
-  }, []);
-  return (
-    <div style={{ position: "fixed", top: 0, left: 0, right: 0, height: 3, zIndex: 200, pointerEvents: "none" }}>
-      <div style={{
-        height: "100%", width: `${pct}%`,
-        background: "linear-gradient(90deg, #22c55e, #3b82f6, #06b6d4)",
-        boxShadow: "0 0 10px rgba(34,197,94,0.6), 0 0 18px rgba(59,130,246,0.4)",
-        transition: "width 0.08s linear",
-      }} />
-    </div>
-  );
-}
-
 // Full-page neon wash whose hue and glow intensify with scroll depth
 // (green → blue → cyan → purple) — the page "heats up" the deeper you go.
 function AmbientScrollLayer() {
@@ -362,26 +332,6 @@ function Tilt({ children, max = 8, style }: { children: ReactNode; max?: number;
   return (
     <div ref={ref} onPointerMove={onMove} onPointerLeave={onLeave}
       style={{ transition: "transform 0.2s ease-out", transformStyle: "preserve-3d", ...style }}>
-      {children}
-    </div>
-  );
-}
-
-// Button/element that is gently pulled toward the cursor while hovered.
-function Magnetic({ children, strength = 0.3 }: { children: ReactNode; strength?: number }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const onMove = (e: ReactPointerEvent) => {
-    if (prefersReducedMotion()) return;
-    const el = ref.current; if (!el) return;
-    const r = el.getBoundingClientRect();
-    const mx = e.clientX - (r.left + r.width / 2);
-    const my = e.clientY - (r.top + r.height / 2);
-    el.style.transform = `translate(${mx * strength}px, ${my * strength}px)`;
-  };
-  const onLeave = () => { if (ref.current) ref.current.style.transform = "translate(0, 0)"; };
-  return (
-    <div ref={ref} onPointerMove={onMove} onPointerLeave={onLeave}
-      style={{ display: "inline-flex", transition: "transform 0.18s ease-out", willChange: "transform" }}>
       {children}
     </div>
   );
@@ -677,17 +627,9 @@ function HeroSection({ navigate, data }: { navigate: (p: Page) => void; data: La
             </h1>
           </div>
 
-          <div style={{ height: 28, fontFamily: "'JetBrains Mono', monospace", fontSize: 15 }}>
-            <span style={{ color: "rgba(134,239,172,0.4)" }}>$ </span>
-            <TypingText
-              phrases={["MANAGE_EVENTS.run()", "BUILD_TEAMS.execute()", "JUDGE_PROJECTS.eval()", "WIN_PRIZES.claim()"]}
-              style={{ color: C.green }}
-            />
-          </div>
-
           <div className="flex flex-wrap gap-3">
-            <Magnetic><PixelButton variant="cyber" size="lg" onClick={() => navigate(isAuthenticated ? "dashboard" : "auth")}>{isAuthenticated ? "GO TO DASHBOARD" : "GET STARTED FREE"}</PixelButton></Magnetic>
-            <Magnetic><PixelButton variant="secondary" size="lg" onClick={() => scrollToLandingSection("#events")}>EVENT REGISTRATION</PixelButton></Magnetic>
+            <PixelButton variant="cyber" size="lg" onClick={() => navigate(isAuthenticated ? "dashboard" : "auth")}>{isAuthenticated ? "GO TO DASHBOARD" : "GET STARTED FREE"}</PixelButton>
+            <PixelButton variant="secondary" size="lg" onClick={() => scrollToLandingSection("#events")}>EVENT REGISTRATION</PixelButton>
           </div>
         </div>
 
@@ -738,7 +680,11 @@ function HeroSection({ navigate, data }: { navigate: (p: Page) => void; data: La
 
               <div className="mt-1">
                 <span style={{ color: C.green }}>→ </span>
-                <span className="cursor-blink" style={{ color: C.green }} />
+                <span style={{ color: "rgba(134,239,172,0.4)" }}>$ </span>
+                <TypingText
+                  phrases={["MANAGE_EVENTS.run()", "BUILD_TEAMS.execute()", "JUDGE_PROJECTS.eval()", "WIN_PRIZES.claim()"]}
+                  style={{ color: C.green }}
+                />
               </div>
             </div>
           </TerminalWindow>
@@ -834,6 +780,16 @@ function EventsSection({ data }: { data: LandingData }) {
   const activeRound = currentRounds.find(r => r.status === "ACTIVE");
   const cur = eventStatusBadge(current?.status);
 
+  // The whole ongoing card is a single link while registration is OPEN.
+  // Logged-in users land on their role dashboard (RoleDashboardPage routes by role);
+  // visitors go to login (which links onward to register).
+  const registrationOpen = current?.status === "OPEN";
+  const routerNavigate = useNavigate();
+  const { isAuthenticated } = useAuth();
+  function goRegister() {
+    routerNavigate(isAuthenticated ? "/dashboard" : "/login");
+  }
+
   return (
     <section id="events" style={{ background: "#070b12", padding: "100px 0", borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}` }}>
       <div style={{ maxWidth: 1160, margin: "0 auto", padding: "0 24px" }}>
@@ -854,6 +810,10 @@ function EventsSection({ data }: { data: LandingData }) {
               ) : (
                 <Tilt max={6}>
                 <div
+                  onClick={registrationOpen ? goRegister : undefined}
+                  role={registrationOpen ? "button" : undefined}
+                  tabIndex={registrationOpen ? 0 : undefined}
+                  onKeyDown={registrationOpen ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); goRegister(); } } : undefined}
                   style={{
                     background: C.surface,
                     border: `1px solid ${accent}33`,
@@ -861,6 +821,7 @@ function EventsSection({ data }: { data: LandingData }) {
                     position: "relative",
                     overflow: "hidden",
                     boxShadow: `0 0 20px ${accent}10`,
+                    cursor: registrationOpen ? "pointer" : "default",
                   }}
                 >
                   <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${accent}, transparent)` }} />
@@ -875,6 +836,14 @@ function EventsSection({ data }: { data: LandingData }) {
                   <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 13 }}>
                     {current.season} · {current.year}{activeRound ? ` · Current round: ${activeRound.name}` : ""}
                   </div>
+
+                  {/* Single, subtle CTA line — the whole card is the link. */}
+                  {registrationOpen && (
+                    <div style={{ marginTop: 16, paddingTop: 14, borderTop: `1px solid ${accent}22`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                      <span style={{ color: accent, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, fontWeight: 700, letterSpacing: "0.06em" }}>Register for this event</span>
+                      <span style={{ color: accent, fontFamily: "'JetBrains Mono', monospace", fontSize: 15 }}>→</span>
+                    </div>
+                  )}
                 </div>
                 </Tilt>
               )}
@@ -1632,8 +1601,8 @@ function CTASection({ navigate }: { navigate: (p: Page) => void }) {
           }}
         >
           <div className="flex justify-center gap-3">
-            <Magnetic><PixelButton variant="cyber" size="lg" onClick={() => navigate(isAuthenticated ? "dashboard" : "register")}>{isAuthenticated ? "GO TO DASHBOARD" : "GET STARTED FREE"}</PixelButton></Magnetic>
-            <Magnetic><PixelButton variant="secondary" size="lg" onClick={() => scrollToLandingSection("#events")}>EVENT REGISTRATION</PixelButton></Magnetic>
+            <PixelButton variant="cyber" size="lg" onClick={() => navigate(isAuthenticated ? "dashboard" : "register")}>{isAuthenticated ? "GO TO DASHBOARD" : "GET STARTED FREE"}</PixelButton>
+            <PixelButton variant="secondary" size="lg" onClick={() => scrollToLandingSection("#events")}>EVENT REGISTRATION</PixelButton>
           </div>
           <p style={{ color: "rgba(134,239,172,0.4)", fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginTop: 16, letterSpacing: "0.04em" }}>
             No credit card required · Free forever · Open source
@@ -1648,12 +1617,11 @@ export function LandingPage({ navigate, hideChrome = false }: { navigate: (p: Pa
   useForceDark();
   const data = useLandingData();
   return (
-    <div style={{ background: C.bg, minHeight: "100vh" }}>
+    <div style={{ background: C.bg, minHeight: "100vh", overflowX: "clip" }}>
       {/* When embedded in the dashboard frame, DashboardLayout already provides
           the top navbar + footer, so we skip the landing's own chrome. */}
       {!hideChrome && <AmbientScrollLayer />}
       {!hideChrome && <CursorSpotlight />}
-      {!hideChrome && <ScrollProgressBar />}
       {!hideChrome && <NavBar navigate={navigate} />}
       {/* Hero stays immediate (above the fold); everything below reveals on scroll.
           Features & Gallery manage their own staggered reveals internally, so they
