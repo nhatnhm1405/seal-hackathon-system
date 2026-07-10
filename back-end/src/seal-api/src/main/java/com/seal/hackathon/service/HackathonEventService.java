@@ -346,6 +346,25 @@ public class HackathonEventService {
     }
 
     /**
+     * Recompute per-track SETUP capacities after the roster changed mid-SETUP — e.g.
+     * leftover grouping created/merged teams, so the count frozen on SETUP entry is
+     * stale. Must run before the track draw so slots reflect the final team count.
+     * No-op when the event has no tracks yet. SETUP-only.
+     */
+    @Transactional
+    public void recomputeSetupTrackCapacities(Integer eventId) {
+        HackathonEvent event = hackathonEventRepository.findById(eventId)
+                .orElseThrow(() -> new ResourceNotFoundException("Event not found: " + eventId));
+        if (!"SETUP".equalsIgnoreCase(event.getStatus())) {
+            throw new BadRequestException("Track capacities are only recomputed during SETUP.");
+        }
+        if (trackRepository.findAllByEvent_EventId(eventId).isEmpty()) {
+            return;
+        }
+        computeTrackCapacities(event);
+    }
+
+    /**
      * Gate for leaving SETUP (SETUP -> IN_PROGRESS). The event can only start when
      * every track has at least {@link #MIN_TEAMS_PER_TRACK} approved teams and no
      * approved team is left unassigned. Throws a BadRequest listing every problem so
