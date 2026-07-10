@@ -41,8 +41,14 @@ export function LoginPage() {
   useEffect(() => {
     const err = searchParams.get("error");
     if (!err) return;
-    setError(oauthErrorMessage(err));
     setSearchParams({}, { replace: true });
+    // A pending Google account is not an error — route it to the waiting page too,
+    // matching the email/password flow. Other OAuth failures stay as inline errors.
+    if (err.toUpperCase() === "ACCOUNT_NOT_APPROVED") {
+      navigate('/pending-approval');
+      return;
+    }
+    setError(oauthErrorMessage(err));
   }, [searchParams, navigate, setSearchParams]);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -55,7 +61,9 @@ export function LoginPage() {
         addAuthToast({ type: 'success', title: 'WELCOME BACK', message: `Authenticated as ${email}` });
         navigate(result === 'ok:select-role' ? '/select-role' : '/dashboard');
       } else if (result === 'pending_approval') {
-        setError(PENDING_APPROVAL_MESSAGE);
+        // Not an error — the account exists but isn't approved yet. Send them to the
+        // dedicated waiting page (which explains the review status) instead of a red error.
+        navigate('/pending-approval');
       } else {
         setError("Invalid credentials. Please verify your email and password.");
       }
