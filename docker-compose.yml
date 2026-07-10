@@ -12,10 +12,8 @@ services:
       - "3307:3306"
     volumes:
       - db_data:/var/lib/mysql
-      # Đánh số thứ tự để Docker tự nạp đúng quy trình: Schema -> Migration -> Seed -> Data khác
-      - "./back-end/database scripts/seal_schema.sql:/docker-entrypoint-initdb.d/01_seal_schema.sql:ro"
-      - "./back-end/database scripts/seal_seed.sql:/docker-entrypoint-initdb.d/02_seal_seed.sql:ro"
-      - "./back-end/database scripts/seal_scripts.sql:/docker-entrypoint-initdb.d/03_seal_scripts.sql:ro"
+      # Code-first: Hibernate (ddl-auto=update) sinh schema từ entity, còn DataSeeder /
+      # DemoSeeder nạp dữ liệu — không nạp seal_*.sql qua initdb.d nữa (khớp local dev).
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p12345"]
       interval: 10s
@@ -35,8 +33,10 @@ services:
     environment:
       # Biến môi trường đè lên cấu hình mặc định trong application.properties
       # Trỏ DB_URL về service `mysql-db` thay vì localhost
-      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql-db:3306/seal_hackathon?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true
+      - SPRING_DATASOURCE_URL=jdbc:mysql://mysql-db:3306/seal_hackathon?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true&characterEncoding=UTF-8
       - SERVER_FORWARD_HEADERS_STRATEGY=framework
+      # Dữ liệu demo (tùy chọn): S0|S1|S2|S3 để seed kịch bản; mặc định NONE = không data giả.
+      # - SEED_SCENARIO=S3
     expose:
       - "8080"
     depends_on:
