@@ -2,6 +2,8 @@ package com.seal.hackathon.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 
 import java.time.LocalDateTime;
 
@@ -21,6 +23,7 @@ public class ParticipationAccessRequest {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
+    @OnDelete(action = OnDeleteAction.CASCADE) // delete the user → drop their access requests
     private User user;
 
     @Column(name = "email", nullable = false, length = 255)

@@ -2,6 +2,8 @@ package com.seal.hackathon.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 
 import java.time.LocalDateTime;
 
@@ -34,6 +36,7 @@ public class RoundTimer {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "round_id", nullable = false)
+    @OnDelete(action = OnDeleteAction.CASCADE) // delete the round → drop its timers
     private Round round;
 
     // CONTEST | JUDGING
