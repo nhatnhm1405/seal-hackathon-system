@@ -606,9 +606,10 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
     currentUser.role === "PARTICIPANT" &&
     currentUser.team_id === null &&
     isDashboardPath(location.pathname);
-  const sealSidebarBg = "linear-gradient(135deg, rgba(34,197,94,0.06) 0%, rgba(59,130,246,0.04) 100%)";
-  const sideText = sealNoTeam ? "rgba(255,255,255,0.92)" : C.textMuted;
-  const sideStrong = sealNoTeam ? "#ffffff" : C.text;
+  const sideText = C.textMuted;
+  const sideStrong = C.text;
+  const dashboardSidebarGrid = `radial-gradient(100% 46% at 50% 20%, rgba(34,197,94,0.10) 0%, transparent 72%), radial-gradient(130% 60% at 50% 46%, transparent 0%, transparent 32%, ${C.surface} 92%), linear-gradient(rgba(59,130,246,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(34,197,94,0.05) 1px, transparent 1px)`;
+  const dashboardMainGrid = `radial-gradient(60% 50% at 50% 34%, rgba(34,197,94,0.06) 0%, transparent 72%), radial-gradient(85% 75% at 50% 40%, transparent 0%, transparent 42%, ${C.bg} 90%), linear-gradient(rgba(59,130,246,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(34,197,94,0.05) 1px, transparent 1px)`;
 
   // Logout is confirmed through a themed modal — handleLogout only opens it, the
   // real sign-out happens in performLogout once the user confirms.
@@ -654,7 +655,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
             // at the rim) erases the grid lines near the borders, so the rail reads as a lit
             // panel instead of a flat, uniformly-meshed block. All static, under the nav.
             backgroundColor: C.surface,
-            backgroundImage: `radial-gradient(100% 46% at 50% 20%, rgba(34,197,94,0.10) 0%, transparent 72%), radial-gradient(130% 60% at 50% 46%, transparent 0%, transparent 32%, ${C.surface} 92%), linear-gradient(rgba(59,130,246,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(34,197,94,0.05) 1px, transparent 1px)`,
+            backgroundImage: dashboardSidebarGrid,
             backgroundSize: "100% 100%, 100% 100%, 28px 28px, 28px 28px",
             borderRight: collapsed ? "none" : `1px solid ${C.border}`,
             display: "flex",
@@ -790,9 +791,9 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
           // grid that is brightest in the middle and dissolves toward the edges (a same-colour
           // radial vignette erases the grid at the rim). Cards paint opaquely on top; the
           // backdrop stays fixed as the content scrolls.
-          backgroundColor: C.bg,
-          backgroundImage: `radial-gradient(60% 50% at 50% 34%, rgba(34,197,94,0.06) 0%, transparent 72%), radial-gradient(85% 75% at 50% 40%, transparent 0%, transparent 42%, ${C.bg} 90%), linear-gradient(rgba(59,130,246,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(34,197,94,0.05) 1px, transparent 1px)`,
-          backgroundSize: "100% 100%, 100% 100%, 28px 28px, 28px 28px",
+          backgroundColor: sealNoTeam ? undefined : C.bg,
+          backgroundImage: sealNoTeam ? undefined : dashboardMainGrid,
+          backgroundSize: sealNoTeam ? undefined : "100% 100%, 100% 100%, 28px 28px, 28px 28px",
         }}>
           {children}
         </main>
