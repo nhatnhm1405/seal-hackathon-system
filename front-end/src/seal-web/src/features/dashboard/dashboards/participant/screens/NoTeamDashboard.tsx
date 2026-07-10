@@ -89,6 +89,10 @@ export function NoTeamDashboard({
     // Dark-mode only: content/label text → white, muted text → soft white.
     const txt = dark ? "#ffffff" : "var(--c-text)";
     const mut = dark ? "rgba(255,255,255,0.85)" : "var(--c-text-muted)";
+    const statPanelBg = dark ? "rgba(8, 18, 24, 0.36)" : C.surface2;
+    const statPanelBorder = dark ? "rgba(34,197,94,0.24)" : C.border;
+    const detailPanelBg = dark ? "rgba(8, 18, 24, 0.28)" : C.surface2;
+    const detailToggleBg = dark ? "rgba(59,130,246,0.08)" : C.surface2;
     // Prominent section title → soft green→blue ombre (same as the navbar brand).
     const titleStyle: CSSProperties = dark
         ? { background: "linear-gradient(135deg, #22c55e 0%, #3b82f6 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }
@@ -226,15 +230,15 @@ export function NoTeamDashboard({
                                 </div>
 
                                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }}>
-                                    <div style={{ background: C.surface2, border: `1px solid ${C.border}`, padding: "12px 14px" }}>
+                                    <div style={{ background: statPanelBg, border: `1px solid ${statPanelBorder}`, backdropFilter: dark ? "blur(2px)" : undefined, padding: "12px 14px" }}>
                                         <div style={{ color: mut, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase" }}>Tracks</div>
                                         <div style={{ color: C.cyan, fontFamily: "'JetBrains Mono', monospace", fontSize: 22, fontWeight: 900, marginTop: 4 }}>{evTracks.length}</div>
                                     </div>
-                                    <div style={{ background: C.surface2, border: `1px solid ${C.border}`, padding: "12px 14px" }}>
+                                    <div style={{ background: statPanelBg, border: `1px solid ${statPanelBorder}`, backdropFilter: dark ? "blur(2px)" : undefined, padding: "12px 14px" }}>
                                         <div style={{ color: mut, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase" }}>Rounds</div>
                                         <div style={{ color: C.blueBright, fontFamily: "'JetBrains Mono', monospace", fontSize: 22, fontWeight: 900, marginTop: 4 }}>{evRounds.length}</div>
                                     </div>
-                                    <div style={{ background: C.surface2, border: `1px solid ${C.border}`, padding: "12px 14px" }}>
+                                    <div style={{ background: statPanelBg, border: `1px solid ${statPanelBorder}`, backdropFilter: dark ? "blur(2px)" : undefined, padding: "12px 14px" }}>
                                         <div style={{ color: mut, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase" }}>Current Round</div>
                                         <div style={{ color: activeRound ? C.green : mut, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 900, marginTop: 7 }}>
                                             {activeRound
@@ -254,7 +258,7 @@ export function NoTeamDashboard({
                                         aria-expanded={detailOpen}
                                         onClick={() => toggleExpanded(detailKey)}
                                         onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); toggleExpanded(detailKey); } }}
-                                        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, background: detailOpen ? "rgba(59,130,246,0.1)" : C.surface2, border: `1px solid ${detailOpen ? "rgba(59,130,246,0.5)" : C.border}`, padding: "10px 16px", cursor: "pointer", transition: "all 0.2s ease" }}
+                                        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, background: detailOpen ? "rgba(59,130,246,0.1)" : detailToggleBg, border: `1px solid ${detailOpen ? "rgba(59,130,246,0.5)" : statPanelBorder}`, backdropFilter: dark ? "blur(2px)" : undefined, padding: "10px 16px", cursor: "pointer", transition: "all 0.2s ease" }}
                                     >
                                         <span style={{ color: detailOpen ? C.blueBright : mut, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" }}>Tracks &amp; Rounds details</span>
                                         <span style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
@@ -267,7 +271,7 @@ export function NoTeamDashboard({
 
                                 <div style={{ maxHeight: detailOpen ? 1200 : 0, opacity: detailOpen ? 1 : 0, transform: detailOpen ? "translateY(0)" : "translateY(-8px)", overflow: "hidden", transition: "max-height 0.32s ease, opacity 0.22s ease, transform 0.25s ease" }}>
                                     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                                        <div style={{ background: C.surface2, border: "1px solid rgba(6,182,212,0.35)", padding: "14px 16px" }}>
+                                        <div style={{ background: detailPanelBg, border: "1px solid rgba(6,182,212,0.35)", backdropFilter: dark ? "blur(2px)" : undefined, padding: "14px 16px" }}>
                                             <div style={{ color: C.cyan, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 10 }}>
                                                 Tracks
                                             </div>
@@ -286,7 +290,7 @@ export function NoTeamDashboard({
                                                 ))}
                                             </div>
                                         </div>
-                                        <div style={{ background: C.surface2, border: "1px solid rgba(59,130,246,0.35)", padding: "14px 16px" }}>
+                                        <div style={{ background: detailPanelBg, border: "1px solid rgba(59,130,246,0.35)", backdropFilter: dark ? "blur(2px)" : undefined, padding: "14px 16px" }}>
                                             <div style={{ color: C.blueBright, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 10 }}>
                                                 Rounds
                                             </div>
