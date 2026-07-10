@@ -14,6 +14,7 @@ import {
 import { maxTeamsPerTrack, countAssigned, countUnassigned, teamsForTrack, isTrackValid, wouldExceedMax, canCompleteSetup, MIN_TEAMS_PER_TRACK } from "@/features/events/trackStats";
 import { TrackProblemsTab } from "@/features/events/TrackProblemPanel";
 import { ContestTimerPanel } from "@/features/events/ContestTimerPanel";
+import { LeftoverGroupingModal } from "@/features/events/LeftoverGroupingModal";
 import { DndProvider, useDrag, useDrop } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 
@@ -291,6 +292,7 @@ export function CoordEventsPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [drawing, setDrawing] = useState(false);
+  const [showGrouping, setShowGrouping] = useState(false);
 
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
   const [detailTab, setDetailTab] = useState<string>("tracks");
@@ -1251,6 +1253,21 @@ export function CoordEventsPage() {
           <div style={{ marginTop: 16 }}>
             {detailTab === "tracks" && (
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                {/* Leftover grouping — SETUP-only, run BEFORE the track draw so the
+                    roster is final when per-track slots are computed. */}
+                {selectedEvent.status === 'SETUP' && (
+                  <div style={{ padding: 14, background: C.surface, border: `1px solid ${C.border}` }}>
+                    <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 700, marginBottom: 10, letterSpacing: "0.05em" }}>
+                      Group leftover participants
+                    </div>
+                    <PixelButton variant="secondary" onClick={() => setShowGrouping(true)}>
+                      GROUP LEFTOVERS
+                    </PixelButton>
+                    <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginTop: 8, lineHeight: 1.6 }}>
+                      Fits solo entrants &amp; under-sized teams into valid teams (3–5). Run this BEFORE drawing tracks.
+                    </div>
+                  </div>
+                )}
                 {/* Random track draw — SETUP-only coordinator tool, grouped here since it
                     operates on this event's tracks (kept out of the status header). */}
                 {selectedEvent.status === 'SETUP' && tracks.length > 0 && (
@@ -1798,6 +1815,15 @@ export function CoordEventsPage() {
             </div>
           )}
         </ConfirmDialog>
+      )}
+
+      {showGrouping && selectedEvent && (
+        <LeftoverGroupingModal
+          eventId={selectedEvent.eventId}
+          eventName={selectedEvent.name}
+          onClose={() => setShowGrouping(false)}
+          onCommitted={(summary) => { setShowGrouping(false); setSuccessMsg(summary); refreshTeams(); }}
+        />
       )}
     </div>
     </DndProvider>

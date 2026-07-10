@@ -885,6 +885,45 @@ export interface TeamHistoryEntry {
   prize: { name: string; rankPosition: number; awardedAt?: string } | null;
 }
 
+// ── Leftover-team grouping (coordinator, SETUP phase, before the track draw) ──
+// Preview is a read-only dry run; commit applies the (deterministic) plan.
+export interface GroupingMember {
+  userId: number;
+  fullName: string;
+}
+
+export interface GroupingProposedTeam {
+  origin: 'NEW' | 'EXISTING';
+  existingTeamId?: number | null;
+  teamName: string;
+  size: number;
+  members: GroupingMember[];
+  addedMembers: GroupingMember[];
+}
+
+export interface GroupingWarning {
+  type: 'UNPLACEABLE_LEFTOVER' | 'DEFICIENT_TEAM_UNRESCUED';
+  peopleCount: number;
+  message: string;
+  people: GroupingMember[];
+}
+
+export interface GroupingPreview {
+  leftoverPeople: number;
+  soloCount: number;   // teams of one (movable free agents)
+  pairCount: number;   // teams of two (kept together)
+  proposedTeams: GroupingProposedTeam[];
+  warnings: GroupingWarning[];
+}
+
+export interface GroupingCommitResult {
+  teamsCreated: number;
+  teamsGrown: number;
+  peoplePlaced: number;
+  unresolvedWarnings: number;
+  warnings: GroupingWarning[];
+}
+
 export const teamsApi = {
   getActiveEvents: () =>
     apiFetch<ApiResponse<ActiveEventWithTracks[]>>('/api/teams/active-events'),
@@ -964,6 +1003,17 @@ export const teamsApi = {
       method: 'PUT',
       body: JSON.stringify({ trackId }),
     }),
+
+  // SETUP only: dry-run of grouping leftover (under-sized) teams into valid ones.
+  leftoverGroupingPreview: (eventId: number) =>
+    apiFetch<ApiResponse<GroupingPreview>>(`/api/teams/event/${eventId}/leftover-grouping/preview`),
+
+  // SETUP only: apply the grouping plan (creates/grows teams, dissolves solo teams).
+  leftoverGroupingCommit: (eventId: number, reason?: string) =>
+    apiFetch<ApiResponse<GroupingCommitResult>>(
+      `/api/teams/event/${eventId}/leftover-grouping/commit${reason ? `?reason=${encodeURIComponent(reason)}` : ''}`,
+      { method: 'POST' },
+    ),
 };
 
 // ── Team Invites ──────────────────────────────────────────────────
