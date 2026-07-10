@@ -31,7 +31,7 @@ const ROLE_GUIDE_LABEL: Record<string, string> = {
 const seenKey = (role: string) => `sealRulesSeen:${role}`;
 
 export function RulesProvider({ children }: { children: ReactNode }) {
-  const { currentUser, availableRoles, activeRole } = useAuth();
+  const { currentUser, availableRoles, activeRole, isLoading } = useAuth();
   const { maybeAutoStartTour } = useTour();
   const [open, setOpen] = useState(false);
   // True only while the currently-open popup was auto-shown on login (not the
@@ -64,6 +64,10 @@ export function RulesProvider({ children }: { children: ReactNode }) {
   // Auto-open once per session for any role that has a guide; reset the flags on
   // logout so the next login shows them again.
   useEffect(() => {
+    // While the session is still being restored from a stored token, currentUser
+    // is transiently null on every page reload. Resetting the "seen" flags here
+    // would wipe them each reload and re-pop the guide — so wait for auth to settle.
+    if (isLoading) return;
     if (!currentUser) {
       Object.keys(ROLE_GUIDE_LABEL).forEach(r => sessionStorage.removeItem(seenKey(r)));
       return;
@@ -74,7 +78,7 @@ export function RulesProvider({ children }: { children: ReactNode }) {
       autoShownRef.current = true;
       setOpen(true);
     }
-  }, [currentUser, role, hasGuide, awaitingRoleChoice]);
+  }, [currentUser, role, hasGuide, awaitingRoleChoice, isLoading]);
 
   return (
     <RulesContext.Provider value={{ openRules, closeRules, rulesLinkLabel: ROLE_GUIDE_LABEL[role] ?? "Competition Rules" }}>

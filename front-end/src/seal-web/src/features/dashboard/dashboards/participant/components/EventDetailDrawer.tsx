@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { C, GradientText, PixelBadge, PixelButton } from "@/shared/components/PixelComponents";
 import { tracksApi, roundsApi, HackathonEvent, Track, Round } from "@/shared/apiClient";
+import { useTheme } from "@/app/providers/ThemeProvider";
 import { fmtDate, fmtShort } from "../utils/formatters";
 
 function roundBadgeColor(status?: string) {
@@ -33,6 +34,16 @@ export function EventDetailDrawer({
 
     const seasonLabel = `${(event.season ?? "").toUpperCase()} ${event.year ?? ""}`.trim();
 
+    // Match the no-team screen: dark → basic text white, important text highlighted.
+    const { theme } = useTheme();
+    const dark = theme === "dark";
+    const txt = dark ? "#ffffff" : C.text;
+    const mut = dark ? "rgba(255,255,255,0.85)" : C.textMuted;
+    // Real event status drives the badge colour (not always green).
+    const st = (event.status ?? "").toUpperCase();
+    const statusBadgeColor: "green" | "blue" | "red" | "yellow" =
+        st === "OPEN" ? "green" : st === "COMPLETED" ? "blue" : ["CLOSED", "CANCELLED"].includes(st) ? "red" : "yellow";
+
     return (
         <>
             <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 200, backdropFilter: "blur(2px)" }} />
@@ -60,13 +71,21 @@ export function EventDetailDrawer({
                     <div>
                         <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 10, flexWrap: "wrap" }}>
                             <span style={{ background: "rgba(34,197,94,0.1)", border: `1px solid rgba(34,197,94,0.3)`, color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: "0.1em", padding: "2px 10px" }}>{seasonLabel}</span>
-                            <PixelBadge color="green">{event.status}</PixelBadge>
+                            <PixelBadge color={statusBadgeColor}>{event.status}</PixelBadge>
                         </div>
                         <h2 style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 900, fontSize: 28, lineHeight: 1.1, marginBottom: 8 }}>
                             <GradientText>{event.name}</GradientText>
                         </h2>
-                        <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>
+                        <div style={{ color: mut, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>
                             {fmtShort(event.startDate)} — {fmtShort(event.endDate)}
+                        </div>
+                    </div>
+
+                    {/* Consolidated note — folds the scattered "track assignment" + "team leader" hints into one short callout. */}
+                    <div style={{ display: "flex", gap: 10, alignItems: "flex-start", background: "rgba(59,130,246,0.06)", border: "1px solid rgba(59,130,246,0.25)", borderLeft: `3px solid ${C.blue}`, padding: "12px 14px" }}>
+                        <span style={{ color: C.blueBright, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 900, lineHeight: 1.4, flexShrink: 0 }}>i</span>
+                        <div style={{ color: mut, fontFamily: "'JetBrains Mono', monospace", fontSize: 11.5, lineHeight: 1.65 }}>
+                            <strong style={{ color: txt }}>Register as a team</strong> — you become its leader. You don't pick a track now; one is <strong style={{ color: txt }}>assigned during Setup</strong> (leader self-selects or coordinator draws).
                         </div>
                     </div>
 
@@ -74,18 +93,15 @@ export function EventDetailDrawer({
                         registering; it is assigned during the Setup phase. */}
                     <div>
                         <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 700, marginBottom: 8 }}>Available Tracks</div>
-                        <div style={{ background: "rgba(6,182,212,0.06)", border: "1px solid rgba(6,182,212,0.25)", color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, padding: "8px 12px", lineHeight: 1.5, marginBottom: 14 }}>
-                            You don't choose a track when registering. Tracks are assigned during the Setup phase — the team leader self-selects, or the coordinator draws one.
-                        </div>
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                             {tracks.map(tr => (
                                 <div key={tr.trackId}
                                     style={{ background: C.surface, border: `1px solid ${C.border}`, padding: "16px", display: "flex", flexDirection: "column", gap: 8, position: "relative", overflow: "hidden" }}
                                 >
                                     <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${C.green}, transparent)`, opacity: 0.5 }} />
-                                    <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 700 }}>{tr.name}</div>
+                                    <div style={{ color: txt, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 700 }}>{tr.name}</div>
                                     {tr.description && (
-                                        <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, lineHeight: 1.5 }}>{tr.description}</div>
+                                        <div style={{ color: mut, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, lineHeight: 1.5 }}>{tr.description}</div>
                                     )}
                                 </div>
                             ))}
@@ -113,10 +129,10 @@ export function EventDetailDrawer({
                                         </div>
                                         <div style={{ flex: 1, padding: "10px 14px 16px", display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
                                             <div>
-                                                <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 700, marginBottom: 4 }}>
+                                                <div style={{ color: isActive ? C.green : txt, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 700, marginBottom: 4 }}>
                                                     Round {r.orderNumber} — {r.name}{r.isFinal ? " · Final" : ""}
                                                 </div>
-                                                <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 10 }}>Deadline: {fmtDate(r.submissionDeadline)}</div>
+                                                <div style={{ color: mut, fontFamily: "'JetBrains Mono', monospace", fontSize: 10 }}>Deadline: {fmtDate(r.submissionDeadline)}</div>
                                             </div>
                                             {r.status && (
                                                 <div style={{ background: badge.bg, color: badge.color, fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.12em", padding: "3px 10px", flexShrink: 0, boxShadow: badge.shadow }}>{r.status}</div>
@@ -133,11 +149,11 @@ export function EventDetailDrawer({
                         <PixelButton variant="cyber" fullWidth disabled={readOnly} onClick={() => onCreateTeam(event.eventId)}>
                             {readOnly ? "READ-ONLY" : "REGISTER & CREATE TEAM"}
                         </PixelButton>
-                        <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, textAlign: "center", lineHeight: 1.6 }}>
-                            {readOnly
-                                ? "Request participation access before creating a team for this event."
-                                : "You'll become the team leader. Your track is assigned later during Setup."}
-                        </div>
+                        {readOnly && (
+                            <div style={{ color: mut, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, textAlign: "center", lineHeight: 1.6 }}>
+                                Request participation access before creating a team for this event.
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>

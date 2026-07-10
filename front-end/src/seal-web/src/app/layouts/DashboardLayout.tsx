@@ -585,6 +585,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { currentUser, logout, availableRoles, setActiveRole } = useAuth();
+  const { theme } = useTheme();
   const { addAuthToast } = useNotifications();
   const [collapsed, setCollapsed] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -597,6 +598,17 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
   const nav = buildNav(currentUser.role, currentUser.is_leader, currentUser.team_id, pendingCount);
   const sidebarWidth = collapsed ? 0 : 248;
   const pageTitle = getPageTitle(location.pathname);
+
+  // Scope: dark-mode restyle only while a team-less participant is on the no-team
+  // dashboard screen. Sidebar → "pending approval" gradient card + white text.
+  const sealNoTeam =
+    theme === "dark" &&
+    currentUser.role === "PARTICIPANT" &&
+    currentUser.team_id === null &&
+    isDashboardPath(location.pathname);
+  const sealSidebarBg = "linear-gradient(135deg, rgba(34,197,94,0.06) 0%, rgba(59,130,246,0.04) 100%)";
+  const sideText = sealNoTeam ? "rgba(255,255,255,0.92)" : C.textMuted;
+  const sideStrong = sealNoTeam ? "#ffffff" : C.text;
 
   // Logout is confirmed through a themed modal — handleLogout only opens it, the
   // real sign-out happens in performLogout once the user confirms.
@@ -668,7 +680,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
                 background: "transparent",
                 border: "1px solid transparent",
                 borderLeft: "2px solid transparent",
-                color: C.textMuted,
+                color: sideText,
                 cursor: "pointer",
                 fontFamily: "'JetBrains Mono', monospace",
                 fontSize: 13,
@@ -679,7 +691,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
                 width: "100%",
               }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = C.green; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = C.textMuted; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = sideText; }}
             >
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, pointerEvents: "none" }}>
                 <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
@@ -705,7 +717,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
                     background: active ? "rgba(34,197,94,0.1)" : "transparent",
                     border: active ? `1px solid rgba(34,197,94,0.35)` : `1px solid transparent`,
                     borderLeft: active ? `2px solid ${C.green}` : `2px solid transparent`,
-                    color: active ? C.green : C.textMuted,
+                    color: active ? C.green : sideText,
                     cursor: "pointer",
                     fontFamily: "'JetBrains Mono', monospace",
                     fontSize: 13,
@@ -717,7 +729,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
                     width: "100%",
                   }}
                   onMouseEnter={(e) => { if (!active) (e.currentTarget as HTMLElement).style.color = C.green; }}
-                  onMouseLeave={(e) => { if (!active) (e.currentTarget as HTMLElement).style.color = C.textMuted; }}
+                  onMouseLeave={(e) => { if (!active) (e.currentTarget as HTMLElement).style.color = sideText; }}
                 >
                   <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
                     {!collapsed && (
@@ -735,10 +747,10 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
           <div style={{ borderTop: `1px solid ${C.border}`, padding: collapsed ? "10px 6px" : "14px 14px", display: "flex", flexDirection: "column", gap: 8 }}>
             {!collapsed && (
               <div>
-                <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, marginBottom: 2 }}>
+                <div style={{ color: sideText, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, marginBottom: 2 }}>
                   Logged in as
                 </div>
-                <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <div style={{ color: sideStrong, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {currentUser.full_name}
                 </div>
               </div>
