@@ -90,7 +90,7 @@ export function GradientText({ children, from = C.green, to = C.blue, style, cla
 interface PixelButtonProps {
   children: React.ReactNode;
   onClick?: () => void;
-  variant?: "primary" | "secondary" | "ghost" | "danger" | "cyber";
+  variant?: "primary" | "secondary" | "ghost" | "danger" | "cyber" | "warning";
   size?: "sm" | "md" | "lg";
   className?: string;
   disabled?: boolean;
@@ -154,6 +154,12 @@ export function PixelButton({
       border: `1px solid rgba(239,68,68,0.35)`,
       boxShadow: "none",
     },
+    warning: {
+      background: "rgba(234,179,8,0.08)",
+      color: "#facc15",
+      border: `1px solid rgba(234,179,8,0.4)`,
+      boxShadow: "inset 0 0 20px rgba(234,179,8,0.04)",
+    },
   };
 
   const hoverStyles: Record<string, React.CSSProperties> = {
@@ -162,6 +168,7 @@ export function PixelButton({
     secondary: { background: "rgba(34,197,94,0.12)", borderColor: C.green, boxShadow: `0 0 16px ${C.greenGlow}` },
     ghost:   { borderColor: C.green, color: C.green, background: "rgba(34,197,94,0.04)" },
     danger:  { background: "rgba(239,68,68,0.12)", boxShadow: "0 0 12px rgba(239,68,68,0.3)" },
+    warning: { background: "rgba(234,179,8,0.16)", borderColor: C.yellow, boxShadow: "0 0 14px rgba(234,179,8,0.35)" },
   };
 
   return (

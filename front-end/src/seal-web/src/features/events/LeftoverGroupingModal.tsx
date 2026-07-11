@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { C, PixelButton, PixelBadge } from "@/shared/components/PixelComponents";
 import {
   teamsApi, apiErrorMessage,
-  type GroupingPreview, type GroupingProposedTeam, type GroupingWarning,
+  type GroupingPreview, type GroupingProposedTeam, type GroupingWarning, type GroupingMember,
 } from "@/shared/apiClient";
 
 const MONO = "'JetBrains Mono', monospace";
@@ -21,7 +21,7 @@ interface Props {
  * destructive step (creates/grows teams, dissolves solo teams), so it sits behind
  * a second confirm inside this modal.
  */
-export function LeftoverGroupingModal({ eventId, eventName, onClose, onCommitted }: Props) {
+export function LeftoverGroupingModal({ eventId, onClose, onCommitted }: Props) {
   const [preview, setPreview] = useState<GroupingPreview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -55,7 +55,7 @@ export function LeftoverGroupingModal({ eventId, eventName, onClose, onCommitted
       const res = await teamsApi.leftoverGroupingCommit(eventId);
       const r = res.data;
       onCommitted(
-        `Grouping applied — ${r.teamsCreated} team(s) created, ${r.teamsGrown} grown, `
+        `${r.teamsCreated} team(s) created, ${r.teamsGrown} grown, `
         + `${r.peoplePlaced} participant(s) placed`
         + (r.unresolvedWarnings > 0 ? `, ${r.unresolvedWarnings} left for manual handling.` : "."),
       );
@@ -87,13 +87,14 @@ export function LeftoverGroupingModal({ eventId, eventName, onClose, onCommitted
       >
         <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${C.green}, transparent)` }} />
 
-        <h2 style={{ fontFamily: MONO, fontSize: 18, fontWeight: 800, color: C.text, marginBottom: 6 }}>
-          Group leftover participants
+        <h2 style={{
+          fontFamily: MONO, fontSize: 18, fontWeight: 800, marginBottom: 18, width: "fit-content",
+          background: "linear-gradient(135deg, #22c55e 0%, #3b82f6 100%)",
+          WebkitBackgroundClip: "text", backgroundClip: "text",
+          WebkitTextFillColor: "transparent", color: "transparent",
+        }}>
+          Group Leftover Configuration
         </h2>
-        <div style={{ color: C.textMuted, fontFamily: MONO, fontSize: 11, lineHeight: 1.7, marginBottom: 18 }}>
-          Fits solo entrants and under-sized teams in <b style={{ color: C.text }}>{eventName}</b> into
-          valid teams (3–5) before the track draw. Review below — nothing changes until you apply.
-        </div>
 
         {loading && (
           <div style={{ color: C.textMuted, fontFamily: MONO, fontSize: 12, padding: "24px 0" }}>Loading preview…</div>
@@ -183,34 +184,50 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
+// Renders people as a compact table. `addedIds` marks newly-added members with a tag.
+function MemberTable({ members, addedIds }: { members: GroupingMember[]; addedIds?: Set<number> }) {
+  if (members.length === 0) return null;
+  return (
+    <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: MONO, fontSize: 11 }}>
+      <tbody>
+        {members.map((m, i) => (
+          <tr key={m.userId} style={{ borderTop: i === 0 ? "none" : `1px solid ${C.border}` }}>
+            <td style={{ color: C.textMuted, padding: "5px 8px 5px 0", width: 22, textAlign: "right" }}>{i + 1}</td>
+            <td style={{ color: C.text, padding: "5px 0" }}>{m.fullName}</td>
+            <td style={{ padding: "5px 0", textAlign: "right", width: 44 }}>
+              {addedIds?.has(m.userId) && (
+                <span style={{ color: "#60a5fa", fontSize: 9, fontWeight: 700, letterSpacing: "0.05em" }}>NEW</span>
+              )}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
 function ProposedTeamRow({ team }: { team: GroupingProposedTeam }) {
-  const added = team.addedMembers.map(m => m.fullName).join(", ");
+  const roster = team.members.length ? team.members : team.addedMembers;
+  const addedIds = new Set(team.addedMembers.map(m => m.userId));
   return (
     <div style={{ padding: "10px 12px", background: C.surface2, border: `1px solid ${C.border}` }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
         <PixelBadge color={team.origin === "NEW" ? "blue" : "green"}>
           {team.origin === "NEW" ? "NEW" : "GROWN"}
         </PixelBadge>
         <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: C.text }}>{team.teamName}</span>
         <span style={{ fontFamily: MONO, fontSize: 11, color: C.textMuted }}>· {team.size} members</span>
       </div>
-      {added && (
-        <div style={{ fontFamily: MONO, fontSize: 11, color: C.textMuted, lineHeight: 1.6 }}>
-          + {added}
-        </div>
-      )}
+      <MemberTable members={roster} addedIds={team.origin === "EXISTING" ? addedIds : undefined} />
     </div>
   );
 }
 
 function WarningRow({ warning }: { warning: GroupingWarning }) {
-  const who = warning.people.map(p => p.fullName).join(", ");
   return (
     <div style={{ padding: "10px 12px", background: "rgba(234,179,8,0.06)", border: "1px solid rgba(234,179,8,0.35)" }}>
-      <div style={{ fontFamily: MONO, fontSize: 11, color: C.yellow, lineHeight: 1.7 }}>⚠ {warning.message}</div>
-      {who && (
-        <div style={{ fontFamily: MONO, fontSize: 11, color: C.textMuted, marginTop: 4, lineHeight: 1.6 }}>{who}</div>
-      )}
+      <div style={{ fontFamily: MONO, fontSize: 11, color: C.yellow, lineHeight: 1.7, marginBottom: warning.people.length ? 6 : 0 }}>⚠ {warning.message}</div>
+      <MemberTable members={warning.people} />
     </div>
   );
 }

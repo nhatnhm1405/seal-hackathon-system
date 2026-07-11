@@ -329,6 +329,8 @@ export function CoordEventsPage() {
   const [teams, setTeams] = useState<Team[]>([]);
   const [teamsLoading, setTeamsLoading] = useState(false);
   const [teamsError, setTeamsError] = useState<string | null>(null);
+  // People not yet in a valid team (solo/under-sized/teamless). null = unknown/not SETUP.
+  const [leftoverCount, setLeftoverCount] = useState<number | null>(null);
 
   // Criteria are per-round in the API — load them for the selected round.
   const [selectedRoundId, setSelectedRoundId] = useState<number | null>(null);
@@ -464,6 +466,21 @@ export function CoordEventsPage() {
       .finally(() => { if (!cancelled) setTeamsLoading(false); });
     return () => { cancelled = true; };
   }, [selectedEventId]);
+
+  // Leftover-participant count for the SETUP grouping prompt. Drives whether the
+  // "not grouped yet" warning + button show. Refetched when the roster changes
+  // (teams) so it clears once everyone is grouped. Non-fatal on error → stays hidden.
+  useEffect(() => {
+    if (selectedEventId == null || selectedEvent?.status !== 'SETUP') {
+      setLeftoverCount(null);
+      return;
+    }
+    let cancelled = false;
+    teamsApi.leftoverGroupingPreview(selectedEventId)
+      .then(res => { if (!cancelled) setLeftoverCount(res.data?.leftoverPeople ?? 0); })
+      .catch(() => { if (!cancelled) setLeftoverCount(null); });
+    return () => { cancelled = true; };
+  }, [selectedEventId, selectedEvent?.status, teams]);
 
   // ── Load latest reopen request for a COMPLETED event ──────────────
   useEffect(() => {
@@ -1283,47 +1300,44 @@ export function CoordEventsPage() {
           <div style={{ marginTop: 16 }}>
             {detailTab === "tracks" && (
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                {/* Leftover grouping — SETUP-only, run BEFORE the track draw so the
-                    roster is final when per-track slots are computed. */}
-                {selectedEvent.status === 'SETUP' && (
-                  <div style={{ padding: 14, background: C.surface, border: `1px solid ${C.border}` }}>
-                    <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 700, marginBottom: 10, letterSpacing: "0.05em" }}>
-                      Group leftover participants
-                    </div>
-                    <PixelButton variant="secondary" onClick={() => setShowGrouping(true)}>
-                      GROUP LEFTOVERS
-                    </PixelButton>
-                    <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginTop: 8, lineHeight: 1.6 }}>
-                      Fits solo entrants &amp; under-sized teams into valid teams (3–5). Run this BEFORE drawing tracks.
-                    </div>
-                  </div>
-                )}
-                {/* Random track draw — SETUP-only coordinator tool, grouped here since it
-                    operates on this event's tracks (kept out of the status header). */}
-                {selectedEvent.status === 'SETUP' && tracks.length > 0 && (
-                  <div style={{ padding: 14, background: C.surface, border: `1px solid ${C.border}` }}>
-                    <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 700, marginBottom: 10, letterSpacing: "0.05em" }}>
-                      {selectedEvent.trackSelectionMode === 'RANDOM' ? 'Random track draw' : 'Fill unassigned tracks'}
-                    </div>
-                    <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                      <PixelButton variant="cyber" onClick={() => drawTracks(false)}>
-                        {drawing ? "DRAWING..." : "DRAW TRACKS"}
-                      </PixelButton>
-                      {/* REDRAW ALL wipes every assignment — only offered for RANDOM events
-                          (it would destroy team self-selections) and gated behind a
-                          fairness-warning confirm so it isn't used to re-roll until "happy". */}
-                      {selectedEvent.trackSelectionMode === 'RANDOM' && (
-                        <PixelButton variant="secondary" onClick={requestRedrawAll}>
-                          REDRAW ALL
+                {/* SETUP coordinator toolbar — leftover grouping (only while people are
+                    still ungrouped; run BEFORE the draw) + random track draw, one panel. */}
+                {selectedEvent.status === 'SETUP' && ((leftoverCount ?? 0) > 0 || tracks.length > 0) && (
+                  <div style={{ padding: 14, background: C.surface, border: `1px solid ${C.border}`, display: "flex", gap: 24, alignItems: "flex-end", flexWrap: "wrap" }}>
+                    {(leftoverCount ?? 0) > 0 && (
+                      <div>
+                        <div style={{ color: "#facc15", fontFamily: "'JetBrains Mono', monospace", fontSize: 14, fontWeight: 700, marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 18, height: 18, border: "1.5px solid #facc15", fontSize: 12, fontWeight: 800, lineHeight: 1, flexShrink: 0 }}>!</span>
+                          {leftoverCount} leftover participant{leftoverCount === 1 ? '' : 's'} not grouped yet!
+                        </div>
+                        <PixelButton variant="warning" onClick={() => setShowGrouping(true)}>
+                          GROUP LEFTOVERS
                         </PixelButton>
-                      )}
-                    </div>
-                    <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginTop: 8, lineHeight: 1.6 }}>
-                      DRAW TRACKS — assigns only teams without a track yet (keeps existing picks).
-                      {selectedEvent.trackSelectionMode === 'RANDOM' && (
-                        <><br />REDRAW ALL — clears every team's track and reshuffles from scratch; use only to fix a setup mistake — a single draw is already fair.</>
-                      )}
-                    </div>
+                      </div>
+                    )}
+                    {(leftoverCount ?? 0) > 0 && tracks.length > 0 && (
+                      <div style={{ alignSelf: "stretch", width: 1, background: C.border }} />
+                    )}
+                    {tracks.length > 0 && (
+                      <div>
+                          <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 700, marginBottom: 10, letterSpacing: "0.05em" }}>
+                            {selectedEvent.trackSelectionMode === 'RANDOM' ? 'Random track draw' : 'Fill unassigned tracks'}
+                          </div>
+                          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                            <PixelButton variant="cyber" onClick={() => drawTracks(false)}>
+                              {drawing ? "DRAWING..." : "DRAW TRACKS"}
+                            </PixelButton>
+                            {/* REDRAW ALL wipes every assignment — only offered for RANDOM events
+                                (it would destroy team self-selections) and gated behind a
+                                fairness-warning confirm so it isn't used to re-roll until "happy". */}
+                            {selectedEvent.trackSelectionMode === 'RANDOM' && (
+                              <PixelButton variant="secondary" onClick={requestRedrawAll}>
+                                REDRAW ALL
+                              </PixelButton>
+                            )}
+                          </div>
+                        </div>
+                    )}
                   </div>
                 )}
                 {/* Track-statistics overview (NV1) — shown from SETUP onward, when
@@ -1875,7 +1889,12 @@ export function CoordEventsPage() {
           eventId={selectedEvent.eventId}
           eventName={selectedEvent.name}
           onClose={() => setShowGrouping(false)}
-          onCommitted={(summary) => { setShowGrouping(false); setSuccessMsg(summary); refreshTeams(); }}
+          onCommitted={(summary) => {
+            setShowGrouping(false);
+            setSuccessMsg(summary);
+            addToast({ type: 'success', title: 'GROUPING APPLIED', message: summary });
+            refreshTeams();
+          }}
         />
       )}
     </div>
