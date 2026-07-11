@@ -47,4 +47,17 @@ public interface UserRepository extends JpaRepository<User, Integer> {
     @Query("SELECT u FROM User u WHERE u.isApproved = true " +
            "AND u.userType IN ('FPT_STUDENT', 'EXTERNAL_STUDENT')")
     List<User> findApprovedStudents();
+
+    /**
+     * Active, approved students who are NOT a member of any team in the given event —
+     * i.e. registrants approved for the current season who never joined a squad. In the
+     * one-active-event model these are that event's teamless free agents, eligible for
+     * SETUP leftover grouping.
+     */
+    @Query("SELECT u FROM User u WHERE u.isApproved = true " +
+           "AND u.isActive = true " +
+           "AND u.userType IN ('FPT_STUDENT', 'EXTERNAL_STUDENT') " +
+           "AND u.userId NOT IN (" +
+           "  SELECT tm.user.userId FROM TeamMember tm WHERE tm.team.event.eventId = :eventId)")
+    List<User> findGroupableFreeAgents(@Param("eventId") Integer eventId);
 }

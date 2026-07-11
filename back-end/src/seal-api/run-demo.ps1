@@ -20,9 +20,6 @@
       S2    + teams in tracks + submissions ready to score     (IN_PROGRESS)
       S3    + scores + rankings + prizes                       (COMPLETED)
 
-.PARAMETER TeamsPerTrack
-    Teams per track for S2/S3 (default 3).
-
 .PARAMETER Force
     Drop the DB without a confirmation prompt (handy during a live demo).
 
@@ -40,7 +37,6 @@
 param(
     [ValidateSet('NONE', 'S0', 'S1', 'S2', 'S3')]
     [string]$Scenario = 'NONE',
-    [int]$TeamsPerTrack = 3,
     [switch]$Force,
     [switch]$NoDrop
 )
@@ -105,9 +101,8 @@ if (-not $NoDrop) {
 
 # ─── 4. Set kich ban + chay app ──────────────────────────────────────────────
 $env:SEED_SCENARIO = $Scenario
-$env:SEED_TEAMS_PER_TRACK = "$TeamsPerTrack"
-Write-Step "Starting app  |  SEED_SCENARIO=$Scenario  TEAMS_PER_TRACK=$TeamsPerTrack"
-Write-Ok "Demo accounts: demo.coordinator@fpt.edu.vn / demo.judge1@ / demo.p1@ ...  (password: Test@1234)"
+Write-Step "Starting app  |  SEED_SCENARIO=$Scenario"
+Write-Ok "Demo accounts: coordinator@fpt.edu.vn / judge1@ / p1@ ...  (password: Test@1234)"
 Write-Ok "Bootstrap admin: admin@fpt.edu.vn / Test@1234"
 
 Set-Location $ScriptDir

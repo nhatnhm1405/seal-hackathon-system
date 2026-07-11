@@ -236,8 +236,12 @@ public class TeamInviteService {
         if (!"OPEN".equalsIgnoreCase(eventStatus) && !"SETUP".equalsIgnoreCase(eventStatus)) {
             throw new BadRequestException("Team invitations are only allowed during registration or setup.");
         }
-        if (!"APPROVED".equalsIgnoreCase(team.getStatus())) {
-            throw new BadRequestException("Only approved teams can receive invitations.");
+        // A not-yet-approved (PENDING) team may still build its roster; approval only
+        // gates track selection (see TeamService#selectTrack). Rejected/disqualified
+        // teams are done, so they cannot invite.
+        if ("REJECTED".equalsIgnoreCase(team.getStatus())
+                || "DISQUALIFIED".equalsIgnoreCase(team.getStatus())) {
+            throw new BadRequestException("A rejected or disqualified team cannot invite members.");
         }
         if (teamMemberRepository.countByTeam_TeamId(team.getTeamId()) >= MAX_TEAM_MEMBERS) {
             throw new BadRequestException("This team is already full (maximum 5 members).");

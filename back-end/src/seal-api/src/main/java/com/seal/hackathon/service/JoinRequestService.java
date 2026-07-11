@@ -197,8 +197,12 @@ public class JoinRequestService {
         if (!"OPEN".equalsIgnoreCase(team.getEvent().getStatus())) {
             throw new BadRequestException("This event is not open for team registration.");
         }
-        if (!"APPROVED".equalsIgnoreCase(team.getStatus())) {
-            throw new BadRequestException("Only approved teams can receive join requests.");
+        // A not-yet-approved (PENDING) team may still build its roster; approval only
+        // gates track selection. Rejected/disqualified teams are done, so they cannot
+        // take join requests.
+        if ("REJECTED".equalsIgnoreCase(team.getStatus())
+                || "DISQUALIFIED".equalsIgnoreCase(team.getStatus())) {
+            throw new BadRequestException("A rejected or disqualified team cannot receive join requests.");
         }
         if (teamMemberRepository.countByTeam_TeamId(team.getTeamId()) >= MAX_TEAM_MEMBERS) {
             throw new BadRequestException("This team is already full (maximum 5 members).");
