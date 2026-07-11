@@ -52,6 +52,12 @@ public class AuthService {
             throw new BadRequestException("An account with this email already exists.");
         }
 
+        // 1b. Student ID uniqueness
+        if (request.getStudentId() != null && !request.getStudentId().isBlank()
+                && userRepository.existsByStudentId(request.getStudentId())) {
+            throw new BadRequestException("An account with this student ID already exists.");
+        }
+
         // 2. UserType-specific field validation
         validateUserTypeFields(request);
 
@@ -79,6 +85,11 @@ public class AuthService {
                 .fullName(user.getFullName())
                 .message("Registration successful. Please wait for an Event Coordinator to approve your account.")
                 .build();
+    }
+
+    public boolean checkStudentId(String studentId) {
+        if (studentId == null || studentId.isBlank()) return false;
+        return userRepository.existsByStudentId(studentId.trim());
     }
 
     // ---------------------------------------------------------------
@@ -156,6 +167,9 @@ public class AuthService {
         }
         if (request.getStudentId() == null || request.getStudentId().isBlank()) {
             throw new BadRequestException("Student ID is required.");
+        }
+        if (userRepository.existsByStudentId(request.getStudentId())) {
+            throw new BadRequestException("An account with this student ID already exists.");
         }
         if (type.equals("EXTERNAL_STUDENT") && (request.getUniversity() == null || request.getUniversity().isBlank())) {
             throw new BadRequestException("University is required for external students.");
