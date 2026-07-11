@@ -28,9 +28,6 @@ public class DemoSeeder implements CommandLineRunner {
     @Value("${app.seed.scenario:NONE}")
     private String scenario;
 
-    @Value("${app.seed.teams-per-track:3}")
-    private int teamsPerTrack;
-
     private final UserRepository userRepo;
     private final DemoScenario demoScenario;
 
@@ -48,8 +45,7 @@ public class DemoSeeder implements CommandLineRunner {
             log.info("[demo] scenario {} requested but demo data already exists — skipping (drop the DB to reseed).", s);
             return;
         }
-        int teams = Math.max(2, teamsPerTrack);
-        log.info("[demo] seeding scenario {} (teamsPerTrack={}) …", s, teams);
-        demoScenario.seed(s, teams);
+        log.info("[demo] seeding scenario {} …", s);
+        demoScenario.seed(s);
     }
 }
