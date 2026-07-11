@@ -129,6 +129,26 @@ function normalizeCriteria(item: ApiCriteria): CriteriaRow {
   };
 }
 
+function splitDT(iso: string) {
+  if (!iso) return { date: "", time: "" };
+  const [datePart, timePart] = iso.split("T");
+  return { date: datePart ?? "", time: (timePart ?? "").slice(0, 5) };
+}
+function joinDT(date: string, time: string): string | undefined {
+  if (!date) return undefined;
+  return `${date}T${time || "00:00"}`;
+}
+function fmtDT(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const hh = String(d.getHours()).padStart(2, "0");
+  const min = String(d.getMinutes()).padStart(2, "0");
+  return `${dd}/${mm} ${hh}:${min}`;
+}
+
 // Leader's display name for a team, if present in its member list.
 function leaderName(team: Team): string | null {
   return team.members?.find(m => m.role === 'LEADER')?.fullName ?? null;
@@ -356,10 +376,14 @@ export function CoordEventsPage() {
   const [showAddRound, setShowAddRound] = useState(false);
   const [rdName, setRdName] = useState("");
   const [rdOrder, setRdOrder] = useState(1);
-  const [rdStart, setRdStart] = useState("");
-  const [rdEnd, setRdEnd] = useState("");
-  const [rdDeadline, setRdDeadline] = useState("");
-  const [rdTopN, setRdTopN] = useState<number | null>(3); // null = no cut-off (no elimination)
+  const [rdStartDate, setRdStartDate] = useState("");
+  const [rdStartTime, setRdStartTime] = useState("");
+  const [rdEndDate, setRdEndDate] = useState("");
+  const [rdEndTime, setRdEndTime] = useState("");
+  const [rdDeadlineDate, setRdDeadlineDate] = useState("");
+  const [rdDeadlineTime, setRdDeadlineTime] = useState("");
+  const [rdTopN, setRdTopN] = useState<number | null>(3);
+  const [rdIsFinal, setRdIsFinal] = useState(false);
   const [editingRoundId, setEditingRoundId] = useState<number | null>(null);
   // The shared add/edit form sits below the round list, so an Edit click on the
   // first row is easy to miss — scroll the form into view whenever it opens.
@@ -821,14 +845,15 @@ export function CoordEventsPage() {
         body: JSON.stringify({
           name,
           orderNumber: rdOrder,
-          startTime: rdStart || undefined,
-          endTime: rdEnd || undefined,
-          submissionDeadline: rdDeadline || undefined,
-          topNAdvance: rdTopN ?? undefined, // omit → round created with no cut-off
+          startTime: joinDT(rdStartDate, rdStartTime),
+          endTime: joinDT(rdEndDate, rdEndTime),
+          submissionDeadline: joinDT(rdDeadlineDate, rdDeadlineTime),
+          topNAdvance: rdTopN ?? undefined,
+          isFinal: rdIsFinal,
         }),
       });
       setRounds(prev => [...prev, normalizeRound(res.data)].sort((a, b) => a.orderNumber - b.orderNumber));
-      setRdName(""); setRdStart(""); setRdEnd(""); setRdDeadline("");
+      setRdName(""); setRdStartDate(""); setRdStartTime(""); setRdEndDate(""); setRdEndTime(""); setRdDeadlineDate(""); setRdDeadlineTime(""); setRdIsFinal(false);
       addToast({ type: 'success', title: 'ROUND ADDED', message: `"${name}" created.` });
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Failed to add round.");
@@ -840,15 +865,20 @@ export function CoordEventsPage() {
     setEditingRoundId(r.roundId);
     setRdName(r.name);
     setRdOrder(r.orderNumber);
-    setRdStart(r.startTime ? r.startTime.slice(0, 16) : "");
-    setRdEnd(r.endTime ? r.endTime.slice(0, 16) : "");
-    setRdDeadline(r.submissionDeadline ? r.submissionDeadline.slice(0, 16) : "");
+    const st = splitDT(r.startTime); setRdStartDate(st.date); setRdStartTime(st.time);
+    const en = splitDT(r.endTime); setRdEndDate(en.date); setRdEndTime(en.time);
+    const dl = splitDT(r.submissionDeadline); setRdDeadlineDate(dl.date); setRdDeadlineTime(dl.time);
     setRdTopN(r.topNAdvance ?? null);
+    setRdIsFinal(r.isFinal);
   }
 
   function cancelRoundEdit() {
     setEditingRoundId(null);
-    setRdName(""); setRdOrder(1); setRdStart(""); setRdEnd(""); setRdDeadline(""); setRdTopN(3);
+    setRdName(""); setRdOrder(1);
+    setRdStartDate(""); setRdStartTime("");
+    setRdEndDate(""); setRdEndTime("");
+    setRdDeadlineDate(""); setRdDeadlineTime("");
+    setRdTopN(3); setRdIsFinal(false);
   }
 
   async function saveRoundEdit() {
@@ -865,10 +895,10 @@ export function CoordEventsPage() {
         body: JSON.stringify({
           name,
           orderNumber: rdOrder,
-          startTime: rdStart || undefined,
-          endTime: rdEnd || undefined,
-          submissionDeadline: rdDeadline || undefined,
-          // null → explicitly clear the cut-off; a number → set it.
+          startTime: joinDT(rdStartDate, rdStartTime),
+          endTime: joinDT(rdEndDate, rdEndTime),
+          submissionDeadline: joinDT(rdDeadlineDate, rdDeadlineTime),
+          isFinal: rdIsFinal,
           ...(rdTopN == null ? { clearTopNAdvance: true } : { topNAdvance: rdTopN }),
         }),
       });
@@ -1514,7 +1544,7 @@ export function CoordEventsPage() {
                         {r.status === 'FINALIZED' && <span style={{ color: C.blue, fontWeight: 700 }}> · FINALIZED</span>}
                         {r.status === 'CLOSED' && <span style={{ color: C.red, fontWeight: 700 }}> · CLOSED</span>}
                       </div>
-                      <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginTop: 2 }}>Deadline: {r.submissionDeadline || "—"}{topNLabel}</div>
+                      <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginTop: 2 }}>Deadline: {fmtDT(r.submissionDeadline)}{topNLabel}</div>
                     </div>
                     {/* Action group: [ OPEN/CLOSE toggle ][ ⋯ (Edit/Delete) ]. A round is
                         either open for submissions or not: OPEN shows when it isn't
@@ -1548,18 +1578,41 @@ export function CoordEventsPage() {
                     (via its ⋯ menu) opens the same form pre-filled. */}
                 {(editingRoundId != null || showAddRound) ? (
                   <div ref={roundFormRef} style={{ padding: 14, background: C.surface, border: `1px solid ${editingRoundId != null ? C.green : C.border}` }}>
-                    <div style={{ color: editingRoundId != null ? C.green : C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600, marginBottom: 10 }}>
+                    <div style={{ color: editingRoundId != null ? C.green : C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 14, fontWeight: 700, marginBottom: 14 }}>
                       {editingRoundId != null ? "EDIT ROUND" : "ADD ROUND"}
                     </div>
-                    {/* auto-fit + minmax lets fields wrap instead of squeezing Name
-                        (datetime inputs have a large intrinsic min-width). */}
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10, alignItems: "end" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10, alignItems: "end" }}>
                       <PixelInput label="Name" value={rdName} onChange={(e) => setRdName(e.target.value)} />
                       <PixelInput label="Order" type="number" value={String(rdOrder)} onChange={(e) => setRdOrder(Number(e.target.value))} />
-                      <PixelInput label="Start" type="datetime-local" value={rdStart} onChange={(e) => setRdStart(e.target.value)} />
-                      <PixelInput label="End" type="datetime-local" value={rdEnd} onChange={(e) => setRdEnd(e.target.value)} />
-                      <PixelInput label="Deadline" type="datetime-local" value={rdDeadline} onChange={(e) => setRdDeadline(e.target.value)} />
-                      <PixelInput label="Top N" type="number" placeholder="Empty = no cut-off" value={rdTopN == null ? "" : String(rdTopN)} onChange={(e) => setRdTopN(e.target.value === "" ? null : Number(e.target.value))} />
+                      <PixelInput label="Top N" type="number" placeholder="No cut-off" value={rdTopN == null ? "" : String(rdTopN)} onChange={(e) => setRdTopN(e.target.value === "" ? null : Number(e.target.value))} />
+                    </div>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 14, marginTop: 10 }}>
+                      {[
+                        { label: "Start", date: rdStartDate, time: rdStartTime, onDate: setRdStartDate, onTime: setRdStartTime },
+                        { label: "End", date: rdEndDate, time: rdEndTime, onDate: setRdEndDate, onTime: setRdEndTime },
+                        { label: "Deadline", date: rdDeadlineDate, time: rdDeadlineTime, onDate: setRdDeadlineDate, onTime: setRdDeadlineTime },
+                      ].map(({ label, date, time, onDate, onTime }) => (
+                        <div key={label} style={{ display: "flex", gap: 6, alignItems: "flex-end" }}>
+                          <div style={{ flex: 1 }}>
+                            <PixelInput label={label} type="date" value={date} onChange={(e) => onDate(e.target.value)} />
+                          </div>
+                          <div style={{ width: 76 }}>
+                            <PixelInput label="Time" type="text" placeholder="HH:MM" value={time} onChange={(e) => onTime(e.target.value)} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 12 }}>
+                      <input
+                        type="checkbox"
+                        id="rdIsFinal"
+                        checked={rdIsFinal}
+                        onChange={(e) => setRdIsFinal(e.target.checked)}
+                        style={{ accentColor: C.green, width: 14, height: 14, cursor: "pointer" }}
+                      />
+                      <label htmlFor="rdIsFinal" style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, cursor: "pointer" }}>
+                        Final Round
+                      </label>
                     </div>
                     <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
                       {editingRoundId != null ? (
@@ -1753,7 +1806,7 @@ export function CoordEventsPage() {
                         </span>
                       </div>
                       <span style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, flexShrink: 0 }}>
-                        {new Date(log.createdAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                        {fmtDT(log.createdAt)}
                       </span>
                     </div>
                     {hasDetail && (
