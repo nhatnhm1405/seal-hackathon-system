@@ -382,6 +382,19 @@ class HackathonEventServiceTest {
         verify(hackathonEventRepository, never()).save(any());
     }
 
+    @Test
+    void moveToSetup_shouldThrow_whenTeamsAreStillPendingApproval() {
+        HackathonEvent event = fallEvent(1, "OPEN", futureYear());
+
+        when(hackathonEventRepository.findById(1)).thenReturn(Optional.of(event));
+        when(teamRepository.countByEvent_EventIdAndStatus(1, "PENDING")).thenReturn(2L);
+
+        assertThrows(BadRequestException.class,
+                () -> eventService.updateEvent(1, statusRequest("SETUP")));
+
+        verify(hackathonEventRepository, never()).save(any());
+    }
+
     // Helpers
 
     private static UpdateEventRequest statusRequest(String status) {

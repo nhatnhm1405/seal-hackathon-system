@@ -201,6 +201,7 @@ public class HackathonEventService {
             effectiveStatus = newStatus;
             // Closing registration freezes the team count and computes per-track slots.
             if (enteringSetup) {
+                requireAllTeamsResolved(event);
                 computeTrackCapacities(event);
             }
         }
@@ -288,6 +289,19 @@ public class HackathonEventService {
         if (!VALID_STATUSES.contains(status)) {
             throw new BadRequestException("Invalid status '" + status
                     + "'. Must be DRAFT, OPEN, SETUP, IN_PROGRESS, COMPLETED or CANCELLED.");
+        }
+    }
+
+    /**
+     * Registration must be fully triaged before entering SETUP: every team is resolved
+     * (APPROVED or REJECTED/DISQUALIFIED), none left PENDING. Otherwise the frozen roster
+     * and track draw would run on a set the coordinator has not finished reviewing.
+     */
+    private void requireAllTeamsResolved(HackathonEvent event) {
+        long pending = teamRepository.countByEvent_EventIdAndStatus(event.getEventId(), "PENDING");
+        if (pending > 0) {
+            throw new BadRequestException("Cannot move to SETUP while " + pending
+                    + " team(s) are still pending approval — approve or reject them first.");
         }
     }
 
