@@ -299,6 +299,7 @@ interface PixelInputProps {
   value?: string;
   onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+  onBlur?: (e: React.FocusEvent<HTMLInputElement>) => void;
   min?: string;
   max?: string;
   prefix?: string;
@@ -326,7 +327,7 @@ function EyeClosed() {
   );
 }
 
-export function PixelInput({ label, placeholder, type = "text", value, onChange, onKeyDown, min, max, prefix, className = "", disabled = false, showToggle = false }: PixelInputProps) {
+export function PixelInput({ label, placeholder, type = "text", value, onChange, onKeyDown, onBlur, min, max, prefix, className = "", disabled = false, showToggle = false }: PixelInputProps) {
   const [focused, setFocused] = useState(false);
   const [visible, setVisible] = useState(false);
   const [hoverEye, setHoverEye] = useState(false);
@@ -353,7 +354,7 @@ export function PixelInput({ label, placeholder, type = "text", value, onChange,
       >
         <input
           type={resolvedType} value={value} onChange={onChange} onKeyDown={onKeyDown} placeholder={placeholder} disabled={disabled} min={min} max={max}
-          onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
+          onFocus={() => setFocused(true)} onBlur={(e) => { setFocused(false); onBlur?.(e); }}
           style={{
             background: "transparent", border: "none", outline: "none",
             color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 14,

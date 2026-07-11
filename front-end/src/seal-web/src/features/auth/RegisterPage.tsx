@@ -26,6 +26,18 @@ export function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  async function checkStudentIdExists(id: string) {
+    if (!id.trim()) return;
+    try {
+      const res = await apiFetch<{ data: boolean }>(`/api/auth/check-student-id?id=${encodeURIComponent(id.trim())}`);
+      if (res.data) {
+        addAuthToast({ type: 'warning', title: 'STUDENT ID TAKEN', message: `Student ID "${id.trim()}" is already registered. If this is you, use the login page.` });
+      }
+    } catch {
+      // silently ignore — backend will enforce on submit
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -140,10 +152,10 @@ export function RegisterPage() {
             </div>
 
             {studentType === 'FPT' ? (
-              <PixelInput label="FPT Student ID" placeholder="SE000000" value={studentId} onChange={(e) => setStudentId(e.target.value)} />
+              <PixelInput label="FPT Student ID" placeholder="SE000000" value={studentId} onChange={(e) => setStudentId(e.target.value)} onBlur={(e) => checkStudentIdExists(e.target.value)} />
             ) : (
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                <PixelInput label="Student ID" placeholder="Your student ID" value={studentId} onChange={(e) => setStudentId(e.target.value)} />
+                <PixelInput label="Student ID" placeholder="Your student ID" value={studentId} onChange={(e) => setStudentId(e.target.value)} onBlur={(e) => checkStudentIdExists(e.target.value)} />
                 <PixelInput label="University Name" placeholder="e.g. Hanoi University" value={university} onChange={(e) => setUniversity(e.target.value)} />
               </div>
             )}
