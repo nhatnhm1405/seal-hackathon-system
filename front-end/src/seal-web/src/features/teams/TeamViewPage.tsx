@@ -10,6 +10,13 @@ import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
 import { teamsApi, invitesApi, joinRequestsApi, ApiError, apiErrorMessage, MyTeam, MyTeamMember, UserItem, JoinRequest } from "@/shared/apiClient";
 import { isTeamEditable, teamLockReason, MIN_TEAM_SIZE, MAX_TEAM_SIZE } from "@/shared/teamPhase";
 
+function fmtDT(iso?: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
 function statusBadgeColor(status?: string): "green" | "yellow" | "red" | "gray" {
   const s = (status ?? "").toUpperCase();
   if (s === "APPROVED") return "green";
@@ -495,7 +502,7 @@ export function TeamViewPage() {
                       <PanelInfo label="Email" value={panelMember.email ?? "—"} />
                       <PanelInfo label="Student ID" value={panelMember.studentId ?? "—"} />
                       <PanelInfo label="Student Type" value={panelMember.studentType ?? "—"} />
-                      <PanelInfo label="Joined At" value={panelMember.joinedAt ? new Date(panelMember.joinedAt).toLocaleString("en-US") : "—"} />
+                      <PanelInfo label="Joined At" value={fmtDT(panelMember.joinedAt)} />
                     </div>
                   </div>
                 ) : (

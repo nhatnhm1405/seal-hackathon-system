@@ -9,9 +9,10 @@ import { CountdownDisplay } from "@/shared/components/CountdownDisplay";
 const mono = "'JetBrains Mono', monospace";
 
 function fmtDateTime(iso?: string) {
-  return iso
-    ? new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })
-    : "-";
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
 function eventOptionLabel(team: MyTeam): string {
