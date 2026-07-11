@@ -139,6 +139,11 @@ export function CoordPrizesPage() {
       return;
     }
 
+    if (finalRound?.topNAdvance != null && topNInput > finalRound.topNAdvance) {
+      addToast({ type: "warning", title: "TOP N TOO HIGH", message: `Top N (${topNInput}) exceeds the final round's winner cutoff (${finalRound.topNAdvance}). Lower Top N or update the round configuration.` });
+      return;
+    }
+
     run(() => prizesApi.autoGenerate(selectedEventId, topNInput), `Generated top ${topNInput} from the final ranking.`);
   }
 
@@ -248,9 +253,6 @@ export function CoordPrizesPage() {
         <h1 style={{ fontFamily: mono, fontSize: 28, fontWeight: 800 }}>
           <GradientText>Awards</GradientText>
         </h1>
-        <p style={{ color: C.textMuted, fontFamily: mono, fontSize: 12, marginTop: 4 }}>
-          Event-wide prizes - winners are the top teams of the final round across all tracks.
-        </p>
       </div>
 
       {loadError && (
@@ -322,17 +324,7 @@ export function CoordPrizesPage() {
           </PixelCard>
 
           <PixelCard style={{ padding: 16, display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
-            <div style={{ flex: "1 1 280px" }}>
-              <div style={{ color: C.text, fontFamily: mono, fontSize: 13, fontWeight: 700 }}>Participation certificates</div>
-              <div style={{ color: C.textMuted, fontFamily: mono, fontSize: 11, marginTop: 4 }}>
-                Export every participant with an English certificate statement for mail merge.
-              </div>
-              {selectedEvent.status !== "COMPLETED" && (
-                <div style={{ color: C.yellow, fontFamily: mono, fontSize: 11, marginTop: 6 }}>
-                  Available only after the event has ended.
-                </div>
-              )}
-            </div>
+            <div style={{ color: C.text, fontFamily: mono, fontSize: 13, fontWeight: 700 }}>Participation certificates</div>
             <PixelButton variant="secondary" onClick={exportParticipantsCsv} disabled={busy || teams.length === 0 || selectedEvent.status !== "COMPLETED"}>
               EXPORT PARTICIPANTS CSV
             </PixelButton>

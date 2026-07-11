@@ -15,6 +15,13 @@ const selectStyle: React.CSSProperties = {
   outline: "none", minWidth: 200,
 };
 
+function fmtDT(iso?: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
 function pickDefaultEvent(events: HackathonEvent[]): number | null {
   if (events.length === 0) return null;
   const active = events.find(e => e.status === 'IN_PROGRESS') ?? events.find(e => e.status === 'OPEN');
@@ -256,7 +263,7 @@ export function CoordScoringPage() {
                 return (
                   <tr key={s.submissionId} style={{ borderBottom: `1px solid rgba(34,197,94,0.06)`, background: i % 2 === 0 ? C.surface : C.surface2 }}>
                     <td style={{ color: C.text, fontSize: 13, padding: "12px 14px" }}>{s.teamName}</td>
-                    <td style={{ color: C.textMuted, fontSize: 11, padding: "12px 14px" }}>{s.submittedAt ? new Date(s.submittedAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}</td>
+                    <td style={{ color: C.textMuted, fontSize: 11, padding: "12px 14px" }}>{fmtDT(s.submittedAt)}</td>
                     <td style={{ color: C.textMuted, fontSize: 12, padding: "12px 14px" }}>{scored}/{judgeCount}</td>
                     <td style={{ padding: "12px 14px" }}>
                       <PixelBadge color={complete ? "green" : "yellow"}>{complete ? "COMPLETE" : "PENDING"}</PixelBadge>

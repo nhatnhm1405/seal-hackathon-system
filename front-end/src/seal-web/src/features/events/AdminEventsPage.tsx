@@ -21,6 +21,7 @@ interface PendingAction {
   warning?: ReactNode;
   confirmLabel: string;
   variant: ConfirmVariant;
+  requireTypedText?: string;
   run: () => Promise<void>;
 }
 
@@ -28,7 +29,29 @@ type EventSeason = 'SPRING' | 'SUMMER' | 'FALL';
 
 function fmtDateTime(iso?: string) {
   if (!iso) return "—";
-  return new Date(iso).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "—";
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const hh = String(d.getHours()).padStart(2, "0");
+  const min = String(d.getMinutes()).padStart(2, "0");
+  return `${dd}/${mm} ${hh}:${min}`;
+}
+
+function parseDDMM(ddmm: string, year: string): string | null {
+  const m = ddmm.trim().match(/^(\d{1,2})\/(\d{1,2})$/);
+  if (!m) return null;
+  const day = parseInt(m[1], 10);
+  const month = parseInt(m[2], 10);
+  if (day < 1 || day > 31 || month < 1 || month > 12) return null;
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+function toDDMM(iso: string | null | undefined): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
 function dateToLocalDateTime(date: string, time = "08:00:00") {
@@ -51,6 +74,7 @@ function seasonWindow(season: EventSeason, yearValue: string) {
   };
 }
 
+// Accepts DD/MM strings for date fields; year is a separate param.
 function createEventDateErrors(
   season: EventSeason,
   year: string,
@@ -66,39 +90,29 @@ function createEventDateErrors(
     return errors;
   }
 
-  const window = seasonWindow(season, year);
-  const fields = [
-    ["Registration start date", registrationStart],
-    ["Registration end date", registrationEnd],
-    ["Start date", startDate],
-    ["End date", endDate],
+  const w = seasonWindow(season, year);
+  const parsed = [
+    ["Registration start date", parseDDMM(registrationStart, year)],
+    ["Registration end date", parseDDMM(registrationEnd, year)],
+    ["Start date", parseDDMM(startDate, year)],
+    ["End date", parseDDMM(endDate, year)],
   ] as const;
-  const missing = fields.filter(([, value]) => !value).map(([label]) => label);
+
+  const missing = parsed.filter(([, v]) => !v).map(([label]) => label);
   if (missing.length > 0) {
-    errors.push(`${missing.join(", ")} ${missing.length === 1 ? "is" : "are"} required.`);
+    errors.push(`${missing.join(", ")} ${missing.length === 1 ? "is" : "are"} invalid — use DD/MM format (e.g. 05/03).`);
     return errors;
   }
 
-  const outside = fields
-    .filter(([, value]) => value < window.start || value > window.end)
-    .map(([label]) => label);
-  if (outside.length > 0) {
-    errors.push(`${outside.join(", ")} must be within ${window.label} (${window.start} to ${window.end}).`);
-  }
+  const [rsDate, reDate, sDate, eDate] = parsed.map(([, v]) => v!);
 
-  const registrationStartAt = dateToLocalDateTime(registrationStart, "00:00:00")!;
-  const registrationEndAt = dateToLocalDateTime(registrationEnd, "23:59:59")!;
-  const startAt = dateToLocalDateTime(startDate)!;
-  const endAt = dateToLocalDateTime(endDate, "23:59:59")!;
-  if (registrationEndAt < registrationStartAt) {
-    errors.push("Registration end must be on or after registration start.");
+  const outside = parsed.filter(([, v]) => v! < w.start || v! > w.end).map(([label]) => label);
+  if (outside.length > 0) {
+    errors.push(`${outside.join(", ")} must be within ${w.label} (${toDDMM(w.start)} → ${toDDMM(w.end)}).`);
   }
-  if (startAt < registrationEndAt) {
-    errors.push("The competition must start after registration closes.");
-  }
-  if (endAt < startAt) {
-    errors.push("End date must be on or after start date.");
-  }
+  if (reDate < rsDate) errors.push("Registration end must be on or after registration start.");
+  if (sDate < reDate) errors.push("The competition must start after registration closes.");
+  if (eDate < sDate) errors.push("End date must be on or after start date.");
   return errors;
 }
 
@@ -127,13 +141,29 @@ export function AdminEventsPage() {
   const [evEnd, setEvEnd] = useState("");
   const [evMode, setEvMode] = useState<TrackMode>("SELF_SELECT");
 
-  // Confirmation dialog (complete / reopen / approve / reject)
+  // Edit-event form state
+  const [showEdit, setShowEdit] = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editSeason, setEditSeason] = useState<EventSeason>("SPRING");
+  const [editYear, setEditYear] = useState(String(new Date().getFullYear()));
+  const [editRegStart, setEditRegStart] = useState("");
+  const [editRegEnd, setEditRegEnd] = useState("");
+  const [editStart, setEditStart] = useState("");
+  const [editEnd, setEditEnd] = useState("");
+  const [editMode, setEditMode] = useState<TrackMode>("SELF_SELECT");
+
+  // Confirmation dialog (complete / reopen / approve / reject / cancel)
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const [actionWorking, setActionWorking] = useState(false);
   const [dialogError, setDialogError] = useState<string | null>(null);
 
   const selectedEvent = selectedEventId ? events.find(e => e.eventId === selectedEventId) ?? null : null;
   const createEventSeasonWindow = seasonWindow(evSeason, evYear);
+
+  // Close edit form when user switches to a different event.
+  useEffect(() => { setShowEdit(false); }, [selectedEventId]);
 
   // ── Load events ───────────────────────────────────────────────────
   function loadEvents() {
@@ -245,6 +275,80 @@ export function AdminEventsPage() {
     });
   }
 
+  // ── Cancel event ─────────────────────────────────────────────────
+  function confirmCancelEvent() {
+    if (!selectedEvent) return;
+    openConfirm({
+      title: 'Cancel this event?',
+      message: `"${selectedEvent.name}" will be permanently cancelled.`,
+      warning: 'This cannot be undone. All participants and coordinators will lose access to the event.',
+      confirmLabel: 'CANCEL EVENT',
+      variant: 'danger',
+      requireTypedText: selectedEvent.name,
+      run: async () => {
+        await apiFetch(`/api/events/${selectedEvent.eventId}`, { method: 'PUT', body: JSON.stringify({ status: 'CANCELLED' }) });
+        setEvents(prev => prev.map(e => e.eventId === selectedEvent.eventId ? { ...e, status: 'CANCELLED' } : e));
+        addToast({ type: 'warning', title: 'EVENT CANCELLED', message: `"${selectedEvent.name}" has been cancelled.` });
+      },
+    });
+  }
+
+  // ── Edit event ────────────────────────────────────────────────────
+  function openEditForm() {
+    if (!selectedEvent) return;
+    setEditName(selectedEvent.name);
+    setEditSeason((selectedEvent.season as EventSeason) || "SPRING");
+    setEditYear(String(selectedEvent.year ?? new Date().getFullYear()));
+    setEditRegStart(toDDMM(selectedEvent.registrationStart));
+    setEditRegEnd(toDDMM(selectedEvent.registrationEnd));
+    setEditStart(toDDMM(selectedEvent.startDate));
+    setEditEnd(toDDMM(selectedEvent.endDate));
+    setEditMode(selectedEvent.trackSelectionMode);
+    setEditError(null);
+    setShowEdit(true);
+  }
+
+  async function saveEdit() {
+    if (!selectedEvent || editSaving) return;
+    if (!editName.trim()) {
+      addToast({ type: 'warning', title: 'MISSING NAME', message: 'Please enter an event name.' });
+      return;
+    }
+    const dateErrors = createEventDateErrors(editSeason, editYear, editRegStart, editRegEnd, editStart, editEnd);
+    if (dateErrors.length > 0) {
+      const message = dateErrors.join(" ");
+      setEditError(message);
+      addToast({ type: 'warning', title: 'CHECK DATES', message });
+      return;
+    }
+    setEditError(null);
+    setEditSaving(true);
+    try {
+      const res = await apiFetch<{ data: ApiEvent }>(`/api/events/${selectedEvent.eventId}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          name: editName,
+          season: editSeason,
+          year: Number(editYear),
+          registrationStart: dateToLocalDateTime(parseDDMM(editRegStart, editYear)!, "00:00:00"),
+          registrationEnd: dateToLocalDateTime(parseDDMM(editRegEnd, editYear)!, "23:59:59"),
+          startDate: dateToLocalDateTime(parseDDMM(editStart, editYear)!),
+          endDate: dateToLocalDateTime(parseDDMM(editEnd, editYear)!, "23:59:59"),
+          trackSelectionMode: editMode,
+        }),
+      });
+      const updated = normalizeEvent(res.data);
+      setEvents(prev => prev.map(e => e.eventId === updated.eventId ? updated : e));
+      setShowEdit(false);
+      addToast({ type: 'success', title: 'EVENT UPDATED', message: `"${updated.name}" saved.` });
+    } catch (err) {
+      setEditError(err instanceof ApiError ? err.message : "Failed to update event.");
+      addToast({ type: 'warning', title: 'UPDATE FAILED', message: apiErrorMessage(err, 'Failed to update event.') });
+    } finally {
+      setEditSaving(false);
+    }
+  }
+
   // ── Create-form helpers ───────────────────────────────────────────
   // Tracks & rounds are NOT configured here — the Event Coordinator sets them up
   // during the event's SETUP phase. The Admin only creates the event shell.
@@ -275,10 +379,10 @@ export function AdminEventsPage() {
           name: evName,
           season: evSeason,
           year: Number(evYear) || new Date().getFullYear(),
-          registrationStart: dateToLocalDateTime(evRegStart, "00:00:00"),
-          registrationEnd: dateToLocalDateTime(evRegEnd, "23:59:59"),
-          startDate: dateToLocalDateTime(evStart),
-          endDate: dateToLocalDateTime(evEnd, "23:59:59"),
+          registrationStart: dateToLocalDateTime(parseDDMM(evRegStart, evYear)!, "00:00:00"),
+          registrationEnd: dateToLocalDateTime(parseDDMM(evRegEnd, evYear)!, "23:59:59"),
+          startDate: dateToLocalDateTime(parseDDMM(evStart, evYear)!),
+          endDate: dateToLocalDateTime(parseDDMM(evEnd, evYear)!, "23:59:59"),
           status: 'DRAFT',
           trackSelectionMode: evMode,
         }),
@@ -357,8 +461,8 @@ export function AdminEventsPage() {
                 </select>
               </div>
               <PixelInput label="Year" type="number" value={evYear} onChange={(e) => setEvYear(e.target.value)} />
-              <PixelInput label="Registration Start" type="date" min={createEventSeasonWindow.start} max={createEventSeasonWindow.end} value={evRegStart} onChange={(e) => setEvRegStart(e.target.value)} />
-              <PixelInput label="Registration End" type="date" min={createEventSeasonWindow.start} max={createEventSeasonWindow.end} value={evRegEnd} onChange={(e) => setEvRegEnd(e.target.value)} />
+              <PixelInput label={`Reg. Start (DD/MM, ${evSeason} ${evYear})`} type="text" placeholder="e.g. 05/01" value={evRegStart} onChange={(e) => setEvRegStart(e.target.value)} />
+              <PixelInput label={`Reg. End (DD/MM)`} type="text" placeholder="e.g. 28/02" value={evRegEnd} onChange={(e) => setEvRegEnd(e.target.value)} />
               <div>
                 <label style={{ color: C.greenMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase" }}>Track Assignment</label>
                 <select value={evMode} onChange={(e) => setEvMode(e.target.value as TrackMode)} style={{ width: "100%", marginTop: 6, padding: "10px 12px", background: C.surface2, border: `1px solid ${C.border}`, color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, borderRadius: 0, outline: "none" }}>
@@ -366,8 +470,8 @@ export function AdminEventsPage() {
                   <option value="RANDOM">Random draw</option>
                 </select>
               </div>
-              <PixelInput label="Start Date" type="date" min={createEventSeasonWindow.start} max={createEventSeasonWindow.end} value={evStart} onChange={(e) => setEvStart(e.target.value)} />
-              <PixelInput label="End Date" type="date" min={createEventSeasonWindow.start} max={createEventSeasonWindow.end} value={evEnd} onChange={(e) => setEvEnd(e.target.value)} />
+              <PixelInput label="Start Date (DD/MM)" type="text" placeholder="e.g. 01/03" value={evStart} onChange={(e) => setEvStart(e.target.value)} />
+              <PixelInput label="End Date (DD/MM)" type="text" placeholder="e.g. 30/04" value={evEnd} onChange={(e) => setEvEnd(e.target.value)} />
             </div>
 
             {/* Tracks & rounds are configured by the Event Coordinator during the
@@ -387,21 +491,65 @@ export function AdminEventsPage() {
       {/* Detail panel — Admin lifecycle actions; on top, above the all-events list */}
       {selectedEvent && (
         <PixelCard glow gradient style={{ padding: 20 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-            <div>
-              <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 20, fontWeight: 700 }}>{selectedEvent.name}</div>
-              <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, marginTop: 4 }}>{eventMeta(selectedEvent)}</div>
-              <div style={{ marginTop: 8 }}>{eventStatusBadge(selectedEvent.status)}</div>
-            </div>
-            <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-              {selectedEvent.status === 'IN_PROGRESS' && canCompleteEvent && (
-                <PixelButton variant="cyber" onClick={confirmComplete}>COMPLETE EVENT</PixelButton>
+          {showEdit ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 14, fontWeight: 700 }}>EDIT EVENT</div>
+              {editError && (
+                <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.35)", color: C.red, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, padding: "10px 14px" }}>
+                  ERROR: {editError}
+                </div>
               )}
-              {selectedEvent.status === 'COMPLETED' && canReopenEvent && (
-                <PixelButton variant="cyber" onClick={() => confirmReopen(selectedEvent)}>REOPEN EVENT</PixelButton>
-              )}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
+                <PixelInput label="Event Name" value={editName} onChange={(e) => setEditName(e.target.value)} />
+                <div>
+                  <label style={{ color: C.greenMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase" }}>Season</label>
+                  <select value={editSeason} onChange={(e) => setEditSeason(e.target.value as EventSeason)} style={{ width: "100%", marginTop: 6, padding: "10px 12px", background: C.surface2, border: `1px solid ${C.border}`, color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, borderRadius: 0, outline: "none" }}>
+                    <option value="SPRING">Spring</option>
+                    <option value="SUMMER">Summer</option>
+                    <option value="FALL">Fall</option>
+                  </select>
+                </div>
+                <PixelInput label="Year" type="number" value={editYear} onChange={(e) => setEditYear(e.target.value)} />
+                <PixelInput label="Reg. Start (DD/MM)" type="text" placeholder="e.g. 05/01" value={editRegStart} onChange={(e) => setEditRegStart(e.target.value)} />
+                <PixelInput label="Reg. End (DD/MM)" type="text" placeholder="e.g. 28/02" value={editRegEnd} onChange={(e) => setEditRegEnd(e.target.value)} />
+                <div>
+                  <label style={{ color: C.greenMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase" }}>Track Assignment</label>
+                  <select value={editMode} onChange={(e) => setEditMode(e.target.value as TrackMode)} style={{ width: "100%", marginTop: 6, padding: "10px 12px", background: C.surface2, border: `1px solid ${C.border}`, color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, borderRadius: 0, outline: "none" }}>
+                    <option value="SELF_SELECT">Teams self-select</option>
+                    <option value="RANDOM">Random draw</option>
+                  </select>
+                </div>
+                <PixelInput label="Start Date (DD/MM)" type="text" placeholder="e.g. 01/03" value={editStart} onChange={(e) => setEditStart(e.target.value)} />
+                <PixelInput label="End Date (DD/MM)" type="text" placeholder="e.g. 30/04" value={editEnd} onChange={(e) => setEditEnd(e.target.value)} />
+              </div>
+              <div style={{ display: "flex", gap: 10, borderTop: `1px solid ${C.border}`, paddingTop: 14 }}>
+                <PixelButton variant="cyber" onClick={saveEdit} disabled={editSaving}>{editSaving ? "SAVING..." : "SAVE CHANGES"}</PixelButton>
+                <PixelButton variant="ghost" onClick={() => setShowEdit(false)} disabled={editSaving}>CANCEL</PixelButton>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+              <div>
+                <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 20, fontWeight: 700 }}>{selectedEvent.name}</div>
+                <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, marginTop: 4 }}>{eventMeta(selectedEvent)}</div>
+                <div style={{ marginTop: 8 }}>{eventStatusBadge(selectedEvent.status)}</div>
+              </div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                {selectedEvent.status !== 'CANCELLED' && selectedEvent.status !== 'COMPLETED' && (
+                  <PixelButton variant="secondary" onClick={openEditForm}>EDIT</PixelButton>
+                )}
+                {selectedEvent.status === 'IN_PROGRESS' && canCompleteEvent && (
+                  <PixelButton variant="cyber" onClick={confirmComplete}>COMPLETE EVENT</PixelButton>
+                )}
+                {selectedEvent.status === 'COMPLETED' && canReopenEvent && (
+                  <PixelButton variant="cyber" onClick={() => confirmReopen(selectedEvent)}>REOPEN EVENT</PixelButton>
+                )}
+                {selectedEvent.status !== 'CANCELLED' && selectedEvent.status !== 'COMPLETED' && (
+                  <PixelButton variant="danger" onClick={confirmCancelEvent}>CANCEL EVENT</PixelButton>
+                )}
+              </div>
+            </div>
+          )}
         </PixelCard>
       )}
 
@@ -424,6 +572,7 @@ export function AdminEventsPage() {
           variant={pendingAction.variant}
           working={actionWorking}
           error={dialogError}
+          requireTypedText={pendingAction.requireTypedText}
           onConfirm={handleConfirmAction}
           onClose={closeConfirm}
         />

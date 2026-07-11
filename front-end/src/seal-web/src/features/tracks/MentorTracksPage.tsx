@@ -9,9 +9,9 @@ const mono = "'JetBrains Mono', monospace";
 
 function fmtDateTime(iso: string | null): string {
   if (!iso) return "";
-  return new Date(iso).toLocaleString("en-US", {
-    month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
-  });
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
 /** One event the mentor is assigned to, derived from the flat team list. */

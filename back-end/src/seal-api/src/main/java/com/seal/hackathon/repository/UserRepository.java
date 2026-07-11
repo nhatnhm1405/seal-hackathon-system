@@ -16,6 +16,8 @@ public interface UserRepository extends JpaRepository<User, Integer> {
 
     boolean existsByEmail(String email);
 
+    boolean existsByStudentId(String studentId);
+
     // Find a user who previously logged in via OAuth2 with this provider + provider
     // ID
     Optional<User> findByProviderAndProviderId(String provider, String providerId);
