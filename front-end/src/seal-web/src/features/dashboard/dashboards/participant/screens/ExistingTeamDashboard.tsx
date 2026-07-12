@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, ReactNode } from "react";
 import { useNavigate } from "react-router";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { useNotifications } from "@/app/providers/NotificationProvider";
@@ -10,6 +10,7 @@ import {
     MyTeam, Track, Round, RoundResult, Notification, ApiError, apiErrorMessage, participationRequestsApi,
 } from "@/shared/apiClient";
 import { ParticipantJourneyBar } from "@/shared/components/ParticipantJourneyBar";
+import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
 import { ParticipantProblemCard } from "./ParticipantProblemCard";
 import { fmtDate, roundStatusColor, teamStatusColor } from "../utils/formatters";
 
@@ -21,6 +22,10 @@ export function ExistingTeamDashboard() {
     const [team, setTeam] = useState<MyTeam | null>(null);
     const [tracks, setTracks] = useState<Track[]>([]);
     const [picking, setPicking] = useState(false);
+    // Track the leader tapped, awaiting confirmation before it's committed.
+    const [confirmTrack, setConfirmTrack] = useState<Track | null>(null);
+    // Whether the "choose your track" picker modal is open.
+    const [showTrackPicker, setShowTrackPicker] = useState(false);
     const [rounds, setRounds] = useState<Round[]>([]);
     const [submitted, setSubmitted] = useState<{ at?: string } | null>(null);
     const [subRoundName, setSubRoundName] = useState<string | null>(null);
@@ -78,6 +83,14 @@ export function ExistingTeamDashboard() {
 
     useEffect(() => { reload(); }, [reload]);
 
+    // Escape closes the track picker modal (never while a pick is in flight).
+    useEffect(() => {
+        if (!showTrackPicker) return;
+        function onKey(e: KeyboardEvent) { if (e.key === "Escape" && !picking) setShowTrackPicker(false); }
+        document.addEventListener("keydown", onKey);
+        return () => document.removeEventListener("keydown", onKey);
+    }, [showTrackPicker, picking]);
+
     async function pickTrack(trackId: number) {
         if (!team || picking) return;
         setError(null);
@@ -85,6 +98,8 @@ export function ExistingTeamDashboard() {
         try {
             const picked = tracks.find(t => t.trackId === trackId);
             await teamsApi.selectTrack(team.teamId, trackId);
+            setConfirmTrack(null);
+            setShowTrackPicker(false);
             await reload();
             addToast({ type: "success", title: "Track selected", message: picked ? `Your team is now in the "${picked.name}" track.` : "Your team's track has been set." });
         } catch (err) {
@@ -140,86 +155,7 @@ export function ExistingTeamDashboard() {
                 </div>
             </PixelCard>
 
-            {error && (
-                <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.35)", color: C.red, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, padding: "10px 14px" }}>ERROR: {error}</div>
-            )}
-
-            {!currentUser.is_active && (
-                <PixelCard style={{ padding: 18, borderColor: "rgba(6,182,212,0.35)", background: "rgba(6,182,212,0.06)" }}>
-                    <div style={{ color: "#06b6d4", fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", marginBottom: 6 }}>
-                        // is_active_mode
-                    </div>
-                    <p style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, lineHeight: 1.7, marginBottom: 12 }}>
-                        You can view your team and event data, but write actions are locked until a System Admin grants participation access.
-                    </p>
-                    <PixelButton variant="cyber" size="sm" disabled={requestingAccess || accessRequested} onClick={requestParticipationAccess}>
-                        {accessRequested ? "REQUEST SENT" : requestingAccess ? "SENDING..." : "REQUEST PARTICIPATION ACCESS"}
-                    </PixelButton>
-                </PixelCard>
-            )}
-
-            {/* Leader-only actions */}
-            {isLeader && currentUser.is_active && (
-                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                    <PixelButton variant="cyber" onClick={() => navigate('/team/view')}>MANAGE TEAM</PixelButton>
-                    {team.status === 'APPROVED' && (
-                        <PixelButton variant="secondary" onClick={() => navigate('/team/submit')}>SUBMIT PROJECT</PixelButton>
-                    )}
-                </div>
-            )}
-
-            {/* SELF_SELECT track picker — leader chooses the team's track during SETUP */}
-            {!currentUser.is_active && (
-                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                    <PixelButton variant="secondary" onClick={() => navigate('/team/view')}>VIEW TEAM</PixelButton>
-                    {team.status === 'APPROVED' && (
-                        <PixelButton variant="secondary" onClick={() => navigate('/team/submit')}>VIEW SUBMISSION</PixelButton>
-                    )}
-                </div>
-            )}
-
-            {needsTrackPick && currentUser.is_active && (
-                <PixelCard glow style={{ padding: 20 }}>
-                    <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", marginBottom: 8 }}>// select_your_track</div>
-                    <p style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, marginBottom: 14, lineHeight: 1.5 }}>
-                        Registration is closed. Pick your team's track below. If a track is full you'll be asked to choose another.
-                    </p>
-                    {tracks.length === 0 ? (
-                        <p style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}>Loading tracks…</p>
-                    ) : (
-                        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                            {tracks.map(t => (
-                                <PixelButton key={t.trackId} variant="secondary" disabled={picking} onClick={() => pickTrack(t.trackId)}>
-                                    {t.name}{t.capacity != null ? ` · ${t.capacity} slots` : ""}
-                                </PixelButton>
-                            ))}
-                        </div>
-                    )}
-                </PixelCard>
-            )}
-
-            {/* Team info */}
-            <PixelCard style={{ padding: 20 }}>
-                <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Team Info</div>
-                {team.status === 'PENDING' && (
-                    <div style={{ background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.35)", color: "#eab308", fontFamily: "'JetBrains Mono', monospace", fontSize: 11, padding: "8px 12px", marginBottom: 12 }}>
-                        PENDING COORDINATOR APPROVAL — You cannot submit until approved.
-                    </div>
-                )}
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 16 }}>
-                    <InfoRow label="Team" value={team.name} />
-                    <InfoRow label="Track" value={team.trackName ?? "—"} />
-                    <InfoRow label="Event" value={team.eventName ?? "—"} />
-                    <InfoRow label="Current Round" value={activeRound?.name ?? "—"} badge={activeRound?.status} />
-                </div>
-            </PixelCard>
-
-            {/* Track "đề thi" — download once released (approved team in a track only) */}
-            {team.status === 'APPROVED' && team.eventId != null && team.trackId != null && (
-                <ParticipantProblemCard eventId={team.eventId} trackId={team.trackId} />
-            )}
-
-            {/* Stat cards */}
+            {/* Time-sensitive status — kept near the top for at-a-glance tracking */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16 }}>
                 <CyberStatCard
                     value={submitted ? "Submitted" : "Pending"}
@@ -240,6 +176,137 @@ export function ExistingTeamDashboard() {
                     sublabel={activeRound?.name ?? "No active round"}
                 />
             </div>
+
+            {error && (
+                <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.35)", color: C.red, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, padding: "10px 14px" }}>ERROR: {error}</div>
+            )}
+
+            {!currentUser.is_active && (
+                <PixelCard style={{ padding: 18, borderColor: "rgba(6,182,212,0.35)", background: "rgba(6,182,212,0.06)" }}>
+                    <div style={{ color: "#06b6d4", fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", marginBottom: 6 }}>
+                        // is_active_mode
+                    </div>
+                    <p style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, lineHeight: 1.7, marginBottom: 12 }}>
+                        You can view your team and event data, but write actions are locked until a System Admin grants participation access.
+                    </p>
+                    <PixelButton variant="cyber" size="sm" disabled={requestingAccess || accessRequested} onClick={requestParticipationAccess}>
+                        {accessRequested ? "REQUEST SENT" : requestingAccess ? "SENDING..." : "REQUEST PARTICIPATION ACCESS"}
+                    </PixelButton>
+                </PixelCard>
+            )}
+
+            {/* Track picker — modal. Sits below the ConfirmDialog (z 400) so the
+                confirm step stacks on top when a track is tapped. */}
+            {needsTrackPick && showTrackPicker && (
+                <>
+                    <div
+                        onClick={() => { if (!picking) setShowTrackPicker(false); }}
+                        style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", zIndex: 350, backdropFilter: "blur(2px)" }}
+                    />
+                    <div
+                        role="dialog"
+                        aria-modal="true"
+                        style={{
+                            position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)", zIndex: 351,
+                            width: "min(560px, calc(100vw - 32px))", maxHeight: "calc(100vh - 64px)", overflowY: "auto",
+                            background: C.surface, border: `1px solid ${C.green}66`,
+                            boxShadow: `0 0 40px ${C.greenGlow}, 0 16px 48px rgba(0,0,0,0.4)`, padding: 28,
+                        }}
+                    >
+                        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${C.green}, transparent)` }} />
+                        <h2 style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 18, fontWeight: 800, color: C.text, marginBottom: 4 }}>Choose your track</h2>
+                        <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginBottom: 18 }}>
+                            This assigns your whole team — you can't change it yourself afterwards.
+                        </div>
+                        {tracks.length === 0 ? (
+                            <p style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}>Loading tracks…</p>
+                        ) : (
+                            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                                {tracks.map(t => (
+                                    <TrackOption key={t.trackId} track={t} onPick={() => setConfirmTrack(t)} />
+                                ))}
+                            </div>
+                        )}
+                        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 18 }}>
+                            <PixelButton variant="secondary" onClick={() => setShowTrackPicker(false)}>CLOSE</PixelButton>
+                        </div>
+                    </div>
+                </>
+            )}
+
+            {confirmTrack && (
+                <ConfirmDialog
+                    title="Confirm your track"
+                    message={<>Assign <b style={{ color: C.text }}>{team.name}</b> to the <b style={{ color: C.text }}>{confirmTrack.name}</b> track?</>}
+                    warning="You can't change your team's track yourself after this."
+                    confirmLabel="CONFIRM TRACK"
+                    working={picking}
+                    error={error}
+                    onConfirm={() => pickTrack(confirmTrack.trackId)}
+                    onClose={() => { if (!picking) { setConfirmTrack(null); setError(null); } }}
+                />
+            )}
+
+            {/* Team info */}
+            <PixelCard style={{ padding: 24 }}>
+                <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 22, fontWeight: 700, marginBottom: 16 }}>Team Info</div>
+                {team.status === 'PENDING' && (
+                    <div style={{ background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.35)", color: "#eab308", fontFamily: "'JetBrains Mono', monospace", fontSize: 11, padding: "8px 12px", marginBottom: 12 }}>
+                        PENDING COORDINATOR APPROVAL — You cannot submit until approved.
+                    </div>
+                )}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 16 }}>
+                    <InfoRow label="Team" value={team.name} accent="green" />
+                    {needsTrackPick && currentUser.is_active ? (
+                        <InfoRow label="Track" accent="cyan" action={
+                            <button
+                                type="button"
+                                onClick={() => setShowTrackPicker(true)}
+                                style={{
+                                    display: "inline-flex", alignItems: "center", gap: 6,
+                                    background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.45)",
+                                    color: C.yellow, fontFamily: "'JetBrains Mono', monospace", fontSize: 14, fontWeight: 700,
+                                    padding: "7px 12px", cursor: "pointer", letterSpacing: "0.04em", transition: "all 0.15s",
+                                }}
+                                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(234,179,8,0.16)"; }}
+                                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(234,179,8,0.08)"; }}
+                            >
+                                ⚠ Choose track
+                            </button>
+                        } />
+                    ) : (
+                        <InfoRow label="Track" value={team.trackName ?? "—"} accent="cyan" />
+                    )}
+                    <InfoRow label="Event" value={team.eventName ?? "—"} accent="blue" />
+                    <InfoRow label="Current Round" value={activeRound?.name ?? "—"} badge={activeRound?.status} accent="purple" />
+                </div>
+
+                {(isLeader && currentUser.is_active) || !currentUser.is_active ? (
+                    <div style={{ display: "flex", gap: 12, justifyContent: "flex-end", flexWrap: "wrap", marginTop: 20, paddingTop: 16, borderTop: `1px solid ${C.border}` }}>
+                        {isLeader && currentUser.is_active && (
+                            <>
+                                <PixelButton variant="cyber" onClick={() => navigate('/team/view')}>MANAGE TEAM</PixelButton>
+                                {team.status === 'APPROVED' && (
+                                    <PixelButton variant="secondary" onClick={() => navigate('/team/submit')}>SUBMIT PROJECT</PixelButton>
+                                )}
+                            </>
+                        )}
+                        {!currentUser.is_active && (
+                            <>
+                                <PixelButton variant="secondary" onClick={() => navigate('/team/view')}>VIEW TEAM</PixelButton>
+                                {team.status === 'APPROVED' && (
+                                    <PixelButton variant="secondary" onClick={() => navigate('/team/submit')}>VIEW SUBMISSION</PixelButton>
+                                )}
+                            </>
+                        )}
+                    </div>
+                ) : null}
+            </PixelCard>
+
+            {/* Track "đề thi" — download once released (approved team in a track only) */}
+            {team.status === 'APPROVED' && team.eventId != null && team.trackId != null && (
+                <ParticipantProblemCard eventId={team.eventId} trackId={team.trackId} />
+            )}
 
             {/* Activity feed (from the user's notifications) */}
             <PixelCard style={{ padding: 20 }}>
@@ -266,14 +333,86 @@ export function ExistingTeamDashboard() {
     );
 }
 
-function InfoRow({ label, value, badge }: { label: string; value: string; badge?: string }) {
+function InfoRow({ label, value, badge, action, accent = "green" }: { label: string; value?: string; badge?: string; action?: ReactNode; accent?: "green" | "blue" | "cyan" | "purple" }) {
+    // rgb kept as fixed literals so alpha suffixes are valid CSS (the green accent
+    // is a theme CSS-var and can't take a hex-alpha suffix).
+    const M = {
+        green:  { text: C.green,  rgb: "34,197,94",  from: "#22c55e", to: "#7ee787" },
+        blue:   { text: C.blue,   rgb: "59,130,246", from: "#3b82f6", to: "#93c5fd" },
+        cyan:   { text: C.cyan,   rgb: "6,182,212",  from: "#06b6d4", to: "#67e8f9" },
+        purple: { text: C.purple, rgb: "139,92,246", from: "#8b5cf6", to: "#c4b5fd" },
+    }[accent];
     return (
-        <div>
-            <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 }}>{label}</div>
-            <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 14, fontWeight: 600, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                {value}
-                {badge && <PixelBadge color={roundStatusColor(badge)}>{badge}</PixelBadge>}
-            </div>
+        <div style={{
+            position: "relative",
+            background: C.surface2,
+            border: `1px solid rgba(${M.rgb},0.30)`,
+            boxShadow: `0 0 16px rgba(${M.rgb},0.10), inset 0 0 26px rgba(${M.rgb},0.05)`,
+            padding: "14px 18px 18px",
+            minHeight: 92,
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+            gap: 6,
+            overflow: "hidden",
+        }}>
+            {/* Bottom accent line + top-left corner bracket (CyberStatCard styling). */}
+            <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${M.text}, transparent)`, opacity: 0.6 }} />
+            <div style={{ position: "absolute", top: 0, left: 0, width: 12, height: 12, borderTop: `2px solid ${M.text}`, borderLeft: `2px solid ${M.text}`, opacity: 0.8 }} />
+            {/* Small, dim label so the large glowing value dominates the tile. */}
+            <div style={{ color: `rgba(${M.rgb},0.85)`, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: "0.16em", textTransform: "uppercase", fontWeight: 600 }}>{label}</div>
+            {action ?? (
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", filter: `drop-shadow(0 0 10px rgba(${M.rgb},0.5))` }}>
+                    <GradientText from={M.from} to={M.to} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 23, fontWeight: 800, lineHeight: 1.15 }}>{value}</GradientText>
+                    {badge && <PixelBadge color={roundStatusColor(badge)}>{badge}</PixelBadge>}
+                </div>
+            )}
         </div>
+    );
+}
+
+// One selectable track row (Kiểu A): name + slots (used/total) + description.
+// A full track is disabled; an available one opens the confirm dialog on click.
+function TrackOption({ track, onPick }: { track: Track; onPick: () => void }) {
+    const MONO = "'JetBrains Mono', monospace";
+    const cap = track.capacity ?? null;
+    const used = track.teamCount ?? 0;
+    const full = cap != null && used >= cap;
+    const [hover, setHover] = useState(false);
+    const lit = hover && !full;
+    return (
+        <button
+            type="button"
+            disabled={full}
+            onClick={onPick}
+            onMouseEnter={() => setHover(true)}
+            onMouseLeave={() => setHover(false)}
+            style={{
+                textAlign: "left",
+                width: "100%",
+                padding: "14px 16px",
+                background: lit ? "rgba(34,197,94,0.06)" : (full ? C.surface2 : C.surface),
+                border: `1px solid ${lit ? C.green : C.border}`,
+                borderRadius: 0,
+                cursor: full ? "not-allowed" : "pointer",
+                opacity: full ? 0.6 : 1,
+                transition: "all 0.15s ease",
+                boxShadow: lit ? "0 0 12px rgba(34,197,94,0.12)" : "none",
+            }}
+        >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+                <span style={{ color: C.text, fontFamily: MONO, fontSize: 14, fontWeight: 700 }}>{track.name}</span>
+                {full ? (
+                    <PixelBadge color="red">FULL</PixelBadge>
+                ) : (
+                    <PixelBadge color="green">{cap != null ? `${used}/${cap} slots` : "Open"}</PixelBadge>
+                )}
+            </div>
+            {track.description && (
+                <div style={{ color: C.textMuted, fontFamily: MONO, fontSize: 11, lineHeight: 1.5, marginTop: 6, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+                    {track.description}
+                </div>
+            )}
+        </button>
     );
 }
