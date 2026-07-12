@@ -686,6 +686,7 @@ public class TeamService {
                 .eventName(team.getEvent().getName())
                 .trackId(team.getTrack() != null ? team.getTrack().getTrackId() : null)
                 .trackName(team.getTrack() != null ? team.getTrack().getName() : null)
+                .trackDescription(team.getTrack() != null ? team.getTrack().getDescription() : null)
                 .name(team.getName())
                 .eventStatus(team.getEvent().getStatus())
                 .trackSelectionMode(team.getEvent().getTrackSelectionMode())
