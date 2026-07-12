@@ -530,7 +530,8 @@ export interface Track {
   eventId: number;
   name: string;
   description?: string;
-  capacity?: number | null;
+  capacity?: number | null;   // total slots (max teams)
+  teamCount?: number | null;  // approved teams already in this track (slots used)
 }
 
 export interface CreateTrackPayload {
@@ -833,6 +834,7 @@ export interface MyTeam {
   eventName?: string;
   trackId?: number | null;
   trackName?: string;
+  trackDescription?: string | null;
   name: string;
   eventStatus?: 'DRAFT' | 'OPEN' | 'SETUP' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
   trackSelectionMode?: 'SELF_SELECT' | 'RANDOM';
@@ -1397,6 +1399,7 @@ export interface AnnouncementItem {
   senderRole: string;   // MENTOR | COORDINATOR
   scope: string;        // TRACK | EVENT
   audience?: string | null;   // PARTICIPANT | JUDGE | MENTOR | ALL
+  eventId?: number | null;    // event this announcement belongs to
   scopeLabel: string;
   linkUrl?: string | null;
   recipientCount: number;
