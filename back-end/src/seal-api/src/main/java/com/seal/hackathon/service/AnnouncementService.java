@@ -35,8 +35,7 @@ import java.util.stream.Collectors;
  *   PARTICIPANT, JUDGE, MENTOR, or ALL.
  *
  * Audience resolution (only approved & active users receive):
- * - PARTICIPANT: all student accounts (participants are not bound to an event in
- *   the schema, so this reaches everyone incl. those without a team).
+ * - PARTICIPANT: members of APPROVED teams in the event (event-scoped).
  * - JUDGE / MENTOR: users holding that role for the event (UserEventRole).
  * - ALL: the union of the three above.
  */
@@ -45,6 +44,10 @@ import java.util.stream.Collectors;
 public class AnnouncementService {
 
     private static final Set<String> AUDIENCES = Set.of("PARTICIPANT", "JUDGE", "MENTOR", "ALL");
+
+    // Announcements only make sense once an event is public and populated — block
+    // DRAFT (not yet announced) and terminal states (COMPLETED / CANCELLED).
+    private static final Set<String> ANNOUNCEABLE_STATUSES = Set.of("SETUP", "OPEN", "IN_PROGRESS");
 
     private final AnnouncementRepository announcementRepository;
     private final MentorAssignmentRepository mentorAssignmentRepository;
@@ -112,6 +115,10 @@ public class AnnouncementService {
         }
         HackathonEvent event = eventRepository.findById(eventId)
                 .orElseThrow(() -> new ResourceNotFoundException("Event not found: " + eventId));
+        if (!ANNOUNCEABLE_STATUSES.contains(event.getStatus())) {
+            throw new BadRequestException(
+                    "Announcements can only be sent while the event is in SETUP, OPEN, or IN_PROGRESS.");
+        }
         User sender = userRepository.findById(coordId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + coordId));
 
@@ -154,7 +161,11 @@ public class AnnouncementService {
     private Set<Integer> resolveEventAudience(Integer eventId, String audience) {
         Set<Integer> ids = new LinkedHashSet<>();
         if (audience.equals("PARTICIPANT") || audience.equals("ALL")) {
-            userRepository.findApprovedStudents()
+            // Event-scoped: members of APPROVED teams in this event only.
+            teamRepository.findAllByEvent_EventIdAndStatus(eventId, "APPROVED").stream()
+                    .flatMap(t -> teamMemberRepository.findByTeam_TeamId(t.getTeamId()).stream())
+                    .map(m -> m.getUser())
+                    .filter(this::isApprovedRecipient)
                     .forEach(u -> ids.add(u.getUserId()));
         }
         if (audience.equals("JUDGE") || audience.equals("ALL")) {
@@ -206,6 +217,7 @@ public class AnnouncementService {
                 .senderRole(ann.getSenderRole())
                 .scope(ann.getScope())
                 .audience(ann.getAudience())
+                .eventId(ann.getEvent() != null ? ann.getEvent().getEventId() : null)
                 .scopeLabel(scopeLabel)
                 .recipientCount(ann.getRecipientCount())
                 .createdAt(ann.getCreatedAt())

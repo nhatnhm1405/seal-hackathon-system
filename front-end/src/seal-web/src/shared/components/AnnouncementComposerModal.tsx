@@ -26,7 +26,7 @@ interface Props {
   onClose: () => void;
 }
 
-export function AnnouncementComposerModal({ open, scopeLabel, audienceHint, events, eventId, onEventChange, audiences, audience, onAudienceChange, onSend, onSent, onClose }: Props) {
+export function AnnouncementComposerModal({ open, scopeLabel, events, eventId, onEventChange, audiences, audience, onAudienceChange, onSend, onSent, onClose }: Props) {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [link, setLink] = useState("");
@@ -108,12 +108,9 @@ export function AnnouncementComposerModal({ open, scopeLabel, audienceHint, even
       >
         <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${accent}, transparent)` }} />
 
-        <h2 style={{ fontFamily: mono, fontSize: 18, fontWeight: 800, color: C.text, marginBottom: 4, lineHeight: 1.3 }}>
+        <h2 style={{ fontFamily: mono, fontSize: 18, fontWeight: 800, color: C.text, marginBottom: 18, lineHeight: 1.3 }}>
           Announce to {scopeLabel}
         </h2>
-        <p style={{ color: C.textMuted, fontFamily: mono, fontSize: 11, lineHeight: 1.6, marginBottom: audiences ? 12 : 18 }}>
-          {audienceHint ? `${audienceHint} — ` : ""}appears in their notification bell.
-        </p>
 
         {/* Event picker (coordinator) */}
         {events && events.length > 0 && (
