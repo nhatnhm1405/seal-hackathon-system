@@ -238,9 +238,11 @@ interface CyberStatCardProps {
   trend?: string;
   accent?: "green" | "blue" | "cyan" | "purple";
   sublabel?: string;
+  /** Glow halo around the card + number. Off for a calmer, flatter tile. */
+  glow?: boolean;
 }
 
-export function CyberStatCard({ value, label, icon, trend, accent = "green", sublabel }: CyberStatCardProps) {
+export function CyberStatCard({ value, label, icon, trend, accent = "green", sublabel, glow = true }: CyberStatCardProps) {
   const accentColors = {
     green:  { main: C.green, glow: C.greenGlow, dim: "rgba(34,197,94,0.08)" },
     blue:   { main: C.blue, glow: C.blueGlow, dim: "rgba(59,130,246,0.08)" },
@@ -258,7 +260,7 @@ export function CyberStatCard({ value, label, icon, trend, accent = "green", sub
         padding: "20px",
         position: "relative",
         overflow: "hidden",
-        boxShadow: `0 0 20px ${a.dim}, inset 0 0 30px ${a.dim}`,
+        boxShadow: glow ? `0 0 20px ${a.dim}, inset 0 0 30px ${a.dim}` : "var(--c-card-shadow)",
       }}
     >
       {/* Gradient fill bottom accent */}
@@ -273,7 +275,7 @@ export function CyberStatCard({ value, label, icon, trend, accent = "green", sub
             </span>
           )}
         </div>
-        <div style={{ color: a.main, fontFamily: "'JetBrains Mono', monospace", fontSize: 30, fontWeight: 800, textShadow: `0 0 20px ${a.glow}`, lineHeight: 1.1, marginTop: 6 }}>
+        <div style={{ color: a.main, fontFamily: "'JetBrains Mono', monospace", fontSize: 30, fontWeight: 800, textShadow: glow ? `0 0 20px ${a.glow}` : "none", lineHeight: 1.1, marginTop: 6 }}>
           {value}
         </div>
         <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, fontWeight: 500 }}>
