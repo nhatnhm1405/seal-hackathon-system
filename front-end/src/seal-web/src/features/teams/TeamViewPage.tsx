@@ -467,7 +467,6 @@ export function TeamViewPage() {
           <PixelButton variant="danger" onClick={() => setConfirmLeave(true)} disabled={busy}>LEAVE TEAM</PixelButton>
           {isLeader && memberRows.length > 1 && (
             <span style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginLeft: 12 }}>
-              (transfer leadership first)
             </span>
           )}
         </div>

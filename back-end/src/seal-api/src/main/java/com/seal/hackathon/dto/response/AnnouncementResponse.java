@@ -21,6 +21,7 @@ public class AnnouncementResponse {
     private String senderRole;   // MENTOR | COORDINATOR
     private String scope;        // TRACK | EVENT
     private String audience;     // PARTICIPANT | JUDGE | MENTOR
+    private Integer eventId;     // event this announcement belongs to (null if none)
     private String scopeLabel;   // track name (mentor) or event name (coordinator)
     private Integer recipientCount;
     private LocalDateTime createdAt;

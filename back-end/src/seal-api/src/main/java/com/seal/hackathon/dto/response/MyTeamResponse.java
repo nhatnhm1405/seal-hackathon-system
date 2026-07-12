@@ -24,6 +24,7 @@ public class MyTeamResponse {
     private String eventName;
     private Integer trackId;
     private String trackName;
+    private String trackDescription;
     private String name;
 
     /** Event lifecycle status (DRAFT/OPEN/SETUP/IN_PROGRESS/...) — drives the

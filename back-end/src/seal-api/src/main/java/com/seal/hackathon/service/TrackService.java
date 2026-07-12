@@ -159,6 +159,7 @@ public class TrackService {
                 .name(track.getName())
                 .description(track.getDescription())
                 .capacity(track.getCapacity())
+                .teamCount(teamRepository.findAllByTrack_TrackIdAndStatus(track.getTrackId(), "APPROVED").size())
                 .build();
     }
 
