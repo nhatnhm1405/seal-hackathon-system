@@ -16,8 +16,14 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.util.Set;
 
+/**
+ * Enforces the participant activation rule at the API layer: a student whose
+ * account is inactive (is_active = false — i.e. not currently in a running
+ * competition) may read, but cannot perform write actions until reactivated.
+ * Reactivation happens when a coordinator approves their "request to compete".
+ */
 @Component
-public class ReadOnlyParticipantWriteFilter extends OncePerRequestFilter {
+public class InactiveParticipantWriteFilter extends OncePerRequestFilter {
 
     private static final Set<String> READ_METHODS = Set.of("GET", "HEAD", "OPTIONS");
     private static final Set<String> STUDENT_TYPES = Set.of("FPT_STUDENT", "EXTERNAL_STUDENT");
@@ -45,7 +51,7 @@ public class ReadOnlyParticipantWriteFilter extends OncePerRequestFilter {
         response.setStatus(HttpServletResponse.SC_FORBIDDEN);
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         objectMapper.writeValue(response.getWriter(),
-                ApiResponse.error("Your account is read-only. Request participation access from a System Admin."));
+                ApiResponse.error("Your account is inactive for the current season. Request to join the competition to continue."));
     }
 
     private boolean shouldBlock(HttpServletRequest request, UserPrincipal principal) {

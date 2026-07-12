@@ -4,6 +4,7 @@ import com.seal.hackathon.dto.request.CreateEventRequest;
 import com.seal.hackathon.dto.request.UpdateEventRequest;
 import com.seal.hackathon.dto.response.HackathonEventResponse;
 import com.seal.hackathon.entity.HackathonEvent;
+import com.seal.hackathon.entity.JudgeAssignment;
 import com.seal.hackathon.entity.Team;
 import com.seal.hackathon.entity.TeamMember;
 import com.seal.hackathon.entity.Track;
@@ -11,6 +12,7 @@ import com.seal.hackathon.entity.User;
 import com.seal.hackathon.exception.BadRequestException;
 import com.seal.hackathon.exception.ResourceNotFoundException;
 import com.seal.hackathon.repository.HackathonEventRepository;
+import com.seal.hackathon.repository.JudgeAssignmentRepository;
 import com.seal.hackathon.repository.TeamMemberRepository;
 import com.seal.hackathon.repository.TeamRepository;
 import com.seal.hackathon.repository.TrackRepository;
@@ -37,6 +39,7 @@ public class HackathonEventService {
     private final TeamRepository teamRepository;
     private final TeamMemberRepository teamMemberRepository;
     private final UserRepository userRepository;
+    private final JudgeAssignmentRepository judgeAssignmentRepository;
     private final AuditLogService auditLogService;
 
     private static final Set<String> VALID_STATUSES =
@@ -280,6 +283,10 @@ public class HackathonEventService {
         }
         event.setStatus("IN_PROGRESS");
         event = hackathonEventRepository.save(event);
+        // Completing the event flipped its participants to inactive; reopening must
+        // flip them back so the event's leaders/members can act again (otherwise the
+        // team console shows but every write is blocked as inactive).
+        reactivateEventParticipants(event.getEventId());
         return mapToResponse(event);
     }
 
@@ -315,6 +322,39 @@ public class HackathonEventService {
                 .collect(Collectors.toList());
         students.forEach(user -> user.setIsActive(false));
         userRepository.saveAll(students);
+
+        // Guest judges are per-event temporary accounts — they too leave the
+        // "in a running competition" state when the event ends. (Internal judges
+        // are permanent staff and stay active.)
+        List<User> guestJudges = guestJudgesOf(completedEventId);
+        guestJudges.forEach(user -> user.setIsActive(false));
+        userRepository.saveAll(guestJudges);
+    }
+
+    // Reverse of the completion lock: reactivate every student and guest judge tied
+    // to this (reopened) event so they resume as active participants.
+    private void reactivateEventParticipants(Integer eventId) {
+        List<User> students = teamRepository.findAllByEvent_EventId(eventId).stream()
+                .flatMap(team -> teamMemberRepository.findByTeam_TeamId(team.getTeamId()).stream())
+                .map(TeamMember::getUser)
+                .filter(this::isStudent)
+                .distinct()
+                .collect(Collectors.toList());
+        students.forEach(user -> user.setIsActive(true));
+        userRepository.saveAll(students);
+
+        List<User> guestJudges = guestJudgesOf(eventId);
+        guestJudges.forEach(user -> user.setIsActive(true));
+        userRepository.saveAll(guestJudges);
+    }
+
+    // Guest (not internal) judges assigned to any round of the event.
+    private List<User> guestJudgesOf(Integer eventId) {
+        return judgeAssignmentRepository.findActiveByEvent(eventId).stream()
+                .map(JudgeAssignment::getJudge)
+                .filter(u -> "GUEST".equalsIgnoreCase(u.getJudgeType()))
+                .distinct()
+                .collect(Collectors.toList());
     }
 
     private boolean isStudent(User user) {

@@ -240,11 +240,13 @@ type Tab = 'ALL' | 'STUDENTS' | 'STAFF' | 'PENDING' | 'IS_ACTIVE';
 
 export function AdminAccountsPage() {
   const navigate = useNavigate();
+  const { addToast } = useNotifications();
   const [users, setUsers] = useState<UserItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<Tab>('ALL');
   const [search, setSearch] = useState("");
+  const [togglingId, setTogglingId] = useState<number | null>(null);
 
   const [createOpen, setCreateOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<UserItem | null>(null);
@@ -257,6 +259,25 @@ export function AdminAccountsPage() {
       .catch(err => setFetchError(err instanceof ApiError ? err.message : "Failed to load accounts."))
       .finally(() => setLoading(false));
   }, []);
+
+  async function toggleActive(u: UserItem) {
+    setTogglingId(u.userId);
+    try {
+      const res = u.isActive
+        ? await adminApi.deactivateUser(u.userId)
+        : await adminApi.activateUser(u.userId);
+      if (res.data) upsert(res.data);
+      addToast({
+        type: "success",
+        title: u.isActive ? "ACCOUNT DEACTIVATED" : "ACCOUNT ACTIVATED",
+        message: `"${u.fullName}" is now ${u.isActive ? "inactive" : "active"}.`,
+      });
+    } catch (err) {
+      addToast({ type: "warning", title: "ACTION FAILED", message: apiErrorMessage(err, "Failed to update account.") });
+    } finally {
+      setTogglingId(null);
+    }
+  }
 
   function upsert(u: UserItem) {
     setUsers(prev => {
@@ -295,7 +316,6 @@ export function AdminAccountsPage() {
           <GradientText>Accounts</GradientText>
         </h1>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-          <PixelButton variant="secondary" size="sm" onClick={() => navigate("/admin/participation-requests")}>PARTICIPATION REQUESTS</PixelButton>
           <PixelButton variant="cyber" size="sm" onClick={() => setCreateOpen(true)}>+ CREATE ACCOUNT</PixelButton>
         </div>
       </div>
@@ -355,6 +375,14 @@ export function AdminAccountsPage() {
                   <td style={{ padding: "12px 14px" }}>
                     <div style={{ display: "flex", gap: 6 }}>
                       <PixelButton size="sm" variant="secondary" onClick={() => setEditTarget(u)}>EDIT</PixelButton>
+                      <PixelButton
+                        size="sm"
+                        variant={u.isActive ? "ghost" : "cyber"}
+                        disabled={togglingId === u.userId}
+                        onClick={() => toggleActive(u)}
+                      >
+                        {togglingId === u.userId ? "…" : u.isActive ? "DEACTIVATE" : "ACTIVATE"}
+                      </PixelButton>
                     </div>
                   </td>
                 </tr>

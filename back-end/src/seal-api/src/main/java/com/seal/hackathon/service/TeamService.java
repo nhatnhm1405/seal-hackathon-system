@@ -95,6 +95,16 @@ public class TeamService {
         return mapToTeamResponse(team);
     }
 
+    // ── Participant: live team-name availability check ────────────────
+    // Mirrors the register-page student-id check: lets the create-team form warn
+    // about a duplicate before submit. Uses the same normalized (case/space
+    // insensitive) match the create path enforces, so the two never disagree.
+    @Transactional(readOnly = true)
+    public boolean teamNameExists(Integer eventId, String name) {
+        if (eventId == null || name == null || name.isBlank()) return false;
+        return teamRepository.existsByEventIdAndNormalizedName(eventId, normalizeName(name));
+    }
+
     // ── Participant: Get my team ──────────────────────────────────────
 
     @Transactional(readOnly = true)

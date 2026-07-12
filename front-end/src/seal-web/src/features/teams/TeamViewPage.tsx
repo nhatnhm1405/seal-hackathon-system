@@ -106,11 +106,10 @@ export function TeamViewPage() {
 
   const isLeader = team?.myRole === 'LEADER';
   const editable = isTeamEditable(team?.eventStatus);
-  const readOnly = currentUser?.is_active === false;
   const lockReason = team ? teamLockReason(team.eventStatus) : null;
-  const canEditTeam = !readOnly && isLeader && editable;
+  const canEditTeam = isLeader && editable;
   const canManageMembers = canEditTeam;
-  const canLeaveTeam = !readOnly && editable;
+  const canLeaveTeam = editable;
 
   if (loading) {
     return <div style={{ padding: 24 }}><PixelCard style={{ padding: 32, textAlign: "center" }}>
@@ -125,12 +124,7 @@ export function TeamViewPage() {
           <p style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, marginBottom: 20 }}>
             {loadError ?? "You are not part of any team yet."}
           </p>
-          {!loadError && !readOnly && <PixelButton variant="cyber" onClick={() => navigate('/team/create')}>CREATE A TEAM</PixelButton>}
-          {!loadError && readOnly && (
-            <p style={{ color: "#06b6d4", fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}>
-              READ-ONLY: Request participation access before creating a new team.
-            </p>
-          )}
+          {!loadError && <PixelButton variant="cyber" onClick={() => navigate('/team/create')}>CREATE A TEAM</PixelButton>}
         </PixelCard>
       </div>
     );
@@ -338,12 +332,6 @@ export function TeamViewPage() {
         </div>
       )}
 
-      {readOnly && (
-        <div style={{ background: "rgba(6,182,212,0.06)", border: "1px solid rgba(6,182,212,0.25)", color: "#06b6d4", fontFamily: "'JetBrains Mono', monospace", fontSize: 12, padding: "12px 16px", lineHeight: 1.7 }}>
-          READ-ONLY: You can view this team and its history, but team changes, invites, join requests, leadership transfer, and leaving the team are disabled.
-        </div>
-      )}
-
       {canEditTeam && memberRows.length < MIN_TEAM_SIZE && (
         <div style={{ background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.4)", color: "#eab308", fontFamily: "'JetBrains Mono', monospace", fontSize: 12, padding: "12px 16px" }}>
           Your team has {memberRows.length}/{MIN_TEAM_SIZE} minimum members. Teams with fewer than {MIN_TEAM_SIZE} members may be merged by a coordinator.
@@ -390,7 +378,6 @@ export function TeamViewPage() {
                 size="sm"
                 variant={teamPanel === "requests" ? "secondary" : "ghost"}
                 onClick={() => setTeamPanel("requests")}
-                disabled={readOnly}
               >
                 JOIN REQUESTS{joinRequests.length > 0 ? ` (${joinRequests.length})` : ""}
               </PixelButton>
@@ -567,17 +554,17 @@ export function TeamViewPage() {
                         </div>
                       </div>
                       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                        <PixelButton size="sm" variant="cyber" onClick={() => acceptJoin(r)} disabled={readOnly || busyReq === r.requestId || memberRows.length >= MAX_TEAM_SIZE || !editable}>ACCEPT</PixelButton>
-                        <PixelButton size="sm" variant="danger" onClick={() => declineJoin(r)} disabled={readOnly || busyReq === r.requestId}>DECLINE</PixelButton>
+                        <PixelButton size="sm" variant="cyber" onClick={() => acceptJoin(r)} disabled={busyReq === r.requestId || memberRows.length >= MAX_TEAM_SIZE || !editable}>ACCEPT</PixelButton>
+                        <PixelButton size="sm" variant="danger" onClick={() => declineJoin(r)} disabled={busyReq === r.requestId}>DECLINE</PixelButton>
                       </div>
                     </div>
                   ))}
-                  {(readOnly || !editable) && (
+                  {!editable && (
                     <div style={{ color: "#3b82f6", fontFamily: "'JetBrains Mono', monospace", fontSize: 10, lineHeight: 1.6 }}>
                       The team is locked for this phase - you can no longer accept new members.
                     </div>
                   )}
-                  {!readOnly && editable && memberRows.length >= MAX_TEAM_SIZE && (
+                  {editable && memberRows.length >= MAX_TEAM_SIZE && (
                     <div style={{ color: "#eab308", fontFamily: "'JetBrains Mono', monospace", fontSize: 10, lineHeight: 1.6 }}>
                       Team is full ({MAX_TEAM_SIZE}/{MAX_TEAM_SIZE}) - remove a member before accepting new requests.
                     </div>

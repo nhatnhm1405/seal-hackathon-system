@@ -3,7 +3,7 @@ import { useNavigate } from "react-router";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { useNotifications } from "@/app/providers/NotificationProvider";
 import { invitesApi, HackathonEvent, participationRequestsApi, ApiError, apiErrorMessage } from "@/shared/apiClient";
-import { C, GradientText, PixelButton, PixelCard } from "@/shared/components/PixelComponents";
+import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
 import { NoTeamDashboard } from "./participant/screens/NoTeamDashboard";
 import { ExistingTeamDashboard } from "./participant/screens/ExistingTeamDashboard";
 import { CreateTeamScreen } from "./participant/screens/CreateTeamScreen";
@@ -25,8 +25,11 @@ export function ParticipantDashboard() {
     const [pendingTeamName, setPendingTeamName] = useState<string | null>(null);
     const [showInvites, setShowInvites] = useState(false);
     const [pendingInviteCount, setPendingInviteCount] = useState(0);
-    const [requestingAccess, setRequestingAccess] = useState(false);
-    const [accessRequested, setAccessRequested] = useState(false);
+    // Request-to-compete flow for a participant who finished their last event and
+    // is now inactive (not in any running competition).
+    const [requestingActive, setRequestingActive] = useState(false);
+    const [activeRequested, setActiveRequested] = useState(false);
+    const [confirmActive, setConfirmActive] = useState(false);
 
     const loadInviteCount = useCallback(() => {
         invitesApi.getPending().then(r => setPendingInviteCount((r.data ?? []).length)).catch(() => setPendingInviteCount(0));
@@ -36,21 +39,22 @@ export function ParticipantDashboard() {
 
     if (!currentUser) return null;
 
-    async function requestParticipationAccess() {
-        if (requestingAccess || accessRequested) return;
-        setRequestingAccess(true);
+    const inactive = !currentUser.is_active;
+
+    async function submitRequestActive() {
+        if (requestingActive || activeRequested) return;
+        setRequestingActive(true);
         try {
             await participationRequestsApi.request();
-            setAccessRequested(true);
-            addToast({ type: "success", title: "Request submitted", message: "A System Admin will review your participation access request." });
+            setActiveRequested(true);
+            setConfirmActive(false);
+            addToast({ type: "success", title: "Request sent", message: "A coordinator will review your request to compete this season." });
         } catch (err) {
-            const message = apiErrorMessage(err, "Failed to submit participation access request.");
-            if (err instanceof ApiError && err.status === 400) {
-                setAccessRequested(true);
-            }
-            addToast({ type: "warning", title: "Request failed", message });
+            // A 400 usually means a request is already pending — treat as sent.
+            if (err instanceof ApiError && err.status === 400) { setActiveRequested(true); setConfirmActive(false); }
+            addToast({ type: "warning", title: "Request failed", message: apiErrorMessage(err, "Failed to send request.") });
         } finally {
-            setRequestingAccess(false);
+            setRequestingActive(false);
         }
     }
 
@@ -72,15 +76,6 @@ export function ParticipantDashboard() {
 
     // Create-team form.
     if (screen === 'create') {
-        if (!currentUser.is_active) {
-            return (
-                <ReadOnlyAccessPanel
-                    requesting={requestingAccess}
-                    requested={accessRequested}
-                    onRequest={requestParticipationAccess}
-                />
-            );
-        }
         return (
             <CreateTeamScreen
                 initialEventId={createEventId}
@@ -96,26 +91,26 @@ export function ParticipantDashboard() {
         );
     }
 
+    // Inactive participants request to compete instead of registering directly.
+    function startRegisterOrRequest(eventId?: number, trackId?: number) {
+        if (inactive) { setConfirmActive(true); return; }
+        setCreateEventId(eventId ?? null);
+        setCreateTrackId(trackId ?? null);
+        setDrawerEvent(null);
+        setScreen('create');
+    }
+
     // No-team dashboard.
     return (
         <div style={{ position: "relative" }}>
             <NoTeamDashboard
                 pendingTeamName={pendingTeamName}
                 pendingInviteCount={pendingInviteCount}
-                readOnly={!currentUser.is_active}
-                requestingAccess={requestingAccess}
-                accessRequested={accessRequested}
-                onRequestAccess={requestParticipationAccess}
-                onCreateTeam={(eventId, trackId) => {
-                    if (!currentUser.is_active) {
-                        requestParticipationAccess();
-                        return;
-                    }
-                    setCreateEventId(eventId ?? null);
-                    setCreateTrackId(trackId ?? null);
-                    setDrawerEvent(null);
-                    setScreen('create');
-                }}
+                inactive={inactive}
+                requestingActive={requestingActive}
+                activeRequested={activeRequested}
+                onRequestActive={() => setConfirmActive(true)}
+                onCreateTeam={startRegisterOrRequest}
                 onViewDetails={(ev) => setDrawerEvent(ev)}
                 onWaitForInvite={() => setShowInvites(true)}
             />
@@ -127,48 +122,21 @@ export function ParticipantDashboard() {
             {drawerEvent && (
                 <EventDetailDrawer
                     event={drawerEvent}
-                    readOnly={!currentUser.is_active}
                     onClose={() => setDrawerEvent(null)}
-                    onCreateTeam={(eventId) => {
-                        if (!currentUser.is_active) {
-                            requestParticipationAccess();
-                            return;
-                        }
-                        setCreateEventId(eventId);
-                        setDrawerEvent(null);
-                        setScreen('create');
-                    }}
+                    onCreateTeam={(eventId) => startRegisterOrRequest(eventId)}
                 />
             )}
-        </div>
-    );
-}
 
-function ReadOnlyAccessPanel({
-    requesting,
-    requested,
-    onRequest,
-}: {
-    requesting: boolean;
-    requested: boolean;
-    onRequest: () => void;
-}) {
-    return (
-        <div style={{ padding: 24 }}>
-            <PixelCard glow gradient style={{ padding: 28, maxWidth: 720 }}>
-                <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, letterSpacing: "0.12em", marginBottom: 10 }}>
-                    // is_active_account
-                </div>
-                <h1 style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 26, fontWeight: 900, lineHeight: 1.2, marginBottom: 12 }}>
-                    <GradientText>Participation access required</GradientText>
-                </h1>
-                <p style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, lineHeight: 1.8, maxWidth: 560, marginBottom: 18 }}>
-                    Your account is currently read-only. You can still view existing information, but creating teams, joining teams, accepting invites, selecting tracks and submitting projects require System Admin approval.
-                </p>
-                <PixelButton variant="cyber" disabled={requesting || requested} onClick={onRequest}>
-                    {requested ? "REQUEST SENT" : requesting ? "SENDING..." : "REQUEST PARTICIPATION ACCESS"}
-                </PixelButton>
-            </PixelCard>
+            {confirmActive && (
+                <ConfirmDialog
+                    title="Request to compete this season?"
+                    message="You finished your last event, so your account is currently inactive. Send a request for a coordinator to add you to the current competition."
+                    confirmLabel="SEND REQUEST"
+                    working={requestingActive}
+                    onConfirm={submitRequestActive}
+                    onClose={() => { if (!requestingActive) setConfirmActive(false); }}
+                />
+            )}
         </div>
     );
 }

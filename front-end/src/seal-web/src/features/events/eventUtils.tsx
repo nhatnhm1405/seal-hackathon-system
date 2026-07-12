@@ -64,19 +64,29 @@ export function eventStatusBadge(status: EventStatus) {
   return <PixelBadge color="gray">DRAFT</PixelBadge>;
 }
 
-// Render a stored datetime ("2026-08-14T15:00:00", no zone → treated as the
-// event's local wall-clock) as "14 Aug 2026, 15:00". Falls back to the raw
-// string if it can't be parsed so a bad value is never hidden.
-function fmtDateTime(s?: string): string {
-  if (!s) return "";
-  const d = new Date(s);
-  if (Number.isNaN(d.getTime())) return s;
-  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+// Break a stored datetime into date parts, or null if absent/unparseable.
+function dateParts(s?: string): { d: number; m: string; y: number } | null {
+  if (!s) return null;
+  const dt = new Date(s);
+  if (Number.isNaN(dt.getTime())) return null;
+  return { d: dt.getDate(), m: MONTHS[dt.getMonth()], y: dt.getFullYear() };
 }
 
+// Concise event period, e.g. "28 May → 27 Jun 2026" (year printed once when the
+// range stays in one year). Season/year are omitted here — they already live in
+// the event name — and the time-of-day is dropped to keep the line uncluttered.
 export function eventMeta(ev: EventRow): string {
-  const period = [ev.startDate, ev.endDate].map(fmtDateTime).filter(Boolean).join(" → ");
-  return [ev.season, ev.year, period].filter(Boolean).join(" · ");
+  const a = dateParts(ev.startDate);
+  const b = dateParts(ev.endDate);
+  if (a && b) {
+    return a.y === b.y
+      ? `${a.d} ${a.m} → ${b.d} ${b.m} ${b.y}`
+      : `${a.d} ${a.m} ${a.y} → ${b.d} ${b.m} ${b.y}`;
+  }
+  const only = a ?? b;
+  return only ? `${only.d} ${only.m} ${only.y}` : "";
 }
 
 // endDate as a sortable timestamp; missing/invalid dates sort last (-Infinity).
