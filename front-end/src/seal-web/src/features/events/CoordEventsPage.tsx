@@ -1244,7 +1244,10 @@ export function CoordEventsPage() {
                   destructive option is never one stray click away. */}
               {canChangeEventStatus && (() => {
                 const actions = nextStatusActions(selectedEvent.status)
-                  .filter(action => action.next !== 'COMPLETED' || canCompleteEvent);
+                  .filter(action => action.next !== 'COMPLETED' || canCompleteEvent)
+                  // Cancelling an event is a System Admin action — coordinators
+                  // manage the lifecycle forward/back but never cancel it.
+                  .filter(action => action.next !== 'CANCELLED');
                 if (actions.length === 0) return null;
                 const [primary, ...overflow] = actions;
                 const overflowItems: PixelMenuEntry[] = [];

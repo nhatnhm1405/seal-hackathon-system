@@ -26,7 +26,7 @@ function eventOptionLabel(team: MyTeam): string {
 
 export function TeamSubmitPage() {
   const { addToast } = useNotifications();
-  const { currentUser, clearTeam } = useAuth();
+  const { clearTeam } = useAuth();
 
   const [team, setTeam] = useState<MyTeam | null>(null);
   const [teamHistory, setTeamHistory] = useState<MyTeam[]>([]);
@@ -173,11 +173,10 @@ export function TeamSubmitPage() {
     ? new Date(selectedRound.submissionDeadline).getTime() < Date.now()
     : false;
   const teamApproved = (team?.status ?? "").toUpperCase() === "APPROVED";
-  const readOnly = currentUser?.is_active === false;
   const roundOpen = ["ACTIVE", "OPEN"].includes((selectedRound?.status ?? "").toUpperCase());
   const eventAllowsSubmit = ["OPEN", "IN_PROGRESS"].includes((team?.eventStatus ?? "").toUpperCase());
   const timerBlocks = timer.isConfigured && !timer.isRunning;
-  const canSubmit = !readOnly && isLeader && teamApproved && roundOpen && eventAllowsSubmit && !deadlinePassed && !timerBlocks;
+  const canSubmit = isLeader && teamApproved && roundOpen && eventAllowsSubmit && !deadlinePassed && !timerBlocks;
 
   async function submit() {
     if (!selectedRoundId) return;
@@ -285,12 +284,6 @@ export function TeamSubmitPage() {
       {!isLeader && (
         <div style={{ background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.35)", color: C.yellow, fontFamily: mono, fontSize: 12, padding: "10px 14px" }}>
           Only the team leader can submit. You can view the current submission below.
-        </div>
-      )}
-
-      {readOnly && (
-        <div style={{ background: "rgba(6,182,212,0.06)", border: "1px solid rgba(6,182,212,0.25)", color: C.cyan, fontFamily: mono, fontSize: 12, padding: "10px 14px", lineHeight: 1.7 }}>
-          READ-ONLY: You can view submitted project information, but submitting or updating project links requires participation access.
         </div>
       )}
 

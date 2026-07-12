@@ -21,7 +21,10 @@ function registrationDeadlineLabel(ev: ActiveEventWithTracks): { primary: string
     const diffMs = deadline.getTime() - now.getTime();
 
     if (diffMs < 0) {
-        return { primary: "Registration closed", secondary: `Closed: ${fmtShort(deadlineIso)}`, tone: "muted" };
+        // The event is still OPEN and status is the single source of truth for
+        // registration (dates are informational only, per the backend). A passed
+        // deadline must not claim "closed" while teams are still being accepted.
+        return { primary: "Open now", secondary: "Accepting teams", tone: "green" };
     }
     if (deadline.toDateString() === now.toDateString()) {
         return { primary: "Closes today", secondary: `Deadline: ${fmtShort(deadlineIso)}`, tone: "red" };
@@ -62,26 +65,41 @@ function trackSummary(track: { name: string; description?: string }) {
     return "Explore this challenge track and shape a focused hackathon solution.";
 }
 
+// Liquid-glass tile tinted by an accent colour (rgb triplet, e.g. "6,182,212").
+// Dark mode gets the translucent frosted look — a diagonal accent film, a soft
+// accent border, real backdrop blur and an inner top highlight — matching the
+// glassy content boxes elsewhere on the card. Light mode keeps the flat surface.
+function glassTile(rgb: string, dark: boolean): CSSProperties {
+    if (!dark) return { background: C.surface2, border: `1px solid ${C.border}` };
+    return {
+        background: `linear-gradient(135deg, rgba(${rgb},0.14) 0%, rgba(${rgb},0.05) 100%)`,
+        border: `1px solid rgba(${rgb},0.34)`,
+        backdropFilter: "blur(8px)",
+        WebkitBackdropFilter: "blur(8px)",
+        boxShadow: `inset 0 1px 0 rgba(255,255,255,0.08), 0 4px 20px rgba(0,0,0,0.18)`,
+    };
+}
+
 export function NoTeamDashboard({
     onCreateTeam,
     onViewDetails,
     onWaitForInvite,
     pendingTeamName,
     pendingInviteCount,
-    readOnly = false,
-    requestingAccess = false,
-    accessRequested = false,
-    onRequestAccess,
+    inactive = false,
+    requestingActive = false,
+    activeRequested = false,
+    onRequestActive,
 }: {
     onCreateTeam: (eventId?: number, trackId?: number) => void;
     onViewDetails: (event: HackathonEvent) => void;
     onWaitForInvite: () => void;
     pendingTeamName: string | null;
     pendingInviteCount: number;
-    readOnly?: boolean;
-    requestingAccess?: boolean;
-    accessRequested?: boolean;
-    onRequestAccess?: () => void;
+    inactive?: boolean;
+    requestingActive?: boolean;
+    activeRequested?: boolean;
+    onRequestActive?: () => void;
 }) {
     const { openTour } = useTour();
     const { theme } = useTheme();
@@ -89,7 +107,6 @@ export function NoTeamDashboard({
     // Dark-mode only: content/label text → white, muted text → soft white.
     const txt = dark ? "#ffffff" : "var(--c-text)";
     const mut = dark ? "rgba(255,255,255,0.85)" : "var(--c-text-muted)";
-    const statPanelBg = dark ? "rgba(8, 18, 24, 0.36)" : C.surface2;
     const statPanelBorder = dark ? "rgba(34,197,94,0.24)" : C.border;
     const detailPanelBg = dark ? "rgba(8, 18, 24, 0.28)" : C.surface2;
     const detailToggleBg = dark ? "rgba(59,130,246,0.08)" : C.surface2;
@@ -143,20 +160,22 @@ export function NoTeamDashboard({
                 <PixelBadge color="green">{events.length} OPEN</PixelBadge>
             </div>
 
-            {readOnly && (
+            {/* Inactive participant (finished a past event) + a competition is open →
+                offer to rejoin. Between seasons (no open event) we show nothing here. */}
+            {inactive && events.length > 0 && (
                 <PixelCard glow={dark} glowColor={dark ? "blue" : "green"} gradient={dark} style={{ padding: 16 }}>
                     <div style={{ display: "flex", gap: 12, alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" }}>
-                        <p style={{ color: mut, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, margin: 0 }}>
-                            Creating or joining teams requires System Admin approval.
+                        <p style={{ color: mut, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, margin: 0, lineHeight: 1.6 }}>
+                            You're not in the current competition yet. Request to join this season to start registering a team.
                         </p>
-                        <PixelButton variant="cyber" disabled={requestingAccess || accessRequested} onClick={onRequestAccess}>
-                            {accessRequested ? "REQUEST SENT" : requestingAccess ? "SENDING..." : "REQUEST PARTICIPATION ACCESS"}
+                        <PixelButton variant="cyber" disabled={requestingActive || activeRequested} onClick={onRequestActive}>
+                            {activeRequested ? "REQUEST SENT" : requestingActive ? "SENDING..." : "REQUEST TO COMPETE THIS SEASON"}
                         </PixelButton>
                     </div>
                 </PixelCard>
             )}
 
-            {pendingTeamName && !readOnly && (
+            {pendingTeamName && (
                 <PixelCard glow={dark} glowColor={dark ? "blue" : "green"} gradient={dark} style={{ padding: 16 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                         <span style={{ color: mut, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>
@@ -197,7 +216,13 @@ export function NoTeamDashboard({
                                 glow
                                 glowColor={dark ? "blue" : "green"}
                                 gradient
-                                style={{ padding: "28px 30px", minHeight: 236, display: "flex", flexDirection: "column", gap: 22, borderColor: dark ? "rgba(59,130,246,0.2)" : "rgba(34,197,94,0.35)" }}
+                                style={{
+                                    padding: "28px 30px", minHeight: 236, display: "flex", flexDirection: "column", gap: 22,
+                                    borderColor: dark ? "rgba(59,130,246,0.2)" : "rgba(34,197,94,0.35)",
+                                    // Inactive participants can't register yet — dim the whole event card and
+                                    // block interaction; their only action is the "Request to compete" banner above.
+                                    ...(inactive ? { opacity: 0.45, pointerEvents: "none" as const, filter: "grayscale(0.4)" } : {}),
+                                }}
                             >
                                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 18, flexWrap: "wrap" }}>
                                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -230,15 +255,15 @@ export function NoTeamDashboard({
                                 </div>
 
                                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }}>
-                                    <div style={{ background: statPanelBg, border: `1px solid ${statPanelBorder}`, backdropFilter: dark ? "blur(2px)" : undefined, padding: "12px 14px" }}>
+                                    <div style={{ ...glassTile("6,182,212", dark), padding: "12px 14px" }}>
                                         <div style={{ color: mut, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase" }}>Tracks</div>
                                         <div style={{ color: C.cyan, fontFamily: "'JetBrains Mono', monospace", fontSize: 22, fontWeight: 900, marginTop: 4 }}>{evTracks.length}</div>
                                     </div>
-                                    <div style={{ background: statPanelBg, border: `1px solid ${statPanelBorder}`, backdropFilter: dark ? "blur(2px)" : undefined, padding: "12px 14px" }}>
+                                    <div style={{ ...glassTile("59,130,246", dark), padding: "12px 14px" }}>
                                         <div style={{ color: mut, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase" }}>Rounds</div>
                                         <div style={{ color: C.blueBright, fontFamily: "'JetBrains Mono', monospace", fontSize: 22, fontWeight: 900, marginTop: 4 }}>{evRounds.length}</div>
                                     </div>
-                                    <div style={{ background: statPanelBg, border: `1px solid ${statPanelBorder}`, backdropFilter: dark ? "blur(2px)" : undefined, padding: "12px 14px" }}>
+                                    <div style={{ ...glassTile("34,197,94", dark), padding: "12px 14px" }}>
                                         <div style={{ color: mut, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase" }}>Current Round</div>
                                         <div style={{ color: activeRound ? C.green : mut, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 900, marginTop: 7 }}>
                                             {activeRound
@@ -317,8 +342,8 @@ export function NoTeamDashboard({
                                 </div>
 
                                 <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center", marginTop: "auto" }}>
-                                    <PixelButton variant="cyber" size="md" disabled={readOnly} onClick={() => onCreateTeam(ev.eventId)}>
-                                        {readOnly ? "READ-ONLY" : "REGISTER & CREATE TEAM"}
+                                    <PixelButton variant="cyber" size="md" onClick={() => onCreateTeam(ev.eventId)}>
+                                        REGISTER &amp; CREATE TEAM
                                     </PixelButton>
                                     <div style={{ position: "relative", display: "inline-flex" }}>
                                         <button
@@ -328,7 +353,7 @@ export function NoTeamDashboard({
                                             onMouseEnter={(e) => { const el = e.currentTarget as HTMLElement; el.style.background = "rgba(34,197,94,0.16)"; el.style.borderColor = C.green; el.style.boxShadow = "0 0 16px rgba(34,197,94,0.3)"; }}
                                             onMouseLeave={(e) => { const el = e.currentTarget as HTMLElement; el.style.background = "rgba(34,197,94,0.08)"; el.style.borderColor = "rgba(34,197,94,0.5)"; el.style.boxShadow = "inset 0 0 20px rgba(34,197,94,0.05)"; }}
                                         >
-                                            {readOnly ? "VIEW INVITES" : "WAIT FOR INVITE"}
+                                            WAIT FOR INVITE
                                         </button>
                                         {pendingInviteCount > 0 && (
                                             <span style={{ position: "absolute", top: -8, right: -8, minWidth: 20, height: 20, borderRadius: "50%", background: C.blue, color: "#fff", fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 800, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: `0 0 10px rgba(59,130,246,0.75)`, pointerEvents: "none" }}>

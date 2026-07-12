@@ -43,13 +43,24 @@ public class ParticipationAccessRequestService {
             throw new BadRequestException("Your account already has participation access.");
         }
 
-        ParticipationAccessRequest request = requestRepository
-                .findByUser_UserIdAndStatus(userId, STATUS_PENDING)
-                .orElseGet(() -> requestRepository.save(ParticipationAccessRequest.builder()
+        var existing = requestRepository.findByUser_UserIdAndStatus(userId, STATUS_PENDING);
+        ParticipationAccessRequest request = existing.orElseGet(() -> requestRepository.save(
+                ParticipationAccessRequest.builder()
                         .user(user)
                         .email(user.getEmail().toLowerCase().trim())
                         .status(STATUS_PENDING)
                         .build()));
+
+        // Only greet on a freshly-created request (the call is idempotent while one
+        // is already pending) so re-clicks don't spam the notification feed.
+        if (existing.isEmpty()) {
+            notificationService.createNotification(
+                    user.getUserId(),
+                    "Request to compete submitted",
+                    "Your request to join the current season is awaiting coordinator review.",
+                    "PARTICIPATION_ACCESS_REQUESTED"
+            );
+        }
         return mapToResponse(request);
     }
 

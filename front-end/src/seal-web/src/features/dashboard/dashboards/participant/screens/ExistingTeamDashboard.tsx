@@ -1,13 +1,14 @@
-import { useState, useEffect, useCallback, ReactNode } from "react";
+import { useState, useEffect, useCallback, ReactNode, CSSProperties } from "react";
 import { useNavigate } from "react-router";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { useNotifications } from "@/app/providers/NotificationProvider";
 import {
-    C, GradientText, PixelCard, PixelButton, PixelBadge, CyberStatCard,
+    C, GradientText, PixelCard, PixelButton, PixelBadge, FloatingParticles,
 } from "@/shared/components/PixelComponents";
+import { useTheme } from "@/app/providers/ThemeProvider";
 import {
     teamsApi, tracksApi, roundsApi, submissionsApi, resultsApi, notificationsApi,
-    MyTeam, Track, Round, RoundResult, Notification, ApiError, apiErrorMessage, participationRequestsApi,
+    MyTeam, Track, Round, RoundResult, Notification, ApiError, apiErrorMessage,
 } from "@/shared/apiClient";
 import { ParticipantJourneyBar } from "@/shared/components/ParticipantJourneyBar";
 import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
@@ -18,6 +19,8 @@ export function ExistingTeamDashboard() {
     const navigate = useNavigate();
     const { currentUser, clearTeam } = useAuth();
     const { addToast } = useNotifications();
+    const { theme } = useTheme();
+    const dark = theme === "dark";
 
     const [team, setTeam] = useState<MyTeam | null>(null);
     const [tracks, setTracks] = useState<Track[]>([]);
@@ -32,8 +35,6 @@ export function ExistingTeamDashboard() {
     const [rank, setRank] = useState<RoundResult | null>(null);
     const [feed, setFeed] = useState<Notification[]>([]);
     const [error, setError] = useState<string | null>(null);
-    const [accessRequested, setAccessRequested] = useState(false);
-    const [requestingAccess, setRequestingAccess] = useState(false);
 
     const reload = useCallback(async () => {
         setError(null);
@@ -110,21 +111,6 @@ export function ExistingTeamDashboard() {
         }
     }
 
-    async function requestParticipationAccess() {
-        if (requestingAccess || accessRequested) return;
-        setRequestingAccess(true);
-        try {
-            await participationRequestsApi.request();
-            setAccessRequested(true);
-            addToast({ type: "success", title: "Request submitted", message: "A System Admin will review your participation access request." });
-        } catch (err) {
-            setError(err instanceof ApiError ? err.message : "Failed to submit participation access request.");
-            addToast({ type: "warning", title: "Request failed", message: apiErrorMessage(err, "Failed to submit participation access request.") });
-        } finally {
-            setRequestingAccess(false);
-        }
-    }
-
     if (!currentUser || !team) return null;
 
     const isLeader = team.myRole === 'LEADER' || currentUser.is_leader;
@@ -136,10 +122,15 @@ export function ExistingTeamDashboard() {
         && !team.trackName;
 
     return (
-        <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
-            <ParticipantJourneyBar team={team} />
+        <div className={dark ? "cyber-grid-bg" : undefined} style={{ position: "relative", minHeight: "100%", padding: 24 }}>
+            {/* Same ambient backdrop as the no-team dashboard — cyber grid, floating
+                particles and a soft radial glow (dark theme only). */}
+            {dark && <FloatingParticles count={30} />}
+            {dark && <div style={{ position: "absolute", top: "6%", left: "50%", transform: "translateX(-50%)", width: 520, height: 520, borderRadius: "50%", background: "radial-gradient(circle, rgba(59,130,246,0.06), transparent 70%)", pointerEvents: "none" }} />}
+            <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", gap: 20 }}>
+            <ParticipantJourneyBar team={team} highlight={dark} />
 
-            <PixelCard glow gradient style={{ padding: 24 }}>
+            <PixelCard glow glowColor={dark ? "blue" : "green"} gradient style={{ padding: 24 }}>
                 <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 700, marginBottom: 6 }}>
                     {isLeader ? 'Team Leader Console' : 'Participant Console'}
                 </div>
@@ -155,44 +146,24 @@ export function ExistingTeamDashboard() {
                 </div>
             </PixelCard>
 
-            {/* Time-sensitive status — kept near the top for at-a-glance tracking */}
+            {/* Time-sensitive status — glass tiles matching the no-team dashboard. */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16 }}>
-                <CyberStatCard
-                    value={submitted ? "Submitted" : "Pending"}
+                <GlassStat dark={dark} rgb="34,197,94" valueColor={C.green}
                     label={subRoundName ? `${subRoundName} Submission` : "Submission"}
-                    accent="green"
-                    sublabel={submitted?.at ? `at ${fmtDate(submitted.at)}` : "Not submitted yet"}
-                />
-                <CyberStatCard
-                    value={rank ? `#${rank.rankPosition}` : "—"}
+                    value={submitted ? "Submitted" : "Pending"}
+                    sublabel={submitted?.at ? `at ${fmtDate(submitted.at)}` : "Not submitted yet"} />
+                <GlassStat dark={dark} rgb="59,130,246" valueColor={C.blueBright}
                     label="Last Round Rank"
-                    accent="blue"
-                    sublabel={rank ? `Score: ${rank.totalScore.toFixed(1)}` : "No data"}
-                />
-                <CyberStatCard
-                    value={activeRound ? fmtDate(activeRound.submissionDeadline) : "—"}
+                    value={rank ? `#${rank.rankPosition}` : "—"}
+                    sublabel={rank ? `Score: ${rank.totalScore.toFixed(1)}` : "No data"} />
+                <GlassStat dark={dark} rgb="6,182,212" valueColor={C.cyan}
                     label="Next Deadline"
-                    accent="cyan"
-                    sublabel={activeRound?.name ?? "No active round"}
-                />
+                    value={activeRound ? fmtDate(activeRound.submissionDeadline) : "—"}
+                    sublabel={activeRound?.name ?? "No active round"} />
             </div>
 
             {error && (
                 <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.35)", color: C.red, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, padding: "10px 14px" }}>ERROR: {error}</div>
-            )}
-
-            {!currentUser.is_active && (
-                <PixelCard style={{ padding: 18, borderColor: "rgba(6,182,212,0.35)", background: "rgba(6,182,212,0.06)" }}>
-                    <div style={{ color: "#06b6d4", fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", marginBottom: 6 }}>
-                        // is_active_mode
-                    </div>
-                    <p style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, lineHeight: 1.7, marginBottom: 12 }}>
-                        You can view your team and event data, but write actions are locked until a System Admin grants participation access.
-                    </p>
-                    <PixelButton variant="cyber" size="sm" disabled={requestingAccess || accessRequested} onClick={requestParticipationAccess}>
-                        {accessRequested ? "REQUEST SENT" : requestingAccess ? "SENDING..." : "REQUEST PARTICIPATION ACCESS"}
-                    </PixelButton>
-                </PixelCard>
             )}
 
             {/* Track picker — modal. Sits below the ConfirmDialog (z 400) so the
@@ -248,7 +219,7 @@ export function ExistingTeamDashboard() {
             )}
 
             {/* Team info */}
-            <PixelCard style={{ padding: 24 }}>
+            <PixelCard glow glowColor={dark ? "blue" : "green"} gradient style={{ padding: 24 }}>
                 <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 22, fontWeight: 700, marginBottom: 16 }}>Team Info</div>
                 {team.status === 'PENDING' && (
                     <div style={{ background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.35)", color: "#eab308", fontFamily: "'JetBrains Mono', monospace", fontSize: 11, padding: "8px 12px", marginBottom: 12 }}>
@@ -257,7 +228,7 @@ export function ExistingTeamDashboard() {
                 )}
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 16 }}>
                     <InfoRow label="Team" value={team.name} accent="green" />
-                    {needsTrackPick && currentUser.is_active ? (
+                    {needsTrackPick ? (
                         <InfoRow label="Track" accent="cyan" action={
                             <button
                                 type="button"
@@ -281,26 +252,14 @@ export function ExistingTeamDashboard() {
                     <InfoRow label="Current Round" value={activeRound?.name ?? "—"} badge={activeRound?.status} accent="purple" />
                 </div>
 
-                {(isLeader && currentUser.is_active) || !currentUser.is_active ? (
+                {isLeader && (
                     <div style={{ display: "flex", gap: 12, justifyContent: "flex-end", flexWrap: "wrap", marginTop: 20, paddingTop: 16, borderTop: `1px solid ${C.border}` }}>
-                        {isLeader && currentUser.is_active && (
-                            <>
-                                <PixelButton variant="cyber" onClick={() => navigate('/team/view')}>MANAGE TEAM</PixelButton>
-                                {team.status === 'APPROVED' && (
-                                    <PixelButton variant="secondary" onClick={() => navigate('/team/submit')}>SUBMIT PROJECT</PixelButton>
-                                )}
-                            </>
-                        )}
-                        {!currentUser.is_active && (
-                            <>
-                                <PixelButton variant="secondary" onClick={() => navigate('/team/view')}>VIEW TEAM</PixelButton>
-                                {team.status === 'APPROVED' && (
-                                    <PixelButton variant="secondary" onClick={() => navigate('/team/submit')}>VIEW SUBMISSION</PixelButton>
-                                )}
-                            </>
+                        <PixelButton variant="cyber" onClick={() => navigate('/team/view')}>MANAGE TEAM</PixelButton>
+                        {team.status === 'APPROVED' && (
+                            <PixelButton variant="secondary" onClick={() => navigate('/team/submit')}>SUBMIT PROJECT</PixelButton>
                         )}
                     </div>
-                ) : null}
+                )}
             </PixelCard>
 
             {/* Track "đề thi" — download once released (approved team in a track only) */}
@@ -309,14 +268,14 @@ export function ExistingTeamDashboard() {
             )}
 
             {/* Activity feed (from the user's notifications) */}
-            <PixelCard style={{ padding: 20 }}>
+            <PixelCard glow glowColor={dark ? "blue" : "green"} gradient style={{ padding: 20 }}>
                 <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 700, marginBottom: 12 }}>Activity Feed</div>
                 {feed.length === 0 ? (
                     <p style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}>No recent activity.</p>
                 ) : (
                     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                         {feed.map(n => (
-                            <div key={n.notificationId} style={{ display: "flex", gap: 12, padding: "10px 12px", background: C.surface2, border: `1px solid ${C.border}` }}>
+                            <div key={n.notificationId} style={{ display: "flex", gap: 12, padding: "10px 12px", background: dark ? "rgba(8,14,22,0.45)" : C.surface2, backdropFilter: dark ? "blur(6px)" : undefined, WebkitBackdropFilter: dark ? "blur(6px)" : undefined, border: `1px solid ${dark ? "rgba(59,130,246,0.18)" : C.border}` }}>
                                 <div style={{ width: 6, height: 6, background: n.isRead ? C.textMuted : C.green, marginTop: 6, flexShrink: 0, boxShadow: n.isRead ? "none" : `0 0 6px ${C.green}` }} />
                                 <div style={{ flex: 1 }}>
                                     <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>{n.title}{n.content ? ` — ${n.content}` : ""}</div>
@@ -329,11 +288,42 @@ export function ExistingTeamDashboard() {
                     </div>
                 )}
             </PixelCard>
+            </div>
+        </div>
+    );
+}
+
+// Liquid-glass tile tinted by an accent colour (rgb triplet) — same recipe as the
+// no-team dashboard so the two participant dashboards read as one system.
+function glassTile(rgb: string, dark: boolean): CSSProperties {
+    if (!dark) return { background: C.surface2, border: `1px solid ${C.border}` };
+    return {
+        background: `linear-gradient(135deg, rgba(${rgb},0.14) 0%, rgba(${rgb},0.05) 100%)`,
+        border: `1px solid rgba(${rgb},0.34)`,
+        backdropFilter: "blur(8px)",
+        WebkitBackdropFilter: "blur(8px)",
+        boxShadow: `inset 0 1px 0 rgba(255,255,255,0.08), 0 4px 20px rgba(0,0,0,0.18)`,
+    };
+}
+
+// At-a-glance status tile (Submission / Rank / Deadline) in the glass style.
+function GlassStat({ rgb, valueColor, label, value, sublabel, dark }: {
+    rgb: string; valueColor: string; label: string; value: string; sublabel?: string; dark: boolean;
+}) {
+    const MONO = "'JetBrains Mono', monospace";
+    const mut = dark ? "rgba(255,255,255,0.72)" : C.textMuted;
+    return (
+        <div style={{ ...glassTile(rgb, dark), padding: "16px 18px", minHeight: 96, display: "flex", flexDirection: "column", justifyContent: "center", gap: 6 }}>
+            <div style={{ color: mut, fontFamily: MONO, fontSize: 10, letterSpacing: "0.14em", textTransform: "uppercase", fontWeight: 600 }}>{label}</div>
+            <div style={{ color: valueColor, fontFamily: MONO, fontSize: 22, fontWeight: 900, lineHeight: 1.1 }}>{value}</div>
+            {sublabel && <div style={{ color: mut, fontFamily: MONO, fontSize: 11 }}>{sublabel}</div>}
         </div>
     );
 }
 
 function InfoRow({ label, value, badge, action, accent = "green" }: { label: string; value?: string; badge?: string; action?: ReactNode; accent?: "green" | "blue" | "cyan" | "purple" }) {
+    const { theme } = useTheme();
+    const dark = theme === "dark";
     // rgb kept as fixed literals so alpha suffixes are valid CSS (the green accent
     // is a theme CSS-var and can't take a hex-alpha suffix).
     const M = {
@@ -345,8 +335,12 @@ function InfoRow({ label, value, badge, action, accent = "green" }: { label: str
     return (
         <div style={{
             position: "relative",
-            background: C.surface2,
+            // Liquid-glass tint in dark (translucent accent film + backdrop blur),
+            // flat surface in light — mirrors the no-team dashboard tiles.
+            background: dark ? `linear-gradient(135deg, rgba(${M.rgb},0.16) 0%, rgba(${M.rgb},0.05) 100%)` : C.surface2,
             border: `1px solid rgba(${M.rgb},0.30)`,
+            backdropFilter: dark ? "blur(8px)" : undefined,
+            WebkitBackdropFilter: dark ? "blur(8px)" : undefined,
             boxShadow: `0 0 16px rgba(${M.rgb},0.10), inset 0 0 26px rgba(${M.rgb},0.05)`,
             padding: "14px 18px 18px",
             minHeight: 92,

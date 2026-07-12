@@ -2,7 +2,7 @@ package com.seal.hackathon.config;
 
 import com.seal.hackathon.security.JwtAuthenticationEntryPoint;
 import com.seal.hackathon.security.JwtAuthenticationFilter;
-import com.seal.hackathon.security.ReadOnlyParticipantWriteFilter;
+import com.seal.hackathon.security.InactiveParticipantWriteFilter;
 import com.seal.hackathon.security.oauth2.CustomOAuth2UserService;
 import com.seal.hackathon.security.oauth2.OAuth2LoginFailureHandler;
 import com.seal.hackathon.security.oauth2.OAuth2LoginSuccessHandler;
@@ -41,7 +41,7 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
-    private final ReadOnlyParticipantWriteFilter readOnlyParticipantWriteFilter;
+    private final InactiveParticipantWriteFilter inactiveParticipantWriteFilter;
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
     private final CustomOAuth2UserService customOAuth2UserService;
     private final OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
@@ -132,7 +132,7 @@ public class SecurityConfig {
 
             // JWT validation runs before Spring Security's default auth filter
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-            .addFilterAfter(readOnlyParticipantWriteFilter, JwtAuthenticationFilter.class);
+            .addFilterAfter(inactiveParticipantWriteFilter, JwtAuthenticationFilter.class);
 
         return http.build();
     }

@@ -113,6 +113,15 @@ public class AuthService {
                     "Your account is pending approval. Please wait for an Event Coordinator to review your registration.");
         }
 
+        // 3b. Inactive accounts. Students stay able to log in — they need to send a
+        // "request to compete" from the dashboard to be reactivated. Everyone else
+        // (e.g. a guest judge whose event has ended) has no self-service path, so an
+        // inactive account is barred until a System Admin reactivates it.
+        if (!Boolean.TRUE.equals(user.getIsActive()) && !isStudent(user)) {
+            throw new ForbiddenException(
+                    "Your account is inactive. Please contact a System Admin to be reactivated.");
+        }
+
         // 4. Generate JWT
         UserPrincipal principal = new UserPrincipal(user);
         List<String> roles = principal.getAuthorities().stream()
@@ -130,6 +139,11 @@ public class AuthService {
                 .roles(roles)
                 .message("Login successful.")
                 .build();
+    }
+
+    private boolean isStudent(User user) {
+        String t = user.getUserType();
+        return "FPT_STUDENT".equalsIgnoreCase(t) || "EXTERNAL_STUDENT".equalsIgnoreCase(t);
     }
 
     // ---------------------------------------------------------------

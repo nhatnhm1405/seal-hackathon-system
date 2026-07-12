@@ -28,15 +28,17 @@ public class ParticipationAccessRequestController {
                 .body(ApiResponse.success("Participation access request submitted.", response));
     }
 
-    @GetMapping("/api/admin/participation-requests")
-    @PreAuthorize("hasRole('SYSTEM_ADMIN')")
+    // Reactivating a participant for the current season is a competition action,
+    // so the Event Coordinator (not the System Admin) reviews these requests.
+    @GetMapping("/api/coordinator/participation-requests")
+    @PreAuthorize("hasRole('EVENT_COORDINATOR')")
     public ResponseEntity<ApiResponse<List<ParticipationAccessRequestResponse>>> listPending() {
         return ResponseEntity.ok(ApiResponse.success("Pending participation access requests retrieved.",
                 requestService.listPending()));
     }
 
-    @PostMapping("/api/admin/participation-requests/{requestId}/approve")
-    @PreAuthorize("hasRole('SYSTEM_ADMIN')")
+    @PostMapping("/api/coordinator/participation-requests/{requestId}/approve")
+    @PreAuthorize("hasRole('EVENT_COORDINATOR')")
     public ResponseEntity<ApiResponse<ParticipationAccessRequestResponse>> approve(
             @PathVariable Integer requestId,
             Authentication authentication) {
@@ -45,8 +47,8 @@ public class ParticipationAccessRequestController {
                 requestService.approve(requestId, principal.getUserId())));
     }
 
-    @PostMapping("/api/admin/participation-requests/{requestId}/reject")
-    @PreAuthorize("hasRole('SYSTEM_ADMIN')")
+    @PostMapping("/api/coordinator/participation-requests/{requestId}/reject")
+    @PreAuthorize("hasRole('EVENT_COORDINATOR')")
     public ResponseEntity<ApiResponse<ParticipationAccessRequestResponse>> reject(
             @PathVariable Integer requestId,
             Authentication authentication) {

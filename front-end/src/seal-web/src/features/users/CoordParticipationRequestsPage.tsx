@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import {
-  C, GradientText, PixelBadge, PixelButton, PixelCard,
+  C, PixelBadge, PixelButton, PixelCard,
 } from "@/shared/components/PixelComponents";
 import {
   ApiError,
@@ -22,7 +22,11 @@ function userTypeBadge(userType: string) {
   return <PixelBadge color="gray">{userType}</PixelBadge>;
 }
 
-export function AdminParticipationRequestsPage() {
+/**
+ * Participation (reactivation) requests, embedded as a tab inside the Coordinator
+ * Accounts page. Inactive participants request to rejoin; approving reactivates them.
+ */
+export function ParticipationRequestsPanel() {
   const { addToast } = useNotifications();
   const [requests, setRequests] = useState<ParticipationAccessRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,8 +56,8 @@ export function AdminParticipationRequestsPage() {
       setRequests(prev => prev.filter(r => r.requestId !== request.requestId));
       addToast({
         type: approve ? "success" : "info",
-        title: approve ? "ACCESS APPROVED" : "ACCESS REJECTED",
-        message: `${request.fullName} (${request.email}) ${approve ? "can participate again." : "stays locked."}`,
+        title: approve ? "PARTICIPANT ACTIVATED" : "REQUEST REJECTED",
+        message: `${request.fullName} (${request.email}) ${approve ? "can compete this season." : "stays inactive."}`,
       });
     } catch (err) {
       const message = apiErrorMessage(err, "Action failed.");
@@ -65,24 +69,12 @@ export function AdminParticipationRequestsPage() {
   }
 
   return (
-    <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 28, fontWeight: 800 }}>
-          <GradientText>Participation Requests</GradientText>
-        </h1>
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
         <PixelBadge color="cyan">{requests.length} PENDING</PixelBadge>
       </div>
 
-      <PixelCard style={{ padding: 0, overflow: "hidden" }}>
-        <div style={{ padding: "16px 18px", borderBottom: `1px solid ${C.border}` }}>
-          <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 700 }}>
-            Participation Access Requests
-          </div>
-          <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginTop: 4 }}>
-            Students with isActive=false request participation access here.
-          </div>
-        </div>
-
+      <PixelCard glow glowColor="cyan" style={{ padding: 0, overflow: "hidden" }}>
         {error && (
           <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.35)", color: C.red, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, padding: "10px 14px", margin: 16 }}>
             ERROR: {error}
@@ -105,7 +97,7 @@ export function AdminParticipationRequestsPage() {
                 <tr><td colSpan={5} style={{ padding: 18, color: C.textMuted, fontSize: 12, textAlign: "center" }}>Loading...</td></tr>
               )}
               {!loading && !error && requests.length === 0 && (
-                <tr><td colSpan={5} style={{ padding: 18, color: C.textMuted, fontSize: 12, textAlign: "center" }}>No pending participation access requests</td></tr>
+                <tr><td colSpan={5} style={{ padding: 18, color: C.textMuted, fontSize: 12, textAlign: "center" }}>No pending participation requests</td></tr>
               )}
               {!loading && requests.map((r, i) => (
                 <tr key={r.requestId} style={{ borderBottom: `1px solid rgba(34,197,94,0.06)`, background: i % 2 === 0 ? C.surface : C.surface2 }}>

@@ -330,6 +330,14 @@ export const adminApi = {
       body: JSON.stringify(payload),
     }),
 
+  // Directly (re)activate / deactivate an account — e.g. bring a guest judge back
+  // for a new season (guest judges have no self-service request flow).
+  activateUser: (userId: number) =>
+    apiFetch<ApiResponse<UserItem>>(`/api/admin/users/${userId}/activate`, { method: 'POST' }),
+
+  deactivateUser: (userId: number) =>
+    apiFetch<ApiResponse<UserItem>>(`/api/admin/users/${userId}/deactivate`, { method: 'POST' }),
+
   // Role grants
   getRoleGrants: () =>
     apiFetch<ApiResponse<RoleGrantItem[]>>('/api/admin/roles'),
@@ -369,16 +377,17 @@ export const participationRequestsApi = {
       method: 'POST',
     }),
 
+  // Coordinator-facing review endpoints (moved from admin).
   getPending: () =>
-    apiFetch<ApiResponse<ParticipationAccessRequest[]>>('/api/admin/participation-requests'),
+    apiFetch<ApiResponse<ParticipationAccessRequest[]>>('/api/coordinator/participation-requests'),
 
   approve: (requestId: number) =>
-    apiFetch<ApiResponse<ParticipationAccessRequest>>(`/api/admin/participation-requests/${requestId}/approve`, {
+    apiFetch<ApiResponse<ParticipationAccessRequest>>(`/api/coordinator/participation-requests/${requestId}/approve`, {
       method: 'POST',
     }),
 
   reject: (requestId: number) =>
-    apiFetch<ApiResponse<ParticipationAccessRequest>>(`/api/admin/participation-requests/${requestId}/reject`, {
+    apiFetch<ApiResponse<ParticipationAccessRequest>>(`/api/coordinator/participation-requests/${requestId}/reject`, {
       method: 'POST',
     }),
 };
@@ -935,6 +944,11 @@ export const teamsApi = {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
+
+  checkName: (eventId: number, name: string) =>
+    apiFetch<ApiResponse<boolean>>(
+      `/api/teams/check-name?eventId=${eventId}&name=${encodeURIComponent(name)}`,
+    ),
 
   getMy: () =>
     apiFetch<ApiResponse<MyTeam>>('/api/teams/my'),

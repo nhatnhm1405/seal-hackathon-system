@@ -90,6 +90,31 @@ public class DemoFixtures {
         grantRepo.save(UserEventRole.builder().user(user).role(role).eventId(eventId).build());
     }
 
+    /**
+     * Mirrors production's completion behaviour for a COMPLETED demo event: its
+     * student team members and guest judges are per-event, so they drop to
+     * is_active=false (internal judges/mentors/staff stay active). The seed sets
+     * the event status directly instead of calling completeEvent, so apply it here.
+     */
+    public void deactivateCompletedEventUsers(HackathonEvent event) {
+        List<User> students = teamRepo.findAllByEvent_EventId(event.getEventId()).stream()
+                .flatMap(t -> memberRepo.findByTeam_TeamId(t.getTeamId()).stream())
+                .map(TeamMember::getUser)
+                .filter(u -> "FPT_STUDENT".equalsIgnoreCase(u.getUserType())
+                        || "EXTERNAL_STUDENT".equalsIgnoreCase(u.getUserType()))
+                .distinct()
+                .toList();
+        List<User> guestJudges = judgeAssignRepo.findActiveByEvent(event.getEventId()).stream()
+                .map(JudgeAssignment::getJudge)
+                .filter(u -> "GUEST".equalsIgnoreCase(u.getJudgeType()))
+                .distinct()
+                .toList();
+        students.forEach(u -> u.setIsActive(false));
+        guestJudges.forEach(u -> u.setIsActive(false));
+        userRepo.saveAll(students);
+        userRepo.saveAll(guestJudges);
+    }
+
     // ── Event structure ──────────────────────────────────────────────
 
     public HackathonEvent event(String name, String season, int year, String status, String mode,

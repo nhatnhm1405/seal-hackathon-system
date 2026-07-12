@@ -47,6 +47,19 @@ public class TeamController {
                 teamService.createTeam(principal.getUserId(), request)));
     }
 
+    /**
+     * GET /api/teams/check-name?eventId=1&name=ByteBuilders
+     * Returns true if a team with this (normalized) name already exists in the event.
+     * Powers the live duplicate-name hint on the create-team form.
+     */
+    @GetMapping("/check-name")
+    @PreAuthorize("hasRole('PARTICIPANT')")
+    public ResponseEntity<ApiResponse<Boolean>> checkTeamName(
+            @RequestParam Integer eventId,
+            @RequestParam String name) {
+        return ResponseEntity.ok(ApiResponse.success("OK", teamService.teamNameExists(eventId, name)));
+    }
+
     @GetMapping("/my")
     @PreAuthorize("hasRole('PARTICIPANT')")
     public ResponseEntity<ApiResponse<MyTeamResponse>> getMyTeam(Authentication authentication) {
