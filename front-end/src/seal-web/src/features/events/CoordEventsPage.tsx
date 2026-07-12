@@ -1263,9 +1263,7 @@ export function CoordEventsPage() {
                     <PixelButton variant="secondary" onClick={() => setShowGrouping(true)}>
                       GROUP LEFTOVERS
                     </PixelButton>
-                    <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginTop: 8, lineHeight: 1.6 }}>
-                      Fits solo entrants &amp; under-sized teams into valid teams (3–5). Run this BEFORE drawing tracks.
-                    </div>
+
                   </div>
                 )}
                 {/* Random track draw — SETUP-only coordinator tool, grouped here since it
@@ -1288,12 +1286,7 @@ export function CoordEventsPage() {
                         </PixelButton>
                       )}
                     </div>
-                    <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginTop: 8, lineHeight: 1.6 }}>
-                      DRAW TRACKS — assigns only teams without a track yet (keeps existing picks).
-                      {selectedEvent.trackSelectionMode === 'RANDOM' && (
-                        <><br />REDRAW ALL — clears every team's track and reshuffles from scratch; use only to fix a setup mistake — a single draw is already fair.</>
-                      )}
-                    </div>
+
                   </div>
                 )}
                 {/* Track-statistics overview (NV1) — shown from SETUP onward, when
