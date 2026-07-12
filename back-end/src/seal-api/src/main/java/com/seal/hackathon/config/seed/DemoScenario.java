@@ -38,10 +38,10 @@ public class DemoScenario {
 
     public static final String DEMO_EVENT_NAME = "SEAL Demo Summer 2026";
     /** Seeded in every scenario (incl. S0) — used as the "already seeded?" guard. */
-    public static final String COORDINATOR_EMAIL = "demo.coordinator@fpt.edu.vn";
+    public static final String COORDINATOR_EMAIL = "coordinator@fpt.edu.vn";
     private static final int YEAR = 2026;
     private static final int MEMBERS_PER_TEAM = 3;   // 1 leader + 2 members
-    private static final int TOP_N_ADVANCE = 4;
+    private static final int TOP_PER_TRACK_ADVANCE = 2;  // top 2 of EACH track advance to the final
     private static final double MAX_SCORE = 10.0;
 
     // name + weight; max score is MAX_SCORE for all (see requirements §6.2)
@@ -49,7 +49,32 @@ public class DemoScenario {
             {"Ý tưởng", "1.0"}, {"Kỹ thuật", "1.5"}, {"UI/UX", "1.0"},
             {"Hoàn thiện", "1.0"}, {"Trình bày", "0.5"},
     };
-    private static final String[] TRACKS = {"Web Application", "AI Solution"};
+    // 4 tracks (see requirements §5). TEAMS_PER_TRACK[i] teams in TRACKS[i] → 15 teams total.
+    // Prelim takes top 2 of each track → 8 finalists; final ranks them, top 3 get prizes.
+    private static final String[] TRACKS = {"Web Application", "AI Solution", "Education Tech", "Social Impact"};
+    private static final int[] TEAMS_PER_TRACK = {4, 4, 4, 3};
+    /** Team names — football clubs, cycled if there are more teams than names. */
+    private static final String[] CLUBS = {
+            "Arsenal", "Barcelona", "Real Madrid", "Bayern Munich",
+            "Liverpool", "Manchester City", "Chelsea", "Juventus",
+            "PSG", "AC Milan", "Inter Milan", "Tottenham",
+            "Napoli", "Atlético Madrid", "Borussia Dortmund", "Ajax",
+    };
+    /** Participant names — footballers, cycled if there are more players than names. */
+    private static final String[] PLAYERS = {
+            "Lionel Messi", "Cristiano Ronaldo", "Kylian Mbappé", "Erling Haaland",
+            "Kevin De Bruyne", "Vinícius Júnior", "Mohamed Salah", "Harry Kane",
+            "Robert Lewandowski", "Luka Modrić", "Neymar Jr", "Sadio Mané",
+            "Bukayo Saka", "Jude Bellingham", "Rodri", "Bernardo Silva",
+            "Phil Foden", "Martin Ødegaard", "Rafael Leão", "Federico Valverde",
+            "Pedri", "Gavi", "Jamal Musiala", "Florian Wirtz",
+            "Antoine Griezmann", "Toni Kroos", "Virgil van Dijk", "Achraf Hakimi",
+            "Lautaro Martínez", "Victor Osimhen", "Bruno Fernandes", "Son Heung-min",
+            "Declan Rice", "Joško Gvardiol", "Alphonso Davies", "Nico Williams",
+            "Cole Palmer", "Lamine Yamal", "Khvicha Kvaratskhelia", "Dušan Vlahović",
+            "Enzo Fernández", "Aurélien Tchouaméni", "Randal Kolo Muani", "Ousmane Dembélé",
+            "Trent Alexander-Arnold", "Marcus Rashford", "Riyad Mahrez", "Serge Gnabry",
+    };
 
     private final DemoFixtures fx;
 
@@ -57,18 +82,18 @@ public class DemoScenario {
     private int maxStrength = 2;
 
     @Transactional
-    public void seed(String scenario, int teamsPerTrack) {
+    public void seed(String scenario) {
         // ── 1. ACCOUNTS (every scenario) ─────────────────────────────
-        User coordinator = fx.user(COORDINATOR_EMAIL, "Demo Coordinator", "STAFF", null);
+        User coordinator = fx.user(COORDINATOR_EMAIL, "Event Coordinator", "STAFF", null);
         fx.grant(coordinator, "EVENT_COORDINATOR", null);
-        User judge1 = staff("demo.judge1@fpt.edu.vn", "Judge Internal One", "INTERNAL", "JUDGE");
-        User judge2 = staff("demo.judge2@fpt.edu.vn", "Judge Internal Two", "INTERNAL", "JUDGE");
-        User guestJudge = staff("demo.guestjudge@gmail.com", "Guest Judge", "GUEST", "JUDGE");
-        User mentor1 = staff("demo.mentor1@fpt.edu.vn", "Mentor One", null, "MENTOR");
-        User mentor2 = staff("demo.mentor2@fpt.edu.vn", "Mentor Two", null, "MENTOR");
+        User judge1 = staff("judge1@fpt.edu.vn", "Nguyễn Văn Ronaldo", "INTERNAL", "JUDGE");
+        User judge2 = staff("judge2@fpt.edu.vn", "Trần Văn Haaland", "INTERNAL", "JUDGE");
+        User guestJudge = staff("guestjudge@gmail.com", "Lê Văn Messi", "GUEST", "JUDGE");
+        User mentor1 = staff("mentor1@fpt.edu.vn", "Lê Minh Gia Mẫn", null, "MENTOR");
+        User mentor2 = staff("mentor2@fpt.edu.vn", "Hồ Văn Mendes", null, "MENTOR");
         // spare accounts to demo live actions (register/create team) alongside the seed
-        fx.user("demo.spare1@fpt.edu.vn", "Spare Participant One", "FPT_STUDENT", null);
-        fx.user("demo.spare2@fpt.edu.vn", "Spare Participant Two", "EXTERNAL_STUDENT", null);
+        fx.user("leader1@fpt.edu.vn", "Hoàng Văn Neymar Jr.", "FPT_STUDENT", null);
+        fx.user("member1@fpt.edu.vn", "Đinh Văn Kane", "FPT_STUDENT", null);
 
         if ("S0".equals(scenario)) {
             log.info("[demo] S0 seeded — accounts only, no event.");
@@ -84,38 +109,51 @@ public class DemoScenario {
         for (String name : TRACKS) {
             tracks.add(fx.track(event, name));
         }
-        Round prelim = fx.round(event, 1, "Vòng sơ khảo", false, roundStatusFor(scenario, true),
-                w.start, w.start.plusDays(7), w.start.plusDays(6), TOP_N_ADVANCE);
+        Round prelim = fx.round(event, 1, "Vòng loại", false, roundStatusFor(scenario, true),
+                w.start, w.start.plusDays(7), w.start.plusDays(6), TOP_PER_TRACK_ADVANCE);
         Round finalRound = fx.round(event, 2, "Vòng chung kết", true, roundStatusFor(scenario, false),
                 w.start.plusDays(8), w.start.plusDays(14), w.start.plusDays(13), null);
         List<ScoringCriteria> prelimCriteria = criteriaFor(event, prelim);
         List<ScoringCriteria> finalCriteria = criteriaFor(event, finalRound);
-        fx.assignMentor(mentor1, tracks.get(0));
-        fx.assignMentor(mentor2, tracks.get(1));
+        // One mentor can cover several tracks (requirements §6.3); alternate the two demo mentors.
+        for (int t = 0; t < tracks.size(); t++) {
+            fx.assignMentor(t % 2 == 0 ? mentor1 : mentor2, tracks.get(t));
+        }
 
         // ── S1: forming teams (no tracks yet — assigned at SETUP) ────
         if ("S1".equals(scenario)) {
-            fx.team(event, null, "Alpha", "APPROVED", participant(), members(2));
-            fx.team(event, null, "Bravo", "APPROVED", participant(), members(2));
-            fx.team(event, null, "Charlie (pending)", "PENDING", participant(), members(2));
-            fx.team(event, null, "Lone Wolf", "APPROVED", participant(), List.of());          // solo → grouping demo
-            fx.team(event, null, "Duo Buddies", "APPROVED", participant(), members(1));        // pair → grouping demo
-            log.info("[demo] S1 seeded — OPEN event, forming teams (incl. solo/pair for grouping).");
+            fx.team(event, null, "Arsenal", "APPROVED", participant(), members(2));
+            fx.team(event, null, "Barcelona", "APPROVED", participant(), members(2));
+            fx.team(event, null, "Real Madrid (pending)", "PENDING", participant(), members(2));
+            fx.team(event, null, "Chelsea (solo)", "APPROVED", participant(), List.of());       // solo → free agent for grouping
+            fx.team(event, null, "Juventus (solo)", "APPROVED", participant(), List.of());      // solo → free agent for grouping
+            fx.team(event, null, "Bayern (pair)", "APPROVED", participant(), members(1));        // pair → grown in place on grouping
+            // Teamless registrants: approved & active students who never joined a squad.
+            // SETUP leftover-grouping sweeps these up too (see LeftoverGroupingService).
+            for (int i = 0; i < 3; i++) {
+                participant();
+            }
+            log.info("[demo] S1 seeded — OPEN event: forming teams (2 solo + 1 pair) + 3 teamless registrants for grouping.");
             return;
         }
 
         // ── 5-6. APPROVED ROSTER IN TRACKS + judges + submissions ────
         List<Slot> slots = new ArrayList<>();
-        maxStrength = teamsPerTrack * TRACKS.length; // total teams — normalizes strength to [0,1]
-        int strengthRank = maxStrength;              // higher = stronger, unique per team
-        char letter = 'A';
-        for (Track track : tracks) {
-            for (int i = 1; i <= teamsPerTrack; i++) {
+        int numTracks = tracks.size();
+        int totalTeams = 0;
+        for (int c : TEAMS_PER_TRACK) totalTeams += c;
+        maxStrength = totalTeams;                 // normalizes strength to [0,1]
+        // Strength = totalTeams − (seed*numTracks + trackIdx): every track's #1 seed
+        // outranks every #2 seed, so the final's top 3 are three DIFFERENT track winners.
+        for (int t = 0; t < numTracks; t++) {
+            Track track = tracks.get(t);
+            for (int seed = 0; seed < TEAMS_PER_TRACK[t]; seed++) {
                 User leader = participant();
-                Team team = fx.team(event, track, "Team " + letter + i, "APPROVED", leader, members(2));
-                slots.add(new Slot(team, leader, strengthRank--));
+                String teamName = CLUBS[slots.size() % CLUBS.length];
+                Team team = fx.team(event, track, teamName, "APPROVED", leader, members(2));
+                int strength = totalTeams - (seed * numTracks + t);
+                slots.add(new Slot(team, leader, strength));
             }
-            letter++;
         }
         // prelim judges score per track; the final-round judges score everyone
         for (Track track : tracks) {
@@ -137,35 +175,52 @@ public class DemoScenario {
         }
 
         // ── 7-9. SCORES → RESULTS → PRIZES (S3) ──────────────────────
+        // Prelim: score everyone, then rank WITHIN each track (mirrors RoundResultService
+        // for non-final rounds) so rank ≤ topNAdvance means "top 2 of THIS track advance".
         List<User> prelimJudges = List.of(judge1, judge2);
-        rankAndSave(prelim, prelimSubs, slots, prelimCriteria, prelimJudges, coordinator);
+        writeScores(prelimSubs, slots, prelimCriteria, prelimJudges);
+        List<Slot> advancing = new ArrayList<>();
+        for (Track track : tracks) {
+            List<Slot> inTrack = slots.stream()
+                    .filter(s -> track.getTrackId().equals(s.team.getTrack().getTrackId()))
+                    .sorted(Comparator.comparingDouble((Slot s) -> total(s, prelimCriteria, prelimJudges.size())).reversed())
+                    .toList();
+            for (int r = 0; r < inTrack.size(); r++) {
+                Slot s = inTrack.get(r);
+                fx.result(s.team, prelim, total(s, prelimCriteria, prelimJudges.size()), r + 1, coordinator);
+                if (r < TOP_PER_TRACK_ADVANCE) advancing.add(s);
+            }
+        }
 
-        // top-N advance to the final round
-        List<Slot> advancing = slots.stream()
-                .sorted(Comparator.comparingDouble((Slot s) -> total(s, prelimCriteria, prelimJudges.size())).reversed())
-                .limit(TOP_N_ADVANCE)
-                .toList();
-
+        // Final: the 8 finalists compete in ONE global ranking; top 3 get prizes,
+        // the rest are "reached the final" (qualifier). Non-advancing teams = participated.
         List<Submission> finalSubs = new ArrayList<>();
         for (Slot s : advancing) {
             finalSubs.add(fx.submission(s.team, finalRound, s.leader));
         }
         List<User> finalJudges = List.of(judge1, judge2, guestJudge);
-        List<Slot> finalRanked = rankAndSave(finalRound, finalSubs, advancing, finalCriteria, finalJudges, coordinator);
+        writeScores(finalSubs, advancing, finalCriteria, finalJudges);
+        List<Slot> finalRanked = advancing.stream()
+                .sorted(Comparator.comparingDouble((Slot s) -> total(s, finalCriteria, finalJudges.size())).reversed())
+                .toList();
+        for (int r = 0; r < finalRanked.size(); r++) {
+            Slot s = finalRanked.get(r);
+            fx.result(s.team, finalRound, total(s, finalCriteria, finalJudges.size()), r + 1, coordinator);
+        }
 
         String[] prizeNames = {"Giải Nhất", "Giải Nhì", "Giải Ba"};
         for (int i = 0; i < Math.min(3, finalRanked.size()); i++) {
             fx.prize(event, prizeNames[i], i + 1, finalRanked.get(i).team);
         }
-        log.info("[demo] S3 seeded — COMPLETED event, {} teams scored, {} advanced, prizes awarded.",
-                slots.size(), advancing.size());
+        log.info("[demo] S3 seeded — COMPLETED event, {} teams across {} tracks, {} finalists, {} prizes.",
+                slots.size(), tracks.size(), advancing.size(), Math.min(3, finalRanked.size()));
     }
 
     // ── scoring/ranking ──────────────────────────────────────────────
 
-    /** Writes every judge×criteria score for the round, then ranked+published results. Returns slots in rank order. */
-    private List<Slot> rankAndSave(Round round, List<Submission> subs, List<Slot> slots,
-                                   List<ScoringCriteria> criteria, List<User> judges, User coordinator) {
+    /** Writes every judge×criteria score for the round. subs[k] must pair with slots.get(k). */
+    private void writeScores(List<Submission> subs, List<Slot> slots,
+                             List<ScoringCriteria> criteria, List<User> judges) {
         for (int k = 0; k < subs.size(); k++) {
             Slot slot = slots.get(k);
             Submission sub = subs.get(k);
@@ -175,14 +230,6 @@ public class DemoScenario {
                 }
             }
         }
-        List<Slot> ranked = slots.stream()
-                .sorted(Comparator.comparingDouble((Slot s) -> total(s, criteria, judges.size())).reversed())
-                .toList();
-        for (int r = 0; r < ranked.size(); r++) {
-            Slot s = ranked.get(r);
-            fx.result(s.team, round, total(s, criteria, judges.size()), r + 1, coordinator);
-        }
-        return ranked;
     }
 
     /** Deterministic per-judge criterion score in [6.0, MAX_SCORE], stronger teams higher. */
@@ -232,9 +279,10 @@ public class DemoScenario {
     }
 
     private User participant() {
+        String name = PLAYERS[participantSeq % PLAYERS.length];
         participantSeq++;
         String type = participantSeq % 3 == 0 ? "EXTERNAL_STUDENT" : "FPT_STUDENT";
-        return fx.user("demo.p" + participantSeq + "@fpt.edu.vn", "Demo Player " + participantSeq, type, null);
+        return fx.user("p" + participantSeq + "@fpt.edu.vn", name, type, null);
     }
 
     private List<User> members(int count) {

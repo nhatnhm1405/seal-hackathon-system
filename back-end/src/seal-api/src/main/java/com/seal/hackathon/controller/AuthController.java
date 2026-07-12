@@ -143,6 +143,15 @@ public class AuthController {
     }
 
     /**
+     * GET /api/auth/check-student-id?id=SE123456
+     * Public. Returns true if a student ID is already taken.
+     */
+    @GetMapping("/check-student-id")
+    public ResponseEntity<ApiResponse<Boolean>> checkStudentId(@RequestParam String id) {
+        return ResponseEntity.ok(ApiResponse.success("OK", authService.checkStudentId(id)));
+    }
+
+    /**
      * POST /api/auth/logout
      * JWT is stateless — logout is handled client-side by discarding the token.
      * This endpoint exists so the frontend has a consistent pattern to call.

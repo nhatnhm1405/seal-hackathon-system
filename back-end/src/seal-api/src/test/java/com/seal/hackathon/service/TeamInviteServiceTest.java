@@ -201,9 +201,36 @@ class TeamInviteServiceTest {
     }
 
     @Test
-    void createInvite_shouldThrowBadRequest_whenTeamIsNotApproved() {
+    void createInvite_shouldCreatePendingInvite_whenTeamIsPendingApproval() {
+        // A not-yet-approved team may still build its roster (approval only gates track select).
         HackathonEvent event = event(1, "OPEN");
         Team team = team(99, event, "PENDING");
+        User inviter = user(100, "Leader", "FPT_STUDENT", true, true);
+        User invited = user(101, "Member", "FPT_STUDENT", true, true);
+
+        when(teamRepository.findById(99)).thenReturn(Optional.of(team));
+        when(userRepository.findById(100)).thenReturn(Optional.of(inviter));
+        when(teamMemberRepository.findByTeam_TeamId(99)).thenReturn(List.of(member(1, team, inviter, "LEADER")));
+        when(teamMemberRepository.countByTeam_TeamId(99)).thenReturn(1L);
+        when(userRepository.findById(101)).thenReturn(Optional.of(invited));
+        when(teamMemberRepository.existsByUser_UserIdAndTeam_Event_EventId(101, 1)).thenReturn(false);
+        when(inviteRepository.findByTeamIdAndInvitedUserIdForUpdate(99, 101)).thenReturn(Optional.empty());
+        when(inviteRepository.saveAndFlush(any(TeamInvite.class))).thenAnswer(invocation -> {
+            TeamInvite invite = invocation.getArgument(0);
+            invite.setInviteId(500);
+            return invite;
+        });
+
+        TeamInviteResponse response = teamInviteService.createInvite(100, 99, inviteRequest(101, null));
+
+        assertEquals("PENDING", response.getStatus());
+        verify(inviteRepository).saveAndFlush(any(TeamInvite.class));
+    }
+
+    @Test
+    void createInvite_shouldThrowBadRequest_whenTeamIsRejected() {
+        HackathonEvent event = event(1, "OPEN");
+        Team team = team(99, event, "REJECTED");
         User inviter = user(100, "Leader", "FPT_STUDENT", true, true);
 
         when(teamRepository.findById(99)).thenReturn(Optional.of(team));

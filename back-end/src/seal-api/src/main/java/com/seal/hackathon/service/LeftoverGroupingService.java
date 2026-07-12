@@ -10,6 +10,7 @@ import com.seal.hackathon.entity.JoinRequest;
 import com.seal.hackathon.entity.Team;
 import com.seal.hackathon.entity.TeamInvite;
 import com.seal.hackathon.entity.TeamMember;
+import com.seal.hackathon.entity.User;
 import com.seal.hackathon.exception.BadRequestException;
 import com.seal.hackathon.exception.ResourceNotFoundException;
 import com.seal.hackathon.repository.HackathonEventRepository;
@@ -17,6 +18,7 @@ import com.seal.hackathon.repository.JoinRequestRepository;
 import com.seal.hackathon.repository.TeamInviteRepository;
 import com.seal.hackathon.repository.TeamMemberRepository;
 import com.seal.hackathon.repository.TeamRepository;
+import com.seal.hackathon.repository.UserRepository;
 import com.seal.hackathon.service.grouping.Atom;
 import com.seal.hackathon.service.grouping.GroupingPlan;
 import com.seal.hackathon.service.grouping.GroupingWarning;
@@ -37,12 +39,14 @@ import java.util.Random;
 
 /**
  * Groups an event's leftover people into valid teams during SETUP, just before the
- * track draw. In this data model a participant belongs to an event only through a
- * team, so "leftover people" are the members of under-sized teams:
+ * track draw. "Leftover people" are the members of under-sized teams plus registrants
+ * who never joined a squad:
  * <ul>
  *   <li>a team of 1 → a movable free agent (its one-person team is dissolved on commit);</li>
  *   <li>a team of 2 → kept together and grown in place;</li>
- *   <li>a team of {@value LeftoverGroupingPlanner#DEFAULT_MIN}+ → left alone (a spill target only).</li>
+ *   <li>a team of {@value LeftoverGroupingPlanner#DEFAULT_MIN}+ → left alone (a spill target only);</li>
+ *   <li>an active, approved student on no team of this event → a teamless free agent
+ *       (gains a membership only when placed on commit).</li>
  * </ul>
  *
  * The heavy lifting is the pure {@link LeftoverGroupingPlanner}; this service maps
@@ -63,6 +67,7 @@ public class LeftoverGroupingService {
     private final HackathonEventRepository eventRepository;
     private final JoinRequestRepository joinRequestRepository;
     private final TeamInviteRepository teamInviteRepository;
+    private final UserRepository userRepository;
     private final NotificationService notificationService;
     private final AuditLogService auditLogService;
     private final HackathonEventService hackathonEventService;
@@ -127,7 +132,7 @@ public class LeftoverGroupingService {
 
         for (Team team : teamRepository.findAllByEvent_EventIdAndStatus(eventId, "APPROVED")) {
             List<TeamMember> members = teamMemberRepository.findByTeam_TeamId(team.getTeamId());
-            Source src = new Source(team, members);
+            Source src = Source.ofTeam(team, members);
             byRef.put(src.ref(), src);
 
             int size = members.size();
@@ -143,6 +148,16 @@ public class LeftoverGroupingService {
             }
             // size >= MAX: full, no room to absorb — ignored as neither atom nor absorber.
         }
+
+        // Registrants approved & active for the current season but on no team of this
+        // event: teamless free agents. The query already excludes anyone on an event team,
+        // so these never double-count the solo-team members handled above.
+        for (User freeAgent : userRepository.findGroupableFreeAgents(eventId)) {
+            Source src = Source.ofUser(freeAgent);
+            byRef.put(src.ref(), src);
+            atoms.add(Atom.freeAgent(src.ref()));
+        }
+
         return new Context(atoms, settled, byRef);
     }
 
@@ -200,8 +215,17 @@ public class LeftoverGroupingService {
         return moved;
     }
 
-    /** Reassigns src's members onto {@code target} (role MEMBER) and dissolves src's now-empty team. */
+    /**
+     * Places src's people onto {@code target} as MEMBERs. A team source has its members
+     * reassigned and its now-empty team dissolved; a teamless free-agent user has no
+     * membership yet, so one is created and there is nothing to dissolve.
+     */
     private List<TeamMember> reassignMembers(Team target, Source src) {
+        if (src.isFreeAgentUser()) {
+            TeamMember created = teamMemberRepository.save(TeamMember.builder()
+                    .team(target).user(src.freeAgentUser()).memberRole("MEMBER").build());
+            return new ArrayList<>(List.of(created));
+        }
         List<TeamMember> moved = new ArrayList<>(src.members());
         for (TeamMember m : moved) {
             m.setTeam(target);
@@ -289,6 +313,11 @@ public class LeftoverGroupingService {
             if (src == null) {
                 continue;
             }
+            if (src.isFreeAgentUser()) {
+                User u = src.freeAgentUser();
+                views.add(MemberView.builder().userId(u.getUserId()).fullName(u.getFullName()).build());
+                continue;
+            }
             for (TeamMember m : src.members()) {
                 views.add(MemberView.builder()
                         .userId(m.getUser().getUserId())
@@ -315,14 +344,32 @@ public class LeftoverGroupingService {
         return event;
     }
 
-    /** An approved team snapshotted with its members; ref is "T{teamId}". */
-    private record Source(Team team, List<TeamMember> members) {
+    /**
+     * A grouping unit: either an approved team snapshotted with its members (ref
+     * "T{teamId}") or a teamless free-agent user (ref "U{userId}"). A user source has no
+     * TeamMember rows yet — commit creates one when the user is placed onto a team.
+     */
+    private record Source(Team team, List<TeamMember> members, User freeAgentUser) {
+        static Source ofTeam(Team team, List<TeamMember> members) {
+            return new Source(team, members, null);
+        }
+
+        static Source ofUser(User user) {
+            return new Source(null, List.of(), user);
+        }
+
+        boolean isFreeAgentUser() {
+            return freeAgentUser != null;
+        }
+
         String ref() {
-            return "T" + team.getTeamId();
+            return team != null ? "T" + team.getTeamId() : "U" + freeAgentUser.getUserId();
         }
 
         List<Integer> userIds() {
-            return members.stream().map(m -> m.getUser().getUserId()).toList();
+            return team != null
+                    ? members.stream().map(m -> m.getUser().getUserId()).toList()
+                    : List.of(freeAgentUser.getUserId());
         }
     }
 

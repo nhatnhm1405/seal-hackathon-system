@@ -90,7 +90,7 @@ export function GradientText({ children, from = C.green, to = C.blue, style, cla
 interface PixelButtonProps {
   children: React.ReactNode;
   onClick?: () => void;
-  variant?: "primary" | "secondary" | "ghost" | "danger" | "cyber";
+  variant?: "primary" | "secondary" | "ghost" | "danger" | "cyber" | "warning";
   size?: "sm" | "md" | "lg";
   className?: string;
   disabled?: boolean;
@@ -154,6 +154,12 @@ export function PixelButton({
       border: `1px solid rgba(239,68,68,0.35)`,
       boxShadow: "none",
     },
+    warning: {
+      background: "rgba(234,179,8,0.08)",
+      color: "#facc15",
+      border: `1px solid rgba(234,179,8,0.4)`,
+      boxShadow: "inset 0 0 20px rgba(234,179,8,0.04)",
+    },
   };
 
   const hoverStyles: Record<string, React.CSSProperties> = {
@@ -162,6 +168,7 @@ export function PixelButton({
     secondary: { background: "rgba(34,197,94,0.12)", borderColor: C.green, boxShadow: `0 0 16px ${C.greenGlow}` },
     ghost:   { borderColor: C.green, color: C.green, background: "rgba(34,197,94,0.04)" },
     danger:  { background: "rgba(239,68,68,0.12)", boxShadow: "0 0 12px rgba(239,68,68,0.3)" },
+    warning: { background: "rgba(234,179,8,0.16)", borderColor: C.yellow, boxShadow: "0 0 14px rgba(234,179,8,0.35)" },
   };
 
   return (
@@ -301,6 +308,7 @@ interface PixelInputProps {
   value?: string;
   onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+  onBlur?: (e: React.FocusEvent<HTMLInputElement>) => void;
   min?: string;
   max?: string;
   prefix?: string;
@@ -328,7 +336,7 @@ function EyeClosed() {
   );
 }
 
-export function PixelInput({ label, placeholder, type = "text", value, onChange, onKeyDown, min, max, prefix, className = "", disabled = false, showToggle = false }: PixelInputProps) {
+export function PixelInput({ label, placeholder, type = "text", value, onChange, onKeyDown, onBlur, min, max, prefix, className = "", disabled = false, showToggle = false }: PixelInputProps) {
   const [focused, setFocused] = useState(false);
   const [visible, setVisible] = useState(false);
   const [hoverEye, setHoverEye] = useState(false);
@@ -355,7 +363,7 @@ export function PixelInput({ label, placeholder, type = "text", value, onChange,
       >
         <input
           type={resolvedType} value={value} onChange={onChange} onKeyDown={onKeyDown} placeholder={placeholder} disabled={disabled} min={min} max={max}
-          onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
+          onFocus={() => setFocused(true)} onBlur={(e) => { setFocused(false); onBlur?.(e); }}
           style={{
             background: "transparent", border: "none", outline: "none",
             color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 14,

@@ -12,7 +12,7 @@ import {
 import { ParticipantJourneyBar } from "@/shared/components/ParticipantJourneyBar";
 import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
 import { ParticipantProblemCard } from "./ParticipantProblemCard";
-import { fmtDate, roundStatusColor, teamStatusColor } from "../utils/formatters";
+import { fmtDate, fmtDT, roundStatusColor, teamStatusColor } from "../utils/formatters";
 
 export function ExistingTeamDashboard() {
     const navigate = useNavigate();
@@ -321,7 +321,7 @@ export function ExistingTeamDashboard() {
                                 <div style={{ flex: 1 }}>
                                     <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>{n.title}{n.content ? ` — ${n.content}` : ""}</div>
                                     <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, marginTop: 4 }}>
-                                        {new Date(n.createdAt).toLocaleString("en-US")}
+                                        {fmtDT(n.createdAt)}
                                     </div>
                                 </div>
                             </div>
