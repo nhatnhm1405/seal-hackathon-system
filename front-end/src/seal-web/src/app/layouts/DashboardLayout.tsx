@@ -593,6 +593,15 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
   // approve/reject actions on the Accounts page (single source of truth).
   const { pendingCount } = usePendingAccounts();
 
+  // The scrollable content region is <main> (overflow:auto), not the window, so a
+  // route change would otherwise keep the previous page's scroll offset. Reset it
+  // (and the window, for safety) to the top whenever the path changes.
+  const mainRef = useRef<HTMLElement>(null);
+  useEffect(() => {
+    mainRef.current?.scrollTo({ top: 0, left: 0 });
+    window.scrollTo(0, 0);
+  }, [location.pathname]);
+
   if (!currentUser) return null;
 
   const nav = buildNav(currentUser.role, currentUser.is_leader, currentUser.team_id, pendingCount);
@@ -785,7 +794,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
         </aside>
 
         {/* Main content */}
-        <main style={{
+        <main ref={mainRef} style={{
           flex: 1, overflow: "auto", minWidth: 0,
           // One cohesive lit backdrop shared with the sidebar: a soft central spotlight and a
           // grid that is brightest in the middle and dissolves toward the edges (a same-colour
