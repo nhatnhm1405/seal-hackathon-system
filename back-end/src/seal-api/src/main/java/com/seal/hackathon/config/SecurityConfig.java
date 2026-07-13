@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -97,8 +98,17 @@ public class SecurityConfig {
 
             // URL-level authorization rules
             .authorizeHttpRequests(auth -> auth
-                // Public: auth endpoints
-                .requestMatchers("/api/auth/**").permitAll()
+                // Public: only the genuinely anonymous auth endpoints. Everything
+                // else under /api/auth/** (me, complete-profile, me/password,
+                // me/avatar) falls through to anyRequest().authenticated() below —
+                // AuthController casts Authentication.getPrincipal() unconditionally,
+                // so an unauthenticated call must be rejected here, before it
+                // reaches the controller, not inside it.
+                .requestMatchers(HttpMethod.POST,
+                        "/api/auth/register", "/api/auth/login", "/api/auth/forgot-password",
+                        "/api/auth/verify-reset-otp", "/api/auth/reset-password", "/api/auth/logout"
+                ).permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/auth/check-student-id").permitAll()
                 // Public: OAuth2 flow
                 .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
                 // Public: error page
