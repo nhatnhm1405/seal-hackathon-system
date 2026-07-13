@@ -89,6 +89,40 @@ export function eventMeta(ev: EventRow): string {
   return only ? `${only.d} ${only.m} ${only.y}` : "";
 }
 
+// Event name — solid accent color + a single soft glow, the same treatment
+// CyberStatCard already uses for its headline numbers elsewhere in the app.
+// Deliberately restrained: no gradient fill, no text-stroke outline — earlier
+// attempts stacking gradient + heavy stroke + triple drop-shadow read as
+// cluttered "neon sign" noise instead of a clean heading. No pill/border,
+// unlike EventDateBadge, so the name still reads as the row's title rather
+// than another tag. Static — no animation (a pulsing glow was imperceptible
+// at a glance in a static screenshot, per earlier feedback).
+export function EventName({ children, size = 22 }: { children: React.ReactNode; size?: number }) {
+  return (
+    <span
+      style={{
+        color: C.greenBright,
+        fontFamily: "'JetBrains Mono', monospace",
+        fontSize: size,
+        fontWeight: 800,
+        letterSpacing: "0.01em",
+        textShadow: `0 0 14px ${C.greenGlow}`,
+      }}
+    >
+      {children}
+    </span>
+  );
+}
+
+// Glowing badge rendering of eventMeta() — used everywhere an event's date
+// range is shown (events list, Admin/Coordinator detail panels) so the period
+// reads as a distinct, glanceable pill instead of flat muted text.
+export function EventDateBadge({ ev }: { ev: EventRow }) {
+  const label = eventMeta(ev);
+  if (!label) return null;
+  return <PixelBadge color="cyan" glow>{label}</PixelBadge>;
+}
+
 // endDate as a sortable timestamp; missing/invalid dates sort last (-Infinity).
 function endTime(ev: EventRow): number {
   const t = ev.endDate ? new Date(ev.endDate).getTime() : NaN;
@@ -174,8 +208,8 @@ export function EventsListCard({
                       cursor: "pointer", borderRadius: 0, textAlign: "left",
                     }}>
                     <div>
-                      <div style={{ fontSize: 14, fontWeight: 700 }}>{ev.name}</div>
-                      <div style={{ color: C.textMuted, fontSize: 11, marginTop: 4 }}>{eventMeta(ev)}</div>
+                      <EventName size={18}>{ev.name}</EventName>
+                      <div style={{ marginTop: 6 }}><EventDateBadge ev={ev} /></div>
                     </div>
                     {eventStatusBadge(ev.status)}
                   </button>

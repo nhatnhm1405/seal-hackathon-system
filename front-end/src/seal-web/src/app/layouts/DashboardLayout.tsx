@@ -616,6 +616,13 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
     currentUser.role === "PARTICIPANT" &&
     currentUser.team_id === null &&
     isDashboardPath(location.pathname);
+  // System Admin screens skip the main-content grid backdrop — flat background,
+  // any grid texture now lives on individual cards (e.g. the dashboard's
+  // "Current Event" tile) instead of behind the whole page. currentUser.role
+  // is "ADMIN" even on shared routes like /dashboard (RoleDashboardPage
+  // resolves the concrete screen internally, no /admin/... redirect), so this
+  // can't be a pathname check alone.
+  const isAdminRoute = currentUser.role === "ADMIN";
   const sideText = C.textMuted;
   const sideStrong = C.text;
   const dashboardSidebarGrid = `radial-gradient(100% 46% at 50% 20%, rgba(34,197,94,0.10) 0%, transparent 72%), radial-gradient(130% 60% at 50% 46%, transparent 0%, transparent 32%, ${C.surface} 92%), linear-gradient(rgba(59,130,246,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(34,197,94,0.05) 1px, transparent 1px)`;
@@ -802,8 +809,8 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
           // radial vignette erases the grid at the rim). Cards paint opaquely on top; the
           // backdrop stays fixed as the content scrolls.
           backgroundColor: sealNoTeam ? undefined : C.bg,
-          backgroundImage: sealNoTeam ? undefined : dashboardMainGrid,
-          backgroundSize: sealNoTeam ? undefined : "100% 100%, 100% 100%, 28px 28px, 28px 28px",
+          backgroundImage: (sealNoTeam || isAdminRoute) ? undefined : dashboardMainGrid,
+          backgroundSize: (sealNoTeam || isAdminRoute) ? undefined : "100% 100%, 100% 100%, 28px 28px, 28px 28px",
         }}>
           {children}
         </main>

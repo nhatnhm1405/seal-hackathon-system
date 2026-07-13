@@ -1,24 +1,18 @@
 import { useState, useEffect, useMemo } from "react";
 import {
-  C, GradientText, PixelCard, PixelButton, PixelBadge,
+  C, GradientText, PixelCard, PixelButton,
 } from "@/shared/components/PixelComponents";
+import { PixelMenu } from "@/shared/components/PixelMenu";
 import {
   adminApi, eventsApi, ApiError, apiErrorMessage,
   RoleGrantItem, UserItem, HackathonEvent, GrantRolePayload,
 } from "@/shared/apiClient";
 import { useNotifications } from "@/app/providers/NotificationProvider";
+import { roleBadge } from "./roleUtils";
 
 const GRANTABLE_ROLES: GrantRolePayload['roleName'][] = [
   'EVENT_COORDINATOR', 'MENTOR', 'JUDGE', 'SYSTEM_ADMIN',
 ];
-
-function roleBadge(roleName: string) {
-  if (roleName === 'SYSTEM_ADMIN') return <PixelBadge color="red">SYSTEM ADMIN</PixelBadge>;
-  if (roleName === 'EVENT_COORDINATOR') return <PixelBadge color="purple">COORDINATOR</PixelBadge>;
-  if (roleName === 'MENTOR') return <PixelBadge color="cyan">MENTOR</PixelBadge>;
-  if (roleName === 'JUDGE') return <PixelBadge color="blue">JUDGE</PixelBadge>;
-  return <PixelBadge color="gray">{roleName}</PixelBadge>;
-}
 
 // Distance (ms) from today to an event's date window — 0 while it's running,
 // otherwise the gap to whichever edge (start/end) is closer.
@@ -75,9 +69,11 @@ function ModalShell({ accent, title, children, onCancel }: {
   );
 }
 
-// ── Grant role modal ─────────────────────────────────────────────────
-function GrantRoleModal({ users, events, onClose, onGranted }: {
-  users: UserItem[]; events: HackathonEvent[]; onClose: () => void; onGranted: () => void;
+// ── Grant role panel ─────────────────────────────────────────────────
+// Always-visible inline card docked beside the table (not a toggled modal) —
+// the table is permanently narrower to make room for it.
+function GrantRoleForm({ users, events, onGranted }: {
+  users: UserItem[]; events: HackathonEvent[]; onGranted: () => void;
 }) {
   const { addToast } = useNotifications();
   // Auto-select the event happening now (or nearest to today) for event-scoped
@@ -91,6 +87,13 @@ function GrantRoleModal({ users, events, onClose, onGranted }: {
 
   // SYSTEM_ADMIN and EVENT_COORDINATOR are system-wide (no event scope).
   const systemWide = roleName === 'SYSTEM_ADMIN' || roleName === 'EVENT_COORDINATOR';
+
+  function resetForm() {
+    setUserId("");
+    setRoleName('EVENT_COORDINATOR');
+    setEventId(recommendedEventId ?? "");
+    setError(null);
+  }
 
   async function submit() {
     setError(null);
@@ -113,7 +116,7 @@ function GrantRoleModal({ users, events, onClose, onGranted }: {
       });
       addToast({ type: 'success', title: 'ROLE GRANTED', message: `${roleName} granted.` });
       onGranted();
-      onClose();
+      resetForm();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to grant role.");
       addToast({ type: 'warning', title: 'GRANT FAILED', message: apiErrorMessage(err, 'Failed to grant role.') });
@@ -123,7 +126,11 @@ function GrantRoleModal({ users, events, onClose, onGranted }: {
   }
 
   return (
-    <ModalShell accent="#22c55e" title="Grant role" onCancel={onClose}>
+    <PixelCard glow style={{ padding: 24, position: "sticky", top: 24 }}>
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, #22c55e, transparent)` }} />
+      <h2 style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 18, fontWeight: 800, color: C.text, marginBottom: 20, lineHeight: 1.2 }}>
+        Grant role
+      </h2>
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <div>
           <label style={labelStyle}>User</label>
@@ -159,10 +166,10 @@ function GrantRoleModal({ users, events, onClose, onGranted }: {
           <PixelButton variant="cyber" onClick={submit} disabled={saving}>
             {saving ? "GRANTING…" : "GRANT ROLE"}
           </PixelButton>
-          <PixelButton variant="secondary" onClick={onClose} disabled={saving}>CANCEL</PixelButton>
+          <PixelButton variant="secondary" onClick={resetForm} disabled={saving}>CLEAR</PixelButton>
         </div>
       </div>
-    </ModalShell>
+    </PixelCard>
   );
 }
 
@@ -221,10 +228,7 @@ export function AdminRolesPage() {
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-  // "" until the default kì resolves; otherwise "sys" or String(eventId).
-  const [selectedScope, setSelectedScope] = useState<string>("");
 
-  const [grantOpen, setGrantOpen] = useState(false);
   const [revokeTarget, setRevokeTarget] = useState<RoleGrantItem | null>(null);
 
   function loadGrants() {
@@ -245,69 +249,13 @@ export function AdminRolesPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Scope options derived from existing grants — one entry per kì (event) plus a
-  // single System-wide bucket for grants with no event scope.
-  const { eventScopes, hasSystem } = useMemo(() => {
-    const eventMap = new Map(events.map(e => [e.eventId, e]));
-    const hasSystem = grants.some(g => g.eventId == null);
-    const seen = new Map<number, { key: string; label: string; year: number; sortDate: number }>();
-    for (const g of grants) {
-      if (g.eventId == null || seen.has(g.eventId)) continue;
-      const ev = eventMap.get(g.eventId);
-      seen.set(g.eventId, {
-        key: String(g.eventId),
-        label: ev?.name ?? g.eventName ?? `Event #${g.eventId}`,
-        year: ev?.year ?? 0,
-        sortDate: ev ? new Date(ev.startDate).getTime() : 0,
-      });
-    }
-    const eventScopes = [...seen.values()].sort((a, b) => b.sortDate - a.sortDate);
-    return { eventScopes, hasSystem };
-  }, [grants, events]);
-
-  // Default scope = the kì happening now (today within its date range) or, failing
-  // that, the kì whose start/end date is closest to today.
-  useEffect(() => {
-    if (selectedScope !== "") return;
-    if (eventScopes.length === 0) {
-      if (hasSystem) setSelectedScope("sys");
-      return;
-    }
-    const eventMap = new Map(events.map(e => [e.eventId, e]));
-    const now = Date.now();
-    let best = eventScopes[0];
-    let bestDist = Infinity;
-    for (const o of eventScopes) {
-      const ev = eventMap.get(Number(o.key));
-      const dist = ev ? eventDistanceToNow(ev, now) : Infinity;
-      if (dist < bestDist) { bestDist = dist; best = o; }
-    }
-    setSelectedScope(best.key);
-  }, [eventScopes, hasSystem, events, selectedScope]);
-
-  // If the selected kì no longer has any grant (e.g. its last role was revoked),
-  // drop back to "" so the default effect re-picks a valid scope.
-  useEffect(() => {
-    if (selectedScope === "") return;
-    const valid = selectedScope === "sys" ? hasSystem : eventScopes.some(o => o.key === selectedScope);
-    if (!valid) setSelectedScope("");
-  }, [selectedScope, eventScopes, hasSystem]);
-
-  const years = [...new Set(eventScopes.map(s => s.year))].sort((a, b) => b - a);
-
-  const scopedGrants = selectedScope === ""
-    ? []
-    : selectedScope === "sys"
-      ? grants.filter(g => g.eventId == null)
-      : grants.filter(g => g.eventId === Number(selectedScope));
-
   const query = search.trim().toLowerCase();
   const filtered = query
-    ? scopedGrants.filter(g =>
+    ? grants.filter(g =>
         g.userFullName.toLowerCase().includes(query) ||
         g.userEmail.toLowerCase().includes(query) ||
         g.roleName.toLowerCase().includes(query))
-    : scopedGrants;
+    : grants;
 
   // Group by user → one row per user carrying all their roles in this scope.
   const groupedRows = (() => {
@@ -320,13 +268,10 @@ export function AdminRolesPage() {
     return [...map.values()].sort((a, b) => a.userFullName.localeCompare(b.userFullName));
   })();
 
-  // Default scope hasn't resolved yet but data exists → keep showing the spinner.
-  const resolving = selectedScope === "" && (eventScopes.length > 0 || hasSystem);
-
   const mono = "'JetBrains Mono', monospace";
-  const scopeSelectStyle: React.CSSProperties = {
-    minWidth: 200, padding: "8px 12px", background: C.surface2, border: `1px solid ${C.border}`,
-    color: C.text, fontFamily: mono, fontSize: 12, outline: "none", borderRadius: 0,
+  const searchInputStyle: React.CSSProperties = {
+    width: 240, padding: "8px 12px", background: C.surface2, border: `1px solid ${C.border}`,
+    color: C.text, fontFamily: mono, fontSize: 12, outline: "none", borderRadius: 0, boxSizing: "border-box",
   };
 
   return (
@@ -335,91 +280,88 @@ export function AdminRolesPage() {
         <h1 style={{ fontFamily: mono, fontSize: 28, fontWeight: 800 }}>
           <GradientText>Role Grants</GradientText>
         </h1>
-        <PixelButton variant="cyber" size="sm" onClick={() => setGrantOpen(true)}>+ GRANT ROLE</PixelButton>
       </div>
 
-      <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ color: C.greenMuted, fontFamily: mono, fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase" }}>Scope</span>
-          <select value={selectedScope} onChange={(e) => setSelectedScope(e.target.value)} style={scopeSelectStyle}>
-            {eventScopes.length === 0 && !hasSystem && <option value="">No scopes</option>}
-            {years.map(year => (
-              <optgroup key={year} label={year ? String(year) : "Other"}>
-                {eventScopes.filter(s => s.year === year).map(o => (
-                  <option key={o.key} value={o.key}>{o.label}</option>
-                ))}
-              </optgroup>
-            ))}
-            {hasSystem && <option value="sys">System</option>}
-          </select>
-        </div>
+      <div style={{ display: "flex", gap: 20, alignItems: "flex-start", flexWrap: "wrap" }}>
+        <div style={{ flex: "1 1 480px", minWidth: 0, display: "flex", flexDirection: "column", gap: 12 }}>
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search user or role..."
-          style={{ width: 240, padding: "8px 12px", background: C.surface2, border: `1px solid ${C.border}`, color: C.text, fontFamily: mono, fontSize: 12, outline: "none", borderRadius: 0 }}
+          style={searchInputStyle}
         />
+        <PixelCard style={{ padding: 0, overflow: "hidden" }}>
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: mono }}>
+              <thead>
+                <tr style={{ background: C.surface2, borderBottom: `1px solid ${C.border}` }}>
+                  {["User", "Roles", "Actions"].map(h => (
+                    <th key={h} style={{ color: C.green, fontSize: 10, letterSpacing: "0.12em", textAlign: "left", padding: "12px 14px", fontWeight: 600, textTransform: "uppercase" }}>
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {loading && (
+                  <tr><td colSpan={3} style={{ padding: 20, color: C.textMuted, fontSize: 12, textAlign: "center" }}>Loading...</td></tr>
+                )}
+                {!loading && fetchError && (
+                  <tr><td colSpan={3} style={{ padding: 20, color: C.red, fontSize: 12, textAlign: "center" }}>{fetchError}</td></tr>
+                )}
+                {!loading && !fetchError && groupedRows.length === 0 && (
+                  <tr><td colSpan={3} style={{ padding: 20, color: C.textMuted, fontSize: 12, textAlign: "center" }}>No role grants</td></tr>
+                )}
+                {!loading && groupedRows.map((row, i) => (
+                  <tr key={row.userId} className="row-actionable" style={{ borderBottom: `1px solid rgba(34,197,94,0.06)`, background: i % 2 === 0 ? C.surface : C.surface2 }}>
+                    <td style={{ padding: "14px", verticalAlign: "top" }}>
+                      <div style={{ color: C.text, fontSize: 13, fontWeight: 700 }}>{row.userFullName}</div>
+                      <div style={{ color: C.textMuted, fontSize: 11, marginTop: 3 }}>{row.userEmail}</div>
+                    </td>
+                    <td style={{ padding: "14px", verticalAlign: "top" }}>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        {row.grants.map(g => (
+                          <div key={g.id} style={{ minHeight: 30, display: "flex", alignItems: "center" }}>
+                            {roleBadge(g.roleName)}
+                          </div>
+                        ))}
+                      </div>
+                    </td>
+                    <td style={{ padding: "14px", verticalAlign: "top", width: 48 }}>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        {row.grants.map(g => (
+                          <div key={g.id} style={{ minHeight: 30, display: "flex", alignItems: "center" }}>
+                            <span className="row-action">
+                              <PixelMenu
+                                ariaLabel={`Revoke ${g.roleName} from ${row.userFullName}`}
+                                items={[{ label: "Revoke", danger: true, onClick: () => setRevokeTarget(g) }]}
+                              />
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </PixelCard>
+        </div>
+
+        <div style={{ flex: "0 0 360px", width: 360, display: "flex", flexDirection: "column", gap: 12 }}>
+          {/* Invisible spacer matching the search input's box exactly, so the
+              form's top edge lines up with the table's top edge rather than
+              the search bar's. */}
+          <div aria-hidden style={{ ...searchInputStyle, width: "100%", visibility: "hidden" }}>&nbsp;</div>
+          <GrantRoleForm
+            users={users}
+            events={events}
+            onGranted={() => { setLoading(true); loadGrants().finally(() => setLoading(false)); }}
+          />
+        </div>
       </div>
 
-      <PixelCard style={{ padding: 0, overflow: "hidden" }}>
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: mono }}>
-            <thead>
-              <tr style={{ background: C.surface2, borderBottom: `1px solid ${C.border}` }}>
-                {["User", "Email", "Roles", "Actions"].map(h => (
-                  <th key={h} style={{ color: C.green, fontSize: 10, letterSpacing: "0.12em", textAlign: "left", padding: "12px 14px", fontWeight: 600, textTransform: "uppercase" }}>
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {(loading || resolving) && (
-                <tr><td colSpan={4} style={{ padding: 20, color: C.textMuted, fontSize: 12, textAlign: "center" }}>Loading...</td></tr>
-              )}
-              {!loading && !resolving && fetchError && (
-                <tr><td colSpan={4} style={{ padding: 20, color: C.red, fontSize: 12, textAlign: "center" }}>{fetchError}</td></tr>
-              )}
-              {!loading && !resolving && !fetchError && groupedRows.length === 0 && (
-                <tr><td colSpan={4} style={{ padding: 20, color: C.textMuted, fontSize: 12, textAlign: "center" }}>No role grants in this scope</td></tr>
-              )}
-              {!loading && !resolving && groupedRows.map((row, i) => (
-                <tr key={row.userId} style={{ borderBottom: `1px solid rgba(34,197,94,0.06)`, background: i % 2 === 0 ? C.surface : C.surface2 }}>
-                  <td style={{ color: C.text, fontSize: 12, padding: "12px 14px", verticalAlign: "top" }}>{row.userFullName}</td>
-                  <td style={{ color: C.textMuted, fontSize: 11, padding: "12px 14px", verticalAlign: "top" }}>{row.userEmail}</td>
-                  <td style={{ padding: "12px 14px", verticalAlign: "top" }}>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                      {row.grants.map(g => (
-                        <div key={g.id} style={{ minHeight: 30, display: "flex", alignItems: "center" }}>
-                          {roleBadge(g.roleName)}
-                        </div>
-                      ))}
-                    </div>
-                  </td>
-                  <td style={{ padding: "12px 14px", verticalAlign: "top" }}>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                      {row.grants.map(g => (
-                        <div key={g.id} style={{ minHeight: 30, display: "flex", alignItems: "center" }}>
-                          <PixelButton size="sm" variant="danger" onClick={() => setRevokeTarget(g)}>REVOKE</PixelButton>
-                        </div>
-                      ))}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </PixelCard>
-
-      {grantOpen && (
-        <GrantRoleModal
-          users={users}
-          events={events}
-          onClose={() => setGrantOpen(false)}
-          onGranted={() => { setLoading(true); loadGrants().finally(() => setLoading(false)); }}
-        />
-      )}
       {revokeTarget && (
         <RevokeModal
           grant={revokeTarget}
