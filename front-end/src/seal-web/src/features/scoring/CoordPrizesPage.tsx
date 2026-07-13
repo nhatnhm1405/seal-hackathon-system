@@ -290,40 +290,42 @@ export function CoordPrizesPage() {
         </PixelCard>
       ) : selectedEvent == null ? null : (
         <>
-          <PixelCard style={{ padding: 16, display: "flex", gap: 16, alignItems: "flex-end", flexWrap: "wrap" }}>
-            {!finalReady && (
-              <div style={{ color: C.yellow, fontFamily: mono, fontSize: 12 }}>
-                The final round is not finalized yet - finalize it before generating prizes.
-              </div>
-            )}
-
-            {finalReady && !announced && (
-              <>
-                <div style={{ maxWidth: 140 }}>
-                  <PixelInput label="Top N" type="number" value={String(topNInput)} min="1" onChange={(event) => setTopNInput(Math.max(1, Number(event.target.value) || 1))} />
+          <PixelCard style={{ padding: 16, display: "flex", gap: 16, alignItems: "flex-end", flexWrap: "wrap", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", gap: 16, alignItems: "flex-end", flexWrap: "wrap" }}>
+              {!finalReady && (
+                <div style={{ color: C.yellow, fontFamily: mono, fontSize: 12 }}>
+                  The final round is not finalized yet - finalize it before generating prizes.
                 </div>
-                <PixelButton variant="cyber" onClick={autoGenerate} disabled={busy}>AUTO-GENERATE FROM FINAL</PixelButton>
-                <PixelButton variant="ghost" onClick={addSlot} disabled={busy}>ADD SLOT</PixelButton>
-                <div style={{ marginLeft: "auto" }}>
-                  <PixelButton variant="primary" onClick={requestAnnounce} disabled={busy || sortedPrizes.length === 0 || !allHaveTeam}>ANNOUNCE</PixelButton>
+              )}
+
+              {finalReady && !announced && (
+                <>
+                  <div style={{ maxWidth: 140 }}>
+                    <PixelInput label="Top N" type="number" value={String(topNInput)} min="1" onChange={(event) => setTopNInput(Math.max(1, Number(event.target.value) || 1))} />
+                  </div>
+                  <PixelButton variant="cyber" onClick={autoGenerate} disabled={busy}>AUTO-GENERATE FROM FINAL</PixelButton>
+                  <PixelButton variant="ghost" onClick={addSlot} disabled={busy}>ADD SLOT</PixelButton>
+                </>
+              )}
+
+              {announced && (
+                <div style={{ color: C.green, fontFamily: mono, fontSize: 12 }}>
+                  Prizes announced - each winning team has been notified.
                 </div>
-              </>
-            )}
+              )}
+            </div>
 
-            {announced && (
-              <div style={{ color: C.green, fontFamily: mono, fontSize: 12 }}>
-                Prizes announced - each winning team has been notified.
-              </div>
-            )}
-
-            {sortedPrizes.some((prize) => prize.teamId != null) && (
-              <div style={{ marginLeft: "auto" }}>
+            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+              {finalReady && !announced && (
+                <PixelButton variant="primary" onClick={requestAnnounce} disabled={busy || sortedPrizes.length === 0 || !allHaveTeam}>ANNOUNCE</PixelButton>
+              )}
+              {sortedPrizes.some((prize) => prize.teamId != null) && (
                 <PixelButton variant="secondary" onClick={exportWinnersCsv} disabled={busy}>EXPORT WINNERS CSV</PixelButton>
-              </div>
-            )}
+              )}
+            </div>
           </PixelCard>
 
-          <PixelCard style={{ padding: 16, display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
+          <PixelCard style={{ padding: 16, display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap", justifyContent: "space-between" }}>
             <div style={{ color: C.text, fontFamily: mono, fontSize: 13, fontWeight: 700 }}>Participation certificates</div>
             <PixelButton variant="secondary" onClick={exportParticipantsCsv} disabled={busy || teams.length === 0 || selectedEvent.status !== "COMPLETED"}>
               EXPORT PARTICIPANTS CSV
