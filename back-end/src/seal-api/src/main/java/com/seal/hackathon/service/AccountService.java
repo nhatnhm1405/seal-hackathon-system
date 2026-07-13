@@ -35,6 +35,22 @@ public class AccountService {
                 .collect(Collectors.toList());
     }
 
+    /** All active, approved participants — the coordinator's "All Participant" account view. */
+    @Transactional(readOnly = true)
+    public List<UserResponse> getActiveParticipants() {
+        return userRepository.findActiveApprovedParticipants().stream()
+                .map(authService::mapToUserResponse)
+                .collect(Collectors.toList());
+    }
+
+    /** All active, approved judge/mentor-eligible staff — the coordinator's "Judge & Mentor" account view. */
+    @Transactional(readOnly = true)
+    public List<UserResponse> getActiveJudgeMentorStaff() {
+        return userRepository.findActiveAssignableStaff().stream()
+                .map(authService::mapToUserResponse)
+                .collect(Collectors.toList());
+    }
+
     // ---------------------------------------------------------------
     // Approve a user
     // ---------------------------------------------------------------

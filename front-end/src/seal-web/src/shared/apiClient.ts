@@ -249,6 +249,14 @@ export const accountApprovalsApi = {
   getPending: () =>
     apiFetch<ApiResponse<PendingAccount[]>>('/api/account-approvals/pending'),
 
+  // Active, approved participants — the "All Participant" account tab.
+  getActiveParticipants: () =>
+    apiFetch<ApiResponse<UserItem[]>>('/api/account-approvals/participants'),
+
+  // Active, approved judge/mentor-eligible staff — the "Judge & Mentor" account tab.
+  getActiveJudgeMentorStaff: () =>
+    apiFetch<ApiResponse<UserItem[]>>('/api/account-approvals/staff'),
+
   approve: (userId: number) =>
     apiFetch<ApiResponse<void>>(`/api/account-approvals/${userId}/approve`, { method: 'PUT' }),
 
@@ -1657,10 +1665,60 @@ export interface CreateGuestJudgePayload {
   trackId?: number | null;
 }
 
+// Full coordinator retrospective of one past event — teams/results/prizes plus
+// the mentors/judges who worked each track/round. Used by the "History" page.
+export interface CoordinatorHistoryMember {
+  fullName: string;
+  memberRole?: string | null;
+  studentId?: string | null;
+  userType?: string | null;
+  university?: string | null;
+}
+
+export interface CoordinatorHistoryTeam {
+  teamId: number;
+  teamName: string;
+  teamStatus: string;
+  finalRank?: number | null;
+  prizeName?: string | null;
+  memberCount: number;
+  members: CoordinatorHistoryMember[];
+}
+
+export interface CoordinatorHistoryRoundJudges {
+  roundName: string;
+  judgeNames: string[];
+}
+
+export interface CoordinatorHistoryTrack {
+  trackId: number;
+  trackName: string;
+  mentorNames: string[];
+  roundJudges: CoordinatorHistoryRoundJudges[];
+  teams: CoordinatorHistoryTeam[];
+}
+
+export interface CoordinatorHistoryPrize {
+  rankPosition: number;
+  prizeName: string;
+  teamName?: string | null;
+}
+
+export interface CoordinatorEventHistory {
+  totalTeams: number;
+  submittedTeams: number;
+  prizes: CoordinatorHistoryPrize[];
+  tracks: CoordinatorHistoryTrack[];
+  finalRoundJudges: CoordinatorHistoryRoundJudges[];
+}
+
 export const coordinatorApi = {
   // Approved STAFF pool (no longer available under /api/admin after the split)
   getStaff: () =>
     apiFetch<ApiResponse<UserItem[]>>('/api/coordinator/staff'),
+
+  getEventHistory: (eventId: number) =>
+    apiFetch<ApiResponse<CoordinatorEventHistory>>(`/api/coordinator/history/${eventId}`),
 
   // Judge roster for an event
   getJudgeRoster: (eventId: number) =>

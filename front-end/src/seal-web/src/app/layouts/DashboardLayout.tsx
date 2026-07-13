@@ -91,6 +91,7 @@ function buildNav(role: string, isLeader: boolean, teamId: number | null, pendin
       { path: "/coordinator/accounts",  label: "Accounts", badge: pendingCount },
       { path: "/coordinator/teams",     label: "Teams"             },
       { path: "/coordinator/judges",    label: "Assignments"       },
+      { path: "/coordinator/judges/history", label: "History" },
       { path: "/coordinator/scoring",   label: "Scoring & Results" },
       { path: "/coordinator/prizes",    label: "Awards"            },
       { path: "/profile",               label: "Profile"           },
@@ -131,6 +132,7 @@ function getPageTitle(pathname: string): string {
     "/coordinator/accounts": "Accounts",
     "/coordinator/teams": "Teams",
     "/coordinator/judges": "Assignments",
+    "/coordinator/judges/history": "History",
     "/coordinator/scoring": "Scoring & Results",
     "/coordinator/prizes": "Awards",
   };

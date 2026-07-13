@@ -602,7 +602,7 @@ export function PixelTable<T extends Record<string, unknown>>({ columns, data, c
 }
 
 // ── PixelTabs ────────────────────────────────────────────────────
-interface Tab { id: string; label: string; icon?: string; }
+interface Tab { id: string; label: string; icon?: string; badge?: number; }
 interface PixelTabsProps { tabs: Tab[]; active: string; onChange: (id: string) => void; className?: string; }
 
 export function PixelTabs({ tabs, active, onChange, className = "" }: PixelTabsProps) {
@@ -627,10 +627,23 @@ export function PixelTabs({ tabs, active, onChange, className = "" }: PixelTabsP
             textTransform: "uppercase",
             transition: "all 0.15s ease",
             boxShadow: active === tab.id ? `inset 0 -2px 0 ${C.green}` : "none",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 7,
           }}
         >
           {tab.icon && <span className="mr-1">{tab.icon}</span>}
           {tab.label}
+          {!!tab.badge && (
+            <span style={{
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
+              minWidth: 16, height: 16, padding: "0 5px", borderRadius: 8,
+              background: "#eab308", color: "#1a1a1a", fontSize: 10, fontWeight: 800,
+              lineHeight: 1, fontFamily: "'JetBrains Mono', monospace",
+            }}>
+              {tab.badge}
+            </span>
+          )}
         </button>
       ))}
     </div>

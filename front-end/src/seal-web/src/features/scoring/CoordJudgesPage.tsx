@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   C, GradientText, PixelBadge,
 } from "@/shared/components/PixelComponents";
@@ -8,27 +8,26 @@ import {
   HackathonEvent, Round, Track, UserItem, JudgeRosterItem, MentorRosterItem, Team,
 } from "@/shared/apiClient";
 import { useNotifications } from "@/app/providers/NotificationProvider";
+import {
+  mono, HEAD_BG, HEAD_BORDER, MENTOR_HEAD_BG, MENTOR_HEAD_BORDER, MENTOR_CELL_BG, MENTOR_TEXT,
+  FINAL_BG, FINAL_BORDER, TRACK_COL, CELL_COL,
+} from "./assignmentBoardStyles";
 
-const mono = "'JetBrains Mono', monospace";
+// Events already over don't belong here — they move to the read-only
+// "Assignment History" tab. This page only ever works the one event still
+// being configured/run (the "one active event" model).
+const ENDED_STATUSES = new Set(["COMPLETED", "CANCELLED"]);
 
-// On-theme (dark cyber) tokens. Surfaces use the theme variables so the board
-// matches the rest of the dashboard; accents are the project's green/cyan/amber.
-const HEAD_BG = "rgba(34,197,94,0.14)";
-const HEAD_BORDER = "rgba(34,197,94,0.40)";
-const MENTOR_HEAD_BG = "rgba(59,130,246,0.16)";
-const MENTOR_HEAD_BORDER = "rgba(59,130,246,0.45)";
-const MENTOR_CELL_BG = "rgba(59,130,246,0.07)";
-const MENTOR_TEXT = "#60a5fa";
-const FINAL_BG = "rgba(234,179,8,0.10)";
-const FINAL_BORDER = "rgba(234,179,8,0.45)";
-
-const TRACK_COL = 230;
-const CELL_COL = "minmax(220px, 1fr)";
-
-function pickDefaultEvent(events: HackathonEvent[]): number | null {
-  if (events.length === 0) return null;
-  const active = events.find(e => e.status === 'IN_PROGRESS') ?? events.find(e => e.status === 'OPEN');
-  return (active ?? events[events.length - 1]).eventId;
+/** The event currently being configured, if any: furthest along its lifecycle wins. */
+function pickCurrentEvent(events: HackathonEvent[]): HackathonEvent | null {
+  const live = events.filter(e => !ENDED_STATUSES.has((e.status ?? "").toUpperCase()));
+  if (live.length === 0) return null;
+  const priority = ["IN_PROGRESS", "SETUP", "OPEN", "DRAFT"];
+  for (const status of priority) {
+    const match = live.find(e => (e.status ?? "").toUpperCase() === status);
+    if (match) return match;
+  }
+  return live[live.length - 1];
 }
 
 type Active =
@@ -40,7 +39,8 @@ type Active =
 export function CoordJudgesPage() {
   const { addToast } = useNotifications();
   const [events, setEvents] = useState<HackathonEvent[]>([]);
-  const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
+  const currentEvent = useMemo(() => pickCurrentEvent(events), [events]);
+  const selectedEventId = currentEvent?.eventId ?? null;
   const [rounds, setRounds] = useState<Round[]>([]);
   const [tracks, setTracks] = useState<Track[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
@@ -65,7 +65,7 @@ export function CoordJudgesPage() {
       eventsApi.getAll().then(r => r.data ?? []),
       coordinatorApi.getStaff().then(r => r.data ?? []).catch(() => [] as UserItem[]),
     ])
-      .then(([evs, st]) => { setEvents(evs); setStaff(st); setSelectedEventId(pickDefaultEvent(evs)); })
+      .then(([evs, st]) => { setEvents(evs); setStaff(st); })
       .catch(err => setLoadError(err instanceof ApiError ? err.message : "Failed to load events."))
       .finally(() => setLoading(false));
   }, []);
@@ -214,14 +214,12 @@ export function CoordJudgesPage() {
         <div>
           <h1 style={{ fontFamily: mono, fontSize: 28, fontWeight: 800 }}><GradientText>Assignments</GradientText></h1>
         </div>
-        <div>
-          <label style={{ color: C.greenMuted, fontFamily: mono, fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase" }}>Event</label>
-          <select value={selectedEventId ?? 0} onChange={e => setSelectedEventId(Number(e.target.value) || null)}
-            style={{ marginTop: 6, padding: "10px 12px", background: C.surface2, border: `1px solid ${C.border}`, color: C.text, fontFamily: mono, fontSize: 12, width: 240, display: "block", outline: "none" }}>
-            {events.length === 0 && <option value={0}>No events</option>}
-            {events.map(ev => <option key={ev.eventId} value={ev.eventId}>{ev.name}</option>)}
-          </select>
-        </div>
+        {currentEvent && (
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ color: C.text, fontFamily: mono, fontSize: 13, fontWeight: 700 }}>{currentEvent.name}</span>
+            <PixelBadge color={currentEvent.status === "IN_PROGRESS" ? "green" : "gray"}>{currentEvent.status}</PixelBadge>
+          </div>
+        )}
       </div>
 
       {loadError && <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.35)", color: C.red, fontFamily: mono, fontSize: 11, padding: "10px 14px" }}>ERROR: {loadError}</div>}
@@ -229,13 +227,19 @@ export function CoordJudgesPage() {
 
       {loading && <div style={{ color: C.textMuted, fontFamily: mono, fontSize: 12 }}>Loading…</div>}
 
-      {!loading && tracks.length === 0 && (
+      {!loading && currentEvent == null && (
+        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: 18, color: C.textMuted, fontFamily: mono, fontSize: 13 }}>
+          No event is currently open for configuration. Past events have moved to History.
+        </div>
+      )}
+
+      {!loading && currentEvent != null && tracks.length === 0 && (
         <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: 18, color: C.textMuted, fontFamily: mono, fontSize: 13 }}>
           This event has no tracks yet — create tracks &amp; rounds first.
         </div>
       )}
 
-      {!loading && tracks.length > 0 && (
+      {!loading && currentEvent != null && tracks.length > 0 && (
         <div style={{
           background: C.surface, border: `1px solid ${C.borderBright}`, borderRadius: 8, padding: 16, overflowX: "auto",
           boxShadow: "0 0 0 1px rgba(34,197,94,0.06), 0 10px 30px rgba(0,0,0,0.35)",
@@ -245,11 +249,11 @@ export function CoordJudgesPage() {
           <div style={{ display: "grid", gridTemplateColumns: gridCols, gap: 8, minWidth: 820 }}>
             <div style={headCell}>TRACK</div>
             <div style={{ ...headCell, background: MENTOR_HEAD_BG, border: `1px solid ${MENTOR_HEAD_BORDER}`, color: MENTOR_TEXT }}>
-              MENTORS<span style={{ fontWeight: 400, fontSize: 10, color: C.textMuted }}>per track · whole event</span>
+              MENTORS<span style={{ fontWeight: 400, fontSize: 10, color: C.textMuted }}></span>
             </div>
             {prelimRounds.map(r => (
               <div key={r.roundId} style={headCell}>
-                {r.name}<span style={{ fontWeight: 400, fontSize: 10, color: C.textMuted }}>prelim · judges</span>
+                {r.name}<span style={{ fontWeight: 400, fontSize: 10, color: C.textMuted }}></span>
               </div>
             ))}
 
@@ -270,8 +274,7 @@ export function CoordJudgesPage() {
             return (
               <div key={fr.roundId} style={{ marginTop: 14, background: FINAL_BG, border: `1px solid ${FINAL_BORDER}`, borderRadius: 6, padding: 14 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
-                  <span style={{ color: C.yellow, fontFamily: mono, fontSize: 13.5, fontWeight: 800, letterSpacing: "0.05em" }}>★ {fr.name} · FINAL</span>
-                  <span style={{ color: C.textMuted, fontFamily: mono, fontSize: 11 }}>judges chấm tất cả hạng mục</span>
+                  <span style={{ color: C.yellow, fontFamily: mono, fontSize: 13.5, fontWeight: 800, letterSpacing: "0.05em" }}> {fr.name} · FINAL</span>
                   {fr.status && <PixelBadge color={["ACTIVE", "OPEN", "IN_PROGRESS"].includes((fr.status).toUpperCase()) ? "green" : "gray"}>{fr.status}</PixelBadge>}
                 </div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "flex-start" }}>
