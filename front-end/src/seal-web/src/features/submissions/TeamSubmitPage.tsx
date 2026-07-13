@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { C, GradientText, PixelBadge, PixelButton, PixelCard, PixelInput } from "@/shared/components/PixelComponents";
-import { ApiError, apiErrorMessage, MyTeam, Round, Submission, roundsApi, submissionsApi, teamsApi } from "@/shared/apiClient";
+import { ApiError, apiErrorMessage, MyTeam, Round, Submission, SubmissionEligibility, roundsApi, submissionsApi, teamsApi } from "@/shared/apiClient";
 import { useNotifications } from "@/app/providers/NotificationProvider";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { useRoundTimer } from "@/shared/hooks/useRoundTimer";
@@ -34,6 +34,9 @@ export function TeamSubmitPage() {
   const [rounds, setRounds] = useState<Round[]>([]);
   const [selectedRoundId, setSelectedRoundId] = useState<number | null>(null);
   const [existing, setExisting] = useState<Submission | null>(null);
+  const [eligibility, setEligibility] = useState<SubmissionEligibility | null>(null);
+  const [eligibilityLoading, setEligibilityLoading] = useState(false);
+  const [eligibilityError, setEligibilityError] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -158,14 +161,34 @@ export function TeamSubmitPage() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
     setNotice(null);
     setActionError(null);
+    setEligibility(null);
+    setEligibilityError(null);
 
     if (selectedRoundId != null) {
       loadSubmission(selectedRoundId);
+      setEligibilityLoading(true);
+      submissionsApi.getMyEligibility(selectedRoundId)
+        .then((response) => {
+          if (!cancelled) setEligibility(response.data);
+        })
+        .catch((err) => {
+          if (!cancelled) {
+            setEligibility(null);
+            setEligibilityError(apiErrorMessage(err, "Round eligibility could not be verified."));
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setEligibilityLoading(false);
+        });
     } else {
       clearSubmissionForm();
+      setEligibilityLoading(false);
     }
+
+    return () => { cancelled = true; };
   }, [selectedRoundId, loadSubmission]);
 
   const selectedRound = rounds.find((round) => round.roundId === selectedRoundId) ?? null;
@@ -175,8 +198,20 @@ export function TeamSubmitPage() {
   const teamApproved = (team?.status ?? "").toUpperCase() === "APPROVED";
   const roundOpen = ["ACTIVE", "OPEN"].includes((selectedRound?.status ?? "").toUpperCase());
   const eventAllowsSubmit = ["OPEN", "IN_PROGRESS"].includes((team?.eventStatus ?? "").toUpperCase());
-  const timerBlocks = timer.isConfigured && !timer.isRunning;
-  const canSubmit = isLeader && teamApproved && roundOpen && eventAllowsSubmit && !deadlinePassed && !timerBlocks;
+  const timerAllowsSubmit = !timer.loading && !timer.loadFailed && timer.isRunning;
+  const timerBlocks = !timerAllowsSubmit;
+  const eligibilityAllowsSubmit = !eligibilityLoading && !eligibilityError && eligibility?.eligible === true;
+  const canSubmit = isLeader && teamApproved && roundOpen && eventAllowsSubmit
+    && !deadlinePassed && timerAllowsSubmit && eligibilityAllowsSubmit;
+  const timerLockMessage = timer.loading
+    ? "Synchronizing the contest timer - submissions remain locked."
+    : timer.loadFailed
+      ? "The contest timer could not be verified - submissions remain locked."
+      : timer.isPaused
+        ? "The contest is paused - submissions are temporarily disabled."
+        : timer.status === "IDLE"
+          ? "Submission time has not started yet."
+          : "TIME'S UP - the submission window is closed for this round.";
 
   async function submit() {
     if (!selectedRoundId) return;
@@ -305,6 +340,30 @@ export function TeamSubmitPage() {
         </div>
       )}
 
+      {selectedRound && eligibilityLoading && (
+        <div style={{ background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.35)", color: C.blueBright, fontFamily: mono, fontSize: 12, padding: "10px 14px" }}>
+          CHECKING ROUND ELIGIBILITY — submission remains locked.
+        </div>
+      )}
+
+      {selectedRound && !eligibilityLoading && eligibilityError && (
+        <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.35)", color: C.red, fontFamily: mono, fontSize: 12, padding: "10px 14px" }}>
+          ELIGIBILITY UNAVAILABLE — {eligibilityError} Submission remains locked.
+        </div>
+      )}
+
+      {selectedRound && !eligibilityLoading && eligibility?.status === "ELIMINATED" && (
+        <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.45)", color: C.red, fontFamily: mono, fontSize: 12, padding: "12px 16px" }}>
+          <strong>ELIMINATED</strong> — {eligibility.reason}
+        </div>
+      )}
+
+      {selectedRound && !eligibilityLoading && eligibility?.status === "WAITING_FOR_RESULTS" && (
+        <div style={{ background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.45)", color: C.yellow, fontFamily: mono, fontSize: 12, padding: "12px 16px" }}>
+          <strong>WAITING FOR RESULTS</strong> — {eligibility.reason}
+        </div>
+      )}
+
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         {rounds.length === 0 && (
           <span style={{ color: C.textMuted, fontFamily: mono, fontSize: 12 }}>No rounds yet.</span>
@@ -333,7 +392,11 @@ export function TeamSubmitPage() {
               }}
             >
               {round.name}{round.isFinal ? " - Final" : ""}
-              {round.status && (
+              {active && eligibility?.status === "ELIMINATED" ? (
+                <PixelBadge color="red">NOT QUALIFIED</PixelBadge>
+              ) : active && eligibility?.status === "WAITING_FOR_RESULTS" ? (
+                <PixelBadge color="yellow">LOCKED</PixelBadge>
+              ) : round.status && (
                 <PixelBadge color={["ACTIVE", "OPEN"].includes(round.status.toUpperCase()) ? "green" : "gray"}>
                   {round.status}
                 </PixelBadge>
@@ -359,18 +422,24 @@ export function TeamSubmitPage() {
                 {timer.isConfigured && (
                   <CountdownDisplay remainingSeconds={timer.remainingSeconds} status={timer.status} size="sm" icon />
                 )}
-                {existing ? <PixelBadge color="green">SUBMITTED</PixelBadge> : <PixelBadge color="gray">NOT SUBMITTED</PixelBadge>}
+                {eligibility?.status === "ELIMINATED" ? (
+                  <PixelBadge color="red">ELIMINATED</PixelBadge>
+                ) : eligibility?.status === "WAITING_FOR_RESULTS" ? (
+                  <PixelBadge color="yellow">LOCKED</PixelBadge>
+                ) : eligibilityError ? (
+                  <PixelBadge color="red">UNAVAILABLE</PixelBadge>
+                ) : existing ? <PixelBadge color="green">SUBMITTED</PixelBadge> : <PixelBadge color="gray">NOT SUBMITTED</PixelBadge>}
               </div>
             </div>
           </PixelCard>
 
-          {deadlinePassed && (
+          {deadlinePassed && eligibility?.eligible === true && (
             <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.35)", color: C.red, padding: "12px 16px", fontFamily: mono, fontSize: 12 }}>
               DEADLINE PASSED - the submission window is closed for this round.
             </div>
           )}
 
-          {timerBlocks && !deadlinePassed && (
+          {timerBlocks && !deadlinePassed && eligibility?.eligible === true && (
             <div
               style={{
                 background: timer.isPaused ? "rgba(234,179,8,0.08)" : "rgba(239,68,68,0.08)",
@@ -381,9 +450,7 @@ export function TeamSubmitPage() {
                 fontSize: 12,
               }}
             >
-              {timer.isPaused
-                ? "The contest is paused - submissions are temporarily disabled."
-                : "TIME'S UP - the submission window is closed for this round."}
+                {timerLockMessage}
             </div>
           )}
 

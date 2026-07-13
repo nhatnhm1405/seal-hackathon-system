@@ -8,7 +8,7 @@ import {
 import { useTheme } from "@/app/providers/ThemeProvider";
 import {
     teamsApi, tracksApi, roundsApi, submissionsApi, resultsApi, notificationsApi, supportApi,
-    MyTeam, Track, Round, RoundResult, Notification, ApiError, apiErrorMessage,
+    MyTeam, Track, Round, RoundResult, SubmissionEligibility, Notification, ApiError, apiErrorMessage,
 } from "@/shared/apiClient";
 import { ParticipantJourneyBar } from "@/shared/components/ParticipantJourneyBar";
 import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
@@ -33,15 +33,19 @@ export function ExistingTeamDashboard() {
     const [submitted, setSubmitted] = useState<{ at?: string } | null>(null);
     const [subRoundName, setSubRoundName] = useState<string | null>(null);
     const [rank, setRank] = useState<RoundResult | null>(null);
+    const [activeEligibility, setActiveEligibility] = useState<SubmissionEligibility | null>(null);
+    const [eligibilityLoading, setEligibilityLoading] = useState(false);
     const [feed, setFeed] = useState<Notification[]>([]);
     const [error, setError] = useState<string | null>(null);
-    // Track mentor name, shown under the Track tile (display-only).
-    const [mentorName, setMentorName] = useState<string | null>(null);
+    // All active track mentors, shown under the Track tile (display-only).
+    const [mentorNames, setMentorNames] = useState<string[]>([]);
 
     useEffect(() => {
         supportApi.getMyMentors()
-            .then(r => setMentorName(r.data?.[0]?.fullName ?? null))
-            .catch(() => setMentorName(null));
+            .then(r => setMentorNames(Array.from(new Set(
+                (r.data ?? []).map(mentor => mentor.fullName).filter(Boolean),
+            ))))
+            .catch(() => setMentorNames([]));
     }, []);
 
     const reload = useCallback(async () => {
@@ -60,15 +64,37 @@ export function ExistingTeamDashboard() {
             const rs = await roundsApi.getAll(t.eventId).then(r => r.data ?? []).catch(() => []);
             const sorted = [...rs].sort((a, b) => (a.orderNumber ?? a.roundId) - (b.orderNumber ?? b.roundId));
             setRounds(sorted);
+            setSubmitted(null);
+            setSubRoundName(null);
+            setRank(null);
+            setActiveEligibility(null);
 
-            // Latest submission: use the active round, else the last round.
+            // The event's active round is not automatically the team's round: later
+            // rounds require a server-authoritative advancement check first.
             const activeRound = sorted.find(r => ["ACTIVE", "OPEN", "IN_PROGRESS"].includes((r.status ?? "").toUpperCase()));
             const subRound = activeRound ?? sorted[sorted.length - 1];
             if (subRound) {
                 setSubRoundName(subRound.name);
-                submissionsApi.getMyForRound(subRound.roundId)
-                    .then(r => setSubmitted({ at: r.data?.submittedAt }))
-                    .catch(() => setSubmitted(null));
+                if (activeRound) {
+                    setEligibilityLoading(true);
+                    try {
+                        const eligibility = (await submissionsApi.getMyEligibility(activeRound.roundId)).data;
+                        setActiveEligibility(eligibility);
+                        if (eligibility?.eligible) {
+                            await submissionsApi.getMyForRound(subRound.roundId)
+                                .then(r => setSubmitted({ at: r.data?.submittedAt }))
+                                .catch(() => setSubmitted(null));
+                        }
+                    } catch {
+                        setActiveEligibility(null);
+                    } finally {
+                        setEligibilityLoading(false);
+                    }
+                } else {
+                    submissionsApi.getMyForRound(subRound.roundId)
+                        .then(r => setSubmitted({ at: r.data?.submittedAt }))
+                        .catch(() => setSubmitted(null));
+                }
             }
 
             // Last round rank: most recent round with a published result for this team.
@@ -123,6 +149,13 @@ export function ExistingTeamDashboard() {
 
     const isLeader = team.myRole === 'LEADER' || currentUser.is_leader;
     const activeRound = rounds.find(r => ["ACTIVE", "OPEN", "IN_PROGRESS"].includes((r.status ?? "").toUpperCase()));
+    const eliminated = activeEligibility?.status === "ELIMINATED";
+    const waitingForResults = activeEligibility?.status === "WAITING_FOR_RESULTS";
+    const eligibilityUnavailable = activeRound != null && !eligibilityLoading && activeEligibility == null;
+    const eligibleForActiveRound = activeRound != null && activeEligibility?.eligible === true;
+    const rankOutcome = rank && activeEligibility?.previousRoundId === rank.roundId
+        ? activeEligibility.status
+        : null;
     const needsTrackPick = isLeader
         && team.eventStatus === 'SETUP'
         && team.trackSelectionMode === 'SELF_SELECT'
@@ -156,18 +189,29 @@ export function ExistingTeamDashboard() {
 
             {/* Time-sensitive status — glass tiles matching the no-team dashboard. */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16 }}>
-                <GlassStat dark={dark} rgb="34,197,94" valueColor={C.green}
-                    label={subRoundName ? `${subRoundName} Submission` : "Submission"}
-                    value={submitted ? "Submitted" : "Pending"}
-                    sublabel={submitted?.at ? `at ${fmtDate(submitted.at)}` : "Not submitted yet"} />
+                <GlassStat
+                    dark={dark}
+                    rgb={eliminated || eligibilityUnavailable ? "239,68,68" : waitingForResults ? "234,179,8" : "34,197,94"}
+                    valueColor={eliminated || eligibilityUnavailable ? C.red : waitingForResults ? C.yellow : C.green}
+                    label={eliminated || waitingForResults || eligibilityUnavailable ? "Round Status" : subRoundName ? `${subRoundName} Submission` : "Submission"}
+                    value={eligibilityLoading ? "Checking..." : eliminated ? "Eliminated" : waitingForResults ? "Locked" : eligibilityUnavailable ? "Unavailable" : submitted ? "Submitted" : "Pending"}
+                    sublabel={eligibilityUnavailable
+                        ? "Eligibility could not be verified. Submission remains locked."
+                        : eliminated || waitingForResults ? activeEligibility?.reason
+                        : submitted?.at ? `at ${fmtDate(submitted.at)}` : "Not submitted yet"} />
                 <GlassStat dark={dark} rgb="59,130,246" valueColor={C.blueBright}
                     label="Last Round Rank"
                     value={rank ? `#${rank.rankPosition}` : "—"}
-                    sublabel={rank ? `Score: ${rank.totalScore.toFixed(1)}` : "No data"} />
+                    sublabel={rank
+                        ? `${rank.roundName ?? "Round"} · Score: ${rank.totalScore.toFixed(1)}${rankOutcome ? ` · ${rankOutcome}` : ""}`
+                        : "No published result"} />
                 <GlassStat dark={dark} rgb="6,182,212" valueColor={C.cyan}
                     label="Next Deadline"
-                    value={activeRound ? fmtDate(activeRound.submissionDeadline) : "—"}
-                    sublabel={activeRound?.name ?? "No active round"} />
+                    value={eliminated || waitingForResults || eligibilityUnavailable ? "—" : activeRound ? fmtDate(activeRound.submissionDeadline) : "—"}
+                    sublabel={eliminated
+                        ? `Not qualified for ${activeRound?.name ?? "the next round"}`
+                        : waitingForResults ? "Awaiting published results"
+                            : eligibilityUnavailable ? "Eligibility unavailable" : activeRound?.name ?? "No active round"} />
             </div>
 
             {error && (
@@ -254,26 +298,33 @@ export function ExistingTeamDashboard() {
                             </button>
                         } />
                     ) : (
-                        <InfoRow label="Track" value={team.trackName ?? "—"} accent="cyan" sublabel={mentorName ?? undefined} />
+                        <InfoRow label="Track" value={team.trackName ?? "—"} accent="cyan" mentorNames={mentorNames} />
                     )}
                     <InfoRow label="Event" value={team.eventName ?? "—"} accent="blue" />
-                    <InfoRow label="Current Round" value={activeRound?.name ?? "—"} badge={activeRound?.status} accent="purple" />
+                    <InfoRow
+                        label={eliminated || waitingForResults || eligibilityUnavailable ? "Journey Status" : "Current Round"}
+                        value={eliminated || waitingForResults
+                            ? activeEligibility?.previousRoundName ?? "Previous round"
+                            : eligibilityUnavailable ? "Eligibility unavailable"
+                            : activeRound?.name ?? "—"}
+                        badge={eliminated ? "ELIMINATED" : waitingForResults ? "WAITING" : eligibilityUnavailable ? "LOCKED" : activeRound?.status}
+                        accent="purple" />
                 </div>
 
+                {/* Keep the track resource in the same workspace as the team KPIs. */}
+                {team.status === 'APPROVED' && team.eventId != null && team.trackId != null && (
+                    <ParticipantProblemCard eventId={team.eventId} trackId={team.trackId} />
+                )}
+
                 {isLeader && (
-                    <div style={{ display: "flex", gap: 12, justifyContent: "flex-end", flexWrap: "wrap", marginTop: 20, paddingTop: 16, borderTop: `1px solid ${C.border}` }}>
+                    <div style={{ display: "flex", gap: 12, justifyContent: "flex-end", flexWrap: "wrap", marginTop: 16, paddingTop: 16, borderTop: `1px solid ${C.border}` }}>
                         <PixelButton variant="cyber" onClick={() => navigate('/team/view')}>MANAGE TEAM</PixelButton>
-                        {team.status === 'APPROVED' && (
+                        {team.status === 'APPROVED' && eligibleForActiveRound && (
                             <PixelButton variant="secondary" onClick={() => navigate('/team/submit')}>SUBMIT PROJECT</PixelButton>
                         )}
                     </div>
                 )}
             </PixelCard>
-
-            {/* Track "đề thi" — download once released (approved team in a track only) */}
-            {team.status === 'APPROVED' && team.eventId != null && team.trackId != null && (
-                <ParticipantProblemCard eventId={team.eventId} trackId={team.trackId} />
-            )}
 
             {/* Activity feed (from the user's notifications) */}
             <PixelCard glow glowColor={dark ? "blue" : "green"} gradient style={{ padding: 20 }}>
@@ -329,7 +380,7 @@ function GlassStat({ rgb, valueColor, label, value, sublabel, dark }: {
     );
 }
 
-function InfoRow({ label, value, badge, action, sublabel, accent = "green" }: { label: string; value?: string; badge?: string; action?: ReactNode; sublabel?: string; accent?: "green" | "blue" | "cyan" | "purple" }) {
+function InfoRow({ label, value, badge, action, mentorNames, accent = "green" }: { label: string; value?: string; badge?: string; action?: ReactNode; mentorNames?: string[]; accent?: "green" | "blue" | "cyan" | "purple" }) {
     const { theme } = useTheme();
     const dark = theme === "dark";
     // rgb kept as fixed literals so alpha suffixes are valid CSS (the green accent
@@ -369,9 +420,16 @@ function InfoRow({ label, value, badge, action, sublabel, accent = "green" }: { 
                     {badge && <PixelBadge color={roundStatusColor(badge)}>{badge}</PixelBadge>}
                 </div>
             )}
-            {sublabel && (
-                <div style={{ color: M.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    <span style={{ color: `rgba(${M.rgb},0.7)` }}>Mentor · </span>{sublabel}
+            {mentorNames && mentorNames.length > 0 && (
+                <div style={{ color: M.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600, lineHeight: 1.55, marginTop: 2, display: "flex", alignItems: "baseline", gap: 5, flexWrap: "wrap" }}>
+                    <span style={{ color: `rgba(${M.rgb},0.7)`, flexShrink: 0 }}>
+                        {mentorNames.length === 1 ? "Mentor" : "Mentors"} ·
+                    </span>
+                    {mentorNames.map((name, index) => (
+                        <span key={name} style={{ whiteSpace: "normal" }}>
+                            {name}{index < mentorNames.length - 1 ? "," : ""}
+                        </span>
+                    ))}
                 </div>
             )}
         </div>
