@@ -13,13 +13,16 @@ import { useNotifications } from "@/app/providers/NotificationProvider";
 // role grants) belongs to the System Admin under /api/admin. This page therefore
 // talks ONLY to /api/account-approvals.
 //
-// Pending approvals is a "waiting on you" queue, so amber (the PENDING colour) is
-// this screen's accent. Per-row actions live in a hover ⋯ menu (like the Event
-// track/round rows); bulk selection + APPROVE/REJECT SELECTED clears the queue fast.
+// Pending approvals is a "waiting on you" queue, so amber (the PENDING colour)
+// accents the table (headers, card glow, selection state) while the page title
+// stays the standard app-wide gradient. Per-row actions live in a hover ⋯ menu
+// (like the Event track/round rows); bulk selection + APPROVE/REJECT SELECTED
+// clears the queue fast. Row checkboxes stay hidden until a row is hovered or
+// at least one row is already selected (Gmail-style reveal), so the table reads
+// clean at rest.
 
 const MONO = "'JetBrains Mono', monospace";
-const AMBER = "#eab308";        // C.yellow — frame / headers / selection accent
-const AMBER_BRIGHT = "#facc15"; // title highlight
+const AMBER = "#eab308"; // C.yellow — frame / headers / selection accent
 
 function fmtDate(iso?: string) {
   if (!iso) return "—";
@@ -233,7 +236,7 @@ export function CoordAccountsPage() {
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
       <div>
         <h1 style={{ fontFamily: MONO, fontSize: 28, fontWeight: 800 }}>
-          <GradientText from={AMBER_BRIGHT} to="#f59e0b">Account Approvals</GradientText>
+          <GradientText>Account Approvals</GradientText>
         </h1>
       </div>
 
@@ -262,7 +265,7 @@ export function CoordAccountsPage() {
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: MONO }}>
             <thead>
-              <tr style={{ background: C.surface2, borderBottom: `1px solid rgba(234,179,8,0.3)` }}>
+              <tr className="row-actionable" style={{ background: C.surface2, borderBottom: `1px solid rgba(234,179,8,0.3)` }}>
                 <th style={{ width: 44, padding: "12px 14px", textAlign: "left" }}>
                   <input
                     type="checkbox"
@@ -270,6 +273,7 @@ export function CoordAccountsPage() {
                     ref={(el) => { if (el) el.indeterminate = someSelected; }}
                     onChange={toggleAll}
                     aria-label="Select all"
+                    className={selectedCount > 0 ? undefined : "row-action"}
                     style={{ width: 15, height: 15, accentColor: AMBER, cursor: "pointer" }}
                   />
                 </th>
@@ -316,6 +320,7 @@ export function CoordAccountsPage() {
                           checked={selected}
                           onChange={() => toggleOne(a.userId)}
                           aria-label={`Select ${a.fullName}`}
+                          className={selectedCount > 0 ? undefined : "row-action"}
                           style={{ width: 15, height: 15, accentColor: AMBER, cursor: "pointer" }}
                         />
                       )}
