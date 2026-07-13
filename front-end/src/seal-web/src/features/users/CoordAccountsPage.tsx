@@ -239,7 +239,6 @@ export function CoordAccountsPage() {
       <div>
         <h1 style={{ fontFamily: MONO, fontSize: 28, fontWeight: 800 }}>
           <GradientText>Account Approvals</GradientText>
-          <GradientText from={AMBER_BRIGHT} to="#f59e0b">Accounts</GradientText>
         </h1>
       </div>
 

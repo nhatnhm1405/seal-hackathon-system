@@ -44,7 +44,7 @@ export function OAuth2RedirectPage() {
       .catch(() => {
         // No valid cookie (direct visit, or the backend failed to set one) —
         // don't assume success like the old token-based flow could.
-        addAuthToast({ type: 'error', title: 'AUTHENTICATION FAILED', message: 'Please sign in again.' });
+        addAuthToast({ type: 'warning', title: 'AUTHENTICATION FAILED', message: 'Please sign in again.' });
         window.location.replace("/login");
       });
   }, [searchParams, navigate, addAuthToast]);

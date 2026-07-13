@@ -11,6 +11,19 @@ function getCsrfToken(): string | null {
   return match ? decodeURIComponent(match[1]) : null;
 }
 
+// The XSRF-TOKEN cookie is only set once the browser has processed a response
+// from the backend. On a cold start (or right after logout) the very first
+// state-changing request can fire before any response has set it — the request
+// would then go out with no X-XSRF-TOKEN header and be rejected with 403 (the
+// "forbidden for the first 1-3s, works on retry" symptom). Prime it here with a
+// cheap GET (every response sets the cookie) so mutations never race the token.
+async function ensureCsrfToken(): Promise<string | null> {
+  const existing = getCsrfToken();
+  if (existing) return existing;
+  await fetch(`${BASE_URL}/api/csrf`, { credentials: 'include' }).catch(() => {});
+  return getCsrfToken();
+}
+
 // ── Error shape ──────────────────────────────────────────────────────
 export class ApiError extends Error {
   constructor(public status: number, message: string) {
@@ -36,7 +49,9 @@ export async function apiFetch<T>(
   // with its boundary — forcing application/json would break the request.
   const isFormData = options.body instanceof FormData;
   const method = (options.method ?? 'GET').toUpperCase();
-  const csrfToken = method !== 'GET' && method !== 'HEAD' ? getCsrfToken() : null;
+  // GET/HEAD don't need CSRF; for everything else make sure the token cookie
+  // exists first (priming it if this is the first backend contact).
+  const csrfToken = method !== 'GET' && method !== 'HEAD' ? await ensureCsrfToken() : null;
   const res = await fetch(`${BASE_URL}${path}`, {
     ...options,
     credentials: 'include', // send/receive the HttpOnly auth cookie
