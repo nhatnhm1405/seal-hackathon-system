@@ -362,7 +362,7 @@ export function TeamViewPage() {
                 <GradientText>{team.name}</GradientText>
               </h1>
             )}
-            <PixelBadge color={statusBadgeColor(team.status)}>{team.status ?? "—"}</PixelBadge>
+            <PixelBadge color={statusBadgeColor(team.status)} glow={team.status === 'DISQUALIFIED'}>{team.status ?? "—"}</PixelBadge>
             {isLeader && canEditTeam && !editingName && (
               <button onClick={() => { setNameInput(team.name); setEditingName(true); }}
                 style={{ background: "transparent", border: `1px solid ${C.border}`, color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, padding: "4px 8px", cursor: "pointer", borderRadius: 0, letterSpacing: "0.1em", textTransform: "uppercase" }}>
@@ -376,6 +376,21 @@ export function TeamViewPage() {
       {team.status === 'PENDING' && (
         <div style={{ background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.4)", color: "#eab308", fontFamily: "'JetBrains Mono', monospace", fontSize: 12, padding: "12px 16px" }}>
           Your team is awaiting coordinator approval. You cannot submit until approved.
+        </div>
+      )}
+
+      {team.status === 'DISQUALIFIED' && (
+        <div style={{ background: "rgba(239,68,68,0.12)", border: `2px solid ${C.red}`, color: C.red, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, padding: "14px 16px", lineHeight: 1.7 }}>
+          <div style={{ fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: team.disqualifiedReason ? 6 : 0 }}>
+            ⚠ Your team has been DISQUALIFIED and removed from the competition. You can no longer submit.
+          </div>
+          {team.disqualifiedReason && <div>Reason: {team.disqualifiedReason}</div>}
+        </div>
+      )}
+
+      {team.status !== 'DISQUALIFIED' && team.eliminated && (
+        <div style={{ background: "rgba(249,115,22,0.12)", border: `2px solid ${C.orange}`, color: C.orange, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, padding: "14px 16px", lineHeight: 1.7, fontWeight: 700, letterSpacing: "0.04em" }}>
+          ⚑ Your team did not advance{team.eliminatedRoundName ? ` from ${team.eliminatedRoundName}` : ''}{team.eliminatedTopN ? ` — outside the Top ${team.eliminatedTopN}` : ''}. Your run in this competition has ended.
         </div>
       )}
 

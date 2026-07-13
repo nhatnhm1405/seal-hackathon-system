@@ -24,8 +24,12 @@ import java.util.List;
  *   S0  accounts only            (no event)
  *   S1  + event OPEN + structure + forming teams (incl. solo/pairs for grouping)
  *   S2  + approved teams in tracks + assignments + submissions   (IN_PROGRESS)
- *   S3  + scores + ranked results + prizes                       (COMPLETED)
+ *   S3  + scores + ranked results + ANNOUNCED prizes             (COMPLETED)
+ *   S4  = S3 but prizes are DRAFT (winners chosen, not announced) so a
+ *        coordinator can demo awarding them live                 (COMPLETED)
  * </pre>
+ * From S2 onward the roster also includes one DISQUALIFIED team (rule violation)
+ * so the disqualify flow — blocked submission + a notice to its members — is demoable.
  * Statuses are set to match each cut so the snapshot is always consistent with the
  * event state machine. Scoring is deterministic (a pure function of team strength),
  * so ranks/prizes are reproducible.
@@ -159,6 +163,11 @@ public class DemoScenario {
                 slots.add(new Slot(team, leader, strength));
             }
         }
+        // A disqualified team (rule violation) — demoes the coordinator's disqualify
+        // action: blocked from submitting and its members were notified. Kept OUT of
+        // `slots`, so it is never scored, ranked, or awarded.
+        seedDisqualifiedTeam(event, tracks.get(0), w.start.plusDays(1));
+
         // prelim judges score per track; the final-round judges score everyone
         for (Track track : tracks) {
             fx.assignJudge(judge1, prelim, track);
@@ -212,9 +221,16 @@ public class DemoScenario {
             fx.result(s.team, finalRound, total(s, finalCriteria, finalJudges.size()), r + 1, coordinator);
         }
 
+        // S4 leaves prizes as DRAFT (winners chosen, awardedAt = null) so the
+        // coordinator can demo "announce prizes" live; S3 seeds them announced.
         String[] prizeNames = {"Giải Nhất", "Giải Nhì", "Giải Ba"};
+        boolean draftPrizes = "S4".equals(scenario);
         for (int i = 0; i < Math.min(3, finalRanked.size()); i++) {
-            fx.prize(event, prizeNames[i], i + 1, finalRanked.get(i).team);
+            if (draftPrizes) {
+                fx.draftPrize(event, prizeNames[i], i + 1, finalRanked.get(i).team);
+            } else {
+                fx.prize(event, prizeNames[i], i + 1, finalRanked.get(i).team);
+            }
         }
         // Event is COMPLETED → participants and guest judges leave the running
         // competition, so they go inactive (mirrors HackathonEventService on complete).
@@ -225,8 +241,21 @@ public class DemoScenario {
         // System Logs screen has something to show in the fullest demo scenario.
         seedSystemLog(coordinator, judge1, judge2, guestJudge, mentor1, mentor2);
 
-        log.info("[demo] S3 seeded — COMPLETED event, {} teams across {} tracks, {} finalists, {} prizes.",
-                slots.size(), tracks.size(), advancing.size(), Math.min(3, finalRanked.size()));
+        log.info("[demo] {} seeded — COMPLETED event, {} teams across {} tracks, {} finalists, {} prizes ({}).",
+                scenario, slots.size(), tracks.size(), advancing.size(), Math.min(3, finalRanked.size()),
+                draftPrizes ? "draft, pending announcement" : "announced");
+    }
+
+    /** Seeds one DISQUALIFIED team plus the "Team disqualified" notice its members
+     *  would have received, so the disqualify outcome is visible without a live action. */
+    private void seedDisqualifiedTeam(HackathonEvent event, Track track, LocalDateTime at) {
+        String reason = "Nộp bài vi phạm quy chế (nghi đạo mã nguồn).";
+        User leader = participant();
+        List<User> members = members(2);
+        Team team = fx.disqualifiedTeam(event, track, "Ajax (disqualified)", reason, at, leader, members);
+        String content = "Your team '" + team.getName() + "' was disqualified. Reason: " + reason;
+        fx.notification(leader, "Team disqualified", content, "TEAM_DISQUALIFIED", at);
+        members.forEach(m -> fx.notification(m, "Team disqualified", content, "TEAM_DISQUALIFIED", at));
     }
 
     /** Writes a spread-out SystemLog history: account creation → role grants →

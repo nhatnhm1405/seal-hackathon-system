@@ -199,7 +199,7 @@ public class RoundResultService {
                         m.getUser().getUserId(),
                         "Results published",
                         "Results for \"" + roundName + "\" are out — your team ranked #"
-                                + r.getRankPosition() + (isAdvanced(r) ? " and advanced!" : "."),
+                                + r.getRankPosition() + advanceSuffix(r),
                         "RESULT")));
 
         return results.stream().map(this::mapToResponse).collect(Collectors.toList());
@@ -298,13 +298,33 @@ public class RoundResultService {
         return topN != null && r.getRankPosition() <= topN;
     }
 
-    private void notifyTeamResultPublished(RoundResult result) {
-        String content = "Results for round '" + result.getRound().getName() + "' have been published. " +
-                "Team '" + result.getTeam().getName() + "' ranked #" + result.getRankPosition() + ".";
-        if (isAdvanced(result)) {
-            content += " Your team advanced to the next round.";
+    /**
+     * A team is eliminated when it finished OUTSIDE the cut-off of a non-final round
+     * that has one (rank_position &gt; top_n_advance). Final rounds and rounds without
+     * a cut-off never eliminate.
+     */
+    private boolean isEliminated(RoundResult r) {
+        Integer topN = r.getRound().getTopNAdvance();
+        return !Boolean.TRUE.equals(r.getRound().getIsFinal())
+                && topN != null && r.getRankPosition() != null && r.getRankPosition() > topN;
+    }
+
+    /** Trailing clause for result notifications: advanced / eliminated / neutral. */
+    private String advanceSuffix(RoundResult r) {
+        if (isAdvanced(r)) {
+            return " and advanced to the next round!";
         }
-        String notificationContent = content;
+        if (isEliminated(r)) {
+            return " — outside the Top " + r.getRound().getTopNAdvance()
+                    + ", so the team did not advance to the next round.";
+        }
+        return ".";
+    }
+
+    private void notifyTeamResultPublished(RoundResult result) {
+        String notificationContent = "Results for round '" + result.getRound().getName()
+                + "' have been published. Team '" + result.getTeam().getName()
+                + "' ranked #" + result.getRankPosition() + advanceSuffix(result);
         teamMemberRepository.findByTeam_TeamId(result.getTeam().getTeamId())
                 .forEach(member -> notificationService.createNotification(
                         member.getUser().getUserId(),

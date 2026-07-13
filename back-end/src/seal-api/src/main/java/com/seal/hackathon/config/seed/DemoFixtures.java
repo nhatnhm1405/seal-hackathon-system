@@ -3,6 +3,7 @@ package com.seal.hackathon.config.seed;
 import com.seal.hackathon.entity.HackathonEvent;
 import com.seal.hackathon.entity.JudgeAssignment;
 import com.seal.hackathon.entity.MentorAssignment;
+import com.seal.hackathon.entity.Notification;
 import com.seal.hackathon.entity.Prize;
 import com.seal.hackathon.entity.Role;
 import com.seal.hackathon.entity.Round;
@@ -19,6 +20,7 @@ import com.seal.hackathon.entity.UserEventRole;
 import com.seal.hackathon.repository.HackathonEventRepository;
 import com.seal.hackathon.repository.JudgeAssignmentRepository;
 import com.seal.hackathon.repository.MentorAssignmentRepository;
+import com.seal.hackathon.repository.NotificationRepository;
 import com.seal.hackathon.repository.PrizeRepository;
 import com.seal.hackathon.repository.RoleRepository;
 import com.seal.hackathon.repository.RoundRepository;
@@ -69,6 +71,7 @@ public class DemoFixtures {
     private final RoundResultRepository resultRepo;
     private final PrizeRepository prizeRepo;
     private final SystemLogRepository systemLogRepo;
+    private final NotificationRepository notificationRepo;
     private final PasswordEncoder encoder;
 
     // ── People ───────────────────────────────────────────────────────
@@ -204,6 +207,19 @@ public class DemoFixtures {
         return team;
     }
 
+    /**
+     * A team the coordinator disqualified for a rule violation: status DISQUALIFIED
+     * with a reason + timestamp, mirroring what {@code TeamService.disqualifyTeam}
+     * writes. Kept out of the scoring/ranking slots by the caller.
+     */
+    public Team disqualifiedTeam(HackathonEvent event, Track track, String name, String reason,
+                                 LocalDateTime disqualifiedAt, User leader, List<User> members) {
+        Team team = team(event, track, name, "DISQUALIFIED", leader, members);
+        team.setDisqualifiedReason(reason);
+        team.setDisqualifiedAt(disqualifiedAt);
+        return teamRepo.save(team);
+    }
+
     // ── Assignments ──────────────────────────────────────────────────
 
     public void assignJudge(User judge, Round round, Track track) {
@@ -248,5 +264,23 @@ public class DemoFixtures {
                 .event(event).name(name).rankPosition(rank).team(team)
                 .description(name + " — SEAL Demo award.").awardedAt(LocalDateTime.now())
                 .build());
+    }
+
+    /** A prize slot with its winner chosen but NOT yet announced (awardedAt = null),
+     *  so a coordinator can demo the "announce prizes" action live. */
+    public void draftPrize(HackathonEvent event, String name, int rank, Team team) {
+        prizeRepo.save(Prize.builder()
+                .event(event).name(name).rankPosition(rank).team(team)
+                .description(name + " — SEAL Demo award (pending announcement).")
+                .build());
+    }
+
+    /** Writes a notification row directly (the seed bypasses NotificationService),
+     *  with an explicit timestamp so it reads as part of the demo timeline. */
+    public void notification(User recipient, String title, String content, String type,
+                             LocalDateTime at) {
+        notificationRepo.save(Notification.builder()
+                .recipient(recipient).title(title).content(content).type(type)
+                .isRead(false).createdAt(at).build());
     }
 }

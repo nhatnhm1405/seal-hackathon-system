@@ -37,6 +37,19 @@ public class MyTeamResponse {
     /** PENDING | APPROVED | REJECTED | DISQUALIFIED */
     private String status;
 
+    /** Reason the coordinator gave when disqualifying the team; null unless DISQUALIFIED. */
+    private String disqualifiedReason;
+
+    /** True when the team missed a round's Top-N cut-off and is out of the running
+     *  (distinct from DISQUALIFIED, which is a rule-violation removal). */
+    private boolean eliminated;
+
+    /** Name of the round whose Top-N the team missed; null unless eliminated. */
+    private String eliminatedRoundName;
+
+    /** The Top-N cut-off the team missed in that round; null unless eliminated. */
+    private Integer eliminatedTopN;
+
     /** Current participating round, or the round where the team was disqualified. */
     private RoundInfo round;
 

@@ -860,6 +860,10 @@ export interface MyTeam {
   eventStatus?: 'DRAFT' | 'OPEN' | 'SETUP' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
   trackSelectionMode?: 'SELF_SELECT' | 'RANDOM';
   status?: 'PENDING' | 'APPROVED' | 'REJECTED' | 'DISQUALIFIED';
+  disqualifiedReason?: string | null;
+  eliminated?: boolean;
+  eliminatedRoundName?: string | null;
+  eliminatedTopN?: number | null;
   round?: MyTeamRound | null;
   myRole?: 'LEADER' | 'MEMBER';
   members: MyTeamMember[];

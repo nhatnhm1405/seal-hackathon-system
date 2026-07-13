@@ -137,7 +137,7 @@ export function MentorHistoryPage() {
                                     {team.prizeName && (
                                       <span style={{ color: PRIZE_COLOR, fontWeight: 700 }}>Prize: {team.prizeName}</span>
                                     )}
-                                    <PixelBadge color={team.teamStatus === "DISQUALIFIED" ? "red" : "gray"}>
+                                    <PixelBadge color={team.teamStatus === "DISQUALIFIED" ? "red" : "gray"} glow={team.teamStatus === "DISQUALIFIED"}>
                                       {team.teamStatus}
                                     </PixelBadge>
                                   </div>

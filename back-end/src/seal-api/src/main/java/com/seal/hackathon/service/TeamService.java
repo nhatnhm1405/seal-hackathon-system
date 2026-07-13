@@ -693,6 +693,8 @@ public class TeamService {
                         .build())
                 .collect(Collectors.toList());
 
+        Round eliminatingRound = resolveEliminatingRound(team);
+
         return MyTeamResponse.builder()
                 .teamId(team.getTeamId())
                 .eventId(team.getEvent().getEventId())
@@ -704,6 +706,10 @@ public class TeamService {
                 .eventStatus(team.getEvent().getStatus())
                 .trackSelectionMode(team.getEvent().getTrackSelectionMode())
                 .status(team.getStatus())
+                .disqualifiedReason(team.getDisqualifiedReason())
+                .eliminated(eliminatingRound != null)
+                .eliminatedRoundName(eliminatingRound != null ? eliminatingRound.getName() : null)
+                .eliminatedTopN(eliminatingRound != null ? eliminatingRound.getTopNAdvance() : null)
                 .round(resolveTeamRound(team))
                 .myRole(membership.getMemberRole())
                 .members(memberInfos)
@@ -750,6 +756,35 @@ public class TeamService {
                 .findFirst()
                 .map(this::mapToMyTeamRoundInfo)
                 .orElseGet(() -> mapToMyTeamRoundInfo(rounds.get(rounds.size() - 1)));
+    }
+
+    /**
+     * The earliest non-final round whose Top-N cut-off this APPROVED team missed
+     * (finalized round, cut-off set, team's rank &gt; Top-N) — i.e. where its run ended
+     * by not advancing. Returns null when the team is still in the running, not yet
+     * ranked below a cut-off, or is disqualified/rejected (handled elsewhere). Mirrors
+     * the FINALIZED gate used by {@link #teamCanParticipateInRound} and the submit block.
+     */
+    private Round resolveEliminatingRound(Team team) {
+        if (!"APPROVED".equalsIgnoreCase(team.getStatus())) {
+            return null;
+        }
+        List<Round> rounds = roundRepository.findAllByEvent_EventIdOrderByOrderNumber(team.getEvent().getEventId());
+        for (Round round : rounds) {
+            if (Boolean.TRUE.equals(round.getIsFinal())
+                    || round.getTopNAdvance() == null
+                    || !"FINALIZED".equalsIgnoreCase(round.getStatus())) {
+                continue;
+            }
+            boolean missedCut = roundResultRepository
+                    .findByTeam_TeamIdAndRound_RoundId(team.getTeamId(), round.getRoundId())
+                    .map(r -> r.getRankPosition() != null && r.getRankPosition() > round.getTopNAdvance())
+                    .orElse(false);
+            if (missedCut) {
+                return round;
+            }
+        }
+        return null;
     }
 
     private boolean teamCanParticipateInRound(Team team, Round round, List<Round> rounds) {

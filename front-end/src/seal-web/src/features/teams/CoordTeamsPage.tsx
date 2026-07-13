@@ -111,7 +111,7 @@ function statusBadge(status: string) {
   if (status === 'APPROVED') return <PixelBadge color="green">APPROVED</PixelBadge>;
   if (status === 'PENDING') return <PixelBadge color="yellow">PENDING</PixelBadge>;
   if (status === 'REJECTED') return <PixelBadge color="red">REJECTED</PixelBadge>;
-  if (status === 'DISQUALIFIED') return <PixelBadge color="red">DISQUALIFIED</PixelBadge>;
+  if (status === 'DISQUALIFIED') return <PixelBadge color="red" glow>DISQUALIFIED</PixelBadge>;
   return <PixelBadge color="gray">{status}</PixelBadge>;
 }
 

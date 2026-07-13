@@ -149,10 +149,25 @@ export function ExistingTeamDashboard() {
                     <span style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>
                         {isLeader ? `Leading` : `Member of`} {team.name}
                     </span>
-                    <PixelBadge color={teamStatusColor(team.status)}>{team.status ?? "—"}</PixelBadge>
+                    <PixelBadge color={teamStatusColor(team.status)} glow={team.status === 'DISQUALIFIED'}>{team.status ?? "—"}</PixelBadge>
                     <PixelBadge color={isLeader ? 'cyan' : 'blue'}>{isLeader ? 'LEADER' : 'MEMBER'}</PixelBadge>
                 </div>
             </PixelCard>
+
+            {team.status === 'DISQUALIFIED' && (
+                <div style={{ background: "rgba(239,68,68,0.12)", border: `2px solid ${C.red}`, color: C.red, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, padding: "14px 16px", lineHeight: 1.7 }}>
+                    <div style={{ fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: team.disqualifiedReason ? 6 : 0 }}>
+                        ⚠ Your team has been DISQUALIFIED and removed from the competition.
+                    </div>
+                    {team.disqualifiedReason && <div>Reason: {team.disqualifiedReason}</div>}
+                </div>
+            )}
+
+            {team.status !== 'DISQUALIFIED' && team.eliminated && (
+                <div style={{ background: "rgba(249,115,22,0.12)", border: `2px solid ${C.orange}`, color: C.orange, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, padding: "14px 16px", lineHeight: 1.7, fontWeight: 700, letterSpacing: "0.04em" }}>
+                    ⚑ Your team did not advance{team.eliminatedRoundName ? ` from ${team.eliminatedRoundName}` : ''}{team.eliminatedTopN ? ` — outside the Top ${team.eliminatedTopN}` : ''}. Your run in this competition has ended.
+                </div>
+            )}
 
             {/* Time-sensitive status — glass tiles matching the no-team dashboard. */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16 }}>

@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Run the SEAL app in code-first mode and seed one demo scenario (S0..S3).
+    Run the SEAL app in code-first mode and seed one demo scenario (S0..S4).
 
 .DESCRIPTION
     Bundles the manual steps into a single command:
@@ -13,12 +13,14 @@
     old data it SKIPS seeding. A clean drop means a clean reseed.
 
 .PARAMETER Scenario
-    NONE | S0 | S1 | S2 | S3  (default NONE = real run, no fake data)
+    NONE | S0 | S1 | S2 | S3 | S4  (default NONE = real run, no fake data)
       NONE  bootstrap admin only
       S0    + all demo accounts (pre-approved)
       S1    + OPEN event + track/round/criteria + forming teams
       S2    + teams in tracks + submissions ready to score     (IN_PROGRESS)
-      S3    + scores + rankings + prizes                       (COMPLETED)
+      S3    + scores + rankings + ANNOUNCED prizes             (COMPLETED)
+      S4    = S3 but prizes are DRAFT — demo announcing them   (COMPLETED)
+      (S2+ also include one disqualified team for the disqualify demo)
 
 .PARAMETER Force
     Drop the DB without a confirmation prompt (handy during a live demo).
@@ -27,7 +29,9 @@
     Skip the drop step (keep the current DB; seeding is skipped if data already exists).
 
 .EXAMPLE
-    ./run-demo.ps1 S3            # full demo: scores, rankings, prizes
+    ./run-demo.ps1 S3            # full demo: scores, rankings, announced prizes
+.EXAMPLE
+    ./run-demo.ps1 S4            # same, but prizes still draft — demo awarding them live
 .EXAMPLE
     ./run-demo.ps1 S2 -Force     # judge-scoring demo, no confirm before drop
 .EXAMPLE
@@ -35,7 +39,7 @@
 #>
 [CmdletBinding()]
 param(
-    [ValidateSet('NONE', 'S0', 'S1', 'S2', 'S3')]
+    [ValidateSet('NONE', 'S0', 'S1', 'S2', 'S3', 'S4')]
     [string]$Scenario = 'NONE',
     [switch]$Force,
     [switch]$NoDrop
