@@ -41,6 +41,9 @@ public class TeamHistoryResponse {
     public static class MemberInfo {
         private String fullName;
         private String role;
+        private String studentId;   // MSSV
+        private String userType;    // FPT_STUDENT | EXTERNAL_STUDENT | STAFF
+        private String university;
     }
 
     @Data

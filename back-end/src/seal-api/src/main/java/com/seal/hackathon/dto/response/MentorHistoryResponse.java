@@ -44,5 +44,19 @@ public class MentorHistoryResponse {
         private String teamStatus;
         private Integer finalRank;   // rank in the final round if published, else null
         private String prizeName;    // announced prize for this team, else null
+        private Integer memberCount;
+        private List<MemberInfo> members;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class MemberInfo {
+        private String fullName;
+        private String memberRole;   // LEADER | MEMBER
+        private String studentId;    // MSSV
+        private String userType;     // FPT_STUDENT | EXTERNAL_STUDENT | STAFF
+        private String university;
     }
 }

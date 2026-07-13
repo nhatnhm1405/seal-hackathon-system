@@ -80,5 +80,9 @@ public class MentorAssignmentResponse {
         private String fullName;
         private String email;
         private String memberRole;  // LEADER hoặc MEMBER
+        // Thông tin đầy đủ để mentor xem chi tiết từng thành viên trong modal.
+        private String studentId;   // MSSV (FPT hoặc trường ngoài)
+        private String userType;    // FPT_STUDENT | EXTERNAL_STUDENT | STAFF
+        private String university;  // trường (thường chỉ có với sinh viên ngoài)
     }
 }

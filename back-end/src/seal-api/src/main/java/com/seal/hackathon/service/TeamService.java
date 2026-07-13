@@ -164,6 +164,9 @@ public class TeamService {
                     .map(m -> TeamHistoryResponse.MemberInfo.builder()
                             .fullName(m.getUser().getFullName())
                             .role(m.getMemberRole())
+                            .studentId(m.getUser().getStudentId())
+                            .userType(m.getUser().getUserType())
+                            .university(m.getUser().getUniversity())
                             .build())
                     .collect(Collectors.toList());
 
@@ -804,6 +807,9 @@ public class TeamService {
                 .map(m -> TeamHistoryResponse.MemberInfo.builder()
                         .fullName(m.getUser().getFullName())
                         .role(m.getMemberRole())
+                        .studentId(m.getUser().getStudentId())
+                        .userType(m.getUser().getUserType())
+                        .university(m.getUser().getUniversity())
                         .build())
                 .collect(Collectors.toList());
 
