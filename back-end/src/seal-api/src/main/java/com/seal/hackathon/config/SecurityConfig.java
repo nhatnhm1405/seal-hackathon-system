@@ -23,6 +23,7 @@ import org.springframework.security.web.context.RequestAttributeSecurityContextR
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.security.web.csrf.CsrfTokenRepository;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -69,9 +70,15 @@ public class SecurityConfig {
         http
             // Double-submit-cookie CSRF: XSRF-TOKEN cookie (JS-readable, unlike the
             // auth cookie) is echoed back by the SPA as the X-XSRF-TOKEN header.
+            // Requests authenticated via "Authorization: Bearer" are exempt — a
+            // browser can never be tricked into attaching that header cross-site
+            // the way it auto-attaches cookies, so CSRF doesn't apply to them
+            // (this is also what lets API tooling like Postman/Swagger call
+            // write endpoints with just a bearer token, no CSRF dance needed).
             .csrf(csrf -> csrf
                 .csrfTokenRepository(csrfTokenRepository())
-                .csrfTokenRequestHandler(spaCsrfTokenRequestHandler))
+                .csrfTokenRequestHandler(spaCsrfTokenRequestHandler)
+                .ignoringRequestMatchers(bearerAuthRequestMatcher()))
 
             // Enable CORS with the configuration below
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
@@ -186,6 +193,17 @@ public class SecurityConfig {
         CookieCsrfTokenRepository repository = CookieCsrfTokenRepository.withHttpOnlyFalse();
         repository.setCookieCustomizer(cookie -> cookie.secure(cookieSecure).sameSite("Lax").path("/"));
         return repository;
+    }
+
+    // Matches any request carrying "Authorization: Bearer ..." — used to exempt
+    // bearer-authenticated calls (Postman, Swagger, JwtAuthenticationFilter's
+    // header fallback) from CSRF, since a browser can't be tricked into sending
+    // that header cross-site the way it auto-sends cookies.
+    private RequestMatcher bearerAuthRequestMatcher() {
+        return request -> {
+            String authHeader = request.getHeader("Authorization");
+            return authHeader != null && authHeader.startsWith("Bearer ");
+        };
     }
 
     @Bean
