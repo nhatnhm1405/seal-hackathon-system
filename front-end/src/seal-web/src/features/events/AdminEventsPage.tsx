@@ -10,6 +10,7 @@ import { useNotifications } from "@/app/providers/NotificationProvider";
 import {
   TrackMode, EventRow, ApiEvent,
   normalizeEvent, eventStatusBadge, EventDateBadge, EventName, pickDefaultEvent, EventsListCard,
+  parseDDMM, toDDMM,
 } from "@/features/events/eventUtils";
 
 // System Admin's event console. The Admin is the only role that can CREATE an
@@ -37,22 +38,6 @@ function fmtDateTime(iso?: string) {
   const hh = String(d.getHours()).padStart(2, "0");
   const min = String(d.getMinutes()).padStart(2, "0");
   return `${dd}/${mm} ${hh}:${min}`;
-}
-
-function parseDDMM(ddmm: string, year: string): string | null {
-  const m = ddmm.trim().match(/^(\d{1,2})\/(\d{1,2})$/);
-  if (!m) return null;
-  const day = parseInt(m[1], 10);
-  const month = parseInt(m[2], 10);
-  if (day < 1 || day > 31 || month < 1 || month > 12) return null;
-  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-}
-
-function toDDMM(iso: string | null | undefined): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return "";
-  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
 function dateToLocalDateTime(date: string, time = "08:00:00") {

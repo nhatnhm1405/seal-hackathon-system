@@ -315,6 +315,7 @@ interface PixelInputProps {
   className?: string;
   disabled?: boolean;
   showToggle?: boolean;
+  lang?: string;
 }
 
 function EyeOpen() {
@@ -336,7 +337,7 @@ function EyeClosed() {
   );
 }
 
-export function PixelInput({ label, placeholder, type = "text", value, onChange, onKeyDown, onBlur, min, max, prefix, className = "", disabled = false, showToggle = false }: PixelInputProps) {
+export function PixelInput({ label, placeholder, type = "text", value, onChange, onKeyDown, onBlur, min, max, prefix, className = "", disabled = false, showToggle = false, lang }: PixelInputProps) {
   const [focused, setFocused] = useState(false);
   const [visible, setVisible] = useState(false);
   const [hoverEye, setHoverEye] = useState(false);
@@ -362,7 +363,7 @@ export function PixelInput({ label, placeholder, type = "text", value, onChange,
         }}
       >
         <input
-          type={resolvedType} value={value} onChange={onChange} onKeyDown={onKeyDown} placeholder={placeholder} disabled={disabled} min={min} max={max}
+          type={resolvedType} value={value} onChange={onChange} onKeyDown={onKeyDown} placeholder={placeholder} disabled={disabled} min={min} max={max} lang={lang}
           onFocus={() => setFocused(true)} onBlur={(e) => { setFocused(false); onBlur?.(e); }}
           style={{
             background: "transparent", border: "none", outline: "none",

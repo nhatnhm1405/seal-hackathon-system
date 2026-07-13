@@ -39,6 +39,36 @@ export interface EventRow {
 
 const STATUSES: EventStatus[] = ['DRAFT', 'OPEN', 'SETUP', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'];
 
+// Parse a "DD/MM" string against a given year into an ISO date (yyyy-mm-dd),
+// or null if the text isn't a valid day/month. Shared by the Admin event form
+// and the Coordinator round form, both of which let the user type only the
+// day/month while the year is fixed elsewhere (the season year, or the
+// parent event's year).
+export function parseDDMM(ddmm: string, year: string | number): string | null {
+  const m = ddmm.trim().match(/^(\d{1,2})\/(\d{1,2})$/);
+  if (!m) return null;
+  const day = parseInt(m[1], 10);
+  const month = parseInt(m[2], 10);
+  if (day < 1 || day > 31 || month < 1 || month > 12) return null;
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+// Inverse of parseDDMM, for display. Reads the day/month straight out of the
+// "yyyy-mm-dd..." prefix (rather than via `new Date(...)`) so a date-only
+// string isn't misread as UTC midnight and shifted a day by the local
+// timezone offset.
+export function toDDMM(dateStr: string | null | undefined): string {
+  const m = (dateStr ?? "").match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? `${m[3]}/${m[2]}` : "";
+}
+
+// The calendar year a date-ish string starts with, or the current year if
+// unparseable. Used to resolve the year for a "DD/MM"-only field.
+export function yearOf(dateStr: string | null | undefined): number {
+  const m = (dateStr ?? "").match(/^(\d{4})-/);
+  return m ? parseInt(m[1], 10) : new Date().getFullYear();
+}
+
 export function normalizeEvent(item: ApiEvent): EventRow {
   const status = (item.status ?? 'DRAFT').toUpperCase();
   return {
