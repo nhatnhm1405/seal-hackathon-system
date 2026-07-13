@@ -1,4 +1,5 @@
 import { C } from "@/shared/components/PixelComponents";
+import { universityLabel } from "@/shared/userDisplay";
 
 const mono = "'JetBrains Mono', monospace";
 
@@ -41,7 +42,7 @@ export function MemberTextList({ members, label = "Members" }: { members: Histor
             m.memberRole ?? null,
             m.studentId ?? null,
             userTypeLabel(m.userType) || null,
-            m.university ?? null,
+            universityLabel(m.userType, m.university),
           ].filter(Boolean).join(" · ");
           return (
             <div key={i} style={{ fontFamily: mono, fontSize: 12, lineHeight: 1.5, wordBreak: "break-word" }}>

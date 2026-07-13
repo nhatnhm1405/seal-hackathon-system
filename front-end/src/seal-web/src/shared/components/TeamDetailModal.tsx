@@ -1,6 +1,7 @@
 import React from "react";
 import { createPortal } from "react-dom";
 import { C, PixelBadge } from "@/shared/components/PixelComponents";
+import { universityLabel } from "@/shared/userDisplay";
 
 const mono = "'JetBrains Mono', monospace";
 
@@ -87,7 +88,7 @@ function MemberCard({ m, index }: { m: TeamDetailMember; index: number }) {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 14 }}>
         <Field label="MSSV" value={m.studentId} />
         <Field label="Type" value={userTypeLabel(m.userType)} />
-        <Field label="University" value={m.university} />
+        <Field label="University" value={universityLabel(m.userType, m.university)} />
         <Field label="Email" value={m.email} />
       </div>
     </div>

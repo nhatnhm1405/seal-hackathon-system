@@ -38,7 +38,12 @@ export function ParticipationRequestsPanel() {
     setLoading(true);
     setError(null);
     participationRequestsApi.getPending()
-      .then(res => setRequests(res.data ?? []))
+      .then(res => {
+        // Newest request first — same "stack" ordering as the Approvals queue.
+        const list = (res.data ?? []).slice().sort((a, b) =>
+          new Date(b.requestedAt ?? 0).getTime() - new Date(a.requestedAt ?? 0).getTime());
+        setRequests(list);
+      })
       .catch(err => setError(err instanceof ApiError ? err.message : "Failed to load participation requests."))
       .finally(() => setLoading(false));
   }
@@ -118,9 +123,12 @@ export function ParticipationRequestsPanel() {
                   <td style={{ padding: "12px 14px" }}>{userTypeBadge(r.userType)}</td>
                   <td style={{ color: C.textMuted, fontSize: 11, padding: "12px 14px" }}>{fmtDate(r.requestedAt)}</td>
                   <td style={{ padding: "12px 14px" }}>
+                    {/* Reject on the left, Approve on the right — keeps the
+                        destructive choice away from where a quick, confident
+                        approve click naturally lands. */}
                     <div style={{ display: "flex", gap: 6 }}>
-                      <PixelButton size="sm" variant="cyber" disabled={workingId === r.requestId} onClick={() => resolveRequest(r, true)}>APPROVE</PixelButton>
                       <PixelButton size="sm" variant="danger" disabled={workingId === r.requestId} onClick={() => resolveRequest(r, false)}>REJECT</PixelButton>
+                      <PixelButton size="sm" variant="cyber" disabled={workingId === r.requestId} onClick={() => resolveRequest(r, true)}>APPROVE</PixelButton>
                     </div>
                   </td>
                 </tr>

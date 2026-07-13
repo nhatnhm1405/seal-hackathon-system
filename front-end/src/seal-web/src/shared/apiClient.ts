@@ -984,6 +984,10 @@ export const teamsApi = {
   getByEvent: (eventId: number) =>
     apiFetch<ApiResponse<Team[]>>(`/api/teams/event/${eventId}`),
 
+  // Cross-event count backing the Coordinator sidebar's "Teams" badge.
+  getPendingCount: () =>
+    apiFetch<ApiResponse<{ count: number }>>('/api/teams/pending-count'),
+
   getById: (teamId: number) =>
     apiFetch<ApiResponse<Team>>(`/api/teams/${teamId}`),
 

@@ -58,6 +58,10 @@ export function CoordJudgesPage() {
   // Unassign queued behind a confirm — the ✕ chips are small and easy to mis-hit.
   const [confirmRemove, setConfirmRemove] = useState<null | { kind: 'mentor' | 'judge'; id: number; name: string }>(null);
   const [removeBusy, setRemoveBusy] = useState(false);
+  // Mentor/judge role-overlap and guest/non-final conflicts are soft warnings,
+  // not hard blocks (a small event may genuinely need to double someone up) —
+  // queued behind a confirm so a coordinator can't add them by mistake.
+  const [pendingAdd, setPendingAdd] = useState<null | { userId: number; name: string; warning: string }>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -98,6 +102,30 @@ export function CoordJudgesPage() {
     if (active.kind === 'mentor') return new Set(mentorsOf(active.trackId).map(m => m.mentorUserId));
     if (active.kind === 'judge') return new Set(judgesOf(active.roundId, active.trackId).map(j => j.judgeUserId));
     return new Set(judgesOf(active.roundId, null).map(j => j.judgeUserId));
+  }
+
+  // Soft conflict-of-interest checks for the currently-open picker. Both are
+  // warnings, not blocks — and neither applies to the Final round: it pools
+  // every track's finalists together, so a track's own mentor isn't scoring
+  // their mentee team in isolation there, and guest judges are expected at
+  // Final (that's their whole reason for being on the roster).
+  function conflictWarning(userId: number): string | null {
+    if (!active) return null;
+    if (active.kind === 'judge') {
+      const reasons: string[] = [];
+      if (mentorsOf(active.trackId).some(m => m.mentorUserId === userId)) {
+        reasons.push("Already mentors this track — scoring their own mentee team.");
+      }
+      if (staff.find(u => u.userId === userId)?.judgeType === 'GUEST') {
+        reasons.push("Guest judge — normally only assigned to the Final round.");
+      }
+      return reasons.length > 0 ? reasons.join(" ") : null;
+    }
+    if (active.kind === 'mentor') {
+      const alreadyJudgesTrack = prelimRounds.some(r => judgesOf(r.roundId, active.trackId).some(j => j.judgeUserId === userId));
+      return alreadyJudgesTrack ? "Already judges this track in a preliminary round — scoring their own mentee team." : null;
+    }
+    return null; // 'final' — no conflict checks
   }
 
   async function add(userId: number) {
@@ -187,14 +215,28 @@ export function CoordJudgesPage() {
           {staffPool.length === 0 && <div style={{ padding: "9px 13px", color: C.textMuted, fontFamily: mono, fontSize: 12 }}>No staff found.</div>}
           {staffPool.map(u => {
             const already = addedIds.has(u.userId);
+            const warning = already ? null : conflictWarning(u.userId);
             return (
               <div key={u.userId} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "8px 12px", borderTop: `1px solid ${C.border}` }}>
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ color: C.text, fontFamily: mono, fontSize: 12.5, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{u.fullName}</div>
-                  <div style={{ color: C.textMuted, fontFamily: mono, fontSize: 10 }}>{u.judgeType ?? "STAFF"}{u.email ? ` · ${u.email}` : ""}</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <div style={{ color: C.text, fontFamily: mono, fontSize: 12.5, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{u.fullName}</div>
+                    {warning && <span title={warning} style={{ fontSize: 12, flexShrink: 0 }}>⚠️</span>}
+                  </div>
+                  <div style={{ color: warning ? "#eab308" : C.textMuted, fontFamily: mono, fontSize: 10, lineHeight: 1.4 }}>
+                    {warning ?? `${u.judgeType ?? "STAFF"}${u.email ? ` · ${u.email}` : ""}`}
+                  </div>
                 </div>
                 {already ? <span style={{ color: C.green, fontFamily: mono, fontSize: 11, fontWeight: 700 }}>✓ added</span>
-                  : <button onClick={() => add(u.userId)} disabled={busy} style={{ background: "rgba(34,197,94,0.16)", border: `1px solid rgba(34,197,94,0.5)`, borderRadius: 4, color: C.green, fontFamily: mono, fontSize: 11, fontWeight: 700, padding: "4px 10px", cursor: "pointer" }}>add +</button>}
+                  : (
+                    <button
+                      onClick={() => warning ? setPendingAdd({ userId: u.userId, name: u.fullName, warning }) : add(u.userId)}
+                      disabled={busy}
+                      style={{ background: warning ? "rgba(234,179,8,0.16)" : "rgba(34,197,94,0.16)", border: `1px solid ${warning ? "rgba(234,179,8,0.5)" : "rgba(34,197,94,0.5)"}`, borderRadius: 4, color: warning ? "#eab308" : C.green, fontFamily: mono, fontSize: 11, fontWeight: 700, padding: "4px 10px", cursor: "pointer", flexShrink: 0 }}
+                    >
+                      add +
+                    </button>
+                  )}
               </div>
             );
           })}
@@ -301,6 +343,18 @@ export function CoordJudgesPage() {
           working={removeBusy}
           onConfirm={runConfirmedRemove}
           onClose={() => { if (!removeBusy) setConfirmRemove(null); }}
+        />
+      )}
+
+      {pendingAdd && (
+        <ConfirmDialog
+          title="Assign anyway?"
+          message={`${pendingAdd.name}: ${pendingAdd.warning} Assign them anyway?`}
+          confirmLabel="ASSIGN ANYWAY"
+          variant="danger"
+          working={busy}
+          onConfirm={async () => { await add(pendingAdd.userId); setPendingAdd(null); }}
+          onClose={() => { if (!busy) setPendingAdd(null); }}
         />
       )}
     </div>

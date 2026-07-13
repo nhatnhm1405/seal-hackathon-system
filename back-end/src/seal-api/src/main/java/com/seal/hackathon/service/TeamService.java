@@ -380,6 +380,13 @@ public class TeamService {
                 .collect(Collectors.toList());
     }
 
+    // Cross-event count backing the Coordinator sidebar's "Teams" badge — mirrors
+    // the account-approval badge so both queues surface the same way.
+    @Transactional(readOnly = true)
+    public long getPendingTeamsCount() {
+        return teamRepository.countByStatus("PENDING");
+    }
+
     // ── Coordinator: Get single team ─────────────────────────────────
 
     @Transactional(readOnly = true)
@@ -892,6 +899,9 @@ public class TeamService {
                         .email(m.getUser().getEmail())
                         .memberRole(m.getMemberRole())
                         .joinedAt(m.getJoinedAt())
+                        .studentId(m.getUser().getStudentId())
+                        .userType(m.getUser().getUserType())
+                        .university(m.getUser().getUniversity())
                         .build())
                 .collect(Collectors.toList());
 

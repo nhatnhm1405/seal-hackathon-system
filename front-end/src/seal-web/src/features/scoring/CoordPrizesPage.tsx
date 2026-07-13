@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { C, GradientText, PixelBadge, PixelButton, PixelCard, PixelInput } from "@/shared/components/PixelComponents";
 import { ApiError, apiErrorMessage, eventsApi, HackathonEvent, Prize, prizesApi, Round, roundsApi, Team, teamsApi } from "@/shared/apiClient";
 import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
@@ -26,13 +26,17 @@ const MEDAL_COLOR: Record<number, string> = {
 
 const medalColor = (rank: number) => MEDAL_COLOR[rank] ?? C.green;
 
-function pickDefaultEvent(events: HackathonEvent[]): number | null {
+// No manual event switcher here — unlike Assignments/Scoring (strictly "the
+// one live event", COMPLETED moves to History), this page's own workflow
+// still needs a COMPLETED event: participant certificates only export once
+// the event has ended (see exportParticipantsCsv below). So prefer the live
+// event, but fall back to the most recently completed one rather than
+// hiding it — that's the event a coordinator would come back here for.
+function pickCurrentEvent(events: HackathonEvent[]): HackathonEvent | null {
   if (events.length === 0) return null;
-
   const active = events.find((event) => event.status === "IN_PROGRESS")
     ?? events.find((event) => event.status === "COMPLETED");
-
-  return (active ?? events[events.length - 1]).eventId;
+  return active ?? events[events.length - 1];
 }
 
 function csvCell(value: unknown) {
@@ -56,7 +60,8 @@ function downloadCsv(filename: string, header: string[], rows: unknown[][]) {
 export function CoordPrizesPage() {
   const { addToast } = useNotifications();
   const [events, setEvents] = useState<HackathonEvent[]>([]);
-  const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
+  const currentEvent = useMemo(() => pickCurrentEvent(events), [events]);
+  const selectedEventId = currentEvent?.eventId ?? null;
   const [finalRound, setFinalRound] = useState<Round | null>(null);
   const [teams, setTeams] = useState<Team[]>([]);
   const [prizes, setPrizes] = useState<Prize[]>([]);
@@ -72,11 +77,7 @@ export function CoordPrizesPage() {
     setLoadError(null);
 
     eventsApi.getAll()
-      .then((response) => {
-        const loaded = response.data ?? [];
-        setEvents(loaded);
-        setSelectedEventId(pickDefaultEvent(loaded));
-      })
+      .then((response) => setEvents(response.data ?? []))
       .catch((err) => setLoadError(err instanceof ApiError ? err.message : "Failed to load events."))
       .finally(() => setLoading(false));
   }, []);
@@ -107,7 +108,7 @@ export function CoordPrizesPage() {
     reloadPrizes(eventId);
   }, [selectedEventId, reloadPrizes]);
 
-  const selectedEvent = events.find((event) => event.eventId === selectedEventId) ?? null;
+  const selectedEvent = currentEvent;
   const finalReady = finalRound?.status === "FINALIZED";
   const sortedPrizes = prizes.slice().sort((a, b) => a.rankPosition - b.rankPosition);
   const announced = sortedPrizes.length > 0 && sortedPrizes.every((prize) => prize.announced);
@@ -249,10 +250,17 @@ export function CoordPrizesPage() {
 
   return (
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
-      <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 12 }}>
         <h1 style={{ fontFamily: mono, fontSize: 28, fontWeight: 800 }}>
           <GradientText>Awards</GradientText>
         </h1>
+        {selectedEvent && (
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ color: C.text, fontFamily: mono, fontSize: 13, fontWeight: 700 }}>{selectedEvent.name}</span>
+            <PixelBadge color={selectedEvent.status === "IN_PROGRESS" ? "green" : "gray"}>{selectedEvent.status}</PixelBadge>
+            <PixelBadge color={announced ? "green" : "gray"}>{announced ? "ANNOUNCED" : "DRAFT"}</PixelBadge>
+          </div>
+        )}
       </div>
 
       {loadError && (
@@ -261,28 +269,11 @@ export function CoordPrizesPage() {
         </div>
       )}
 
-      <PixelCard style={{ padding: 16, display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
-        <div>
-          <label style={{ display: "block", color: C.greenMuted, fontFamily: mono, fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 6 }}>
-            Event
-          </label>
-          <select value={selectedEventId ?? 0} onChange={(event) => setSelectedEventId(Number(event.target.value) || null)} style={selectStyle} disabled={loading || busy}>
-            {events.length === 0 && <option value={0}>No events</option>}
-            {events.map((event) => (
-              <option key={event.eventId} value={event.eventId}>
-                {event.name}
-                {event.status === "COMPLETED" ? " (Completed)" : event.status === "IN_PROGRESS" ? " (Live)" : event.status ? ` (${event.status})` : ""}
-              </option>
-            ))}
-          </select>
+      {!loading && selectedEvent == null && (
+        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: 18, color: C.textMuted, fontFamily: mono, fontSize: 13 }}>
+          No event to show awards for yet.
         </div>
-
-        {selectedEvent && (
-          <div style={{ marginTop: 22 }}>
-            <PixelBadge color={announced ? "green" : "gray"}>{announced ? "ANNOUNCED" : "DRAFT"}</PixelBadge>
-          </div>
-        )}
-      </PixelCard>
+      )}
 
       {loading ? (
         <PixelCard style={{ padding: 40, textAlign: "center" }}>

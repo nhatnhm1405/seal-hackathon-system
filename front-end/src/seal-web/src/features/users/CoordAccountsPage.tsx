@@ -6,6 +6,7 @@ import { PixelMenu } from "@/shared/components/PixelMenu";
 import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
 import { accountApprovalsApi, participationRequestsApi, ApiError, apiErrorMessage, PendingAccount, UserItem } from "@/shared/apiClient";
 import { usePendingAccounts } from "@/app/providers/PendingAccountsProvider";
+import { universityLabel } from "@/shared/userDisplay";
 import { useNotifications } from "@/app/providers/NotificationProvider";
 import { ParticipationRequestsPanel } from "./CoordParticipationRequestsPage";
 
@@ -162,7 +163,7 @@ function ReadOnlyAccountsTable({ rows, loading, error, countLabel, emptyLabel, s
                     <>
                       <td style={{ padding: "12px 14px" }}>{studentTypeBadge(u.userType)}</td>
                       <td style={{ color: C.textMuted, fontSize: 11, padding: "12px 14px" }}>{u.studentId ?? "—"}</td>
-                      <td style={{ color: C.textMuted, fontSize: 11, padding: "12px 14px" }}>{u.university ?? "—"}</td>
+                      <td style={{ color: C.textMuted, fontSize: 11, padding: "12px 14px" }}>{universityLabel(u.userType, u.university) ?? "—"}</td>
                     </>
                   )}
                   <td style={{ color: C.textMuted, fontSize: 11, padding: "12px 14px" }}>{fmtDate(u.createdAt)}</td>
@@ -233,8 +234,11 @@ export function CoordAccountsPage() {
     const request = tab === "participants" ? accountApprovalsApi.getActiveParticipants() : accountApprovalsApi.getActiveJudgeMentorStaff();
     request
       .then(res => {
-        if (tab === "participants") setParticipants(res.data ?? []);
-        else setStaffList(res.data ?? []);
+        // Newest account first — same "stack" ordering as the Approvals queue.
+        const list = (res.data ?? []).slice().sort((a, b) =>
+          new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime());
+        if (tab === "participants") setParticipants(list);
+        else setStaffList(list);
         setLoadedLists(prev => new Set(prev).add(tab));
       })
       .catch(err => setListError(err instanceof ApiError ? err.message : "Failed to load accounts."))
@@ -390,8 +394,8 @@ export function CoordAccountsPage() {
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", padding: "10px 14px", background: "rgba(234,179,8,0.08)", border: `1px solid rgba(234,179,8,0.4)` }}>
           <span style={{ color: AMBER, fontFamily: MONO, fontSize: 12, fontWeight: 700 }}>{selectedCount} selected</span>
           <div style={{ flex: 1 }} />
-          <PixelButton size="sm" variant="cyber" onClick={() => setBulkAction("approve")}>APPROVE SELECTED ({selectedCount})</PixelButton>
           <PixelButton size="sm" variant="danger" onClick={() => setBulkAction("reject")}>REJECT SELECTED ({selectedCount})</PixelButton>
+          <PixelButton size="sm" variant="cyber" onClick={() => setBulkAction("approve")}>APPROVE SELECTED ({selectedCount})</PixelButton>
           <PixelButton size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>CLEAR</PixelButton>
         </div>
       )}
@@ -458,7 +462,7 @@ export function CoordAccountsPage() {
                     <td style={cellMuted}>{a.email}</td>
                     <td style={{ padding: "12px 14px" }}>{studentTypeBadge(a.userType)}</td>
                     <td style={cellMuted}>{a.studentId ?? "—"}</td>
-                    <td style={cellMuted}>{a.university ?? "—"}</td>
+                    <td style={cellMuted}>{universityLabel(a.userType, a.university) ?? "—"}</td>
                     <td style={cellMuted}>{fmtDate(a.createdAt)}</td>
                     {/* Per-row actions in a hover ⋯ menu (like the Event track/round rows). */}
                     <td onClick={(e) => e.stopPropagation()} style={{ padding: "12px 14px", width: 48 }}>

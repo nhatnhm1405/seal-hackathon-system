@@ -250,7 +250,17 @@ export function InvitationsDrawer({ onClose }: { onClose: () => void }) {
                                     </div>
 
                                     {status === 'PENDING' && (
+                                        // Decline on the left, Accept on the right — keeps the
+                                        // destructive choice away from where a quick, confident
+                                        // accept click naturally lands.
                                         <div style={{ display: "flex", gap: 10 }}>
+                                            <button
+                                                onClick={() => handleDecline(inv)}
+                                                disabled={busy === inv.inviteId}
+                                                style={{ padding: "9px 16px", background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.25)", color: "#ef4444", fontFamily: mono, fontSize: 11, letterSpacing: "0.06em", cursor: "pointer", borderRadius: 0 }}
+                                            >
+                                                DECLINE
+                                            </button>
                                             <button
                                                 onClick={() => {
                                                     setError(null);
@@ -260,13 +270,6 @@ export function InvitationsDrawer({ onClose }: { onClose: () => void }) {
                                                 style={{ flex: 1, padding: "9px 12px", background: "rgba(34,197,94,0.1)", border: `1px solid rgba(34,197,94,0.4)`, color: C.green, fontFamily: mono, fontSize: 11, letterSpacing: "0.06em", cursor: "pointer", borderRadius: 0, fontWeight: 700 }}
                                             >
                                                 ACCEPT INVITE
-                                            </button>
-                                            <button
-                                                onClick={() => handleDecline(inv)}
-                                                disabled={busy === inv.inviteId}
-                                                style={{ padding: "9px 16px", background: "rgba(239,68,68,0.06)", border: "1px solid rgba(239,68,68,0.25)", color: "#ef4444", fontFamily: mono, fontSize: 11, letterSpacing: "0.06em", cursor: "pointer", borderRadius: 0 }}
-                                            >
-                                                DECLINE
                                             </button>
                                         </div>
                                     )}

@@ -10,6 +10,7 @@ import { useNotifications } from "@/app/providers/NotificationProvider";
 import {
   EventStatus, TrackMode, EventRow, ApiEvent,
   normalizeEvent, eventStatusBadge, EventDateBadge, EventName, nextStatusActions, statusChangeCopy, pickDefaultEvent, EventsListCard,
+  parseDDMM, toDDMM, yearOf,
 } from "@/features/events/eventUtils";
 import { maxTeamsPerTrack, countAssigned, countUnassigned, teamsForTrack, isTrackValid, wouldExceedMax, canCompleteSetup, MIN_TEAMS_PER_TRACK } from "@/features/events/trackStats";
 import { TrackProblemsTab } from "@/features/events/TrackProblemPanel";
@@ -848,6 +849,35 @@ export function CoordEventsPage() {
     });
   }
 
+  // Builds the round's three datetimes from the DD/MM + HH:MM form fields.
+  // The year is never typed by the coordinator — it's fixed to the parent
+  // event's own start year, since a round can't outlive its event. Returns
+  // null (after toasting the offending field) if a filled-in date isn't a
+  // valid DD/MM.
+  function buildRoundDates(): { startTime?: string; endTime?: string; submissionDeadline?: string } | null {
+    if (!selectedEvent) return null;
+    const year = yearOf(selectedEvent.startDate);
+    const errors: string[] = [];
+    const resolve = (ddmm: string, label: string): string => {
+      if (!ddmm.trim()) return "";
+      const iso = parseDDMM(ddmm, year);
+      if (!iso) { errors.push(`${label} must be in DD/MM format (e.g. 05/03).`); return ""; }
+      return iso;
+    };
+    const start = resolve(rdStartDate, "Start date");
+    const end = resolve(rdEndDate, "End date");
+    const deadline = resolve(rdDeadlineDate, "Deadline date");
+    if (errors.length > 0) {
+      addToast({ type: 'warning', title: 'INVALID DATE', message: errors.join(' ') });
+      return null;
+    }
+    return {
+      startTime: joinDT(start, rdStartTime),
+      endTime: joinDT(end, rdEndTime),
+      submissionDeadline: joinDT(deadline, rdDeadlineTime),
+    };
+  }
+
   async function addRound() {
     if (!selectedEvent) return;
     const name = rdName.trim();
@@ -855,6 +885,8 @@ export function CoordEventsPage() {
       addToast({ type: 'warning', title: 'MISSING NAME', message: 'Please enter a round name.' });
       return;
     }
+    const dates = buildRoundDates();
+    if (!dates) return;
     setActionError(null);
     try {
       const res = await apiFetch<{ data: ApiRound }>(`/api/events/${selectedEvent.eventId}/rounds`, {
@@ -862,9 +894,7 @@ export function CoordEventsPage() {
         body: JSON.stringify({
           name,
           orderNumber: rdOrder,
-          startTime: joinDT(rdStartDate, rdStartTime),
-          endTime: joinDT(rdEndDate, rdEndTime),
-          submissionDeadline: joinDT(rdDeadlineDate, rdDeadlineTime),
+          ...dates,
           topNAdvance: rdTopN ?? undefined,
           isFinal: rdIsFinal,
         }),
@@ -882,9 +912,9 @@ export function CoordEventsPage() {
     setEditingRoundId(r.roundId);
     setRdName(r.name);
     setRdOrder(r.orderNumber);
-    const st = splitDT(r.startTime); setRdStartDate(st.date); setRdStartTime(st.time);
-    const en = splitDT(r.endTime); setRdEndDate(en.date); setRdEndTime(en.time);
-    const dl = splitDT(r.submissionDeadline); setRdDeadlineDate(dl.date); setRdDeadlineTime(dl.time);
+    const st = splitDT(r.startTime); setRdStartDate(toDDMM(st.date)); setRdStartTime(st.time);
+    const en = splitDT(r.endTime); setRdEndDate(toDDMM(en.date)); setRdEndTime(en.time);
+    const dl = splitDT(r.submissionDeadline); setRdDeadlineDate(toDDMM(dl.date)); setRdDeadlineTime(dl.time);
     setRdTopN(r.topNAdvance ?? null);
     setRdIsFinal(r.isFinal);
   }
@@ -905,6 +935,8 @@ export function CoordEventsPage() {
       addToast({ type: 'warning', title: 'MISSING NAME', message: 'Please enter a round name.' });
       return;
     }
+    const dates = buildRoundDates();
+    if (!dates) return;
     setActionError(null);
     try {
       const res = await apiFetch<{ data: ApiRound }>(`/api/events/${selectedEvent.eventId}/rounds/${editingRoundId}`, {
@@ -912,9 +944,7 @@ export function CoordEventsPage() {
         body: JSON.stringify({
           name,
           orderNumber: rdOrder,
-          startTime: joinDT(rdStartDate, rdStartTime),
-          endTime: joinDT(rdEndDate, rdEndTime),
-          submissionDeadline: joinDT(rdDeadlineDate, rdDeadlineTime),
+          ...dates,
           isFinal: rdIsFinal,
           ...(rdTopN == null ? { clearTopNAdvance: true } : { topNAdvance: rdTopN }),
         }),
@@ -1607,10 +1637,10 @@ export function CoordEventsPage() {
                       ].map(({ label, date, time, onDate, onTime }) => (
                         <div key={label} style={{ display: "flex", gap: 6, alignItems: "flex-end" }}>
                           <div style={{ flex: 1 }}>
-                            <PixelInput label={label} type="date" value={date} onChange={(e) => onDate(e.target.value)} />
+                            <PixelInput label={`${label} (DD/MM)`} type="text" placeholder="DD/MM" value={date} onChange={(e) => onDate(e.target.value)} />
                           </div>
-                          <div style={{ width: 76 }}>
-                            <PixelInput label="Time" type="text" placeholder="HH:MM" value={time} onChange={(e) => onTime(e.target.value)} />
+                          <div style={{ width: 100 }}>
+                            <PixelInput label="Time" type="time" lang="en-GB" value={time} onChange={(e) => onTime(e.target.value)} />
                           </div>
                         </div>
                       ))}

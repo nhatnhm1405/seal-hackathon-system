@@ -36,5 +36,8 @@ public class TeamDetailResponse {
         private String email;
         private String memberRole;
         private LocalDateTime joinedAt;
+        private String studentId;
+        private String userType;
+        private String university;
     }
 }
