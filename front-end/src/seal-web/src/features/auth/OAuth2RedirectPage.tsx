@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
-import { setToken, clearToken, authApi, PENDING_PROFILE } from "@/shared/apiClient";
+import { authApi, PENDING_PROFILE } from "@/shared/apiClient";
+import { ACTIVE_ROLE_KEY } from "@/app/providers/AuthProvider";
 import { useNotifications } from "@/app/providers/NotificationProvider";
 import { C, GradientText, FloatingParticles } from "@/shared/components/PixelComponents";
 
@@ -11,7 +12,6 @@ export function OAuth2RedirectPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const token = searchParams.get("token");
     const err = searchParams.get("error");
 
     if (err) {
@@ -19,15 +19,9 @@ export function OAuth2RedirectPage() {
       return;
     }
 
-    if (!token) {
-      setError("No authentication token received. Please try again.");
-      return;
-    }
-
-    clearToken();
-    localStorage.removeItem("activeRole");
-    sessionStorage.removeItem("activeRole");
-    setToken(token, true);
+    // The backend already set the JWT as an HttpOnly cookie before redirecting
+    // here — just clear stale UI state from any prior session and confirm.
+    localStorage.removeItem(ACTIVE_ROLE_KEY);
 
     // Mirror the email/password login UX: greet the user with a toast. Fetch the
     // profile for their name and to tell a first-time sign-up from a returning user.
@@ -48,8 +42,10 @@ export function OAuth2RedirectPage() {
         window.location.replace("/dashboard");
       })
       .catch(() => {
-        addAuthToast({ type: 'success', title: 'WELCOME BACK', message: 'You are signed in.' });
-        window.location.replace("/dashboard");
+        // No valid cookie (direct visit, or the backend failed to set one) —
+        // don't assume success like the old token-based flow could.
+        addAuthToast({ type: 'warning', title: 'AUTHENTICATION FAILED', message: 'Please sign in again.' });
+        window.location.replace("/login");
       });
   }, [searchParams, navigate, addAuthToast]);
 

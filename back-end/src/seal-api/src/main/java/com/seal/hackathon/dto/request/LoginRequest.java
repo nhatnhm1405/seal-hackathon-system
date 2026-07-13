@@ -16,4 +16,8 @@ public class LoginRequest {
 
     @NotBlank(message = "Password is required")
     private String password;
+
+    // Controls the auth cookie's lifetime: true = persistent (Max-Age set),
+    // false/omitted = session cookie (cleared when the browser closes).
+    private boolean rememberMe;
 }

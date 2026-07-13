@@ -35,6 +35,8 @@ services:
       # Trỏ DB_URL về service `mysql-db` thay vì localhost
       - SPRING_DATASOURCE_URL=jdbc:mysql://mysql-db:3306/seal_hackathon?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&createDatabaseIfNotExist=true&characterEncoding=UTF-8
       - SERVER_FORWARD_HEADERS_STRATEGY=framework
+      # Caddy always fronts this stack with HTTPS, so the auth/CSRF cookies can be Secure.
+      - JWT_COOKIE_SECURE=true
       # Dữ liệu demo (tùy chọn): S0|S1|S2|S3 để seed kịch bản; mặc định NONE = không data giả.
       # - SEED_SCENARIO=S3
     expose:

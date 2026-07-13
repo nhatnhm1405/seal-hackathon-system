@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { apiFetch, getToken, getTokenStorage, setToken, clearToken, ApiError, teamsApi } from "@/shared/apiClient";
+import { apiFetch, ApiError, teamsApi } from "@/shared/apiClient";
 
 // ── Public AuthUser shape ────────────────────────────────────────────
 export interface AuthUser {
@@ -39,21 +39,20 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-const ACTIVE_ROLE_KEY = 'activeRole';
+// Non-sensitive UI preference (which role tab is active) — always localStorage.
+// A stale value from a different account is safely discarded elsewhere by the
+// allRoles.includes(saved) check, so there's no need to mirror "remember me".
+export const ACTIVE_ROLE_KEY = 'activeRole';
 
 function getStoredActiveRole(): string | null {
-  return localStorage.getItem(ACTIVE_ROLE_KEY) ?? sessionStorage.getItem(ACTIVE_ROLE_KEY);
+  return localStorage.getItem(ACTIVE_ROLE_KEY);
 }
 
 function setStoredActiveRole(role: string | null) {
-  const storage = getTokenStorage();
-  localStorage.removeItem(ACTIVE_ROLE_KEY);
-  sessionStorage.removeItem(ACTIVE_ROLE_KEY);
-  if (!role) return;
-  if (storage === 'local') {
+  if (role) {
     localStorage.setItem(ACTIVE_ROLE_KEY, role);
   } else {
-    sessionStorage.setItem(ACTIVE_ROLE_KEY, role);
+    localStorage.removeItem(ACTIVE_ROLE_KEY);
   }
 }
 
@@ -213,11 +212,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  // ── Restore session from stored token on mount ───────────────────────
+  // ── Restore session from the auth cookie on mount ─────────────────────
+  // The cookie is HttpOnly — JS can't check for its presence, so just ask the
+  // backend; a 401 means "not logged in".
   useEffect(() => {
-    const token = getToken();
-    if (!token) { setIsLoading(false); return; }
-
     apiFetch<{ data: ApiUserProfile }>('/api/auth/me')
       .then(async res => {
         const allRoles = resolveAllRoles(res.data);
@@ -242,7 +240,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setCurrentUser(authUser);
       })
       .catch(() => {
-        clearToken();
         setStoredActiveRole(null);
       })
       .finally(() => setIsLoading(false));
@@ -256,20 +253,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   ): Promise<'ok' | 'ok:select-role' | 'invalid_credentials' | 'pending_approval'> {
     try {
       // Wipe any prior session before authenticating a new one — otherwise a
-      // leftover token / activeRole / user from the previous account can bleed
-      // into the new login and make subsequent requests carry the wrong identity.
-      clearToken();
+      // leftover activeRole / user from the previous account can bleed into
+      // the new login and make subsequent requests carry the wrong identity.
       setStoredActiveRole(null);
       setCurrentUser(null);
       setAvailableRoles([]);
       setActiveRoleState(null);
 
-      // Step 1: authenticate and receive token
-      const loginRes = await apiFetch<{ data: { token: string; userId?: number } }>(
-        '/api/auth/login',
-        { method: 'POST', body: JSON.stringify({ email, password }) },
-      );
-      setToken(loginRes.data.token, rememberMe);
+      // Step 1: authenticate — backend sets the JWT as an HttpOnly cookie.
+      await apiFetch('/api/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password, rememberMe }),
+      });
 
       // Step 2: fetch full profile (roles live here, not in the login response)
       const meRes = await apiFetch<{ data: ApiUserProfile }>('/api/auth/me');
@@ -297,7 +292,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Signal to the caller that the user must pick a role before entering any dashboard
       return allRoles.length > 1 && resolvedActive === null ? 'ok:select-role' : 'ok';
     } catch (err) {
-      clearToken();
       setStoredActiveRole(null);
       if (err instanceof ApiError) {
         if (err.status === 403) {
@@ -311,12 +305,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // ── Logout ──────────────────────────────────────────────────────────
   function logout() {
-    // Fire-and-forget — clear local state immediately for snappy UX
-    const token = getToken();
-    if (token) {
-      apiFetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
-    }
-    clearToken();
+    // Fire-and-forget — clear local state immediately for snappy UX.
+    // Can't check for a cookie from JS, so always call; the backend clears it.
+    apiFetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
     setStoredActiveRole(null);
     setCurrentUser(null);
     setAvailableRoles([]);
