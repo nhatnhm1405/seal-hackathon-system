@@ -32,6 +32,7 @@ export function ParticipationRequestsPanel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [workingId, setWorkingId] = useState<number | null>(null);
+  const [search, setSearch] = useState("");
 
   function load() {
     setLoading(true);
@@ -68,10 +69,21 @@ export function ParticipationRequestsPanel() {
     }
   }
 
+  const query = search.trim().toLowerCase();
+  const rows = query
+    ? requests.filter(r => r.fullName.toLowerCase().includes(query) || r.email.toLowerCase().includes(query))
+    : requests;
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "center", justifyContent: "space-between" }}>
         <PixelBadge color="cyan">{requests.length} PENDING</PixelBadge>
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search by name or email..."
+          style={{ width: 240, padding: "8px 12px", background: C.surface2, border: `1px solid ${C.border}`, color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, outline: "none", borderRadius: 0 }}
+        />
       </div>
 
       <PixelCard glow glowColor="cyan" style={{ padding: 0, overflow: "hidden" }}>
@@ -96,10 +108,10 @@ export function ParticipationRequestsPanel() {
               {loading && (
                 <tr><td colSpan={5} style={{ padding: 18, color: C.textMuted, fontSize: 12, textAlign: "center" }}>Loading...</td></tr>
               )}
-              {!loading && !error && requests.length === 0 && (
-                <tr><td colSpan={5} style={{ padding: 18, color: C.textMuted, fontSize: 12, textAlign: "center" }}>No pending participation requests</td></tr>
+              {!loading && !error && rows.length === 0 && (
+                <tr><td colSpan={5} style={{ padding: 18, color: C.textMuted, fontSize: 12, textAlign: "center" }}>{requests.length === 0 ? "No pending participation requests" : "No matches."}</td></tr>
               )}
-              {!loading && requests.map((r, i) => (
+              {!loading && rows.map((r, i) => (
                 <tr key={r.requestId} style={{ borderBottom: `1px solid rgba(34,197,94,0.06)`, background: i % 2 === 0 ? C.surface : C.surface2 }}>
                   <td style={{ color: C.text, fontSize: 12, padding: "12px 14px" }}>{r.fullName}</td>
                   <td style={{ color: C.textMuted, fontSize: 11, padding: "12px 14px" }}>{r.email}</td>

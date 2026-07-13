@@ -250,6 +250,14 @@ export const accountApprovalsApi = {
   getPending: () =>
     apiFetch<ApiResponse<PendingAccount[]>>('/api/account-approvals/pending'),
 
+  // Active, approved participants — the "All Participant" account tab.
+  getActiveParticipants: () =>
+    apiFetch<ApiResponse<UserItem[]>>('/api/account-approvals/participants'),
+
+  // Active, approved judge/mentor-eligible staff — the "Judge & Mentor" account tab.
+  getActiveJudgeMentorStaff: () =>
+    apiFetch<ApiResponse<UserItem[]>>('/api/account-approvals/staff'),
+
   approve: (userId: number) =>
     apiFetch<ApiResponse<void>>(`/api/account-approvals/${userId}/approve`, { method: 'PUT' }),
 

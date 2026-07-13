@@ -62,6 +62,23 @@ public interface UserRepository extends JpaRepository<User, Integer> {
            "  AND uer.role.roleName IN ('SYSTEM_ADMIN', 'EVENT_COORDINATOR'))")
     List<User> findAssignableStaff();
 
+    /** Active, approved participants — the coordinator's "All Participant" account view. */
+    @Query("SELECT DISTINCT u FROM User u LEFT JOIN FETCH u.userEventRoles uer LEFT JOIN FETCH uer.role " +
+           "WHERE u.isApproved = true AND u.isActive = true " +
+           "AND u.userType IN ('FPT_STUDENT', 'EXTERNAL_STUDENT')")
+    List<User> findActiveApprovedParticipants();
+
+    /**
+     * Active, approved STAFF eligible to serve as judge/mentor — same exclusion of
+     * SYSTEM_ADMIN/EVENT_COORDINATOR as {@link #findAssignableStaff()}, plus
+     * isActive=true, for the coordinator's "Judge & Mentor" account view.
+     */
+    @Query("SELECT DISTINCT u FROM User u LEFT JOIN FETCH u.userEventRoles uer LEFT JOIN FETCH uer.role " +
+           "WHERE u.userType = 'STAFF' AND u.isApproved = true AND u.isActive = true " +
+           "AND NOT EXISTS (SELECT 1 FROM UserEventRole uer2 WHERE uer2.user = u " +
+           "  AND uer2.role.roleName IN ('SYSTEM_ADMIN', 'EVENT_COORDINATOR'))")
+    List<User> findActiveAssignableStaff();
+
     /**
      * Active, approved students who are NOT a member of any team in the given event —
      * i.e. registrants approved for the current season who never joined a squad. In the

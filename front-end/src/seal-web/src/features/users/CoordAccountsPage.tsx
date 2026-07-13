@@ -4,26 +4,30 @@ import {
 } from "@/shared/components/PixelComponents";
 import { PixelMenu } from "@/shared/components/PixelMenu";
 import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
-import { accountApprovalsApi, ApiError, apiErrorMessage, PendingAccount } from "@/shared/apiClient";
+import { accountApprovalsApi, participationRequestsApi, ApiError, apiErrorMessage, PendingAccount, UserItem } from "@/shared/apiClient";
 import { usePendingAccounts } from "@/app/providers/PendingAccountsProvider";
 import { useNotifications } from "@/app/providers/NotificationProvider";
 import { ParticipationRequestsPanel } from "./CoordParticipationRequestsPage";
 
-// After the platform split, a Coordinator's only account responsibility is the
-// approval queue. Full account management (list-all, edit, read-only access,
-// role grants) belongs to the System Admin under /api/admin. This page therefore
-// talks ONLY to /api/account-approvals.
+// After the platform split, full account management (create/edit, global role
+// grants) still belongs to the System Admin under /api/admin. The coordinator
+// gets a scoped, read-only slice of it here: the approval queue (their one
+// actionable responsibility), participation requests, and two read-only
+// headcount views — every active participant, and every active judge/mentor-
+// eligible staff member — via /api/account-approvals.
 //
 // Pending approvals is a "waiting on you" queue, so amber (the PENDING colour)
-// accents the table (headers, card glow, selection state) while the page title
+// accents that table (headers, card glow, selection state) while the page title
 // stays the standard app-wide gradient. Per-row actions live in a hover ⋯ menu
 // (like the Event track/round rows); bulk selection + APPROVE/REJECT SELECTED
-// clears the queue fast. Row checkboxes stay hidden until a row is hovered or
-// at least one row is already selected (Gmail-style reveal), so the table reads
-// clean at rest.
+// clears the queue fast. Clicking a row selects it (no checkbox needed to start);
+// the tick-boxes themselves only appear once at least one row is selected, to
+// fine-tune the set — they stay invisible at rest instead of reveal-on-hover.
+// Approved/rejected rows leave the list immediately: this tab only ever shows
+// accounts still awaiting a decision, newest applicant first.
 
 const MONO = "'JetBrains Mono', monospace";
-const AMBER = "#eab308"; // C.yellow — frame / headers / selection accent
+const AMBER = "#eab308";        // C.yellow — frame / headers / selection accent
 
 function fmtDate(iso?: string) {
   if (!iso) return "—";
@@ -83,8 +87,104 @@ function ApprovalModal({ account, reject, onClose, onConfirm, working, error }: 
 
 const HEADERS = ["Full Name", "Email", "Student Type", "Student ID", "University", "Applied"];
 
+function roleBadges(roles?: string[]) {
+  if (!roles || roles.length === 0) return <span style={{ color: C.textMuted, fontFamily: MONO, fontSize: 11 }}>—</span>;
+  return (
+    <span style={{ display: "inline-flex", gap: 6, flexWrap: "wrap" }}>
+      {roles.map(r => <PixelBadge key={r} color={r === "JUDGE" ? "blue" : r === "MENTOR" ? "cyan" : "gray"}>{r}</PixelBadge>)}
+    </span>
+  );
+}
+
+// Read-only headcount view — "All Participant" / "Judge & Mentor" tabs. No
+// selection, no per-row actions: these are informational, not a queue to act on.
+function ReadOnlyAccountsTable({ rows, loading, error, countLabel, emptyLabel, showRoles }: {
+  rows: UserItem[];
+  loading: boolean;
+  error: string | null;
+  countLabel: string;
+  emptyLabel: string;
+  showRoles?: boolean;
+}) {
+  const [search, setSearch] = useState("");
+  const query = search.trim().toLowerCase();
+  const filtered = query
+    ? rows.filter(u => u.fullName.toLowerCase().includes(query) || u.email.toLowerCase().includes(query))
+    : rows;
+  const headers = showRoles
+    ? ["Full Name", "Email", "Type", "Roles", "Joined"]
+    : ["Full Name", "Email", "Student Type", "Student ID", "University", "Joined"];
+
+  return (
+    <>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "center", justifyContent: "space-between" }}>
+        <PixelBadge color="green">{rows.length} {countLabel}</PixelBadge>
+        <input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search by name or email..."
+          style={{ width: 240, padding: "8px 12px", background: C.surface2, border: `1px solid ${C.border}`, color: C.text, fontFamily: MONO, fontSize: 12, outline: "none", borderRadius: 0 }}
+        />
+      </div>
+
+      <PixelCard glow style={{ padding: 0, overflow: "hidden" }}>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: MONO }}>
+            <thead>
+              <tr style={{ background: C.surface2, borderBottom: `1px solid ${C.border}` }}>
+                {headers.map(h => (
+                  <th key={h} style={{ color: C.green, fontSize: 10, letterSpacing: "0.12em", textAlign: "left", padding: "12px 14px", fontWeight: 600, textTransform: "uppercase" }}>
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {loading && (
+                <tr><td colSpan={headers.length} style={{ padding: 20, color: C.textMuted, fontSize: 12, textAlign: "center" }}>Loading...</td></tr>
+              )}
+              {!loading && error && (
+                <tr><td colSpan={headers.length} style={{ padding: 20, color: C.red, fontSize: 12, textAlign: "center" }}>{error}</td></tr>
+              )}
+              {!loading && !error && filtered.length === 0 && (
+                <tr><td colSpan={headers.length} style={{ padding: 20, color: C.textMuted, fontSize: 12, textAlign: "center" }}>{emptyLabel}</td></tr>
+              )}
+              {!loading && filtered.map((u, i) => (
+                <tr key={u.userId} style={{ background: i % 2 === 0 ? C.surface : C.surface2 }}>
+                  <td style={{ color: C.text, fontSize: 12, padding: "12px 14px" }}>{u.fullName}</td>
+                  <td style={{ color: C.textMuted, fontSize: 11, padding: "12px 14px" }}>{u.email}</td>
+                  {showRoles ? (
+                    <>
+                      <td style={{ padding: "12px 14px" }}>{u.judgeType ? <PixelBadge color={u.judgeType === "GUEST" ? "cyan" : "blue"}>{u.judgeType}</PixelBadge> : <span style={{ color: C.textMuted, fontFamily: MONO, fontSize: 11 }}>—</span>}</td>
+                      <td style={{ padding: "12px 14px" }}>{roleBadges(u.roles)}</td>
+                    </>
+                  ) : (
+                    <>
+                      <td style={{ padding: "12px 14px" }}>{studentTypeBadge(u.userType)}</td>
+                      <td style={{ color: C.textMuted, fontSize: 11, padding: "12px 14px" }}>{u.studentId ?? "—"}</td>
+                      <td style={{ color: C.textMuted, fontSize: 11, padding: "12px 14px" }}>{u.university ?? "—"}</td>
+                    </>
+                  )}
+                  <td style={{ color: C.textMuted, fontSize: 11, padding: "12px 14px" }}>{fmtDate(u.createdAt)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </PixelCard>
+    </>
+  );
+}
+
+type AccountsTab = "approvals" | "participation" | "participants" | "staff";
+
 export function CoordAccountsPage() {
-  const [tab, setTab] = useState<"approvals" | "participation">("approvals");
+  const [tab, setTab] = useState<AccountsTab>("approvals");
+  const [participants, setParticipants] = useState<UserItem[]>([]);
+  const [staffList, setStaffList] = useState<UserItem[]>([]);
+  const [listLoading, setListLoading] = useState(false);
+  const [listError, setListError] = useState<string | null>(null);
+  const [loadedLists, setLoadedLists] = useState<Set<AccountsTab>>(new Set());
   const [accounts, setAccounts] = useState<PendingAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -94,13 +194,10 @@ export function CoordAccountsPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   // Bulk selection (fast queue clearing).
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
-  // Accounts approved in this session are kept in the list (floated to the top
-  // with an APPROVED badge) instead of vanishing, so the coordinator sees what
-  // they just did. They leave the queue naturally on the next reload (getPending
-  // is pending-only).
-  const [approvedIds, setApprovedIds] = useState<Set<number>>(new Set());
   const [bulkAction, setBulkAction] = useState<null | "approve" | "reject">(null);
   const [bulkWorking, setBulkWorking] = useState(false);
+  // Badge on the "Resolve Request" tab, visible without switching to it.
+  const [participationPendingCount, setParticipationPendingCount] = useState(0);
 
   const { setPendingCount } = usePendingAccounts();
   const { addToast } = useNotifications();
@@ -110,7 +207,9 @@ export function CoordAccountsPage() {
     setFetchError(null);
     accountApprovalsApi.getPending()
       .then(res => {
-        const list = res.data ?? [];
+        // Newest applicant first.
+        const list = (res.data ?? []).slice().sort((a, b) =>
+          new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime());
         setAccounts(list);
         setPendingCount(list.length);
       })
@@ -118,18 +217,40 @@ export function CoordAccountsPage() {
       .finally(() => setLoading(false));
   }, [setPendingCount]);
 
+  useEffect(() => {
+    participationRequestsApi.getPending()
+      .then(res => setParticipationPendingCount((res.data ?? []).length))
+      .catch(() => { /* non-blocking — the tab's own panel surfaces load errors */ });
+  }, []);
+
+  // Participants / Staff are read-only headcount views — fetched once, on first visit to each tab.
+  useEffect(() => {
+    if (tab !== "participants" && tab !== "staff") return;
+    if (loadedLists.has(tab)) return;
+
+    setListLoading(true);
+    setListError(null);
+    const request = tab === "participants" ? accountApprovalsApi.getActiveParticipants() : accountApprovalsApi.getActiveJudgeMentorStaff();
+    request
+      .then(res => {
+        if (tab === "participants") setParticipants(res.data ?? []);
+        else setStaffList(res.data ?? []);
+        setLoadedLists(prev => new Set(prev).add(tab));
+      })
+      .catch(err => setListError(err instanceof ApiError ? err.message : "Failed to load accounts."))
+      .finally(() => setListLoading(false));
+  }, [tab, loadedLists]);
+
   const query = search.trim().toLowerCase();
   const rows = query
     ? accounts.filter(a => a.fullName.toLowerCase().includes(query) || a.email.toLowerCase().includes(query))
     : accounts;
 
-  // Local pending total — approved rows stay in `accounts` but no longer count.
-  const pendingTotal = accounts.filter(a => !approvedIds.has(a.userId)).length;
+  // `accounts` is pending-only (approved/rejected rows are removed immediately), so its length is the total.
+  const pendingTotal = accounts.length;
 
-  // Selection + bulk actions only ever apply to still-pending rows.
-  const selectableRows = rows.filter(a => !approvedIds.has(a.userId));
-  const selectedCount = selectableRows.reduce((n, a) => n + (selectedIds.has(a.userId) ? 1 : 0), 0);
-  const allSelected = selectableRows.length > 0 && selectedCount === selectableRows.length;
+  const selectedCount = rows.reduce((n, a) => n + (selectedIds.has(a.userId) ? 1 : 0), 0);
+  const allSelected = rows.length > 0 && selectedCount === rows.length;
   const someSelected = selectedCount > 0 && !allSelected;
 
   function toggleOne(id: number) {
@@ -142,36 +263,18 @@ export function CoordAccountsPage() {
   function toggleAll() {
     setSelectedIds(prev => {
       const next = new Set(prev);
-      if (allSelected) selectableRows.forEach(a => next.delete(a.userId));
-      else selectableRows.forEach(a => next.add(a.userId));
+      if (allSelected) rows.forEach(a => next.delete(a.userId));
+      else rows.forEach(a => next.add(a.userId));
       return next;
     });
   }
 
-  // Approve locally: keep the account in the list but float it to the top (most
-  // recently approved first) with an APPROVED badge, and drop the sidebar count.
-  function approveLocally(ids: Set<number>) {
-    setApprovedIds(prev => {
-      const next = new Set(prev);
-      ids.forEach(id => next.add(id));
-      return next;
-    });
-    setAccounts(prev => {
-      const moved = prev.filter(a => ids.has(a.userId));
-      const rest = prev.filter(a => !ids.has(a.userId));
-      const next = [...moved, ...rest];
-      // Pending = rows neither just-approved (ids) nor previously approved.
-      setPendingCount(next.filter(a => !ids.has(a.userId) && !approvedIds.has(a.userId)).length);
-      return next;
-    });
-    setSelectedIds(prev => { const n = new Set(prev); ids.forEach(id => n.delete(id)); return n; });
-  }
-
-  // Reject: drop the account from the queue entirely + keep the sidebar badge in sync.
+  // Approve or reject both remove the account from the queue immediately — this
+  // tab only ever shows accounts still awaiting a decision.
   function removeFromQueue(ids: Set<number>) {
     setAccounts(prev => {
       const next = prev.filter(a => !ids.has(a.userId));
-      setPendingCount(next.filter(a => !approvedIds.has(a.userId)).length);
+      setPendingCount(next.length);
       return next;
     });
     setSelectedIds(prev => { const n = new Set(prev); ids.forEach(id => n.delete(id)); return n; });
@@ -186,11 +289,10 @@ export function CoordAccountsPage() {
     try {
       if (reject) {
         await accountApprovalsApi.reject(account.userId);
-        removeFromQueue(new Set([account.userId]));
       } else {
         await accountApprovalsApi.approve(account.userId);
-        approveLocally(new Set([account.userId]));
       }
+      removeFromQueue(new Set([account.userId]));
       addToast({
         type: reject ? "info" : "success",
         title: reject ? "ACCOUNT REJECTED" : "ACCOUNT APPROVED",
@@ -218,8 +320,7 @@ export function CoordAccountsPage() {
       );
       const okIds = new Set(ids.filter((_, i) => results[i].status === "fulfilled"));
       const failed = ids.length - okIds.size;
-      if (reject) removeFromQueue(okIds);
-      else approveLocally(okIds);
+      removeFromQueue(okIds);
       setSelectedIds(new Set());
       setBulkAction(null);
       addToast({
@@ -238,22 +339,40 @@ export function CoordAccountsPage() {
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
       <div>
         <h1 style={{ fontFamily: MONO, fontSize: 28, fontWeight: 800 }}>
-          <GradientText>Account Approvals</GradientText>
-          <GradientText from={AMBER_BRIGHT} to="#f59e0b">Accounts</GradientText>
+          <GradientText>Accounts</GradientText>
         </h1>
       </div>
 
       <PixelTabs
         tabs={[
-          { id: "approvals", label: "Approvals" },
-          { id: "participation", label: "Participation" },
+          { id: "approvals", label: "Approvals", badge: pendingTotal },
+          { id: "participation", label: "Resolve Request", badge: participationPendingCount },
+          { id: "participants", label: "Participant" },
+          { id: "staff", label: "Judge & Mentor" },
         ]}
         active={tab}
-        onChange={(id) => setTab(id as "approvals" | "participation")}
+        onChange={(id) => setTab(id as AccountsTab)}
       />
 
       {tab === "participation" ? (
         <ParticipationRequestsPanel />
+      ) : tab === "participants" ? (
+        <ReadOnlyAccountsTable
+          rows={participants}
+          loading={listLoading}
+          error={listError}
+          countLabel="ACTIVE PARTICIPANT"
+          emptyLabel="No active participants."
+        />
+      ) : tab === "staff" ? (
+        <ReadOnlyAccountsTable
+          rows={staffList}
+          loading={listLoading}
+          error={listError}
+          countLabel="ACTIVE JUDGE/MENTOR"
+          emptyLabel="No active judge/mentor staff."
+          showRoles
+        />
       ) : (
       <>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "center", justifyContent: "space-between" }}>
@@ -289,8 +408,7 @@ export function CoordAccountsPage() {
                     ref={(el) => { if (el) el.indeterminate = someSelected; }}
                     onChange={toggleAll}
                     aria-label="Select all"
-                    className={selectedCount > 0 ? undefined : "row-action"}
-                    style={{ width: 15, height: 15, accentColor: AMBER, cursor: "pointer" }}
+                    style={{ width: 15, height: 15, accentColor: AMBER, cursor: "pointer", opacity: selectedCount > 0 ? 1 : 0, pointerEvents: selectedCount > 0 ? "auto" : "none", transition: "opacity 0.12s ease" }}
                   />
                 </th>
                 {HEADERS.map(h => (
@@ -313,60 +431,47 @@ export function CoordAccountsPage() {
               )}
               {!loading && rows.map((a, i) => {
                 const selected = selectedIds.has(a.userId);
-                const approved = approvedIds.has(a.userId);
                 return (
                   <tr
                     key={a.userId}
-                    className={approved ? undefined : "row-actionable"}
-                    onClick={approved ? undefined : () => toggleOne(a.userId)}
+                    className="row-actionable"
+                    onClick={() => toggleOne(a.userId)}
                     style={{
-                      cursor: approved ? "default" : "pointer",
-                      background: approved
-                        ? "rgba(34,197,94,0.08)"
-                        : (selected ? "rgba(234,179,8,0.10)" : (i % 2 === 0 ? C.surface : C.surface2)),
+                      cursor: "pointer",
+                      background: selected ? "rgba(234,179,8,0.10)" : (i % 2 === 0 ? C.surface : C.surface2),
                       transition: "background-color 0.2s ease",
                     }}
                   >
                     {/* Checkbox — stopPropagation so its own toggle isn't doubled by the row
-                        click. Approved rows are done: green rail, no checkbox. */}
-                    <td onClick={(e) => e.stopPropagation()} style={{ padding: "12px 14px", borderLeft: `3px solid ${approved ? "#22c55e" : (selected ? AMBER : "transparent")}`, transition: "border-color 0.2s ease" }}>
-                      {!approved && (
-                        <input
-                          type="checkbox"
-                          checked={selected}
-                          onChange={() => toggleOne(a.userId)}
-                          aria-label={`Select ${a.fullName}`}
-                          className={selectedCount > 0 ? undefined : "row-action"}
-                          style={{ width: 15, height: 15, accentColor: AMBER, cursor: "pointer" }}
-                        />
-                      )}
+                        click. Hidden until at least one row is selected (selecting a row is
+                        done by clicking it; the checkbox then appears to fine-tune the set). */}
+                    <td onClick={(e) => e.stopPropagation()} style={{ padding: "12px 14px", borderLeft: `3px solid ${selected ? AMBER : "transparent"}`, transition: "border-color 0.2s ease" }}>
+                      <input
+                        type="checkbox"
+                        checked={selected}
+                        onChange={() => toggleOne(a.userId)}
+                        aria-label={`Select ${a.fullName}`}
+                        style={{ width: 15, height: 15, accentColor: AMBER, cursor: "pointer", opacity: selectedCount > 0 ? 1 : 0, pointerEvents: selectedCount > 0 ? "auto" : "none", transition: "opacity 0.12s ease" }}
+                      />
                     </td>
-                    <td style={{ color: C.text, fontSize: 12, padding: "12px 14px" }}>
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                        {a.fullName}
-                        {approved && <PixelBadge color="green">APPROVED</PixelBadge>}
-                      </span>
-                    </td>
+                    <td style={{ color: C.text, fontSize: 12, padding: "12px 14px" }}>{a.fullName}</td>
                     <td style={cellMuted}>{a.email}</td>
                     <td style={{ padding: "12px 14px" }}>{studentTypeBadge(a.userType)}</td>
                     <td style={cellMuted}>{a.studentId ?? "—"}</td>
                     <td style={cellMuted}>{a.university ?? "—"}</td>
                     <td style={cellMuted}>{fmtDate(a.createdAt)}</td>
-                    {/* Per-row actions in a hover ⋯ menu (like the Event track/round rows).
-                        Approved rows have no actions left. */}
+                    {/* Per-row actions in a hover ⋯ menu (like the Event track/round rows). */}
                     <td onClick={(e) => e.stopPropagation()} style={{ padding: "12px 14px", width: 48 }}>
-                      {!approved && (
-                        <span className="row-action">
-                          <PixelMenu
-                            ariaLabel={`Actions for ${a.fullName}`}
-                            items={[
-                              { label: "Approve", onClick: () => { setActionError(null); setConfirmTarget({ account: a, reject: false }); } },
-                              "divider",
-                              { label: "Reject", danger: true, onClick: () => { setActionError(null); setConfirmTarget({ account: a, reject: true }); } },
-                            ]}
-                          />
-                        </span>
-                      )}
+                      <span className="row-action">
+                        <PixelMenu
+                          ariaLabel={`Actions for ${a.fullName}`}
+                          items={[
+                            { label: "Approve", onClick: () => { setActionError(null); setConfirmTarget({ account: a, reject: false }); } },
+                            "divider",
+                            { label: "Reject", danger: true, onClick: () => { setActionError(null); setConfirmTarget({ account: a, reject: true }); } },
+                          ]}
+                        />
+                      </span>
                     </td>
                   </tr>
                 );

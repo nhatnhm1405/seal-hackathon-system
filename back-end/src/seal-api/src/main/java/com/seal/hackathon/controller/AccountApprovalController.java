@@ -35,6 +35,27 @@ public class AccountApprovalController {
     }
 
     /**
+     * GET /api/account-approvals/participants
+     * Lists every active, approved participant (FPT_STUDENT / EXTERNAL_STUDENT).
+     */
+    @GetMapping("/participants")
+    @PreAuthorize("hasRole('EVENT_COORDINATOR')")
+    public ResponseEntity<ApiResponse<List<UserResponse>>> getActiveParticipants() {
+        return ResponseEntity.ok(ApiResponse.success("Active participants retrieved.", approvalService.getActiveParticipants()));
+    }
+
+    /**
+     * GET /api/account-approvals/staff
+     * Lists every active, approved staff account eligible to serve as judge/mentor
+     * (excludes SYSTEM_ADMIN/EVENT_COORDINATOR).
+     */
+    @GetMapping("/staff")
+    @PreAuthorize("hasRole('EVENT_COORDINATOR')")
+    public ResponseEntity<ApiResponse<List<UserResponse>>> getActiveJudgeMentorStaff() {
+        return ResponseEntity.ok(ApiResponse.success("Active judge/mentor staff retrieved.", approvalService.getActiveJudgeMentorStaff()));
+    }
+
+    /**
      * PUT /api/account-approvals/{userId}/approve
      * Sets is_approved = true so the user can log in.
      */
