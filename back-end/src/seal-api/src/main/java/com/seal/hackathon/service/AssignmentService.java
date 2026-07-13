@@ -85,15 +85,14 @@ public class AssignmentService {
     private final AuditLogService auditLogService;
 
     /**
-     * Danh sách STAFF đã được duyệt + đang hoạt động, để Coordinator chọn người
-     * phân công làm Judge/Mentor. Việc tạo tài khoản và cấp role là của Admin
-     * (/api/admin); đây chỉ là danh sách tra cứu read-only.
+     * Danh sách STAFF đã được duyệt, để Coordinator chọn người phân công làm
+     * Judge/Mentor. Loại trừ SYSTEM_ADMIN/EVENT_COORDINATOR (họ cũng là
+     * userType=STAFF nhưng không được gán làm judge/mentor). Việc tạo tài khoản
+     * và cấp role là của Admin (/api/admin); đây chỉ là danh sách tra cứu read-only.
      */
     @Transactional(readOnly = true)
     public List<UserResponse> listApprovedStaff() {
-        return userRepository.findAll().stream()
-                .filter(u -> "STAFF".equalsIgnoreCase(u.getUserType()))
-                .filter(u -> Boolean.TRUE.equals(u.getIsApproved()))
+        return userRepository.findAssignableStaff().stream()
                 .map(u -> UserResponse.builder()
                         .userId(u.getUserId())
                         .email(u.getEmail())
