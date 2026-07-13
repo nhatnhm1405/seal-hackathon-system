@@ -25,6 +25,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/teams")
@@ -171,6 +172,15 @@ public class TeamController {
     public ResponseEntity<ApiResponse<List<TeamDetailResponse>>> getTeamsByEvent(@PathVariable Integer eventId) {
         return ResponseEntity.ok(ApiResponse.success("Teams retrieved successfully.",
                 teamService.getTeamsByEvent(eventId)));
+    }
+
+    // Backs the Coordinator sidebar's "Teams" badge — a cross-event count so it's
+    // accurate even before the Teams page itself has been opened.
+    @GetMapping("/pending-count")
+    @PreAuthorize("hasRole('EVENT_COORDINATOR')")
+    public ResponseEntity<ApiResponse<Map<String, Long>>> getPendingTeamsCount() {
+        return ResponseEntity.ok(ApiResponse.success("Pending teams count retrieved.",
+                Map.of("count", teamService.getPendingTeamsCount())));
     }
 
     @GetMapping("/{teamId}")
