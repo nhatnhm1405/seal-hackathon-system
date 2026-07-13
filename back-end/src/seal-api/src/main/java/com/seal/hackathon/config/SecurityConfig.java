@@ -18,6 +18,7 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.context.RequestAttributeSecurityContextRepository;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.security.web.csrf.CsrfTokenRepository;
@@ -79,6 +80,16 @@ public class SecurityConfig {
             // with JWT and do not require a server-side session.
             .sessionManagement(session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
+
+            // Without this, Spring's default HttpSessionSecurityContextRepository
+            // would silently persist the JWT-derived Authentication into a
+            // JSESSIONID-backed session on every request (since IF_REQUIRED allows
+            // session creation for the OAuth2 flow above). That would make the
+            // session cookie an independent, un-revocable auth channel — logout
+            // and JWT expiry would stop meaning anything. Keep the SecurityContext
+            // request-scoped only; re-derive it from the cookie every time.
+            .securityContext(securityContext ->
+                securityContext.securityContextRepository(new RequestAttributeSecurityContextRepository()))
 
             // Return JSON 401 instead of redirect to /login
             .exceptionHandling(ex ->
