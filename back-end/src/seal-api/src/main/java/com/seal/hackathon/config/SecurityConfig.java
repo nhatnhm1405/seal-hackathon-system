@@ -116,6 +116,9 @@ public class SecurityConfig {
                         "/api/auth/verify-reset-otp", "/api/auth/reset-password", "/api/auth/logout"
                 ).permitAll()
                 .requestMatchers(HttpMethod.GET, "/api/auth/check-student-id").permitAll()
+                // Public: CSRF bootstrap — lets the SPA obtain an XSRF-TOKEN cookie
+                // before logging in / before its first state-changing request.
+                .requestMatchers(HttpMethod.GET, "/api/csrf").permitAll()
                 // Public: OAuth2 flow
                 .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
                 // Public: error page
