@@ -119,6 +119,20 @@ public class AuthController {
     }
 
     /**
+     * PUT /api/auth/me/password
+     * Requires valid JWT. Signed-in user changes their own password by proving
+     * the current one. Distinct from the public OTP-based reset flow.
+     */
+    @PutMapping("/me/password")
+    public ResponseEntity<ApiResponse<?>> changePassword(
+            @Valid @RequestBody com.seal.hackathon.dto.request.ChangePasswordRequest request,
+            Authentication authentication) {
+        String email = ((UserDetails) authentication.getPrincipal()).getUsername();
+        authService.changePassword(email, request);
+        return ResponseEntity.ok(ApiResponse.success("Password changed successfully."));
+    }
+
+    /**
      * POST /api/auth/me/avatar
      * Requires valid JWT. Uploads a new profile picture (multipart "file").
      */

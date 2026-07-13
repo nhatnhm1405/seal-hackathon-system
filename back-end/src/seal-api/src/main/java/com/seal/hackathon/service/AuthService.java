@@ -214,6 +214,27 @@ public class AuthService {
         return mapToUserResponse(user);
     }
 
+    /** A signed-in user changes their own password by proving the current one. */
+    @Transactional
+    public void changePassword(String email, com.seal.hackathon.dto.request.ChangePasswordRequest request) {
+        User user = userRepository.findByEmailWithRoles(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found."));
+
+        // OAuth-only accounts have no local password to change.
+        if (!"LOCAL".equalsIgnoreCase(user.getProvider()) || user.getPasswordHash() == null) {
+            throw new BadRequestException("This account signs in with Google/GitHub and has no password to change.");
+        }
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())) {
+            throw new BadRequestException("Current password is incorrect.");
+        }
+        if (passwordEncoder.matches(request.getNewPassword(), user.getPasswordHash())) {
+            throw new BadRequestException("New password must be different from the current password.");
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+    }
+
     /** A user replaces their own profile picture. Stores the file on disk and
      *  saves the public URL (/uploads/avatars/...) on the user record. */
     @Transactional

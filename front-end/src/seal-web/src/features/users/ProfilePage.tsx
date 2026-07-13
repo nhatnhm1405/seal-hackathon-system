@@ -36,11 +36,12 @@ export function ProfilePage() {
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const [avatarSaved, setAvatarSaved] = useState(false);
 
-  // Change password (form is in place; server wiring is a follow-up)
+  // Change password
   const [curPwd, setCurPwd] = useState("");
   const [newPwd, setNewPwd] = useState("");
   const [confirmPwd, setConfirmPwd] = useState("");
-  const [pwdMsg, setPwdMsg] = useState<{ type: "error" | "info"; text: string } | null>(null);
+  const [pwdMsg, setPwdMsg] = useState<{ type: "error" | "success"; text: string } | null>(null);
+  const [pwdSaving, setPwdSaving] = useState(false);
 
   useEffect(() => {
     if (currentUser?.role === 'PARTICIPANT') {
@@ -137,7 +138,7 @@ export function ProfilePage() {
     }
   }
 
-  function submitPassword() {
+  async function submitPassword() {
     setPwdMsg(null);
     if (!curPwd || !newPwd || !confirmPwd) {
       setPwdMsg({ type: "error", text: "Please fill in all three password fields." });
@@ -151,7 +152,23 @@ export function ProfilePage() {
       setPwdMsg({ type: "error", text: "New password and confirmation do not match." });
       return;
     }
-    setPwdMsg({ type: "info", text: "Password updates will be enabled once the server supports it." });
+    if (newPwd === curPwd) {
+      setPwdMsg({ type: "error", text: "New password must be different from the current password." });
+      return;
+    }
+    setPwdSaving(true);
+    try {
+      await authApi.changePassword({ currentPassword: curPwd, newPassword: newPwd });
+      setCurPwd(""); setNewPwd(""); setConfirmPwd("");
+      setPwdMsg({ type: "success", text: "Password changed successfully." });
+      addToast({ type: "success", title: "Password changed", message: "Your password has been updated." });
+    } catch (err) {
+      const text = apiErrorMessage(err, "Failed to change password.");
+      setPwdMsg({ type: "error", text });
+      addToast({ type: "warning", title: "Change failed", message: text });
+    } finally {
+      setPwdSaving(false);
+    }
   }
 
   return (
@@ -180,11 +197,15 @@ export function ProfilePage() {
             <Field label="Full Name" value={currentUser.full_name} />
             <Field label="Email" value={currentUser.email} />
             <Field label="Role" badge={<PixelBadge color="blue">{currentUser.role}</PixelBadge>} />
-            <Field label="Student Type" badge={currentUser.student_type
-              ? <PixelBadge color={currentUser.student_type === 'FPT' ? 'green' : 'cyan'}>{currentUser.student_type}</PixelBadge>
-              : <span style={{ color: C.textMuted, fontFamily: mono, fontSize: 12 }}>—</span>} />
-            <Field label="Student ID" value={currentUser.student_id ?? "—"} />
-            <Field label="University" value={currentUser.university ?? "—"} />
+            {/* Student-only fields — hidden for staff (mentor/judge/coordinator/admin). */}
+            {isStudent && (
+              <>
+                <Field label="Student Type" badge={
+                  <PixelBadge color={currentUser.student_type === 'FPT' ? 'green' : 'cyan'}>{currentUser.student_type}</PixelBadge>} />
+                <Field label="Student ID" value={currentUser.student_id ?? "—"} />
+                <Field label="University" value={currentUser.university ?? "—"} />
+              </>
+            )}
             {team && (
               <>
                 <Field label="Team" value={team.name} />
@@ -260,14 +281,16 @@ export function ProfilePage() {
               <PixelInput label="Confirm New Password" type="password" showToggle value={confirmPwd} onChange={(e) => setConfirmPwd(e.target.value)} />
               {pwdMsg && (
                 <div style={{
-                  background: pwdMsg.type === "error" ? "rgba(239,68,68,0.08)" : "rgba(59,130,246,0.08)",
-                  border: `1px solid ${pwdMsg.type === "error" ? "rgba(239,68,68,0.35)" : "rgba(59,130,246,0.35)"}`,
-                  color: pwdMsg.type === "error" ? C.red : C.blue,
+                  background: pwdMsg.type === "error" ? "rgba(239,68,68,0.08)" : "rgba(34,197,94,0.08)",
+                  border: `1px solid ${pwdMsg.type === "error" ? "rgba(239,68,68,0.35)" : "rgba(34,197,94,0.35)"}`,
+                  color: pwdMsg.type === "error" ? C.red : C.green,
                   fontFamily: mono, fontSize: 11, padding: "10px 14px",
-                }}>{pwdMsg.text}</div>
+                }}>{pwdMsg.type === "success" ? "✓ " : ""}{pwdMsg.text}</div>
               )}
               <div>
-                <PixelButton variant="cyber" onClick={submitPassword}>UPDATE PASSWORD</PixelButton>
+                <PixelButton variant="cyber" onClick={submitPassword} disabled={pwdSaving}>
+                  {pwdSaving ? "UPDATING…" : "UPDATE PASSWORD"}
+                </PixelButton>
               </div>
             </div>
           </PixelCard>
