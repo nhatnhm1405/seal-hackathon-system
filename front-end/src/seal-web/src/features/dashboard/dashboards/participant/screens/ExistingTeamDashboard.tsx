@@ -7,7 +7,7 @@ import {
 } from "@/shared/components/PixelComponents";
 import { useTheme } from "@/app/providers/ThemeProvider";
 import {
-    teamsApi, tracksApi, roundsApi, submissionsApi, resultsApi, notificationsApi,
+    teamsApi, tracksApi, roundsApi, submissionsApi, resultsApi, notificationsApi, supportApi,
     MyTeam, Track, Round, RoundResult, Notification, ApiError, apiErrorMessage,
 } from "@/shared/apiClient";
 import { ParticipantJourneyBar } from "@/shared/components/ParticipantJourneyBar";
@@ -35,6 +35,14 @@ export function ExistingTeamDashboard() {
     const [rank, setRank] = useState<RoundResult | null>(null);
     const [feed, setFeed] = useState<Notification[]>([]);
     const [error, setError] = useState<string | null>(null);
+    // Track mentor name, shown under the Track tile (display-only).
+    const [mentorName, setMentorName] = useState<string | null>(null);
+
+    useEffect(() => {
+        supportApi.getMyMentors()
+            .then(r => setMentorName(r.data?.[0]?.fullName ?? null))
+            .catch(() => setMentorName(null));
+    }, []);
 
     const reload = useCallback(async () => {
         setError(null);
@@ -246,7 +254,7 @@ export function ExistingTeamDashboard() {
                             </button>
                         } />
                     ) : (
-                        <InfoRow label="Track" value={team.trackName ?? "—"} accent="cyan" />
+                        <InfoRow label="Track" value={team.trackName ?? "—"} accent="cyan" sublabel={mentorName ?? undefined} />
                     )}
                     <InfoRow label="Event" value={team.eventName ?? "—"} accent="blue" />
                     <InfoRow label="Current Round" value={activeRound?.name ?? "—"} badge={activeRound?.status} accent="purple" />
@@ -321,7 +329,7 @@ function GlassStat({ rgb, valueColor, label, value, sublabel, dark }: {
     );
 }
 
-function InfoRow({ label, value, badge, action, accent = "green" }: { label: string; value?: string; badge?: string; action?: ReactNode; accent?: "green" | "blue" | "cyan" | "purple" }) {
+function InfoRow({ label, value, badge, action, sublabel, accent = "green" }: { label: string; value?: string; badge?: string; action?: ReactNode; sublabel?: string; accent?: "green" | "blue" | "cyan" | "purple" }) {
     const { theme } = useTheme();
     const dark = theme === "dark";
     // rgb kept as fixed literals so alpha suffixes are valid CSS (the green accent
@@ -359,6 +367,11 @@ function InfoRow({ label, value, badge, action, accent = "green" }: { label: str
                 <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", filter: `drop-shadow(0 0 10px rgba(${M.rgb},0.5))` }}>
                     <GradientText from={M.from} to={M.to} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 23, fontWeight: 800, lineHeight: 1.15 }}>{value}</GradientText>
                     {badge && <PixelBadge color={roundStatusColor(badge)}>{badge}</PixelBadge>}
+                </div>
+            )}
+            {sublabel && (
+                <div style={{ color: M.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    <span style={{ color: `rgba(${M.rgb},0.7)` }}>Mentor · </span>{sublabel}
                 </div>
             )}
         </div>

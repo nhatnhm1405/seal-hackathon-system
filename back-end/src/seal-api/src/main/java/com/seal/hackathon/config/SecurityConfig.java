@@ -86,6 +86,8 @@ public class SecurityConfig {
                 // Admin runs the PLATFORM: global users, role grants, system logs
                 .requestMatchers("/api/admin/**").hasRole("SYSTEM_ADMIN")
                 .requestMatchers("/api/participation-requests/**").hasRole("PARTICIPANT")
+                // Mentor-support requests — participants raise/cancel; mentor side is under /api/mentor/**
+                .requestMatchers("/api/support-requests/**").hasRole("PARTICIPANT")
                 // Coordinator runs the COMPETITION: events, rounds, approvals, assignments
                 .requestMatchers("/api/coordinator/**").hasRole("EVENT_COORDINATOR")
                 .requestMatchers("/api/account-approvals/**").hasRole("EVENT_COORDINATOR")
