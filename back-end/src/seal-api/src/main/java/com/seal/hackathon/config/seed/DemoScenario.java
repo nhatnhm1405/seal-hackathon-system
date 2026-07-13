@@ -23,8 +23,8 @@ import java.util.List;
  * <pre>
  *   S0  accounts only            (no event)
  *   S1  + event OPEN + structure + forming teams (incl. solo/pairs for grouping)
- *   S2  + approved teams in tracks + assignments + submissions   (IN_PROGRESS)
- *   S3  + scores + ranked results + prizes                       (COMPLETED)
+ *   S2  + submissions + complete preliminary scores, no results  (IN_PROGRESS)
+ *   S3  + ranked results + final scores/results + prizes          (COMPLETED)
  * </pre>
  * Statuses are set to match each cut so the snapshot is always consistent with the
  * event state machine. Scoring is deterministic (a pure function of team strength),
@@ -59,6 +59,11 @@ public class DemoScenario {
             "Liverpool", "Manchester City", "Chelsea", "Juventus",
             "PSG", "AC Milan", "Inter Milan", "Tottenham",
             "Napoli", "Atlético Madrid", "Borussia Dortmund", "Ajax",
+    };
+    /** Extra full-roster teams that bring S1 from its 6 special cases to 15 teams. */
+    private static final String[] S1_EXTRA_APPROVED_TEAMS = {
+            "Liverpool", "Manchester City", "PSG", "AC Milan", "Inter Milan",
+            "Tottenham", "Napoli", "Atlético Madrid", "Borussia Dortmund",
     };
     /** Participant names — footballers, cycled if there are more players than names. */
     private static final String[] PLAYERS = {
@@ -132,12 +137,18 @@ public class DemoScenario {
             fx.team(event, null, "Chelsea (solo)", "APPROVED", participant(), List.of());       // solo → free agent for grouping
             fx.team(event, null, "Juventus (solo)", "APPROVED", participant(), List.of());      // solo → free agent for grouping
             fx.team(event, null, "Bayern (pair)", "APPROVED", participant(), members(1));        // pair → grown in place on grouping
+            // Nine regular squads bring the forming-stage roster to 15 teams total
+            // without removing the pending/solo/pair cases above.
+            for (String teamName : S1_EXTRA_APPROVED_TEAMS) {
+                fx.team(event, null, teamName, "APPROVED", participant(), members(2));
+            }
             // Teamless registrants: approved & active students who never joined a squad.
             // SETUP leftover-grouping sweeps these up too (see LeftoverGroupingService).
             for (int i = 0; i < 3; i++) {
                 participant();
             }
-            log.info("[demo] S1 seeded — OPEN event: forming teams (2 solo + 1 pair) + 3 teamless registrants for grouping.");
+            log.info("[demo] S1 seeded — OPEN event: 15 teams (14 approved, 1 pending; 2 solo + 1 pair)"
+                    + " + 3 teamless registrants for grouping.");
             return;
         }
 
@@ -173,16 +184,24 @@ public class DemoScenario {
             prelimSubs.add(fx.submission(s.team, prelim, s.leader));
         }
 
+        // Both judges assigned to each preliminary (round, track) cell have
+        // finalized every criterion for every submission. S2 deliberately stops
+        // before creating RoundResult rows so Calculate Rankings remains a live
+        // coordinator demo rather than a pre-computed result.
+        List<User> prelimJudges = List.of(judge1, judge2);
+        writeScores(prelimSubs, slots, prelimCriteria, prelimJudges);
+
         if ("S2".equals(scenario)) {
-            log.info("[demo] S2 seeded — IN_PROGRESS, {} teams in tracks, submissions ready to score.", slots.size());
+            fx.expiredTimer(prelim, "CONTEST", prelim.getStartTime(), prelim.getSubmissionDeadline());
+            fx.expiredTimer(prelim, "JUDGING", prelim.getSubmissionDeadline(), prelim.getEndTime());
+            log.info("[demo] S2 seeded — CONTEST/JUDGING expired, {} preliminary submissions, {} final score rows, no RoundResult; ready to calculate rankings.",
+                    prelimSubs.size(), prelimSubs.size() * prelimCriteria.size() * prelimJudges.size());
             return;
         }
 
         // ── 7-9. SCORES → RESULTS → PRIZES (S3) ──────────────────────
         // Prelim: score everyone, then rank WITHIN each track (mirrors RoundResultService
         // for non-final rounds) so rank ≤ topNAdvance means "top 2 of THIS track advance".
-        List<User> prelimJudges = List.of(judge1, judge2);
-        writeScores(prelimSubs, slots, prelimCriteria, prelimJudges);
         List<Slot> advancing = new ArrayList<>();
         for (Track track : tracks) {
             List<Slot> inTrack = slots.stream()

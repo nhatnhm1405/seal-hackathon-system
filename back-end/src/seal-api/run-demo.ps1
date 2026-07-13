@@ -16,9 +16,9 @@
     NONE | S0 | S1 | S2 | S3  (default NONE = real run, no fake data)
       NONE  bootstrap admin only
       S0    + all demo accounts (pre-approved)
-      S1    + OPEN event + track/round/criteria + forming teams
-      S2    + teams in tracks + submissions ready to score     (IN_PROGRESS)
-      S3    + scores + rankings + prizes                       (COMPLETED)
+      S1    + OPEN event + track/round/criteria + 15 forming teams
+      S2    + complete preliminary scores, ready to rank       (IN_PROGRESS)
+      S3    + rankings + final scores/results + prizes         (COMPLETED)
 
 .PARAMETER Force
     Drop the DB without a confirmation prompt (handy during a live demo).
@@ -29,7 +29,7 @@
 .EXAMPLE
     ./run-demo.ps1 S3            # full demo: scores, rankings, prizes
 .EXAMPLE
-    ./run-demo.ps1 S2 -Force     # judge-scoring demo, no confirm before drop
+    ./run-demo.ps1 S2 -Force     # calculate-ranking demo, no confirm before drop
 .EXAMPLE
     ./run-demo.ps1               # NONE - clean run
 #>
