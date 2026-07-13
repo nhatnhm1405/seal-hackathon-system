@@ -5,6 +5,7 @@ import { C, PixelBadge } from "@/shared/components/PixelComponents";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { useNotifications, UINotification } from "@/app/providers/NotificationProvider";
 import { usePendingAccounts } from "@/app/providers/PendingAccountsProvider";
+import { usePendingTeams } from "@/app/providers/PendingTeamsProvider";
 import { API_BASE_URL } from "@/shared/apiClient";
 import { SealFooter } from "@/shared/components/SealFooter";
 import { NotificationDetailModal } from "@/shared/components/NotificationDetailModal";
@@ -32,7 +33,7 @@ interface NavItem {
   badge?: number;
 }
 
-function buildNav(role: string, isLeader: boolean, teamId: number | null, pendingCount: number): NavItem[] {
+function buildNav(role: string, isLeader: boolean, teamId: number | null, pendingCount: number, pendingTeamsCount: number): NavItem[] {
   if (role === "PARTICIPANT") {
     if (teamId === null) {
       const base: NavItem[] = [{ path: "/dashboard", label: "Dashboard" }, { path: "/leaderboard", label: "Leaderboard" }, { path: "/history", label: "History" }, { path: "/profile", label: "Profile" }];
@@ -89,11 +90,11 @@ function buildNav(role: string, isLeader: boolean, teamId: number | null, pendin
       { path: "/dashboard",             label: "Dashboard"         },
       { path: "/coordinator/events",    label: "Events"            },
       { path: "/coordinator/accounts",  label: "Accounts", badge: pendingCount },
-      { path: "/coordinator/teams",     label: "Teams"             },
+      { path: "/coordinator/teams",     label: "Teams", badge: pendingTeamsCount },
       { path: "/coordinator/judges",    label: "Assignments"       },
-      { path: "/coordinator/judges/history", label: "History" },
       { path: "/coordinator/scoring",   label: "Scoring & Results" },
       { path: "/coordinator/prizes",    label: "Awards"            },
+      { path: "/coordinator/judges/history", label: "History" },
       { path: "/profile",               label: "Profile"           },
     ];
   }
@@ -592,9 +593,10 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
   const { addAuthToast } = useNotifications();
   const [collapsed, setCollapsed] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  // Coordinator badge reads the shared pending count so it stays in sync with
-  // approve/reject actions on the Accounts page (single source of truth).
+  // Coordinator badges read the shared pending counts so they stay in sync with
+  // approve/reject actions on the Accounts/Teams pages (single source of truth).
   const { pendingCount } = usePendingAccounts();
+  const { pendingCount: pendingTeamsCount } = usePendingTeams();
 
   // The scrollable content region is <main> (overflow:auto), not the window, so a
   // route change would otherwise keep the previous page's scroll offset. Reset it
@@ -607,7 +609,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
 
   if (!currentUser) return null;
 
-  const nav = buildNav(currentUser.role, currentUser.is_leader, currentUser.team_id, pendingCount);
+  const nav = buildNav(currentUser.role, currentUser.is_leader, currentUser.team_id, pendingCount, pendingTeamsCount);
   const sidebarWidth = collapsed ? 0 : 248;
   const pageTitle = getPageTitle(location.pathname);
 
