@@ -7,7 +7,12 @@ import com.seal.hackathon.entity.Team;
 import com.seal.hackathon.entity.Track;
 import com.seal.hackathon.exception.BadRequestException;
 import com.seal.hackathon.exception.ResourceNotFoundException;
+import com.seal.hackathon.repository.AnnouncementRepository;
 import com.seal.hackathon.repository.HackathonEventRepository;
+import com.seal.hackathon.repository.JudgeAssignmentRepository;
+import com.seal.hackathon.repository.MentorAssignmentRepository;
+import com.seal.hackathon.repository.MentorSupportRequestRepository;
+import com.seal.hackathon.repository.PrizeRepository;
 import com.seal.hackathon.repository.TeamRepository;
 import com.seal.hackathon.repository.TrackRepository;
 import lombok.RequiredArgsConstructor;
@@ -41,6 +46,11 @@ public class TrackService {
     private final TrackRepository trackRepository;
     private final HackathonEventRepository eventRepository;
     private final TeamRepository teamRepository;
+    private final MentorAssignmentRepository mentorAssignmentRepository;
+    private final JudgeAssignmentRepository judgeAssignmentRepository;
+    private final AnnouncementRepository announcementRepository;
+    private final MentorSupportRequestRepository supportRequestRepository;
+    private final PrizeRepository prizeRepository;
 
     @Transactional(readOnly = true)
     public List<TrackResponse> getTracksByEvent(Integer eventId) {
@@ -135,6 +145,25 @@ public class TrackService {
         if (!track.getEvent().getEventId().equals(eventId)) {
             throw new BadRequestException("Track does not belong to event " + eventId);
         }
+
+        // Announcements and support requests are historical records. Deleting them
+        // implicitly would erase an audit trail; keep the track and explain the
+        // business conflict instead of leaking a database constraint exception.
+        if (announcementRepository.existsByTrack_TrackId(trackId)) {
+            throw new BadRequestException(
+                    "Cannot delete this track because it has announcement history.");
+        }
+        if (supportRequestRepository.existsByTrack_TrackId(trackId)) {
+            throw new BadRequestException(
+                    "Cannot delete this track because it has mentor support request history.");
+        }
+        // Track-scoped prizes are legacy/inconsistent data: turning one into an
+        // event-wide prize by setting track = null would silently change its scope.
+        if (prizeRepository.existsByTrack_TrackId(trackId)) {
+            throw new BadRequestException(
+                    "Cannot delete this track because it is referenced by a prize.");
+        }
+
         // Removing a track moves its teams back to the unassigned pool (track = null)
         // rather than blocking the delete; the coordinator re-assigns them by hand.
         // In DRAFT/OPEN no team has a track yet, so this is a no-op there; during SETUP
@@ -144,6 +173,11 @@ public class TrackService {
             teamsOnTrack.forEach(t -> t.setTrack(null));
             teamRepository.saveAll(teamsOnTrack);
         }
+        // Assignments are setup configuration, not the source of audit history
+        // (assignment actions are already recorded in AuditLog). Bulk-delete every
+        // active/inactive row first so the database FK can never outlive the track.
+        mentorAssignmentRepository.deleteAllByTrackId(trackId);
+        judgeAssignmentRepository.deleteAllByTrackId(trackId);
         trackRepository.delete(track);
     }
 

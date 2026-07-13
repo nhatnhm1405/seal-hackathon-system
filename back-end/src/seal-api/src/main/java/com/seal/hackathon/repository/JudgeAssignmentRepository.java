@@ -2,11 +2,13 @@ package com.seal.hackathon.repository;
 
 import com.seal.hackathon.entity.JudgeAssignment;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface JudgeAssignmentRepository extends JpaRepository<JudgeAssignment, Integer> {
@@ -29,7 +31,18 @@ public interface JudgeAssignmentRepository extends JpaRepository<JudgeAssignment
 
     boolean existsByJudge_UserIdAndRound_RoundIdAndTrackIsNull(Integer judgeUserId, Integer roundId);
 
+    Optional<JudgeAssignment> findByJudge_UserIdAndRound_RoundIdAndTrack_TrackId(
+            Integer judgeUserId, Integer roundId, Integer trackId);
+
+    Optional<JudgeAssignment> findByJudge_UserIdAndRound_RoundIdAndTrackIsNull(
+            Integer judgeUserId, Integer roundId);
+
     List<JudgeAssignment> findAllByRound_RoundIdAndIsActiveTrue(Integer roundId);
+
+    /** A track-scoped assignment must be removed, never widened to track = NULL. */
+    @Modifying(flushAutomatically = true)
+    @Query("DELETE FROM JudgeAssignment ja WHERE ja.track.trackId = :trackId")
+    int deleteAllByTrackId(@Param("trackId") Integer trackId);
 
     /**
      * Coordinator roster view: every active judge assignment in one event, with

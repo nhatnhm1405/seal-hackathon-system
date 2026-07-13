@@ -12,6 +12,8 @@ import java.util.Optional;
 @Repository
 public interface MentorSupportRequestRepository extends JpaRepository<MentorSupportRequest, Integer> {
 
+    boolean existsByTrack_TrackId(Integer trackId);
+
     /** The team's current OPEN request, if any (enforces one-open-at-a-time). */
     Optional<MentorSupportRequest> findFirstByTeam_TeamIdAndStatus(Integer teamId, String status);
 

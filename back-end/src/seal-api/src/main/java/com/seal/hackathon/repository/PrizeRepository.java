@@ -10,6 +10,8 @@ import java.util.Optional;
 @Repository
 public interface PrizeRepository extends JpaRepository<Prize, Integer> {
 
+    boolean existsByTrack_TrackId(Integer trackId);
+
     // Coordinator view — every slot, draft or announced.
     List<Prize> findAllByEvent_EventIdOrderByRankPosition(Integer eventId);
 
