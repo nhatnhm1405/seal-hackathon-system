@@ -238,7 +238,6 @@ export function ProfilePage() {
                     <PixelButton variant="danger" onClick={removeAvatar} disabled={removing}>{removing ? "REMOVING…" : "REMOVE PHOTO"}</PixelButton>
                   )}
                 </div>
-                <div style={{ color: C.textMuted, fontFamily: mono, fontSize: 10 }}>PNG, JPG, GIF or WEBP · up to 5MB</div>
               </div>
             </div>
             {avatarError && (

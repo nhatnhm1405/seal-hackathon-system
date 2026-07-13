@@ -248,7 +248,7 @@ export function CoordinatorDashboard() {
 
         {attentionCount === 0 ? (
           <div style={{ color: C.textMuted, fontFamily: MONO, fontSize: 13, display: "flex", alignItems: "center", gap: 8, padding: "6px 0" }}>
-            <span style={{ color: C.green, fontSize: 16 }}>✓</span> All caught up — no pending accounts or teams.
+            <span style={{ color: C.green, fontSize: 16 }}></span>All caught up — no pending accounts or teams.
           </div>
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 20 }}>
