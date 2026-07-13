@@ -1,19 +1,14 @@
-import { useState, useEffect, useCallback, Fragment } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { Trophy } from "lucide-react";
 import {
   C, GradientText, PixelCard, PixelButton, PixelBadge,
 } from "@/shared/components/PixelComponents";
 import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
 import {
-  eventsApi, roundsApi, submissionsApi, scoringApi, resultsApi, coordinatorApi, ApiError, apiErrorMessage,
-  HackathonEvent, Round, Submission, RoundResult,
+  eventsApi, roundsApi, submissionsApi, scoringApi, resultsApi, coordinatorApi, prizesApi, ApiError, apiErrorMessage,
+  HackathonEvent, Round, Submission, RoundResult, Prize,
 } from "@/shared/apiClient";
 import { useNotifications } from "@/app/providers/NotificationProvider";
-
-const selectStyle: React.CSSProperties = {
-  padding: "10px 12px", background: C.surface2, border: `1px solid ${C.border}`,
-  color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, borderRadius: 0,
-  outline: "none", minWidth: 200,
-};
 
 function fmtDT(iso?: string | null): string {
   if (!iso) return "—";
@@ -22,16 +17,43 @@ function fmtDT(iso?: string | null): string {
   return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
-function pickDefaultEvent(events: HackathonEvent[]): number | null {
-  if (events.length === 0) return null;
-  const active = events.find(e => e.status === 'IN_PROGRESS') ?? events.find(e => e.status === 'OPEN');
-  return (active ?? events[events.length - 1]).eventId;
+// Events already over don't belong here — they move to the read-only
+// "Assignment History" tab. This page only ever works the one event still
+// being configured/run (the "one active event" model), same as the
+// Assignments page.
+const ENDED_STATUSES = new Set(["COMPLETED", "CANCELLED"]);
+
+function pickCurrentEvent(events: HackathonEvent[]): HackathonEvent | null {
+  const live = events.filter(e => !ENDED_STATUSES.has((e.status ?? "").toUpperCase()));
+  if (live.length === 0) return null;
+  const priority = ["IN_PROGRESS", "SETUP", "OPEN", "DRAFT"];
+  for (const status of priority) {
+    const match = live.find(e => (e.status ?? "").toUpperCase() === status);
+    if (match) return match;
+  }
+  return live[live.length - 1];
 }
+
+// Cycled per track in the Rankings section so each track's card reads as a
+// visually distinct cluster rather than a repeat of the same green card.
+const TRACK_ACCENTS: { glowColor: "green" | "blue" | "cyan" | "purple"; text: string; textGlow: string }[] = [
+  { glowColor: "green",  text: C.greenBright, textGlow: C.greenGlow },
+  { glowColor: "blue",   text: C.blueBright,  textGlow: C.blueGlow },
+  { glowColor: "cyan",   text: C.cyanBright,  textGlow: C.cyanGlow },
+  { glowColor: "purple", text: C.purple,      textGlow: C.purpleGlow },
+];
+
+// Fixed column widths (not left to each <table>'s own auto-layout) so every
+// track's card lines up at the same x-positions instead of drifting per
+// table based on that track's own content.
+const RESULT_COLS_NON_FINAL = ["12%", "38%", "25%", "25%"];
+const RESULT_COLS_FINAL = ["10%", "27%", "26%", "18%", "19%"];
 
 export function CoordScoringPage() {
   const { addToast } = useNotifications();
   const [events, setEvents] = useState<HackathonEvent[]>([]);
-  const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
+  const currentEvent = useMemo(() => pickCurrentEvent(events), [events]);
+  const selectedEventId = currentEvent?.eventId ?? null;
   const [rounds, setRounds] = useState<Round[]>([]);
   const [selectedRoundId, setSelectedRoundId] = useState<number | null>(null);
 
@@ -39,6 +61,12 @@ export function CoordScoringPage() {
   const [judgeCount, setJudgeCount] = useState(0);
   const [scoresBySub, setScoresBySub] = useState<Record<number, number>>({});
   const [results, setResults] = useState<RoundResult[]>([]);
+  // Awarded prizes for the event — the Final round's "winner" highlight is
+  // driven by who actually has a prize, not RoundResult.advanced (that flag
+  // only gets set when the round has a Top N cut-off configured, which the
+  // Final round doesn't always have — prizes are the real source of truth
+  // for "this team won").
+  const [prizes, setPrizes] = useState<Prize[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -54,11 +82,7 @@ export function CoordScoringPage() {
     setLoading(true);
     setLoadError(null);
     eventsApi.getAll()
-      .then(res => {
-        const evs = res.data ?? [];
-        setEvents(evs);
-        setSelectedEventId(pickDefaultEvent(evs));
-      })
+      .then(res => setEvents(res.data ?? []))
       .catch(err => setLoadError(err instanceof ApiError ? err.message : "Failed to load events."))
       .finally(() => setLoading(false));
   }, []);
@@ -73,6 +97,9 @@ export function CoordScoringPage() {
         setSelectedRoundId(rs[0]?.roundId ?? null);
       })
       .catch(() => { setRounds([]); setSelectedRoundId(null); });
+    prizesApi.getAll(selectedEventId)
+      .then(res => setPrizes(res.data ?? []))
+      .catch(() => setPrizes([]));
   }, [selectedEventId]);
 
   const loadResults = useCallback((eventId: number, roundId: number) => {
@@ -122,6 +149,7 @@ export function CoordScoringPage() {
 
   const sortedResults = results.slice().sort((a, b) => a.rankPosition - b.rankPosition);
   const topN = selectedRound?.topNAdvance ?? null;
+  const prizeTeamIds = new Set(prizes.map(p => p.teamId).filter((id): id is number => id != null));
   const isFinalRound = selectedRound?.isFinal ?? false;
 
   // Final round → one global ranking table. Per-track round → one table per track,
@@ -191,15 +219,23 @@ export function CoordScoringPage() {
         <h1 style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 28, fontWeight: 800 }}>
           <GradientText>Scoring & Results</GradientText>
         </h1>
-        <select value={selectedEventId ?? 0} onChange={(e) => setSelectedEventId(Number(e.target.value) || null)} style={selectStyle}>
-          {events.length === 0 && <option value={0}>No events</option>}
-          {events.map(ev => <option key={ev.eventId} value={ev.eventId}>{ev.name}</option>)}
-        </select>
+        {currentEvent && (
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 700 }}>{currentEvent.name}</span>
+            <PixelBadge color={currentEvent.status === "IN_PROGRESS" ? "green" : "gray"}>{currentEvent.status}</PixelBadge>
+          </div>
+        )}
       </div>
 
       {loadError && (
         <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.35)", color: C.red, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, padding: "10px 14px" }}>
           ERROR: {loadError}
+        </div>
+      )}
+
+      {!loading && currentEvent == null && (
+        <div style={{ background: C.surface, border: `1px solid ${C.border}`, borderRadius: 6, padding: 18, color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 13 }}>
+          No event is currently open for configuration. Past events have moved to History.
         </div>
       )}
 
@@ -315,86 +351,89 @@ export function CoordScoringPage() {
         />
       )}
 
-      {/* Results table */}
+      {/* Results — each track gets its own glowing card (cycling accent color)
+          instead of being merged into one shared table, so tracks read as
+          distinct clusters at a glance. */}
       {results.length > 0 && (
-        <PixelCard glow gradient style={{ padding: 0, overflow: "hidden" }}>
-          <div style={{ padding: "14px 18px", borderBottom: `1px solid ${C.border}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 14, fontWeight: 700 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <GradientText style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 20, fontWeight: 800 }}>
               {selectedRound?.name} — Rankings
-            </span>
+            </GradientText>
             <PixelBadge color={allPublished ? "green" : "yellow"}>{allPublished ? "PUBLISHED" : "DRAFT"}</PixelBadge>
           </div>
-          {rankGroups.map((g) => {
-            const gAdvancing = g.rows.filter(r => r.advanced).length;
-            const gTooLarge = topN != null && g.rows.length > 0 && topN >= g.rows.length;
-            const gMissing = topN == null && g.rows.length > 0;
+          {rankGroups.map((g, i) => {
+            const accent = TRACK_ACCENTS[i % TRACK_ACCENTS.length];
+            const headers = isFinalRound ? ["Position", "Team", "Track", "Total Score", "Advanced"] : ["Position", "Team", "Total Score", "Advanced"];
+            const colWidths = isFinalRound ? RESULT_COLS_FINAL : RESULT_COLS_NON_FINAL;
             return (
-            <div key={g.key}>
-              {/* Track sub-header (per-track rounds only) */}
-              {!isFinalRound && g.trackName && (
-                <div style={{ padding: "10px 18px", borderBottom: `1px solid ${C.border}`, background: "rgba(34,197,94,0.05)", fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 700, color: C.green, letterSpacing: "0.04em" }}>
-                  ▸ {g.trackName}
+            <PixelCard key={g.key} glow gradient glowColor={isFinalRound ? "amber" : accent.glowColor} style={{ padding: 0, overflow: "hidden" }}>
+              {/* Header — the brightest element in the card, via bold weight +
+                  glow text, so it outshines the row data below it. Per-track
+                  rounds get the track's cycling accent; the Final round gets
+                  a fixed gold header (matching the "gold = Final round"
+                  convention already used on the Assignments page). */}
+              {isFinalRound ? (
+                <div style={{ padding: "10px 18px", borderBottom: `1px solid ${C.border}`, background: "rgba(234,179,8,0.10)", fontFamily: "'JetBrains Mono', monospace", display: "flex", alignItems: "center", gap: 8 }}>
+                  <Trophy size={16} strokeWidth={2.5} color={C.yellow} style={{ filter: `drop-shadow(0 0 6px ${C.yellow})` }} />
+                  <span style={{ fontSize: 15, fontWeight: 800, color: C.yellow, letterSpacing: "0.04em", textShadow: `0 0 12px rgba(234,179,8,0.6)` }}>
+                    FINAL — ALL TRACKS
+                  </span>
+                </div>
+              ) : g.trackName && (
+                <div style={{ padding: "10px 18px", borderBottom: `1px solid ${C.border}`, background: "rgba(34,197,94,0.10)", fontFamily: "'JetBrains Mono', monospace" }}>
+                  <span style={{ fontSize: 15, fontWeight: 800, color: accent.text, letterSpacing: "0.04em", textShadow: `0 0 12px ${accent.textGlow}` }}>
+                    ▸ {g.trackName}
+                  </span>
                 </div>
               )}
-              {/* Advancement summary — per track for normal rounds, overall (winners) for the final */}
-              <div style={{ padding: "10px 18px", borderBottom: `1px solid ${C.border}`, background: "rgba(13,17,23,0.4)", fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>
-                <span style={{ color: C.text }}>
-                  {isFinalRound ? "Winners: " : "Cut-off: "}<span style={{ color: C.green, fontWeight: 700 }}>Top {topN ?? "—"}</span>
-                  {" · "}<span style={{ color: C.green, fontWeight: 700 }}>{gAdvancing}</span> of {g.rows.length} {isFinalRound ? "win (overall)" : `advance${g.trackName ? " in this track" : ""}`}
-                </span>
-                {gMissing && (
-                  <div style={{ color: C.yellow, marginTop: 6 }}>⚠ No cut-off set for this round — no team is marked. Set Top N in the Events → Rounds tab.</div>
-                )}
-                {gTooLarge && (
-                  <div style={{ color: C.yellow, marginTop: 6 }}>⚠ Top N ({topN}) ≥ {isFinalRound ? `ranked teams (${g.rows.length})` : `teams in this track (${g.rows.length})`} — every team {isFinalRound ? "wins" : "advances"}.</div>
-                )}
-              </div>
               <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'JetBrains Mono', monospace" }}>
+                <table style={{ width: "100%", tableLayout: "fixed", borderCollapse: "collapse", fontFamily: "'JetBrains Mono', monospace" }}>
                   <thead>
-                    <tr style={{ background: "rgba(13,17,23,0.7)", borderBottom: `1px solid ${C.border}` }}>
-                      {["Position", "Team", "Track", "Total Score", "Advanced"].map(h => (
-                        <th key={h} style={{ color: C.green, fontSize: 10, letterSpacing: "0.12em", textAlign: "left", padding: "12px 14px", fontWeight: 600, textTransform: "uppercase" }}>{h}</th>
+                    <tr style={{ background: C.surface2, borderBottom: `1px solid ${C.border}` }}>
+                      {headers.map((h, ci) => (
+                        <th key={h} style={{ width: colWidths[ci], color: C.green, fontSize: 10, letterSpacing: "0.12em", textAlign: "left", padding: "12px 14px", fontWeight: 600, textTransform: "uppercase" }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {g.rows.map((r, i) => {
-                      const next = g.rows[i + 1];
-                      const showCutLine = r.advanced && next != null && !next.advanced;
-                      // Non-final rounds eliminate teams outside their track's Top N.
-                      // Eliminated rows are dimmed (faded back), not painted bright red.
-                      const eliminated = !isFinalRound && topN != null && !r.advanced;
+                    {g.rows.map((r, ri) => {
+                      // The Final round's "won" state comes from actual Prize
+                      // records (teamId match), not RoundResult.advanced — that
+                      // flag only gets set when the round has a Top N cut-off
+                      // configured, which the Final round frequently doesn't
+                      // (winners are decided by prize, not a raw rank cut-off).
+                      // Non-final rounds keep using advanced/Top N as before.
+                      const won = isFinalRound ? prizeTeamIds.has(r.teamId) : r.advanced;
+                      // Rounds with a cut-off (or, for the Final, any prizes at
+                      // all) dim every team that didn't make it — "eliminated"
+                      // outside their track's Top N for a normal round, or
+                      // simply not a winner for the Final. Dimmed rows are
+                      // faded back, not painted bright red, in both cases.
+                      const hasCutoff = isFinalRound ? prizes.length > 0 : topN != null;
+                      const dimmed = hasCutoff && !won;
+                      const eliminated = !isFinalRound && dimmed;
                       return (
-                      <Fragment key={r.resultId}>
-                      <tr style={{ borderBottom: `1px solid rgba(34,197,94,0.06)`, background: eliminated ? "rgba(239,68,68,0.04)" : r.advanced ? "rgba(34,197,94,0.07)" : i % 2 === 0 ? C.surface : C.surface2, opacity: eliminated ? 0.5 : 1 }}>
-                        <td style={{ color: eliminated ? C.textMuted : C.cyan, fontSize: 14, fontWeight: 700, padding: "12px 14px" }}>#{r.rankPosition}</td>
+                      <tr key={r.resultId} style={{ borderBottom: `1px solid rgba(34,197,94,0.06)`, background: dimmed ? "rgba(239,68,68,0.04)" : won ? "rgba(34,197,94,0.16)" : ri % 2 === 0 ? C.surface : C.surface2, opacity: dimmed ? 0.5 : 1 }}>
+                        <td style={{ color: dimmed ? C.textMuted : C.cyan, fontSize: 14, fontWeight: 700, padding: "12px 14px" }}>#{r.rankPosition}</td>
                         <td style={{ color: C.text, fontSize: 13, padding: "12px 14px" }}>{r.teamName}</td>
-                        <td style={{ color: C.textMuted, fontSize: 11, padding: "12px 14px" }}>{r.trackName ?? "—"}</td>
+                        {isFinalRound && (
+                          <td style={{ color: C.textMuted, fontSize: 11, padding: "12px 14px" }}>{r.trackName ?? "—"}</td>
+                        )}
                         <td style={{ color: C.green, fontSize: 14, fontWeight: 700, padding: "12px 14px" }}>{Number(r.totalScore).toFixed(1)}</td>
                         <td style={{ padding: "12px 14px" }}>
-                          <PixelBadge color={r.advanced ? "green" : "gray"}>{r.advanced ? (isFinalRound ? "WINNER" : "ADVANCED") : eliminated ? "ELIMINATED" : "—"}</PixelBadge>
+                          <PixelBadge color={won ? "green" : "gray"} glow={won}>{won ? (isFinalRound ? "WINNER" : "ADVANCED") : eliminated ? "ELIMINATED" : "—"}</PixelBadge>
                         </td>
                       </tr>
-                      {showCutLine && (
-                        <tr>
-                          <td colSpan={5} style={{ padding: 0 }}>
-                            <div style={{ borderTop: `2px dashed ${C.green}`, padding: "3px 14px", color: C.green, fontSize: 10, letterSpacing: "0.12em", textTransform: "uppercase", background: "rgba(34,197,94,0.05)" }}>
-                              ▲ Top {topN} {isFinalRound ? "win" : "advance"} · cut-off line ▼
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                      </Fragment>
                       );
                     })}
                   </tbody>
                 </table>
               </div>
-            </div>
+            </PixelCard>
             );
           })}
-        </PixelCard>
+        </div>
       )}
     </div>
   );
