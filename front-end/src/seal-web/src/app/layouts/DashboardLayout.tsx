@@ -9,6 +9,7 @@ import { usePendingTeams } from "@/app/providers/PendingTeamsProvider";
 import { API_BASE_URL } from "@/shared/apiClient";
 import { SealFooter } from "@/shared/components/SealFooter";
 import { NotificationDetailModal } from "@/shared/components/NotificationDetailModal";
+import { NavbarRoleTimer } from "@/shared/components/NavbarRoleTimer";
 import sealLogo from "@/imports/image.png";
 
 const NAVBAR_H = 60;
@@ -441,6 +442,8 @@ function TopNavbar({ pageTitle, collapsed, onToggleCollapse, currentUser, onLogo
 
       {/* RIGHT — theme toggle + bell + user menu */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+        <NavbarRoleTimer role={currentUser.role} teamId={currentUser.team_id} />
+
         {/* Theme toggle */}
         <button
           type="button"
