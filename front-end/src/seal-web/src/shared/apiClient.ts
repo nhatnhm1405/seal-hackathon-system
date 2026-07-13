@@ -1,32 +1,14 @@
 const BASE_URL = (import.meta as { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL ?? 'http://localhost:8080';
 export const API_BASE_URL = BASE_URL;
-const TOKEN_KEY = 'seal_auth_token';
 
-// ── Token helpers ────────────────────────────────────────────────────
-export function getToken(): string | null {
-  return localStorage.getItem(TOKEN_KEY) ?? sessionStorage.getItem(TOKEN_KEY);
-}
-export function getTokenStorage(): 'local' | 'session' | null {
-  if (localStorage.getItem(TOKEN_KEY)) return 'local';
-  if (sessionStorage.getItem(TOKEN_KEY)) return 'session';
-  return null;
-}
-export function setToken(token: string, remember = true): void {
-  // Clear the *other* store first. getToken() reads localStorage before
-  // sessionStorage, so a leftover token in localStorage (e.g. a previous
-  // "remember me" session) would otherwise shadow a new sessionStorage token
-  // and make every request carry the wrong identity.
-  if (remember) {
-    sessionStorage.removeItem(TOKEN_KEY);
-    localStorage.setItem(TOKEN_KEY, token);
-  } else {
-    localStorage.removeItem(TOKEN_KEY);
-    sessionStorage.setItem(TOKEN_KEY, token);
-  }
-}
-export function clearToken(): void {
-  localStorage.removeItem(TOKEN_KEY);
-  sessionStorage.removeItem(TOKEN_KEY);
+// ── CSRF helper ──────────────────────────────────────────────────────
+// The JWT itself lives in an HttpOnly cookie the browser attaches automatically
+// and JS can never read. The CSRF token rides in a separate, JS-readable
+// cookie (double-submit pattern) — read it here and echo it back as a header
+// on state-changing requests.
+function getCsrfToken(): string | null {
+  const match = document.cookie.match(/(?:^|; )XSRF-TOKEN=([^;]*)/);
+  return match ? decodeURIComponent(match[1]) : null;
 }
 
 // ── Error shape ──────────────────────────────────────────────────────
@@ -50,15 +32,17 @@ export async function apiFetch<T>(
   path: string,
   options: RequestInit = {},
 ): Promise<T> {
-  const token = getToken();
   // For FormData (file uploads) let the browser set the multipart Content-Type
   // with its boundary — forcing application/json would break the request.
   const isFormData = options.body instanceof FormData;
+  const method = (options.method ?? 'GET').toUpperCase();
+  const csrfToken = method !== 'GET' && method !== 'HEAD' ? getCsrfToken() : null;
   const res = await fetch(`${BASE_URL}${path}`, {
     ...options,
+    credentials: 'include', // send/receive the HttpOnly auth cookie
     headers: {
       ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(csrfToken ? { 'X-XSRF-TOKEN': csrfToken } : {}),
       ...(options.headers ?? {}),
     },
   });
@@ -94,6 +78,7 @@ export interface RegisterPayload {
 export interface LoginPayload {
   email: string;
   password: string;
+  rememberMe?: boolean;
 }
 
 export interface ForgotPasswordPayload {
@@ -115,7 +100,6 @@ export interface ResetPasswordPayload {
 }
 
 export interface AuthTokenData {
-  token: string;
   userId?: number;
 }
 
@@ -641,7 +625,7 @@ export const problemsApi = {
     try {
       const res = await fetch(
         `${BASE_URL}/api/events/${eventId}/tracks/${trackId}/problem/download`,
-        { headers: { ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}) } },
+        { credentials: 'include' },
       );
       if (!res.ok) {
         win?.close();
@@ -663,7 +647,7 @@ export const problemsApi = {
   download: async (eventId: number, trackId: number, fallbackName = 'problem') => {
     const res = await fetch(
       `${BASE_URL}/api/events/${eventId}/tracks/${trackId}/problem/download`,
-      { headers: { ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}) } },
+      { credentials: 'include' },
     );
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));

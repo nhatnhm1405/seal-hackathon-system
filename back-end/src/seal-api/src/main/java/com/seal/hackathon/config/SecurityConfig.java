@@ -1,8 +1,10 @@
 package com.seal.hackathon.config;
 
+import com.seal.hackathon.security.CsrfCookieFilter;
 import com.seal.hackathon.security.JwtAuthenticationEntryPoint;
 import com.seal.hackathon.security.JwtAuthenticationFilter;
 import com.seal.hackathon.security.InactiveParticipantWriteFilter;
+import com.seal.hackathon.security.SpaCsrfTokenRequestHandler;
 import com.seal.hackathon.security.oauth2.CustomOAuth2UserService;
 import com.seal.hackathon.security.oauth2.OAuth2LoginFailureHandler;
 import com.seal.hackathon.security.oauth2.OAuth2LoginSuccessHandler;
@@ -10,13 +12,18 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.context.RequestAttributeSecurityContextRepository;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfFilter;
+import org.springframework.security.web.csrf.CsrfTokenRepository;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -27,12 +34,15 @@ import java.util.List;
  * Main Spring Security configuration.
  *
  * Key decisions:
- * - CSRF disabled: REST API uses JWT, not session cookies.
+ * - CSRF is enabled using the double-submit-cookie pattern (XSRF-TOKEN cookie
+ *   + X-XSRF-TOKEN header), since auth now rides on an HttpOnly cookie that
+ *   browsers attach automatically to any request, same-site or not.
  * - Sessions are created only when needed. OAuth2 needs a short-lived session
  *   to store the authorization state between provider redirects; API auth still
- *   uses JWT.
+ *   uses a JWT cookie, not a server-side session.
  * - JWT filter runs before UsernamePasswordAuthenticationFilter.
- * - OAuth2 login redirects to frontend with token on success.
+ * - OAuth2 login sets the JWT cookie directly and redirects to the frontend
+ *   (no token in the URL).
  */
 @Configuration
 @EnableWebSecurity
@@ -46,15 +56,29 @@ public class SecurityConfig {
     private final CustomOAuth2UserService customOAuth2UserService;
     private final OAuth2LoginSuccessHandler oAuth2LoginSuccessHandler;
     private final OAuth2LoginFailureHandler oAuth2LoginFailureHandler;
+    private final SpaCsrfTokenRequestHandler spaCsrfTokenRequestHandler;
+    private final CsrfCookieFilter csrfCookieFilter;
 
     @Value("${app.frontend.url:http://localhost:5173}")
     private String frontendUrl;
 
+    @Value("${app.jwt.cookie.secure}")
+    private boolean cookieSecure;
+
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-            // Disable CSRF — not needed for stateless REST + JWT
-            .csrf(AbstractHttpConfigurer::disable)
+            // Double-submit-cookie CSRF: XSRF-TOKEN cookie (JS-readable, unlike the
+            // auth cookie) is echoed back by the SPA as the X-XSRF-TOKEN header.
+            // Requests authenticated via "Authorization: Bearer" are exempt — a
+            // browser can never be tricked into attaching that header cross-site
+            // the way it auto-attaches cookies, so CSRF doesn't apply to them
+            // (this is also what lets API tooling like Postman/Swagger call
+            // write endpoints with just a bearer token, no CSRF dance needed).
+            .csrf(csrf -> csrf
+                .csrfTokenRepository(csrfTokenRepository())
+                .csrfTokenRequestHandler(spaCsrfTokenRequestHandler)
+                .ignoringRequestMatchers(bearerAuthRequestMatcher()))
 
             // Enable CORS with the configuration below
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
@@ -65,14 +89,33 @@ public class SecurityConfig {
             .sessionManagement(session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
 
+            // Without this, Spring's default HttpSessionSecurityContextRepository
+            // would silently persist the JWT-derived Authentication into a
+            // JSESSIONID-backed session on every request (since IF_REQUIRED allows
+            // session creation for the OAuth2 flow above). That would make the
+            // session cookie an independent, un-revocable auth channel — logout
+            // and JWT expiry would stop meaning anything. Keep the SecurityContext
+            // request-scoped only; re-derive it from the cookie every time.
+            .securityContext(securityContext ->
+                securityContext.securityContextRepository(new RequestAttributeSecurityContextRepository()))
+
             // Return JSON 401 instead of redirect to /login
             .exceptionHandling(ex ->
                 ex.authenticationEntryPoint(jwtAuthenticationEntryPoint))
 
             // URL-level authorization rules
             .authorizeHttpRequests(auth -> auth
-                // Public: auth endpoints
-                .requestMatchers("/api/auth/**").permitAll()
+                // Public: only the genuinely anonymous auth endpoints. Everything
+                // else under /api/auth/** (me, complete-profile, me/password,
+                // me/avatar) falls through to anyRequest().authenticated() below —
+                // AuthController casts Authentication.getPrincipal() unconditionally,
+                // so an unauthenticated call must be rejected here, before it
+                // reaches the controller, not inside it.
+                .requestMatchers(HttpMethod.POST,
+                        "/api/auth/register", "/api/auth/login", "/api/auth/forgot-password",
+                        "/api/auth/verify-reset-otp", "/api/auth/reset-password", "/api/auth/logout"
+                ).permitAll()
+                .requestMatchers(HttpMethod.GET, "/api/auth/check-student-id").permitAll()
                 // Public: OAuth2 flow
                 .requestMatchers("/oauth2/**", "/login/oauth2/**").permitAll()
                 // Public: error page
@@ -134,9 +177,33 @@ public class SecurityConfig {
 
             // JWT validation runs before Spring Security's default auth filter
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-            .addFilterAfter(inactiveParticipantWriteFilter, JwtAuthenticationFilter.class);
+            .addFilterAfter(inactiveParticipantWriteFilter, JwtAuthenticationFilter.class)
+            // Forces eager CSRF token resolution so the XSRF-TOKEN cookie is written
+            // on every request, not just ones that end up reading the token.
+            .addFilterAfter(csrfCookieFilter, CsrfFilter.class);
 
         return http.build();
+    }
+
+    // XSRF-TOKEN must be readable by JS (httpOnlyFalse) so the SPA can echo it
+    // back as the X-XSRF-TOKEN header — unlike the JWT cookie, this one carries
+    // no secret, only a per-session anti-forgery value.
+    @Bean
+    public CsrfTokenRepository csrfTokenRepository() {
+        CookieCsrfTokenRepository repository = CookieCsrfTokenRepository.withHttpOnlyFalse();
+        repository.setCookieCustomizer(cookie -> cookie.secure(cookieSecure).sameSite("Lax").path("/"));
+        return repository;
+    }
+
+    // Matches any request carrying "Authorization: Bearer ..." — used to exempt
+    // bearer-authenticated calls (Postman, Swagger, JwtAuthenticationFilter's
+    // header fallback) from CSRF, since a browser can't be tricked into sending
+    // that header cross-site the way it auto-sends cookies.
+    private RequestMatcher bearerAuthRequestMatcher() {
+        return request -> {
+            String authHeader = request.getHeader("Authorization");
+            return authHeader != null && authHeader.startsWith("Bearer ");
+        };
     }
 
     @Bean
@@ -151,7 +218,8 @@ public class SecurityConfig {
         // Let the browser read the file name from downloads (track "đề thi", exports).
         config.setExposedHeaders(List.of("Content-Disposition"));
 
-        // Required if frontend sends cookies (not needed for JWT but good practice)
+        // Required — the JWT and CSRF cookies only travel cross-origin (frontend
+        // and API are different subdomains) if the browser is told to send them.
         config.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

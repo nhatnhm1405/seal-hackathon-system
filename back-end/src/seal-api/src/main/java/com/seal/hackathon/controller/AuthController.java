@@ -9,15 +9,21 @@ import com.seal.hackathon.dto.response.ApiResponse;
 import com.seal.hackathon.dto.response.AuthResponse;
 import com.seal.hackathon.dto.response.ResetOtpResponse;
 import com.seal.hackathon.dto.response.UserResponse;
+import com.seal.hackathon.security.JwtCookieFactory;
 import com.seal.hackathon.service.AuthService;
 import com.seal.hackathon.service.PasswordResetService;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.web.csrf.CsrfTokenRepository;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -28,6 +34,8 @@ public class AuthController {
 
     private final AuthService authService;
     private final PasswordResetService passwordResetService;
+    private final JwtCookieFactory jwtCookieFactory;
+    private final CsrfTokenRepository csrfTokenRepository;
 
     /**
      * POST /api/auth/register
@@ -42,11 +50,22 @@ public class AuthController {
 
     /**
      * POST /api/auth/login
-     * Public. Returns a JWT on success.
+     * Public. On success, sets the JWT as an HttpOnly cookie — the token is
+     * never exposed to client-side JS.
      */
     @PostMapping("/login")
-    public ResponseEntity<ApiResponse<AuthResponse>> login(@Valid @RequestBody LoginRequest request) {
+    public ResponseEntity<ApiResponse<AuthResponse>> login(
+            @Valid @RequestBody LoginRequest request, HttpServletResponse httpResponse) {
         AuthResponse response = authService.login(request);
+
+        ResponseCookie cookie = jwtCookieFactory.buildAuthCookie(response.getToken(), request.isRememberMe());
+        httpResponse.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+
+        // Don't echo the token back in the JSON body — it now lives only in the
+        // HttpOnly cookie. @JsonInclude(NON_NULL) drops both fields from the wire.
+        response.setToken(null);
+        response.setTokenType(null);
+
         return ResponseEntity.ok(ApiResponse.success("Login successful.", response));
     }
 
@@ -167,11 +186,12 @@ public class AuthController {
 
     /**
      * POST /api/auth/logout
-     * JWT is stateless — logout is handled client-side by discarding the token.
-     * This endpoint exists so the frontend has a consistent pattern to call.
+     * Clears the auth cookie (and the CSRF cookie, reissued on the next request).
      */
     @PostMapping("/logout")
-    public ResponseEntity<ApiResponse<?>> logout() {
-        return ResponseEntity.ok(ApiResponse.success("Logged out successfully. Please discard your token."));
+    public ResponseEntity<ApiResponse<?>> logout(HttpServletRequest request, HttpServletResponse response) {
+        response.addHeader(HttpHeaders.SET_COOKIE, jwtCookieFactory.clearAuthCookie().toString());
+        csrfTokenRepository.saveToken(null, request, response);
+        return ResponseEntity.ok(ApiResponse.success("Logged out successfully."));
     }
 }
