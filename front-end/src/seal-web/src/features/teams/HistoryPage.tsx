@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { C, GradientText, PixelBadge, PixelCard } from "@/shared/components/PixelComponents";
 import { ApiError, TeamHistoryEntry, teamsApi } from "@/shared/apiClient";
+import { MemberTextList } from "@/shared/components/MemberTextList";
 import { CertificateModal } from "./CertificateModal";
 
 const mono = "'JetBrains Mono', monospace";
@@ -127,13 +128,14 @@ export function HistoryPage() {
                   </span>
                 </div>
 
-                <div style={{ flex: "1 1 220px" }}>
-                  <div style={{ fontFamily: mono, fontSize: 17, fontWeight: 800, color: C.text }}>
-                    {entry.eventName}
+                <div style={{ flex: "1 1 240px", minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                    <span style={{ fontFamily: mono, fontSize: 17, fontWeight: 800, color: C.text }}>{entry.teamName}</span>
+                    {entry.trackName && <PixelBadge color="blue">{entry.trackName}</PixelBadge>}
+                    <PixelBadge color={entry.myRole === "LEADER" ? "green" : "gray"}>{roleLabel}</PixelBadge>
                   </div>
-                  <div style={{ fontFamily: mono, fontSize: 11, color: C.textMuted, marginTop: 5 }}>
-                    Team <b style={{ color: C.text }}>{entry.teamName}</b>
-                    {entry.trackName ? ` - ${entry.trackName}` : ""} - {roleLabel}
+                  <div style={{ fontFamily: mono, fontSize: 11, color: C.textMuted, marginTop: 6 }}>
+                    {entry.eventName}
                   </div>
                 </div>
 
@@ -162,15 +164,9 @@ export function HistoryPage() {
                 <div style={{ padding: 18, display: "flex", flexDirection: "column", gap: 18 }}>
                   <section>
                     <div style={sectionLabel}>Team members</div>
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                      {members.length === 0 ? (
-                        <span style={{ color: C.textMuted, fontFamily: mono, fontSize: 12 }}>No member data.</span>
-                      ) : members.map((member, index) => (
-                        <span key={index} style={{ fontFamily: mono, fontSize: 12, color: C.text, background: C.surface2, border: `1px solid ${C.border}`, padding: "4px 10px" }}>
-                          {member.fullName}{member.role === "LEADER" ? " (Leader)" : ""}
-                        </span>
-                      ))}
-                    </div>
+                    <MemberTextList
+                      members={members.map(m => ({ fullName: m.fullName, memberRole: m.role, studentId: m.studentId, userType: m.userType, university: m.university }))}
+                    />
                   </section>
 
                   <section>

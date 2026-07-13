@@ -26,9 +26,10 @@ const ROLE_GUIDE_LABEL: Record<string, string> = {
   JUDGE: "Judge Guide",
 };
 
-// Session flag → the popup auto-shows once per login session, keyed by role so a
-// multi-role staff member sees each role's guide once.
-const seenKey = (role: string) => `sealRulesSeen:${role}`;
+// Persisted flag → the popup auto-shows once, EVER (not every login), keyed by
+// user + role so each account sees each of its role guides once on this browser.
+// Re-openable anytime from the footer link.
+const seenKey = (userId: number, role: string) => `sealRulesSeen:${userId}:${role}`;
 
 export function RulesProvider({ children }: { children: ReactNode }) {
   const { currentUser, availableRoles, activeRole, isLoading } = useAuth();
@@ -61,20 +62,18 @@ export function RulesProvider({ children }: { children: ReactNode }) {
     }
   }, [currentUser, maybeAutoStartTour]);
 
-  // Auto-open once per session for any role that has a guide; reset the flags on
-  // logout so the next login shows them again.
+  // Auto-open the guide ONCE, ever, for each role that has one. The flag is
+  // persisted in localStorage (per user+role), so logging out and back in does
+  // NOT re-pop it — the footer link is there to re-open on demand.
   useEffect(() => {
     // While the session is still being restored from a stored token, currentUser
-    // is transiently null on every page reload. Resetting the "seen" flags here
-    // would wipe them each reload and re-pop the guide — so wait for auth to settle.
+    // is transiently null on every page reload — wait for auth to settle.
     if (isLoading) return;
-    if (!currentUser) {
-      Object.keys(ROLE_GUIDE_LABEL).forEach(r => sessionStorage.removeItem(seenKey(r)));
-      return;
-    }
+    if (!currentUser) return;
     if (awaitingRoleChoice) return;
-    if (hasGuide && !sessionStorage.getItem(seenKey(role))) {
-      sessionStorage.setItem(seenKey(role), "1");
+    const key = seenKey(currentUser.user_id, role);
+    if (hasGuide && !localStorage.getItem(key)) {
+      localStorage.setItem(key, "1");
       autoShownRef.current = true;
       setOpen(true);
     }

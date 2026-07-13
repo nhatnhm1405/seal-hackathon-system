@@ -26,6 +26,10 @@ public interface MentorAssignmentRepository extends JpaRepository<MentorAssignme
     // Duplicate check for the unique key (mentor_user_id, track_id)
     boolean existsByMentor_UserIdAndTrack_TrackId(Integer mentorUserId, Integer trackId);
 
+    // Business rule: a mentor manages at most ONE track per event. Checks whether the
+    // mentor already has an active assignment to any track in the given event.
+    boolean existsByMentor_UserIdAndTrack_Event_EventIdAndIsActiveTrue(Integer mentorUserId, Integer eventId);
+
     List<MentorAssignment> findAllByTrack_TrackIdAndIsActiveTrue(Integer trackId);
 
     /** Coordinator roster: all active mentor assignments in an event. */

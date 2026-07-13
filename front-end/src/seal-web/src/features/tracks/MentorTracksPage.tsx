@@ -1,11 +1,23 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { List, ChevronDown, ChevronRight } from "lucide-react";
 import {
   C, GradientText, PixelCard, PixelBadge, PixelButton,
 } from "@/shared/components/PixelComponents";
 import { AnnouncementComposerModal } from "@/shared/components/AnnouncementComposerModal";
-import { assignmentsApi, announcementsApi, ApiError, MentorAssignedTeam, MentorAssignedTrack, AnnouncementItem } from "@/shared/apiClient";
+import { TeamDetailModal } from "@/shared/components/TeamDetailModal";
+import { assignmentsApi, announcementsApi, supportApi, ApiError, MentorAssignedTeam, MentorAssignedTrack, AnnouncementItem, SupportRequest, SupportCategory } from "@/shared/apiClient";
 
 const mono = "'JetBrains Mono', monospace";
+
+/** Short human label for a support-request category. */
+function supportCatLabel(c: SupportCategory): string {
+  switch (c) {
+    case "RULES": return "Rules";
+    case "TECHNICAL": return "Technical";
+    case "DIRECTION": return "Direction";
+    default: return "Other";
+  }
+}
 
 function fmtDateTime(iso: string | null): string {
   if (!iso) return "";
@@ -77,17 +89,33 @@ export function MentorTracksPage() {
   const [error, setError] = useState<string | null>(null);
 
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
-  const [expandedTeamId, setExpandedTeamId] = useState<number | null>(null);
+  // The team whose full-detail modal is open (null = closed).
+  const [detailTeam, setDetailTeam] = useState<MentorAssignedTeam | null>(null);
 
   // The track whose announcement composer is currently open (null = closed).
   const [composerTrack, setComposerTrack] = useState<{ trackId: number; trackName: string; teamCount: number } | null>(null);
   const [history, setHistory] = useState<AnnouncementItem[]>([]);
+  const [supportReqs, setSupportReqs] = useState<SupportRequest[]>([]);
+  const [resolvingId, setResolvingId] = useState<number | null>(null);
 
   const loadHistory = useCallback(() => {
     announcementsApi.listMentor()
       .then(res => setHistory(res.data ?? []))
       .catch(() => { /* non-blocking */ });
   }, []);
+
+  const loadSupport = useCallback(() => {
+    supportApi.listForMentor()
+      .then(res => setSupportReqs(res.data ?? []))
+      .catch(() => { /* non-blocking */ });
+  }, []);
+
+  const resolveRequest = useCallback((requestId: number) => {
+    setResolvingId(requestId);
+    supportApi.resolve(requestId)
+      .then(() => loadSupport())
+      .finally(() => setResolvingId(null));
+  }, [loadSupport]);
 
   useEffect(() => {
     setLoading(true);
@@ -100,7 +128,8 @@ export function MentorTracksPage() {
       .catch(err => setError(err instanceof ApiError ? err.message : "Failed to load mentor assignments."))
       .finally(() => setLoading(false));
     loadHistory();
-  }, [loadHistory]);
+    loadSupport();
+  }, [loadHistory, loadSupport]);
 
   // All assigned tracks (incl. empty ones). Fall back to synthesising them from
   // the team list if an older backend doesn't return the `tracks` field.
@@ -144,7 +173,7 @@ export function MentorTracksPage() {
 
   function switchEvent(id: number) {
     setSelectedEventId(id);
-    setExpandedTeamId(null);
+    setDetailTeam(null);
   }
 
   if (loading) {
@@ -199,11 +228,41 @@ export function MentorTracksPage() {
           trackName={group.trackName}
           teams={group.teams}
           history={history}
-          expandedTeamId={expandedTeamId}
-          onToggleTeam={id => setExpandedTeamId(prev => prev === id ? null : id)}
+          requests={supportReqs.filter(r => r.trackId === group.trackId)}
+          resolvingId={resolvingId}
+          onResolve={resolveRequest}
+          onOpenTeam={setDetailTeam}
           onAnnounce={() => setComposerTrack({ trackId: group.trackId, trackName: group.trackName, teamCount: group.teams.length })}
         />
       ))}
+
+      {detailTeam && (
+        <TeamDetailModal
+          open
+          teamName={detailTeam.teamName}
+          infoRows={[
+            { label: "Round", value: <RoundStatus team={detailTeam} /> },
+            {
+              label: "Status",
+              value: (
+                <>
+                  <SubmissionBadge team={detailTeam} />
+                  {detailTeam.submissionCount > 0 && (
+                    <span style={{ color: C.textMuted, fontFamily: mono, fontSize: 11 }}>
+                      {detailTeam.submissionCount} submission{detailTeam.submissionCount > 1 ? "s" : ""}
+                      {detailTeam.lastSubmittedAt ? ` · last ${fmtDateTime(detailTeam.lastSubmittedAt)}` : ""}
+                    </span>
+                  )}
+                </>
+              ),
+            },
+            { label: "Track", value: detailTeam.trackName },
+            { label: "Members", value: detailTeam.members.length },
+          ]}
+          members={detailTeam.members}
+          onClose={() => setDetailTeam(null)}
+        />
+      )}
 
       {composerTrack && (
         <AnnouncementComposerModal
@@ -223,17 +282,25 @@ export function MentorTracksPage() {
 
 /** One track: header + team table + this track's sent-announcement history. */
 function TrackSection({
-  trackName, teams, history, expandedTeamId, onToggleTeam, onAnnounce,
+  trackName, teams, history, requests, resolvingId, onResolve, onOpenTeam, onAnnounce,
 }: {
   trackName: string;
   teams: MentorAssignedTeam[];
   history: AnnouncementItem[];
-  expandedTeamId: number | null;
-  onToggleTeam: (id: number) => void;
+  requests: SupportRequest[];
+  resolvingId: number | null;
+  onResolve: (requestId: number) => void;
+  onOpenTeam: (team: MentorAssignedTeam) => void;
   onAnnounce: () => void;
 }) {
   const submittedCount = teams.filter(t => t.submissionCount > 0).length;
   const trackHistory = history.filter(h => h.scope === "TRACK" && h.scopeLabel === trackName);
+  const openRequests = requests.filter(r => r.status === "OPEN");
+  const [hoveredTeamId, setHoveredTeamId] = useState<number | null>(null);
+  // Sent-announcement history is collapsed by default to reduce clutter.
+  const [historyOpen, setHistoryOpen] = useState(false);
+  // Support requests: expanded by default when there is something open to handle.
+  const [reqOpen, setReqOpen] = useState(false);
 
   return (
     <PixelCard style={{ padding: 0, overflow: "hidden" }}>
@@ -257,110 +324,153 @@ function TrackSection({
               {["Team", "Leader", "Members", "Round", "Submission"].map(h => (
                 <th key={h} style={{ color: C.green, fontSize: 10, letterSpacing: "0.12em", textAlign: "left", padding: "11px 16px", fontWeight: 600, textTransform: "uppercase" }}>{h}</th>
               ))}
+              <th style={{ width: 48, padding: "11px 16px" }} aria-label="Details" />
             </tr>
           </thead>
           <tbody>
             {teams.length === 0 && (
-              <tr><td colSpan={5} style={{ padding: 18, color: C.textMuted, fontSize: 12, textAlign: "center" }}>No teams in this track.</td></tr>
+              <tr><td colSpan={6} style={{ padding: 18, color: C.textMuted, fontSize: 12, textAlign: "center" }}>No teams in this track.</td></tr>
             )}
             {teams.map((team, i) => {
               const leader = team.members.find(m => m.memberRole === "LEADER");
-              const expanded = expandedTeamId === team.teamId;
+              const hovered = hoveredTeamId === team.teamId;
               return (
-                <React.Fragment key={team.teamId}>
-                  <tr
-                    onClick={() => onToggleTeam(team.teamId)}
-                    style={{ borderBottom: `1px solid rgba(34,197,94,0.06)`, background: i % 2 === 0 ? C.surface : C.surface2, cursor: "pointer" }}
-                  >
-                    <td style={{ color: C.text, fontSize: 13, padding: "12px 16px" }}>
-                      <span style={{ color: C.textMuted, marginRight: 8 }}>{expanded ? "▾" : "▸"}</span>{team.teamName}
-                    </td>
-                    <td style={{ color: C.textMuted, fontSize: 12, padding: "12px 16px" }}>{leader?.fullName ?? "—"}</td>
-                    <td style={{ color: C.textMuted, fontSize: 12, padding: "12px 16px" }}>{team.members.length}</td>
-                    <td style={{ padding: "12px 16px" }}><RoundStatus team={team} /></td>
-                    <td style={{ padding: "12px 16px" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                        <SubmissionBadge team={team} />
-                        {team.submissionCount > 0 && team.lastSubmittedAt && (
-                          <span style={{ color: C.textDim, fontSize: 10 }}>last {fmtDateTime(team.lastSubmittedAt)}</span>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                  {expanded && (
-                    <tr>
-                      <td colSpan={5} style={{ padding: 16, background: "rgba(34,197,94,0.04)" }}>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                          {/* Members */}
-                          <div>
-                            <div style={{ color: C.green, fontFamily: mono, fontSize: 10, letterSpacing: "0.1em", marginBottom: 8 }}>MEMBERS</div>
-                            {team.members.length === 0 && (
-                              <div style={{ color: C.textMuted, fontSize: 11 }}>No members</div>
-                            )}
-                            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                              {team.members.map(m => (
-                                <div key={m.userId} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "8px 10px", background: C.surface2, border: `1px solid ${C.border}` }}>
-                                  <div style={{ minWidth: 0 }}>
-                                    <span style={{ color: C.text, fontFamily: mono, fontSize: 12 }}>
-                                      {m.fullName}{m.memberRole === "LEADER" ? " (Leader)" : ""}
-                                    </span>
-                                    <div style={{ color: C.textMuted, fontFamily: mono, fontSize: 10, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.email}</div>
-                                  </div>
-                                  <PixelBadge color={m.memberRole === "LEADER" ? "green" : "gray"}>{m.memberRole}</PixelBadge>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                          {/* Submission status */}
-                          <div>
-                            <div style={{ color: C.green, fontFamily: mono, fontSize: 10, letterSpacing: "0.1em", marginBottom: 8 }}>SUBMISSION STATUS</div>
-                            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 6 }}>
-                              <SubmissionBadge team={team} />
-                            </div>
-                            {team.submissionCount > 0 ? (
-                              <div style={{ color: C.textMuted, fontFamily: mono, fontSize: 11, lineHeight: 1.7 }}>
-                                {team.submissionCount} submission{team.submissionCount > 1 ? "s" : ""}
-                                {team.lastSubmittedAt ? ` · last ${fmtDateTime(team.lastSubmittedAt)}` : ""}
-                              </div>
-                            ) : (
-                              <div style={{ color: C.textMuted, fontFamily: mono, fontSize: 11, lineHeight: 1.7 }}>
-                                This team has not submitted yet.
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </React.Fragment>
+                <tr
+                  key={team.teamId}
+                  onClick={() => onOpenTeam(team)}
+                  onMouseEnter={() => setHoveredTeamId(team.teamId)}
+                  onMouseLeave={() => setHoveredTeamId(prev => (prev === team.teamId ? null : prev))}
+                  title="View team & member details"
+                  style={{ borderBottom: `1px solid rgba(34,197,94,0.06)`, background: hovered ? "rgba(34,197,94,0.08)" : i % 2 === 0 ? C.surface : C.surface2, cursor: "pointer", transition: "background 0.12s" }}
+                >
+                  <td style={{ color: hovered ? C.green : C.text, fontSize: 13, fontWeight: 600, padding: "12px 16px", transition: "color 0.12s" }}>
+                    {team.teamName}
+                  </td>
+                  <td style={{ color: C.textMuted, fontSize: 12, padding: "12px 16px" }}>{leader?.fullName ?? "—"}</td>
+                  <td style={{ color: C.textMuted, fontSize: 12, padding: "12px 16px" }}>{team.members.length}</td>
+                  <td style={{ padding: "12px 16px" }}><RoundStatus team={team} /></td>
+                  <td style={{ padding: "12px 16px" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      <SubmissionBadge team={team} />
+                      {team.submissionCount > 0 && team.lastSubmittedAt && (
+                        <span style={{ color: C.textDim, fontSize: 10 }}>last {fmtDateTime(team.lastSubmittedAt)}</span>
+                      )}
+                    </div>
+                  </td>
+                  {/* Details button — appears only while hovering this team row. */}
+                  <td style={{ padding: "8px 12px", textAlign: "right" }}>
+                    <span
+                      title="View details"
+                      style={{
+                        display: "inline-flex", alignItems: "center", justifyContent: "center",
+                        width: 30, height: 30,
+                        border: `1px solid ${C.green}`,
+                        background: "rgba(34,197,94,0.14)",
+                        color: C.green,
+                        opacity: hovered ? 1 : 0,
+                        pointerEvents: hovered ? "auto" : "none",
+                        transition: "opacity 0.12s",
+                      }}
+                    >
+                      <List size={15} strokeWidth={2.25} />
+                    </span>
+                  </td>
+                </tr>
               );
             })}
           </tbody>
         </table>
       </div>
 
-      {/* Sent announcements for this track */}
+      {/* Support requests from teams in this track — collapsible */}
       <div style={{ padding: "14px 18px", borderTop: `1px solid ${C.border}` }}>
-        <div style={{ color: C.green, fontFamily: mono, fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", marginBottom: 10 }}>
-          SENT ANNOUNCEMENTS · {trackName}
-        </div>
-        {trackHistory.length === 0 ? (
-          <div style={{ color: C.textMuted, fontFamily: mono, fontSize: 11 }}>
-            No announcements sent to this track yet.
-          </div>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {trackHistory.map(a => (
-              <div key={a.announcementId} style={{ padding: "10px 12px", background: C.surface2, border: `1px solid ${C.border}` }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
-                  <span style={{ color: C.text, fontFamily: mono, fontSize: 12, fontWeight: 700 }}>{a.title}</span>
-                  <span style={{ color: C.textDim, fontFamily: mono, fontSize: 10, whiteSpace: "nowrap" }}>{fmtDateTime(a.createdAt)}</span>
+        <button
+          type="button"
+          onClick={() => setReqOpen(o => !o)}
+          style={{
+            display: "flex", alignItems: "center", gap: 8, width: "100%",
+            background: "none", border: "none", cursor: "pointer", padding: 0,
+            color: openRequests.length > 0 ? "#eab308" : C.green, fontFamily: mono, fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", textAlign: "left",
+          }}
+        >
+          <span style={{ display: "inline-flex", color: "inherit" }}>
+            {reqOpen ? <ChevronDown size={15} strokeWidth={2.5} /> : <ChevronRight size={15} strokeWidth={2.5} />}
+          </span>
+          <span>SUPPORT REQUESTS · {trackName}</span>
+          {openRequests.length > 0
+            ? <PixelBadge color="orange">{openRequests.length} OPEN</PixelBadge>
+            : <PixelBadge color="gray">{requests.length}</PixelBadge>}
+        </button>
+        {reqOpen && (
+          requests.length === 0 ? (
+            <div style={{ color: C.textMuted, fontFamily: mono, fontSize: 11, marginTop: 10 }}>
+              No support requests from this track yet.
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
+              {requests.map(r => (
+                <div key={r.requestId} style={{ padding: "10px 12px", background: C.surface2, border: `1px solid ${r.status === "OPEN" ? "rgba(234,179,8,0.4)" : C.border}` }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      <span style={{ color: C.text, fontFamily: mono, fontSize: 12, fontWeight: 700 }}>{r.teamName}</span>
+                      <PixelBadge color="cyan">{supportCatLabel(r.category)}</PixelBadge>
+                      <PixelBadge color={r.status === "OPEN" ? "orange" : r.status === "RESOLVED" ? "green" : "gray"}>{r.status}</PixelBadge>
+                    </div>
+                    <span style={{ color: C.textDim, fontFamily: mono, fontSize: 10, whiteSpace: "nowrap" }}>{fmtDateTime(r.createdAt)}</span>
+                  </div>
+                  <div style={{ color: C.textMuted, fontFamily: mono, fontSize: 11, lineHeight: 1.6, marginTop: 4, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{r.description}</div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, marginTop: 8, flexWrap: "wrap" }}>
+                    <span style={{ color: C.textDim, fontFamily: mono, fontSize: 10 }}>from {r.requesterName ?? "—"}</span>
+                    {r.status === "OPEN" && (
+                      <PixelButton size="sm" variant="cyber" disabled={resolvingId === r.requestId} onClick={() => onResolve(r.requestId)}>
+                        {resolvingId === r.requestId ? "..." : "MARK RESOLVED"}
+                      </PixelButton>
+                    )}
+                  </div>
                 </div>
-                <div style={{ color: C.textMuted, fontFamily: mono, fontSize: 11, lineHeight: 1.6, marginTop: 4, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{a.content}</div>
-                <div style={{ color: C.textDim, fontFamily: mono, fontSize: 10, marginTop: 6 }}>Sent to {a.recipientCount} participant(s)</div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )
+        )}
+      </div>
+
+      {/* Sent announcements for this track — collapsible to reduce clutter */}
+      <div style={{ padding: "14px 18px", borderTop: `1px solid ${C.border}` }}>
+        <button
+          type="button"
+          onClick={() => setHistoryOpen(o => !o)}
+          style={{
+            display: "flex", alignItems: "center", gap: 8, width: "100%",
+            background: "none", border: "none", cursor: "pointer", padding: 0,
+            color: C.green, fontFamily: mono, fontSize: 11, fontWeight: 700, letterSpacing: "0.05em",
+            textAlign: "left",
+          }}
+        >
+          <span style={{ display: "inline-flex", color: C.green }}>
+            {historyOpen ? <ChevronDown size={15} strokeWidth={2.5} /> : <ChevronRight size={15} strokeWidth={2.5} />}
+          </span>
+          <span>SENT ANNOUNCEMENTS · {trackName}</span>
+          <PixelBadge color="gray">{trackHistory.length}</PixelBadge>
+        </button>
+        {historyOpen && (
+          trackHistory.length === 0 ? (
+            <div style={{ color: C.textMuted, fontFamily: mono, fontSize: 11, marginTop: 10 }}>
+              No announcements sent to this track yet.
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 10 }}>
+              {trackHistory.map(a => (
+                <div key={a.announcementId} style={{ padding: "10px 12px", background: C.surface2, border: `1px solid ${C.border}` }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
+                    <span style={{ color: C.text, fontFamily: mono, fontSize: 12, fontWeight: 700 }}>{a.title}</span>
+                    <span style={{ color: C.textDim, fontFamily: mono, fontSize: 10, whiteSpace: "nowrap" }}>{fmtDateTime(a.createdAt)}</span>
+                  </div>
+                  <div style={{ color: C.textMuted, fontFamily: mono, fontSize: 11, lineHeight: 1.6, marginTop: 4, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{a.content}</div>
+                  <div style={{ color: C.textDim, fontFamily: mono, fontSize: 10, marginTop: 6 }}>Sent to {a.recipientCount} participant(s)</div>
+                </div>
+              ))}
+            </div>
+          )
         )}
       </div>
     </PixelCard>

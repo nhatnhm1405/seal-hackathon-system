@@ -7,8 +7,19 @@ import {
 } from "@/shared/components/PixelComponents";
 import { PixelMenu, type PixelMenuEntry } from "@/shared/components/PixelMenu";
 import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
-import { teamsApi, invitesApi, joinRequestsApi, ApiError, apiErrorMessage, MyTeam, MyTeamMember, UserItem, JoinRequest } from "@/shared/apiClient";
-import { isTeamEditable, teamLockReason, MIN_TEAM_SIZE, MAX_TEAM_SIZE } from "@/shared/teamPhase";
+import { teamsApi, invitesApi, joinRequestsApi, supportApi, ApiError, apiErrorMessage, MyTeam, MyTeamMember, UserItem, JoinRequest, MentorContact, SupportRequest, SupportCategory } from "@/shared/apiClient";
+import { isTeamEditable, MIN_TEAM_SIZE, MAX_TEAM_SIZE } from "@/shared/teamPhase";
+
+// Support-request categories shown to the team leader.
+const SUPPORT_CATEGORIES: { value: SupportCategory; label: string }[] = [
+  { value: "RULES", label: "Rules / Regulation" },
+  { value: "TECHNICAL", label: "Technical" },
+  { value: "DIRECTION", label: "Direction / Idea" },
+  { value: "OTHER", label: "Other" },
+];
+function categoryLabel(c: SupportCategory): string {
+  return SUPPORT_CATEGORIES.find(x => x.value === c)?.label ?? c;
+}
 
 function fmtDT(iso?: string | null): string {
   if (!iso) return "—";
@@ -56,7 +67,15 @@ export function TeamViewPage() {
   const [editingName, setEditingName] = useState(false);
   const [nameInput, setNameInput] = useState("");
 
-  const [teamPanel, setTeamPanel] = useState<"invite" | "requests" | "member" | null>(null);
+  const [teamPanel, setTeamPanel] = useState<"invite" | "requests" | "member" | "mentor" | null>(null);
+
+  // Mentor support: the track's mentor(s) + this team's requests.
+  const [mentors, setMentors] = useState<MentorContact[]>([]);
+  const [myRequests, setMyRequests] = useState<SupportRequest[]>([]);
+  const [reqCategory, setReqCategory] = useState<SupportCategory>("TECHNICAL");
+  const [reqDesc, setReqDesc] = useState("");
+  const [reqBusy, setReqBusy] = useState(false);
+  const [reqError, setReqError] = useState<string | null>(null);
   const [inviteQuery, setInviteQuery] = useState("");
   const [inviteResults, setInviteResults] = useState<UserItem[]>([]);
   const [inviteSearchMessage, setInviteSearchMessage] = useState<string | null>(null);
@@ -77,6 +96,11 @@ export function TeamViewPage() {
     joinRequestsApi.getForTeam(teamId).then(r => setJoinRequests(r.data ?? [])).catch(() => setJoinRequests([]));
   }, []);
 
+  const loadSupport = useCallback(() => {
+    supportApi.getMyMentors().then(r => setMentors(r.data ?? [])).catch(() => setMentors([]));
+    supportApi.getMine().then(r => setMyRequests(r.data ?? [])).catch(() => setMyRequests([]));
+  }, []);
+
   const applyTeam = useCallback((nextTeam: MyTeam | null) => {
     setTeam(nextTeam);
     if (nextTeam?.myRole === 'LEADER') {
@@ -84,7 +108,8 @@ export function TeamViewPage() {
     } else {
       setJoinRequests([]);
     }
-  }, [loadJoinRequests]);
+    if (nextTeam) loadSupport(); else { setMentors([]); setMyRequests([]); }
+  }, [loadJoinRequests, loadSupport]);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -106,7 +131,7 @@ export function TeamViewPage() {
 
   const isLeader = team?.myRole === 'LEADER';
   const editable = isTeamEditable(team?.eventStatus);
-  const lockReason = team ? teamLockReason(team.eventStatus) : null;
+  const openRequest = myRequests.find(r => r.status === 'OPEN') ?? null;
   const canEditTeam = isLeader && editable;
   const canManageMembers = canEditTeam;
   const canLeaveTeam = editable;
@@ -267,6 +292,35 @@ export function TeamViewPage() {
     } finally { setBusy(false); }
   }
 
+  async function submitSupportRequest() {
+    if (!reqDesc.trim()) {
+      setReqError("Please describe what you need help with.");
+      return;
+    }
+    setReqBusy(true); setReqError(null);
+    try {
+      await supportApi.create({ category: reqCategory, description: reqDesc.trim() });
+      setReqDesc("");
+      loadSupport();
+      addToast({ type: "success", title: "Request sent", message: "Your mentor has been notified and will come to help." });
+    } catch (err) {
+      setReqError(err instanceof ApiError ? err.message : "Failed to send request.");
+      addToast({ type: "warning", title: "Request failed", message: apiErrorMessage(err, "Failed to send request.") });
+    } finally { setReqBusy(false); }
+  }
+
+  async function cancelSupportRequest(requestId: number) {
+    setReqBusy(true); setReqError(null);
+    try {
+      await supportApi.cancel(requestId);
+      loadSupport();
+      addToast({ type: "info", title: "Request cancelled", message: "Your support request has been cancelled." });
+    } catch (err) {
+      setReqError(err instanceof ApiError ? err.message : "Failed to cancel request.");
+      addToast({ type: "warning", title: "Cancel failed", message: apiErrorMessage(err, "Failed to cancel request.") });
+    } finally { setReqBusy(false); }
+  }
+
   const memberRows = team.members ?? [];
   const selectedMember = memberRows.find(m => m.userId === selectedMemberId) ?? null;
   const leaderMember = memberRows.find(m => m.role === "LEADER") ?? null;
@@ -325,13 +379,6 @@ export function TeamViewPage() {
         </div>
       )}
 
-      {lockReason && (
-        <div style={{ background: "rgba(59,130,246,0.08)", border: "1px solid rgba(59,130,246,0.4)", color: "#3b82f6", fontFamily: "'JetBrains Mono', monospace", fontSize: 12, padding: "12px 16px", display: "flex", gap: 8 }}>
-          <span aria-hidden style={{ flexShrink: 0 }}>🔒</span>
-          <span>{lockReason}</span>
-        </div>
-      )}
-
       {canEditTeam && memberRows.length < MIN_TEAM_SIZE && (
         <div style={{ background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.4)", color: "#eab308", fontFamily: "'JetBrains Mono', monospace", fontSize: 12, padding: "12px 16px" }}>
           Your team has {memberRows.length}/{MIN_TEAM_SIZE} minimum members. Teams with fewer than {MIN_TEAM_SIZE} members may be merged by a coordinator.
@@ -352,6 +399,39 @@ export function TeamViewPage() {
           <InfoCell label={team.status === 'DISQUALIFIED' ? "Disqualified round" : "Current round"} value={team.round?.name ?? "—"} badge={team.round?.status} />
           <InfoCell label="Members" value={`${memberRows.length}/${MAX_TEAM_SIZE}`} accent />
           <InfoCell label="Your role" value={team.myRole ?? "—"} />
+        </div>
+      </PixelCard>
+
+      {/* Mentor — Request help opens the support panel on the right */}
+      <PixelCard style={{ padding: 0, overflow: "hidden" }}>
+        <div style={{ padding: "14px 18px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
+          <span style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 700 }}>Your Mentor</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            {openRequest && <PixelBadge color="cyan">SUPPORT OPEN</PixelBadge>}
+            {mentors.length > 0 && (
+              <PixelButton size="sm" variant={teamPanel === "mentor" ? "secondary" : "cyber"} onClick={() => setTeamPanel("mentor")}>
+                {openRequest ? "VIEW REQUEST" : "REQUEST HELP"}
+              </PixelButton>
+            )}
+          </div>
+        </div>
+        <div style={{ padding: "14px 18px" }}>
+          {mentors.length === 0 ? (
+            <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>
+              No mentor is assigned to your track yet.
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {mentors.map(m => (
+                <div key={m.userId} style={{ background: C.surface2, border: `1px solid ${C.border}`, padding: "12px 14px" }}>
+                  <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 14, fontWeight: 700 }}>{m.fullName}</div>
+                  <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginTop: 3 }}>
+                    {m.trackName} mentor{m.email ? ` · ${m.email}` : ""}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </PixelCard>
 
@@ -465,13 +545,82 @@ export function TeamViewPage() {
             <div style={{ padding: "18px 20px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
               <div>
                 <div style={{ color: effectivePanel === "requests" ? C.cyan : C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, fontWeight: 900, letterSpacing: "0.14em", textTransform: "uppercase" }}>
-                  {effectivePanel === "invite" ? "Invite Member" : effectivePanel === "requests" ? "Join Requests" : "Member Info"}
+                  {effectivePanel === "invite" ? "Invite Member" : effectivePanel === "requests" ? "Join Requests" : effectivePanel === "mentor" ? "Mentor Support" : "Member Info"}
                 </div>
               </div>
             </div>
 
             <div style={{ padding: 20 }}>
-              {effectivePanel === "member" ? (
+              {effectivePanel === "mentor" ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                  {mentors.length === 0 && (
+                    <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, border: `1px solid ${C.border}`, background: C.surface2, padding: 14 }}>
+                      No mentor is assigned to your track yet.
+                    </div>
+                  )}
+                  {mentors.length > 0 && openRequest ? (
+                    /* Current open request — status + cancel */
+                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                      <div style={{ background: C.surface2, border: `1px solid ${C.border}`, padding: 14, display: "flex", flexDirection: "column", gap: 8 }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+                          <PixelBadge color="cyan">{categoryLabel(openRequest.category)}</PixelBadge>
+                          <PixelBadge color="yellow">OPEN</PixelBadge>
+                        </div>
+                        <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, lineHeight: 1.7, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{openRequest.description}</div>
+                        <div style={{ color: C.textDim, fontFamily: "'JetBrains Mono', monospace", fontSize: 10 }}>Sent {fmtDT(openRequest.createdAt)} · by {openRequest.requesterName ?? "—"}</div>
+                      </div>
+                      <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, lineHeight: 1.6 }}>
+                        Your mentor has been notified and will come to help in person.
+                      </div>
+                      {isLeader ? (
+                        <PixelButton size="sm" variant="danger" onClick={() => cancelSupportRequest(openRequest.requestId)} disabled={reqBusy}>
+                          {reqBusy ? "..." : "CANCEL REQUEST"}
+                        </PixelButton>
+                      ) : (
+                        <div style={{ color: C.textDim, fontFamily: "'JetBrains Mono', monospace", fontSize: 10 }}>Only the team leader can cancel this request.</div>
+                      )}
+                    </div>
+                  ) : mentors.length > 0 && (
+                    /* No open request — the leader can raise one */
+                    isLeader ? (
+                      <>
+                        <div>
+                          <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: "0.1em", marginBottom: 8 }}>WHAT DO YOU NEED HELP WITH?</div>
+                          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                            {SUPPORT_CATEGORIES.map(c => {
+                              const on = reqCategory === c.value;
+                              return (
+                                <button key={c.value} type="button" onClick={() => setReqCategory(c.value)}
+                                  style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, padding: "6px 12px", cursor: "pointer", borderRadius: 0,
+                                    background: on ? "rgba(34,197,94,0.12)" : C.surface2, border: `1px solid ${on ? C.green : C.border}`, color: on ? C.green : C.textMuted }}>
+                                  {c.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        <textarea
+                          value={reqDesc} onChange={e => setReqDesc(e.target.value)} maxLength={2000} disabled={reqBusy}
+                          placeholder="Describe your question so the mentor knows how to help…"
+                          style={{ background: C.surface2, border: `1px solid ${C.border}`, color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, padding: "10px 12px", minHeight: 110, resize: "vertical", lineHeight: 1.6, outline: "none", borderRadius: 0 }}
+                        />
+                        {reqError && (
+                          <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.35)", color: C.red, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, padding: "8px 12px" }}>
+                            {reqError}
+                          </div>
+                        )}
+                        <PixelButton variant="cyber" onClick={submitSupportRequest} disabled={reqBusy}>
+                          {reqBusy ? "SENDING…" : "REQUEST SUPPORT"}
+                        </PixelButton>
+                      </>
+                    ) : (
+                      <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, border: `1px solid ${C.border}`, background: C.surface2, padding: 14, lineHeight: 1.6 }}>
+                        Only the team leader can send a mentor support request. Ask your leader if the team needs help.
+                      </div>
+                    )
+                  )}
+                </div>
+              ) : effectivePanel === "member" ? (
                 panelMember ? (
                   <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                     <div style={{ background: C.surface2, border: `1px solid ${C.border}`, padding: 16 }}>

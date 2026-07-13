@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { C, GradientText, PixelBadge, PixelCard } from "@/shared/components/PixelComponents";
+import { MemberTextList } from "@/shared/components/MemberTextList";
 import { ApiError, assignmentsApi, MentorHistoryEntry } from "@/shared/apiClient";
 
 const mono = "'JetBrains Mono', monospace";
@@ -127,21 +128,20 @@ export function MentorHistoryPage() {
                                 return rankDiff !== 0 ? rankDiff : a.teamName.localeCompare(b.teamName);
                               })
                               .map((team) => (
-                                <div key={team.teamId} style={{ display: "flex", gap: 12, alignItems: "center", fontFamily: mono, fontSize: 12, flexWrap: "wrap" }}>
-                                  <span style={{ color: C.text, minWidth: 170, fontWeight: 600 }}>
-                                    {team.teamName}
-                                  </span>
-                                  <span style={{ color: C.cyan, minWidth: 80 }}>
-                                    {team.finalRank != null ? `Final #${team.finalRank}` : "-"}
-                                  </span>
-                                  {team.prizeName && (
-                                    <span style={{ color: PRIZE_COLOR, fontWeight: 700 }}>
-                                      Prize: {team.prizeName}
+                                <div key={team.teamId} style={{ padding: "12px 14px", background: C.surface2, border: `1px solid ${C.border}`, display: "flex", flexDirection: "column", gap: 10 }}>
+                                  <div style={{ display: "flex", gap: 12, alignItems: "center", fontFamily: mono, fontSize: 13, flexWrap: "wrap" }}>
+                                    <span style={{ color: C.text, fontWeight: 700 }}>{team.teamName}</span>
+                                    <span style={{ color: C.cyan }}>
+                                      {team.finalRank != null ? `Final #${team.finalRank}` : "—"}
                                     </span>
-                                  )}
-                                  <PixelBadge color={team.teamStatus === "DISQUALIFIED" ? "red" : "gray"}>
-                                    {team.teamStatus}
-                                  </PixelBadge>
+                                    {team.prizeName && (
+                                      <span style={{ color: PRIZE_COLOR, fontWeight: 700 }}>Prize: {team.prizeName}</span>
+                                    )}
+                                    <PixelBadge color={team.teamStatus === "DISQUALIFIED" ? "red" : "gray"}>
+                                      {team.teamStatus}
+                                    </PixelBadge>
+                                  </div>
+                                  <MemberTextList members={team.members ?? []} />
                                 </div>
                               ))}
                           </div>

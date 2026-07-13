@@ -39,6 +39,20 @@ public class Notification {
     @JoinColumn(name = "announcement_id")
     private Announcement announcement;
 
+    // Optional direct sender (no Announcement), e.g. a mentor support request from
+    // a team leader. Lets non-announcement notifications still resolve a "From"
+    // and pop the same email-style detail as announcements.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "sender_user_id")
+    private User sender;
+
+    // Human role/context label for the sender (e.g. "Team Leader", "Web Application").
+    @Column(name = "sender_role", length = 100)
+    private String senderRole;
+
+    @Column(name = "scope_label", length = 255)
+    private String scopeLabel;
+
     // related_event_id removed from schema — notifications are addressed to a user
     // and carry their context in the title/content.
 

@@ -283,12 +283,25 @@ public class AssignmentService {
                         .map(resultRow -> resultRow.getRankPosition())
                         .orElse(null);
 
+                            List<TeamMember> teamMembers = teamMemberRepository.findByTeam_TeamId(team.getTeamId());
+                            List<MentorHistoryResponse.MemberInfo> members = teamMembers.stream()
+                                    .map(tm -> MentorHistoryResponse.MemberInfo.builder()
+                                            .fullName(tm.getUser().getFullName())
+                                            .memberRole(tm.getMemberRole())
+                                            .studentId(tm.getUser().getStudentId())
+                                            .userType(tm.getUser().getUserType())
+                                            .university(tm.getUser().getUniversity())
+                                            .build())
+                                    .collect(Collectors.toList());
+
                             return MentorHistoryResponse.TeamResult.builder()
                                     .teamId(team.getTeamId())
                                     .teamName(team.getName())
                                     .teamStatus(team.getStatus())
                                     .finalRank(finalRank)
                                     .prizeName(prizeByTeam.get(team.getTeamId()))
+                                    .memberCount(teamMembers.size())
+                                    .members(members)
                                     .build();
                         })
                         .collect(Collectors.toList());
@@ -372,7 +385,14 @@ public class AssignmentService {
             throw new BadRequestException("This mentor is already assigned to this track.");
         }
 
-        ensureRole(mentor, "MENTOR", track.getEvent().getEventId());
+        // Business rule: a mentor manages at most one track per event. (A track may
+        // still have several mentors — only the mentor→track direction is capped.)
+        Integer eventId = track.getEvent().getEventId();
+        if (mentorAssignmentRepository.existsByMentor_UserIdAndTrack_Event_EventIdAndIsActiveTrue(mentor.getUserId(), eventId)) {
+            throw new BadRequestException("This mentor already manages a track in this event. A mentor can manage only one track per event.");
+        }
+
+        ensureRole(mentor, "MENTOR", eventId);
 
         mentorAssignmentRepository.save(MentorAssignment.builder()
                 .mentor(mentor)
@@ -561,6 +581,9 @@ public class AssignmentService {
                         .fullName(m.getUser().getFullName())
                         .email(m.getUser().getEmail())
                         .memberRole(m.getMemberRole())
+                        .studentId(m.getUser().getStudentId())
+                        .userType(m.getUser().getUserType())
+                        .university(m.getUser().getUniversity())
                         .build())
                 .collect(Collectors.toList());
     }
@@ -573,6 +596,9 @@ public class AssignmentService {
                         .fullName(m.getUser().getFullName())
                         .email(m.getUser().getEmail())
                         .memberRole(m.getMemberRole())
+                        .studentId(m.getUser().getStudentId())
+                        .userType(m.getUser().getUserType())
+                        .university(m.getUser().getUniversity())
                         .build())
                 .collect(Collectors.toList());
     }

@@ -3,9 +3,9 @@ import {
   C, GradientText, PixelCard, PixelBadge,
 } from "@/shared/components/PixelComponents";
 import {
-  assignmentsApi, eventsApi, roundsApi, submissionsApi, scoringApi, ApiError,
+  assignmentsApi, eventsApi, roundsApi, submissionsApi, scoringApi, ApiError, JudgeAssignedTeam,
 } from "@/shared/apiClient";
-import { buildTeamCodeMap } from "./anon";
+import { MemberTextList } from "@/shared/components/MemberTextList";
 
 function fmtDateTime(iso?: string) {
   if (!iso) return "—";
@@ -16,8 +16,11 @@ function fmtDateTime(iso?: string) {
 
 interface HistoryRow {
   submissionId: number;
-  code: string;
+  teamId: number | null;
+  teamName: string;
+  trackName: string | null;
   roundName: string;
+  roundOrder: number;
   total: number;
   isDraft: boolean;
   scoredAt?: string;
@@ -28,6 +31,8 @@ export function JudgeHistoryPage() {
   const [rows, setRows] = useState<HistoryRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Full team profiles keyed by teamId — real names + members shown as text.
+  const [teamsById, setTeamsById] = useState<Map<number, JudgeAssignedTeam>>(new Map());
 
   useEffect(() => {
     let cancelled = false;
@@ -37,9 +42,11 @@ export function JudgeHistoryPage() {
     (async () => {
       try {
         const assignment = (await assignmentsApi.getJudgeAssignments()).data;
-        const roundIds = [...new Set((assignment?.teams ?? []).map(t => t.roundId))];
-        const teamCodes = buildTeamCodeMap(assignment?.teams ?? []);
-        if (!cancelled) setEventName(assignment?.eventName ?? "");
+        const assignedTeams = assignment?.teams ?? [];
+        const roundIds = [...new Set(assignedTeams.map(t => t.roundId))];
+        const byTeam = new Map<number, JudgeAssignedTeam>();
+        assignedTeams.forEach(t => { if (!byTeam.has(t.teamId)) byTeam.set(t.teamId, t); });
+        if (!cancelled) { setEventName(assignment?.eventName ?? ""); setTeamsById(byTeam); }
 
         const events = await eventsApi.getAll().then(r => r.data ?? []).catch(() => []);
         const event = events.find(e => e.name === assignment?.eventName)
@@ -57,18 +64,23 @@ export function JudgeHistoryPage() {
           const weightByCrit = new Map(crit.map(c => [c.criteriaId, Number(c.weight)]));
           const teamIdBySub = new Map(subs.map(s => [s.submissionId, s.teamId]));
           const roundName = rounds.find(r => r.roundId === roundId)?.name ?? `Round #${roundId}`;
+          const roundOrder = rounds.find(r => r.roundId === roundId)?.orderNumber ?? roundId;
+          // Weighted max for this round → lets us show every score on a 0–100 scale.
+          const weightedMax = crit.reduce((acc, c) => acc + Number(c.maxScore) * Number(c.weight), 0);
 
           // Group my scores by submission.
           const bySub = new Map<number, typeof myScores>();
           myScores.forEach(s => { const a = bySub.get(s.submissionId) ?? []; a.push(s); bySub.set(s.submissionId, a); });
 
           return [...bySub.entries()].map(([submissionId, scs]) => {
-            const total = scs.reduce((acc, sc) => acc + Number(sc.value) * (weightByCrit.get(sc.criteriaId) ?? 0), 0);
+            const raw = scs.reduce((acc, sc) => acc + Number(sc.value) * (weightByCrit.get(sc.criteriaId) ?? 0), 0);
+            const total = weightedMax > 0 ? (raw / weightedMax) * 100 : 0;
             const isDraft = scs.some(s => s.isDraft);
             const scoredAt = scs.map(s => s.updatedAt ?? s.scoredAt).filter(Boolean).sort().pop();
-            const teamId = teamIdBySub.get(submissionId);
-            const code = (teamId != null ? teamCodes.get(teamId) : undefined) ?? `#${submissionId}`;
-            return { submissionId, code, roundName, total, isDraft, scoredAt } as HistoryRow;
+            const teamId = teamIdBySub.get(submissionId) ?? null;
+            const teamName = (teamId != null ? byTeam.get(teamId)?.teamName : undefined) ?? `#${submissionId}`;
+            const trackName = (teamId != null ? byTeam.get(teamId)?.trackName : undefined) ?? null;
+            return { submissionId, teamId, teamName, trackName, roundName, roundOrder, total, isDraft, scoredAt } as HistoryRow;
           });
         }));
 
@@ -87,6 +99,21 @@ export function JudgeHistoryPage() {
 
   const finalCount = rows.filter(r => !r.isDraft).length;
   const draftCount = rows.filter(r => r.isDraft).length;
+  const [openRounds, setOpenRounds] = useState<Set<string>>(new Set());
+  const toggleRound = (name: string) => setOpenRounds(prev => {
+    const next = new Set(prev);
+    next.has(name) ? next.delete(name) : next.add(name);
+    return next;
+  });
+
+  // Group my scored teams by round (highest score first within a round).
+  const roundGroups = (() => {
+    const m = new Map<string, HistoryRow[]>();
+    rows.forEach(r => { const a = m.get(r.roundName) ?? []; a.push(r); m.set(r.roundName, a); });
+    return [...m.entries()]
+      .map(([roundName, items]) => ({ roundName, roundOrder: items[0].roundOrder, items: [...items].sort((a, b) => b.total - a.total) }))
+      .sort((a, b) => a.roundOrder - b.roundOrder);
+  })();
 
   return (
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
@@ -105,38 +132,53 @@ export function JudgeHistoryPage() {
         </div>
       )}
 
-      <PixelCard style={{ padding: 0, overflow: "hidden" }}>
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'JetBrains Mono', monospace" }}>
-            <thead>
-              <tr style={{ background: C.surface2, borderBottom: `1px solid ${C.border}` }}>
-                {["Submission", "Round", "Weighted Total", "Scored At", "Status"].map(h => (
-                  <th key={h} style={{ color: C.green, fontSize: 10, letterSpacing: "0.12em", textAlign: "left", padding: "12px 16px", fontWeight: 600, textTransform: "uppercase" }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {loading && (
-                <tr><td colSpan={5} style={{ padding: 20, color: C.textMuted, fontSize: 12, textAlign: "center" }}>Loading...</td></tr>
+      {loading ? (
+        <PixelCard style={{ padding: 40, textAlign: "center" }}>
+          <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 13 }}>Loading...</div>
+        </PixelCard>
+      ) : rows.length === 0 ? (
+        <PixelCard style={{ padding: 40, textAlign: "center" }}>
+          <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 13 }}>No scoring history yet.</div>
+        </PixelCard>
+      ) : (
+        roundGroups.map(group => {
+          const isOpen = openRounds.has(group.roundName);
+          return (
+            <PixelCard key={group.roundName} style={{ padding: 0, overflow: "hidden", borderLeft: `4px solid ${C.green}` }}>
+              {/* Round header — collapsible */}
+              <button
+                type="button"
+                onClick={() => toggleRound(group.roundName)}
+                style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "16px 18px", background: "none", border: "none", cursor: "pointer", textAlign: "left", borderBottom: isOpen ? `1px solid ${C.border}` : "none" }}
+              >
+                <span style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 14 }}>{isOpen ? "v" : ">"}</span>
+                <span style={{ flex: 1, color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 16, fontWeight: 800 }}>{group.roundName}</span>
+                <PixelBadge color="blue">{group.items.length} TEAM{group.items.length === 1 ? "" : "S"}</PixelBadge>
+              </button>
+
+              {isOpen && (
+                <div style={{ padding: 18, display: "flex", flexDirection: "column", gap: 12 }}>
+                  {group.items.map(r => {
+                    const team = r.teamId != null ? teamsById.get(r.teamId) : undefined;
+                    return (
+                      <div key={r.submissionId} style={{ padding: "12px 14px", background: C.surface2, border: `1px solid ${C.border}`, display: "flex", flexDirection: "column", gap: 10 }}>
+                        <div style={{ display: "flex", gap: 12, alignItems: "center", fontFamily: "'JetBrains Mono', monospace", fontSize: 13, flexWrap: "wrap" }}>
+                          <span style={{ color: C.text, fontWeight: 700 }}>{r.teamName}</span>
+                          {r.trackName && <PixelBadge color="gray">{r.trackName}</PixelBadge>}
+                          <span style={{ color: C.cyan, fontWeight: 700 }}>{r.total.toFixed(2)}<span style={{ color: C.textMuted, fontSize: 11 }}> /100</span></span>
+                          <PixelBadge color={r.isDraft ? "yellow" : "green"}>{r.isDraft ? "Draft" : "Final"}</PixelBadge>
+                          <span style={{ color: C.textDim, fontSize: 10, marginLeft: "auto" }}>{fmtDateTime(r.scoredAt)}</span>
+                        </div>
+                        <MemberTextList members={team?.members ?? []} />
+                      </div>
+                    );
+                  })}
+                </div>
               )}
-              {!loading && !error && rows.length === 0 && (
-                <tr><td colSpan={5} style={{ padding: 20, color: C.textMuted, fontSize: 12, textAlign: "center" }}>No scoring history yet.</td></tr>
-              )}
-              {!loading && rows.map((r, i) => (
-                <tr key={`${r.submissionId}-${i}`} style={{ borderBottom: `1px solid rgba(34,197,94,0.06)`, background: i % 2 === 0 ? C.surface : C.surface2 }}>
-                  <td style={{ color: C.text, fontSize: 13, padding: "12px 16px" }}>{r.code}</td>
-                  <td style={{ color: C.textMuted, fontSize: 12, padding: "12px 16px" }}>{r.roundName}</td>
-                  <td style={{ color: C.cyan, fontSize: 14, fontWeight: 700, padding: "12px 16px" }}>{r.total.toFixed(2)}</td>
-                  <td style={{ color: C.textMuted, fontSize: 11, padding: "12px 16px" }}>{fmtDateTime(r.scoredAt)}</td>
-                  <td style={{ padding: "12px 16px" }}>
-                    <PixelBadge color={r.isDraft ? "yellow" : "green"}>{r.isDraft ? "Draft" : "Final"}</PixelBadge>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </PixelCard>
+            </PixelCard>
+          );
+        })
+      )}
     </div>
   );
 }

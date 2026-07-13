@@ -48,5 +48,9 @@ public class JudgeAssignmentResponse {
         private String fullName;
         private String email;
         private String memberRole; // LEADER hoặc MEMBER
+        // Thông tin đầy đủ để judge xem chi tiết thành viên trong modal.
+        private String studentId;   // MSSV
+        private String userType;    // FPT_STUDENT | EXTERNAL_STUDENT | STAFF
+        private String university;  // trường
     }
 }
