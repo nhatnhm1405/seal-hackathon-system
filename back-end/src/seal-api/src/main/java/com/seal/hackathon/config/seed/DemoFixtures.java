@@ -10,6 +10,7 @@ import com.seal.hackathon.entity.RoundResult;
 import com.seal.hackathon.entity.Score;
 import com.seal.hackathon.entity.ScoringCriteria;
 import com.seal.hackathon.entity.Submission;
+import com.seal.hackathon.entity.SystemLog;
 import com.seal.hackathon.entity.Team;
 import com.seal.hackathon.entity.TeamMember;
 import com.seal.hackathon.entity.Track;
@@ -25,6 +26,7 @@ import com.seal.hackathon.repository.RoundResultRepository;
 import com.seal.hackathon.repository.ScoreRepository;
 import com.seal.hackathon.repository.ScoringCriteriaRepository;
 import com.seal.hackathon.repository.SubmissionRepository;
+import com.seal.hackathon.repository.SystemLogRepository;
 import com.seal.hackathon.repository.TeamMemberRepository;
 import com.seal.hackathon.repository.TeamRepository;
 import com.seal.hackathon.repository.TrackRepository;
@@ -66,6 +68,7 @@ public class DemoFixtures {
     private final ScoreRepository scoreRepo;
     private final RoundResultRepository resultRepo;
     private final PrizeRepository prizeRepo;
+    private final SystemLogRepository systemLogRepo;
     private final PasswordEncoder encoder;
 
     // ── People ───────────────────────────────────────────────────────
@@ -113,6 +116,22 @@ public class DemoFixtures {
         guestJudges.forEach(u -> u.setIsActive(false));
         userRepo.saveAll(students);
         userRepo.saveAll(guestJudges);
+    }
+
+    /** The bootstrap SYSTEM_ADMIN account (seeded by DataSeeder, before the demo seeder runs). */
+    public User adminActor() {
+        return userRepo.findByEmail(com.seal.hackathon.config.DataSeeder.ADMIN_EMAIL)
+                .orElseThrow(() -> new IllegalStateException(
+                        "Bootstrap SYSTEM_ADMIN not found — DataSeeder must run before the demo seeder."));
+    }
+
+    // ── System log ───────────────────────────────────────────────────
+
+    /** Appends a SystemLog row with an explicit timestamp, for a demo audit trail
+     * that reads as a real timeline instead of a burst of same-instant rows. */
+    public void systemLog(User actor, String action, String detail, LocalDateTime at) {
+        systemLogRepo.save(SystemLog.builder()
+                .actor(actor).action(action).detail(detail).createdAt(at).build());
     }
 
     // ── Event structure ──────────────────────────────────────────────

@@ -215,8 +215,36 @@ public class DemoScenario {
         // Event is COMPLETED → participants and guest judges leave the running
         // competition, so they go inactive (mirrors HackathonEventService on complete).
         fx.deactivateCompletedEventUsers(event);
+
+        // ── 10. SYSTEM LOG (S3 only) ──────────────────────────────────
+        // A believable admin audit trail spanning the event's lifetime, so the
+        // System Logs screen has something to show in the fullest demo scenario.
+        seedSystemLog(coordinator, judge1, judge2, guestJudge, mentor1, mentor2);
+
         log.info("[demo] S3 seeded — COMPLETED event, {} teams across {} tracks, {} finalists, {} prizes.",
                 slots.size(), tracks.size(), advancing.size(), Math.min(3, finalRanked.size()));
+    }
+
+    /** Writes a spread-out SystemLog history: account creation → role grants →
+     * a failed login → a password reset → the admin completing the event. */
+    private void seedSystemLog(User coordinator, User judge1, User judge2, User guestJudge,
+                               User mentor1, User mentor2) {
+        User admin = fx.adminActor();
+        LocalDateTime now = LocalDateTime.now();
+
+        fx.systemLog(admin, "CREATE_USER", "Created staff account " + coordinator.getEmail() + ".", now.minusDays(70));
+        fx.systemLog(admin, "GRANT_ROLE", "Granted EVENT_COORDINATOR to " + coordinator.getFullName() + " (system-wide).", now.minusDays(70));
+        fx.systemLog(admin, "CREATE_USER", "Created staff account " + judge1.getEmail() + ".", now.minusDays(69));
+        fx.systemLog(admin, "GRANT_ROLE", "Granted JUDGE to " + judge1.getFullName() + " (system-wide).", now.minusDays(69));
+        fx.systemLog(admin, "CREATE_USER", "Created staff account " + judge2.getEmail() + ".", now.minusDays(69));
+        fx.systemLog(admin, "GRANT_ROLE", "Granted JUDGE to " + judge2.getFullName() + " (system-wide).", now.minusDays(69));
+        fx.systemLog(admin, "CREATE_USER", "Created guest judge account " + guestJudge.getEmail() + ".", now.minusDays(68));
+        fx.systemLog(admin, "GRANT_ROLE", "Granted JUDGE to " + guestJudge.getFullName() + " (system-wide).", now.minusDays(68));
+        fx.systemLog(admin, "GRANT_ROLE", "Granted MENTOR to " + mentor1.getFullName() + " (system-wide).", now.minusDays(68));
+        fx.systemLog(admin, "GRANT_ROLE", "Granted MENTOR to " + mentor2.getFullName() + " (system-wide).", now.minusDays(68));
+        fx.systemLog(coordinator, "LOGIN_FAILED", "Failed login attempt for " + coordinator.getEmail() + " (wrong password).", now.minusDays(40));
+        fx.systemLog(admin, "RESET_PASSWORD", "Reset password for " + guestJudge.getEmail() + " after a lockout request.", now.minusDays(35));
+        fx.systemLog(admin, "COMPLETE_EVENT", "Marked \"" + DEMO_EVENT_NAME + "\" as COMPLETED (IN_PROGRESS → COMPLETED).", now.minusDays(15));
     }
 
     // ── scoring/ranking ──────────────────────────────────────────────

@@ -36,7 +36,8 @@ public class DataSeeder implements CommandLineRunner {
 
     // Bootstrap admin — the chicken-and-egg breaker: SYSTEM_ADMIN is granted, never
     // self-registered, so a fresh DB needs one seeded account to administer from.
-    private static final String ADMIN_EMAIL = "admin@fpt.edu.vn";
+    // Public: the demo seeder looks this account up to act as the SystemLog actor.
+    public static final String ADMIN_EMAIL = "admin@fpt.edu.vn";
     private static final String ADMIN_PASSWORD = "Test@1234";
 
     private final RoleRepository roleRepository;
