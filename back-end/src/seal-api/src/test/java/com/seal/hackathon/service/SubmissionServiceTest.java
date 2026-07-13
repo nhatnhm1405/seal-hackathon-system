@@ -1,9 +1,11 @@
 package com.seal.hackathon.service;
 
 import com.seal.hackathon.dto.request.SubmitRequest;
+import com.seal.hackathon.dto.response.SubmissionEligibilityResponse;
 import com.seal.hackathon.dto.response.SubmissionResponse;
 import com.seal.hackathon.entity.HackathonEvent;
 import com.seal.hackathon.entity.Round;
+import com.seal.hackathon.entity.RoundResult;
 import com.seal.hackathon.entity.Submission;
 import com.seal.hackathon.entity.Team;
 import com.seal.hackathon.entity.TeamMember;
@@ -32,6 +34,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -301,6 +304,140 @@ class SubmissionServiceTest {
         assertThrows(BadRequestException.class, () -> submissionService.submit(100, request(1, "http://repo", null, null, null)));
     }
 
+    @Test
+    void submit_shouldThrowBadRequest_whenTeamWasEliminated() {
+        User user = student(100, "Leader");
+        Round previous = round(1, "FINALIZED", LocalDateTime.now().minusDays(1));
+        previous.setTopNAdvance(2);
+        Round current = round(2, "ACTIVE", LocalDateTime.now().plusDays(1));
+        Team team = team(99, current.getEvent(), "APPROVED");
+        TeamMember leader = member(1, team, user, "LEADER");
+        RoundResult result = result(team, previous, 3, true);
+
+        when(userRepository.findById(100)).thenReturn(Optional.of(user));
+        when(roundRepository.findById(2)).thenReturn(Optional.of(current));
+        when(teamMemberRepository.findByUser_UserIdAndTeam_Event_StatusIn(eq(100), anyList()))
+                .thenReturn(List.of(leader));
+        when(roundRepository.findAllByEvent_EventIdOrderByOrderNumber(1))
+                .thenReturn(List.of(previous, current));
+        when(resultRepository.findByTeam_TeamIdAndRound_RoundId(99, 1))
+                .thenReturn(Optional.of(result));
+
+        BadRequestException exception = assertThrows(BadRequestException.class,
+                () -> submissionService.submit(100, request(2, "http://repo", null, null, null)));
+
+        assertTrue(exception.getMessage().contains("ranked #3"));
+        verify(submissionRepository, never()).save(any());
+    }
+
+    @Test
+    void submit_shouldAllowTeamThatAdvanced() {
+        User user = student(100, "Leader");
+        Round previous = round(1, "FINALIZED", LocalDateTime.now().minusDays(1));
+        previous.setTopNAdvance(2);
+        Round current = round(2, "ACTIVE", LocalDateTime.now().plusDays(1));
+        Team team = team(99, current.getEvent(), "APPROVED");
+        TeamMember leader = member(1, team, user, "LEADER");
+
+        when(userRepository.findById(100)).thenReturn(Optional.of(user));
+        when(roundRepository.findById(2)).thenReturn(Optional.of(current));
+        when(teamMemberRepository.findByUser_UserIdAndTeam_Event_StatusIn(eq(100), anyList()))
+                .thenReturn(List.of(leader));
+        when(roundRepository.findAllByEvent_EventIdOrderByOrderNumber(1))
+                .thenReturn(List.of(previous, current));
+        when(resultRepository.findByTeam_TeamIdAndRound_RoundId(99, 1))
+                .thenReturn(Optional.of(result(team, previous, 2, true)));
+        when(submissionRepository.findByTeam_TeamIdAndRound_RoundId(99, 2))
+                .thenReturn(Optional.empty());
+        when(submissionRepository.save(any(Submission.class))).thenAnswer(invocation -> {
+            Submission submission = invocation.getArgument(0);
+            submission.setSubmissionId(10);
+            return submission;
+        });
+
+        SubmissionResponse response = submissionService.submit(
+                100, request(2, "http://repo", null, null, null));
+
+        assertEquals(10, response.getSubmissionId());
+    }
+
+    // ── getMyEligibility ────────────────────────────────────────────────
+
+    @Test
+    void getMyEligibility_shouldAllowFirstRound() {
+        Round current = round(1, "ACTIVE", LocalDateTime.now().plusDays(1));
+        Team team = team(99, current.getEvent(), "APPROVED");
+        TeamMember membership = member(1, team, student(100, "Leader"), "LEADER");
+        when(roundRepository.findById(1)).thenReturn(Optional.of(current));
+        when(teamMemberRepository.findByUser_UserIdAndTeam_Event_StatusIn(eq(100), anyList()))
+                .thenReturn(List.of(membership));
+        when(roundRepository.findAllByEvent_EventIdOrderByOrderNumber(1))
+                .thenReturn(List.of(current));
+
+        SubmissionEligibilityResponse response = submissionService.getMyEligibility(100, 1);
+
+        assertTrue(response.getEligible());
+        assertEquals("ELIGIBLE", response.getStatus());
+        assertNull(response.getPreviousRoundId());
+    }
+
+    @Test
+    void getMyEligibility_shouldWaitWithoutLeakingRank_whenResultIsUnpublished() {
+        EligibilityFixture fixture = eligibilityFixture();
+        when(resultRepository.findByTeam_TeamIdAndRound_RoundId(99, 1))
+                .thenReturn(Optional.of(result(fixture.team, fixture.previous, 3, false)));
+
+        SubmissionEligibilityResponse response = submissionService.getMyEligibility(100, 2);
+
+        assertFalse(response.getEligible());
+        assertEquals("WAITING_FOR_RESULTS", response.getStatus());
+        assertNull(response.getRankPosition());
+    }
+
+    @Test
+    void getMyEligibility_shouldReturnAdvanced_whenPublishedRankIsWithinCutoff() {
+        EligibilityFixture fixture = eligibilityFixture();
+        when(resultRepository.findByTeam_TeamIdAndRound_RoundId(99, 1))
+                .thenReturn(Optional.of(result(fixture.team, fixture.previous, 2, true)));
+
+        SubmissionEligibilityResponse response = submissionService.getMyEligibility(100, 2);
+
+        assertTrue(response.getEligible());
+        assertEquals("ADVANCED", response.getStatus());
+        assertEquals(2, response.getRankPosition());
+        assertEquals(2, response.getTopNAdvance());
+    }
+
+    @Test
+    void getMyEligibility_shouldReturnEliminated_whenPublishedRankMissesCutoff() {
+        EligibilityFixture fixture = eligibilityFixture();
+        when(resultRepository.findByTeam_TeamIdAndRound_RoundId(99, 1))
+                .thenReturn(Optional.of(result(fixture.team, fixture.previous, 3, true)));
+
+        SubmissionEligibilityResponse response = submissionService.getMyEligibility(100, 2);
+
+        assertFalse(response.getEligible());
+        assertEquals("ELIMINATED", response.getStatus());
+        assertEquals(3, response.getRankPosition());
+        assertTrue(response.getReason().contains("top 2"));
+    }
+
+    @Test
+    void getMyEligibility_shouldEliminateUnrankedTeam_afterRoundResultsArePublished() {
+        EligibilityFixture fixture = eligibilityFixture();
+        Team otherTeam = team(88, fixture.current.getEvent(), "APPROVED");
+        when(resultRepository.findByTeam_TeamIdAndRound_RoundId(99, 1))
+                .thenReturn(Optional.empty());
+        when(resultRepository.findAllByRound_RoundIdAndIsPublishedTrueOrderByRankPosition(1))
+                .thenReturn(List.of(result(otherTeam, fixture.previous, 1, true)));
+
+        SubmissionEligibilityResponse response = submissionService.getMyEligibility(100, 2);
+
+        assertFalse(response.getEligible());
+        assertEquals("ELIMINATED", response.getStatus());
+        assertNull(response.getRankPosition());
+    }
+
     // ── getMySubmission ───────────────────────────────────────────────
 
     @Test
@@ -558,10 +695,37 @@ class SubmissionServiceTest {
                 .roundId(roundId)
                 .event(event(1))
                 .name("Round " + roundId)
+                .orderNumber(roundId)
                 .status(status)
                 .submissionDeadline(deadline)
                 .build();
     }
+
+    private RoundResult result(Team team, Round round, Integer rank, boolean published) {
+        return RoundResult.builder()
+                .resultId(rank)
+                .team(team)
+                .round(round)
+                .rankPosition(rank)
+                .isPublished(published)
+                .build();
+    }
+
+    private EligibilityFixture eligibilityFixture() {
+        Round previous = round(1, "FINALIZED", LocalDateTime.now().minusDays(1));
+        previous.setTopNAdvance(2);
+        Round current = round(2, "ACTIVE", LocalDateTime.now().plusDays(1));
+        Team team = team(99, current.getEvent(), "APPROVED");
+        TeamMember membership = member(1, team, student(100, "Leader"), "LEADER");
+        when(roundRepository.findById(2)).thenReturn(Optional.of(current));
+        when(teamMemberRepository.findByUser_UserIdAndTeam_Event_StatusIn(eq(100), anyList()))
+                .thenReturn(List.of(membership));
+        when(roundRepository.findAllByEvent_EventIdOrderByOrderNumber(1))
+                .thenReturn(List.of(previous, current));
+        return new EligibilityFixture(previous, current, team);
+    }
+
+    private record EligibilityFixture(Round previous, Round current, Team team) {}
 
     private Team team(Integer teamId, HackathonEvent event, String status) {
         return Team.builder()

@@ -168,6 +168,7 @@ class ScoringServiceTest {
         when(userRepository.findById(20)).thenReturn(Optional.of(judge));
         when(submissionRepository.findBySubmissionIdAndJudgeId(99, 20)).thenReturn(Optional.of(submission));
         when(criteriaRepository.findById(7)).thenReturn(Optional.of(crit));
+        when(criteriaRepository.findAllByRound_RoundIdOrderByOrderNumber(2)).thenReturn(List.of(crit));
         when(scoreRepository.findBySubmission_SubmissionIdAndJudge_UserIdAndCriteria_CriteriaId(99, 20, 7))
                 .thenReturn(Optional.empty());
         when(scoreRepository.save(any(Score.class))).thenAnswer(invocation -> {
@@ -200,6 +201,7 @@ class ScoringServiceTest {
         when(userRepository.findById(20)).thenReturn(Optional.of(judge));
         when(submissionRepository.findBySubmissionIdAndJudgeId(99, 20)).thenReturn(Optional.of(submission));
         when(criteriaRepository.findById(7)).thenReturn(Optional.of(crit));
+        when(criteriaRepository.findAllByRound_RoundIdOrderByOrderNumber(2)).thenReturn(List.of(crit));
         when(scoreRepository.findBySubmission_SubmissionIdAndJudge_UserIdAndCriteria_CriteriaId(99, 20, 7))
                 .thenReturn(Optional.of(existingScore));
         when(scoreRepository.save(any(Score.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -221,6 +223,7 @@ class ScoringServiceTest {
         when(userRepository.findById(20)).thenReturn(Optional.of(judge));
         when(submissionRepository.findBySubmissionIdAndJudgeId(99, 20)).thenReturn(Optional.of(submission));
         when(criteriaRepository.findById(7)).thenReturn(Optional.of(crit));
+        when(criteriaRepository.findAllByRound_RoundIdOrderByOrderNumber(2)).thenReturn(List.of(crit));
         when(scoreRepository.findBySubmission_SubmissionIdAndJudge_UserIdAndCriteria_CriteriaId(99, 20, 7))
                 .thenReturn(Optional.empty());
         when(scoreRepository.save(any(Score.class))).thenAnswer(inv -> {
@@ -244,6 +247,7 @@ class ScoringServiceTest {
         when(userRepository.findById(20)).thenReturn(Optional.of(judge));
         when(submissionRepository.findBySubmissionIdAndJudgeId(99, 20)).thenReturn(Optional.of(submission));
         when(criteriaRepository.findById(7)).thenReturn(Optional.of(crit));
+        when(criteriaRepository.findAllByRound_RoundIdOrderByOrderNumber(2)).thenReturn(List.of(crit));
         when(scoreRepository.findBySubmission_SubmissionIdAndJudge_UserIdAndCriteria_CriteriaId(99, 20, 7))
                 .thenReturn(Optional.empty());
         when(scoreRepository.save(any(Score.class))).thenAnswer(inv -> {
@@ -306,6 +310,8 @@ class ScoringServiceTest {
         when(submissionRepository.findBySubmissionIdAndJudgeId(99, 20)).thenReturn(Optional.of(submission));
         when(criteriaRepository.findById(7)).thenReturn(Optional.of(innovation));
         when(criteriaRepository.findById(8)).thenReturn(Optional.of(technical));
+        when(criteriaRepository.findAllByRound_RoundIdOrderByOrderNumber(2))
+                .thenReturn(List.of(innovation, technical));
         when(scoreRepository.findBySubmission_SubmissionIdAndJudge_UserIdAndCriteria_CriteriaId(99, 20, 7))
                 .thenReturn(Optional.empty());
         when(scoreRepository.findBySubmission_SubmissionIdAndJudge_UserIdAndCriteria_CriteriaId(99, 20, 8))
@@ -320,6 +326,27 @@ class ScoringServiceTest {
 
         assertEquals(2, responses.size());
         verify(scoreRepository, times(2)).save(any(Score.class));
+    }
+
+    @Test
+    void submitScores_shouldRejectFinalSubmissionWhenAnyRoundCriteriaIsMissing() {
+        User judge = user(20, "Judge");
+        Submission submission = submission(99);
+        ScoringCriteria innovation = criteria(7, submission.getRound(), "Innovation", BigDecimal.TEN, BigDecimal.ONE, 1);
+        ScoringCriteria technical = criteria(8, submission.getRound(), "Technical", BigDecimal.TEN, BigDecimal.ONE, 2);
+        SubmitScoresRequest request = submitScoresRequest(99, 7, BigDecimal.valueOf(8));
+
+        when(userRepository.findById(20)).thenReturn(Optional.of(judge));
+        when(submissionRepository.findBySubmissionIdAndJudgeId(99, 20)).thenReturn(Optional.of(submission));
+        when(criteriaRepository.findById(7)).thenReturn(Optional.of(innovation));
+        when(criteriaRepository.findAllByRound_RoundIdOrderByOrderNumber(2))
+                .thenReturn(List.of(innovation, technical));
+
+        BadRequestException error = assertThrows(BadRequestException.class,
+                () -> scoringService.submitScores(20, request));
+
+        assertTrue(error.getMessage().contains("Technical"));
+        verify(scoreRepository, never()).save(any());
     }
 
     // ── submitScores: invalid cases ──────────────────────────────────
@@ -389,6 +416,23 @@ class ScoringServiceTest {
                 () -> scoringService.submitScores(20, submitScoresRequest(99, 7, BigDecimal.ONE)));
 
         assertTrue(ex.getMessage().contains("not assigned"));
+        verify(scoreRepository, never()).save(any());
+    }
+
+    @Test
+    void submitScores_shouldRejectEveryWriteAfterFinalSubmission() {
+        User judge = user(20, "Judge");
+        Submission submission = submission(99);
+        when(userRepository.findById(20)).thenReturn(Optional.of(judge));
+        when(submissionRepository.findBySubmissionIdAndJudgeId(99, 20)).thenReturn(Optional.of(submission));
+        when(scoreRepository.existsBySubmission_SubmissionIdAndJudge_UserIdAndIsDraftFalse(99, 20))
+                .thenReturn(true);
+
+        BadRequestException error = assertThrows(BadRequestException.class,
+                () -> scoringService.submitScores(20, submitScoresRequest(99, 7, BigDecimal.ONE)));
+
+        assertTrue(error.getMessage().contains("cannot be changed"));
+        verify(roundTimerService).assertJudgingOpen(2);
         verify(scoreRepository, never()).save(any());
     }
 

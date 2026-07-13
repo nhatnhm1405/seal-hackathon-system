@@ -3,6 +3,7 @@ package com.seal.hackathon.service;
 import com.seal.hackathon.dto.request.AssignJudgeRequest;
 import com.seal.hackathon.dto.request.AssignMentorRequest;
 import com.seal.hackathon.dto.request.CreateGuestJudgeRequest;
+import com.seal.hackathon.dto.request.ReplaceJudgeRequest;
 import com.seal.hackathon.dto.response.CoordinatorEventHistoryResponse;
 import com.seal.hackathon.dto.response.JudgeAssignmentResponse;
 import com.seal.hackathon.dto.response.JudgeRosterItemResponse;
@@ -33,6 +34,7 @@ import com.seal.hackathon.repository.PrizeRepository;
 import com.seal.hackathon.repository.RoleRepository;
 import com.seal.hackathon.repository.RoundRepository;
 import com.seal.hackathon.repository.RoundResultRepository;
+import com.seal.hackathon.repository.ScoreRepository;
 import com.seal.hackathon.repository.SubmissionRepository;
 import com.seal.hackathon.repository.TeamMemberRepository;
 import com.seal.hackathon.repository.TeamRepository;
@@ -85,6 +87,8 @@ public class AssignmentService {
     private final PrizeRepository prizeRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuditLogService auditLogService;
+    private final RoundTimerService roundTimerService;
+    private final ScoreRepository scoreRepository;
 
     /**
      * Danh sách STAFF đã được duyệt, để Coordinator chọn người phân công làm
@@ -473,12 +477,29 @@ public class AssignmentService {
 
         List<JudgeAssignment> assignments = judgeAssignmentRepository.findActiveByJudge(userId);
 
-        String eventName = assignments.isEmpty() ? "N/A"
-                : assignments.get(0).getRound().getEvent().getName();
+        JudgeAssignment primaryAssignment = assignments.stream()
+                .filter(assignment -> "IN_PROGRESS".equalsIgnoreCase(
+                        assignment.getRound().getEvent().getStatus()))
+                .findFirst()
+                .orElse(assignments.isEmpty() ? null : assignments.get(0));
+        Integer eventId = primaryAssignment == null ? null
+                : primaryAssignment.getRound().getEvent().getEventId();
+        String eventName = primaryAssignment == null ? "N/A"
+                : primaryAssignment.getRound().getEvent().getName();
+        List<JudgeAssignment> selectedEventAssignments = eventId == null ? List.of() : assignments.stream()
+                .filter(assignment -> Objects.equals(eventId,
+                        assignment.getRound().getEvent().getEventId()))
+                .toList();
 
-        List<JudgeAssignmentResponse.AssignedTeamInfo> teamInfos = assignments.stream()
+        List<JudgeAssignmentResponse.AssignedTeamInfo> teamInfos = selectedEventAssignments.stream()
                 .flatMap(ja -> {
                     Round round = ja.getRound();
+                    Integer assignmentTrackId = ja.getTrack() == null ? null : ja.getTrack().getTrackId();
+                    int panelSize = (int) judgeAssignmentRepository
+                            .findAllByRound_RoundIdAndIsActiveTrue(round.getRoundId()).stream()
+                            .filter(other -> Objects.equals(assignmentTrackId,
+                                    other.getTrack() == null ? null : other.getTrack().getTrackId()))
+                            .count();
                     List<Team> teams = ja.getTrack() != null
                             ? teamRepository.findAllByTrack_TrackIdAndStatus(ja.getTrack().getTrackId(), "APPROVED")
                             : teamRepository.findAllByEvent_EventIdAndStatus(round.getEvent().getEventId(), "APPROVED");
@@ -488,6 +509,7 @@ public class AssignmentService {
                                     .teamName(team.getName())
                                     .trackName(team.getTrack().getName())
                                     .roundId(round.getRoundId())
+                                    .assignedJudgeCount(panelSize)
                                     .members(mapJudgeMembers(team))
                                     .build());
                 })
@@ -496,6 +518,7 @@ public class AssignmentService {
         return JudgeAssignmentResponse.builder()
                 .judgeId(user.getUserId())
                 .judgeName(user.getFullName())
+                .eventId(eventId)
                 .eventName(eventName)
                 .teams(teamInfos)
                 .build();
@@ -569,10 +592,11 @@ public class AssignmentService {
             }
         }
 
-        boolean duplicate = (track == null)
-                ? judgeAssignmentRepository.existsByJudge_UserIdAndRound_RoundIdAndTrackIsNull(judge.getUserId(), round.getRoundId())
-                : judgeAssignmentRepository.existsByJudge_UserIdAndRound_RoundIdAndTrack_TrackId(judge.getUserId(), round.getRoundId(), track.getTrackId());
-        if (duplicate) {
+        roundTimerService.assertJudgeAssignmentsMutable(round.getRoundId());
+
+        JudgeAssignment existing = findExactJudgeAssignment(judge.getUserId(), round.getRoundId(), track)
+                .orElse(null);
+        if (existing != null && Boolean.TRUE.equals(existing.getIsActive())) {
             throw new BadRequestException("This judge is already assigned to this round/track.");
         }
 
@@ -585,11 +609,16 @@ public class AssignmentService {
 
         ensureRole(judge, "JUDGE", round.getEvent().getEventId());
 
-        judgeAssignmentRepository.save(JudgeAssignment.builder()
-                .judge(judge)
-                .round(round)
-                .track(track)
-                .build());
+        if (existing != null) {
+            existing.setIsActive(true);
+            judgeAssignmentRepository.save(existing);
+        } else {
+            judgeAssignmentRepository.save(JudgeAssignment.builder()
+                    .judge(judge)
+                    .round(round)
+                    .track(track)
+                    .build());
+        }
 
         Map<String, Object> meta = new LinkedHashMap<>();
         meta.put("judge_user_id", judge.getUserId());
@@ -623,15 +652,98 @@ public class AssignmentService {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Removes a judge assignment (hard delete so the same judge can be re-assigned
-     * to the round/track later — the unique key does not consider is_active).
-     */
+    /** Removes a judge before judging starts, preserving the inactive row for history. */
     @Transactional
     public void removeJudgeAssignment(Integer assignmentId) {
         JudgeAssignment assignment = judgeAssignmentRepository.findById(assignmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Judge assignment not found: " + assignmentId));
-        judgeAssignmentRepository.delete(assignment);
+        roundTimerService.assertJudgeAssignmentsMutable(assignment.getRound().getRoundId());
+        assignment.setIsActive(false);
+        judgeAssignmentRepository.save(assignment);
+    }
+
+    /**
+     * Replaces an unavailable judge without silently shrinking the panel. The
+     * countdown must not be running and the old judge must not have submitted any
+     * final score in this assignment's cell.
+     */
+    @Transactional
+    public JudgeAssignmentResponse replaceJudgeAssignment(Integer assignmentId,
+                                                           ReplaceJudgeRequest request,
+                                                           Integer actorUserId) {
+        JudgeAssignment old = judgeAssignmentRepository.findById(assignmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Judge assignment not found: " + assignmentId));
+        if (!Boolean.TRUE.equals(old.getIsActive())) {
+            throw new BadRequestException("This judge assignment is no longer active.");
+        }
+        Round round = old.getRound();
+        roundTimerService.assertJudgeReplacementAllowed(round.getRoundId());
+
+        if (Objects.equals(old.getJudge().getUserId(), request.getJudgeUserId())) {
+            throw new BadRequestException("Replacement judge must be different from the current judge.");
+        }
+        if (hasFinalScoreInAssignment(old)) {
+            throw new BadRequestException(
+                    "This judge has already submitted final scores in this cell and cannot be replaced.");
+        }
+
+        User replacement = userRepository.findByIdWithRoles(request.getJudgeUserId())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "User not found: " + request.getJudgeUserId()));
+        JudgeAssignment existing = findExactJudgeAssignment(
+                replacement.getUserId(), round.getRoundId(), old.getTrack()).orElse(null);
+        if (existing != null && Boolean.TRUE.equals(existing.getIsActive())) {
+            throw new BadRequestException("The replacement judge is already assigned to this round/track.");
+        }
+
+        if (replacement.getJudgeType() == null
+                || !JUDGE_TYPES.contains(replacement.getJudgeType().toUpperCase())) {
+            replacement.setJudgeType("INTERNAL");
+            userRepository.save(replacement);
+        }
+        ensureRole(replacement, "JUDGE", round.getEvent().getEventId());
+
+        old.setIsActive(false);
+        judgeAssignmentRepository.save(old);
+        if (existing != null) {
+            existing.setIsActive(true);
+            judgeAssignmentRepository.save(existing);
+        } else {
+            judgeAssignmentRepository.save(JudgeAssignment.builder()
+                    .judge(replacement)
+                    .round(round)
+                    .track(old.getTrack())
+                    .build());
+        }
+
+        Map<String, Object> meta = new LinkedHashMap<>();
+        meta.put("old_judge_user_id", old.getJudge().getUserId());
+        meta.put("new_judge_user_id", replacement.getUserId());
+        meta.put("event_id", round.getEvent().getEventId());
+        meta.put("reason", request.getReason().trim());
+        if (old.getTrack() != null) meta.put("track_id", old.getTrack().getTrackId());
+        auditLogService.record(actorUserId, "REPLACE_JUDGE", "ROUND", round.getRoundId(), null, meta);
+
+        return getJudgeAssignments(replacement.getUserId());
+    }
+
+    private java.util.Optional<JudgeAssignment> findExactJudgeAssignment(
+            Integer judgeUserId, Integer roundId, Track track) {
+        return track == null
+                ? judgeAssignmentRepository.findByJudge_UserIdAndRound_RoundIdAndTrackIsNull(judgeUserId, roundId)
+                : judgeAssignmentRepository.findByJudge_UserIdAndRound_RoundIdAndTrack_TrackId(
+                        judgeUserId, roundId, track.getTrackId());
+    }
+
+    private boolean hasFinalScoreInAssignment(JudgeAssignment assignment) {
+        Integer trackId = assignment.getTrack() == null ? null : assignment.getTrack().getTrackId();
+        return scoreRepository
+                .findAllByJudge_UserIdAndSubmission_Round_RoundIdAndIsDraftFalse(
+                        assignment.getJudge().getUserId(), assignment.getRound().getRoundId())
+                .stream()
+                .anyMatch(score -> trackId == null || (score.getSubmission().getTeam().getTrack() != null
+                        && Objects.equals(trackId,
+                                score.getSubmission().getTeam().getTrack().getTrackId())));
     }
 
     /**
