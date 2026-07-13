@@ -397,9 +397,10 @@ export function PixelInput({ label, placeholder, type = "text", value, onChange,
 interface PixelBadgeProps {
   children: React.ReactNode;
   color?: "green" | "yellow" | "red" | "blue" | "orange" | "gray" | "cyan" | "purple";
+  style?: React.CSSProperties;
 }
 
-export function PixelBadge({ children, color = "green" }: PixelBadgeProps) {
+export function PixelBadge({ children, color = "green", style }: PixelBadgeProps) {
   const colors = {
     green:  { bg: "rgba(34,197,94,0.1)",   border: "rgba(34,197,94,0.35)",  text: "#4ade80" },
     yellow: { bg: "rgba(234,179,8,0.1)",   border: "rgba(234,179,8,0.35)",  text: "#facc15" },
@@ -417,6 +418,7 @@ export function PixelBadge({ children, color = "green" }: PixelBadgeProps) {
         background: c.bg, border: `1px solid ${c.border}`, color: c.text,
         fontFamily: "'JetBrains Mono', monospace", fontSize: 11,
         padding: "3px 9px", letterSpacing: "0.06em", borderRadius: 0,
+        ...style,
       }}
       className={`pixel-badge pixel-badge--${color} uppercase inline-flex items-center gap-1`}
     >
