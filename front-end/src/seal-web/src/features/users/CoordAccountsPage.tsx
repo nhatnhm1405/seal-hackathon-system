@@ -390,8 +390,8 @@ export function CoordAccountsPage() {
         <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", padding: "10px 14px", background: "rgba(234,179,8,0.08)", border: `1px solid rgba(234,179,8,0.4)` }}>
           <span style={{ color: AMBER, fontFamily: MONO, fontSize: 12, fontWeight: 700 }}>{selectedCount} selected</span>
           <div style={{ flex: 1 }} />
-          <PixelButton size="sm" variant="cyber" onClick={() => setBulkAction("approve")}>APPROVE SELECTED ({selectedCount})</PixelButton>
           <PixelButton size="sm" variant="danger" onClick={() => setBulkAction("reject")}>REJECT SELECTED ({selectedCount})</PixelButton>
+          <PixelButton size="sm" variant="cyber" onClick={() => setBulkAction("approve")}>APPROVE SELECTED ({selectedCount})</PixelButton>
           <PixelButton size="sm" variant="ghost" onClick={() => setSelectedIds(new Set())}>CLEAR</PixelButton>
         </div>
       )}

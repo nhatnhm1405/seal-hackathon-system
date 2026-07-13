@@ -444,8 +444,8 @@ export function AdminEventsPage() {
                   )}
                 </div>
                 <div style={{ display: "flex", gap: 8 }}>
-                  <PixelButton size="sm" variant="cyber" onClick={() => confirmApprove(req)}>APPROVE</PixelButton>
                   <PixelButton size="sm" variant="danger" onClick={() => confirmReject(req)}>REJECT</PixelButton>
+                  <PixelButton size="sm" variant="cyber" onClick={() => confirmApprove(req)}>APPROVE</PixelButton>
                 </div>
               </div>
             ))}

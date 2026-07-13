@@ -118,9 +118,12 @@ export function ParticipationRequestsPanel() {
                   <td style={{ padding: "12px 14px" }}>{userTypeBadge(r.userType)}</td>
                   <td style={{ color: C.textMuted, fontSize: 11, padding: "12px 14px" }}>{fmtDate(r.requestedAt)}</td>
                   <td style={{ padding: "12px 14px" }}>
+                    {/* Reject on the left, Approve on the right — keeps the
+                        destructive choice away from where a quick, confident
+                        approve click naturally lands. */}
                     <div style={{ display: "flex", gap: 6 }}>
-                      <PixelButton size="sm" variant="cyber" disabled={workingId === r.requestId} onClick={() => resolveRequest(r, true)}>APPROVE</PixelButton>
                       <PixelButton size="sm" variant="danger" disabled={workingId === r.requestId} onClick={() => resolveRequest(r, false)}>REJECT</PixelButton>
+                      <PixelButton size="sm" variant="cyber" disabled={workingId === r.requestId} onClick={() => resolveRequest(r, true)}>APPROVE</PixelButton>
                     </div>
                   </td>
                 </tr>
