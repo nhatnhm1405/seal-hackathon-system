@@ -5,6 +5,7 @@ import {
 } from "@/shared/components/PixelComponents";
 import { authApi, teamsApi, ApiError, apiErrorMessage, MyTeam, API_BASE_URL } from "@/shared/apiClient";
 import { useNotifications } from "@/app/providers/NotificationProvider";
+import { universityLabel } from "@/shared/userDisplay";
 
 const mono = "'JetBrains Mono', monospace";
 
@@ -203,7 +204,7 @@ export function ProfilePage() {
                 <Field label="Student Type" badge={
                   <PixelBadge color={currentUser.student_type === 'FPT' ? 'green' : 'cyan'}>{currentUser.student_type}</PixelBadge>} />
                 <Field label="Student ID" value={currentUser.student_id ?? "—"} />
-                <Field label="University" value={currentUser.university ?? "—"} />
+                <Field label="University" value={universityLabel(currentUser.student_type, currentUser.university) ?? "—"} />
               </>
             )}
             {team && (

@@ -6,6 +6,7 @@ import { PixelMenu } from "@/shared/components/PixelMenu";
 import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
 import { accountApprovalsApi, participationRequestsApi, ApiError, apiErrorMessage, PendingAccount, UserItem } from "@/shared/apiClient";
 import { usePendingAccounts } from "@/app/providers/PendingAccountsProvider";
+import { universityLabel } from "@/shared/userDisplay";
 import { useNotifications } from "@/app/providers/NotificationProvider";
 import { ParticipationRequestsPanel } from "./CoordParticipationRequestsPage";
 
@@ -162,7 +163,7 @@ function ReadOnlyAccountsTable({ rows, loading, error, countLabel, emptyLabel, s
                     <>
                       <td style={{ padding: "12px 14px" }}>{studentTypeBadge(u.userType)}</td>
                       <td style={{ color: C.textMuted, fontSize: 11, padding: "12px 14px" }}>{u.studentId ?? "—"}</td>
-                      <td style={{ color: C.textMuted, fontSize: 11, padding: "12px 14px" }}>{u.university ?? "—"}</td>
+                      <td style={{ color: C.textMuted, fontSize: 11, padding: "12px 14px" }}>{universityLabel(u.userType, u.university) ?? "—"}</td>
                     </>
                   )}
                   <td style={{ color: C.textMuted, fontSize: 11, padding: "12px 14px" }}>{fmtDate(u.createdAt)}</td>
@@ -458,7 +459,7 @@ export function CoordAccountsPage() {
                     <td style={cellMuted}>{a.email}</td>
                     <td style={{ padding: "12px 14px" }}>{studentTypeBadge(a.userType)}</td>
                     <td style={cellMuted}>{a.studentId ?? "—"}</td>
-                    <td style={cellMuted}>{a.university ?? "—"}</td>
+                    <td style={cellMuted}>{universityLabel(a.userType, a.university) ?? "—"}</td>
                     <td style={cellMuted}>{fmtDate(a.createdAt)}</td>
                     {/* Per-row actions in a hover ⋯ menu (like the Event track/round rows). */}
                     <td onClick={(e) => e.stopPropagation()} style={{ padding: "12px 14px", width: 48 }}>
