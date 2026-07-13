@@ -68,6 +68,8 @@ export function CoordinatorDashboard() {
 
   const [composerOpen, setComposerOpen] = useState(false);
   const [annHistory, setAnnHistory] = useState<AnnouncementItem[]>([]);
+  // Sent-announcement history is collapsed by default to reduce clutter.
+  const [annHistoryOpen, setAnnHistoryOpen] = useState(false);
   const [audience, setAudience] = useState("PARTICIPANT");
   // Which event the announcement targets (coordinator can change it in the composer).
   const [announceEventId, setAnnounceEventId] = useState<number | null>(null);
@@ -201,6 +203,20 @@ export function CoordinatorDashboard() {
             No announcements sent yet.
           </div>
         ) : (
+          <>
+            <button
+              type="button"
+              onClick={() => setAnnHistoryOpen(o => !o)}
+              style={{
+                display: "flex", alignItems: "center", gap: 8, width: "100%",
+                background: "none", border: "none", cursor: "pointer", padding: 0, marginBottom: annHistoryOpen ? 10 : 0,
+                color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.08em", textAlign: "left",
+              }}
+            >
+              <span style={{ fontSize: 12 }}>{annHistoryOpen ? "▾" : "▸"}</span>
+              <span>SENT HISTORY · {eventAnnHistory.length}</span>
+            </button>
+            {annHistoryOpen && (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {eventAnnHistory.map(a => (
               <div key={a.announcementId} style={{ padding: "10px 12px", background: C.surface2, border: `1px solid ${C.border}` }}>
@@ -217,6 +233,8 @@ export function CoordinatorDashboard() {
               </div>
             ))}
           </div>
+            )}
+          </>
         )}
       </PixelCard>
 
