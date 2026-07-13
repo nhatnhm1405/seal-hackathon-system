@@ -30,6 +30,7 @@ import { CoordEventsPage } from "@/features/events/CoordEventsPage";
 import { CoordAccountsPage } from "@/features/users/CoordAccountsPage";
 import { CoordTeamsPage } from "@/features/teams/CoordTeamsPage";
 import { CoordJudgesPage } from "@/features/scoring/CoordJudgesPage";
+import { CoordAssignmentHistoryPage } from "@/features/scoring/CoordAssignmentHistoryPage";
 import { CoordScoringPage } from "@/features/scoring/CoordScoringPage";
 import { CoordPrizesPage } from "@/features/scoring/CoordPrizesPage";
 import { AdminEventsPage } from "@/features/events/AdminEventsPage";
@@ -302,6 +303,10 @@ export const router = createBrowserRouter([
                       {
                         path: "/coordinator/judges",
                         Component: CoordJudgesPage,
+                      },
+                      {
+                        path: "/coordinator/judges/history",
+                        Component: CoordAssignmentHistoryPage,
                       },
                       {
                         path: "/coordinator/scoring",

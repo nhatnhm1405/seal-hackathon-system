@@ -2,6 +2,7 @@ package com.seal.hackathon.controller;
 
 import com.seal.hackathon.dto.request.CreateGuestJudgeRequest;
 import com.seal.hackathon.dto.response.ApiResponse;
+import com.seal.hackathon.dto.response.CoordinatorEventHistoryResponse;
 import com.seal.hackathon.dto.response.JudgeAssignmentResponse;
 import com.seal.hackathon.dto.response.UserResponse;
 import com.seal.hackathon.security.UserPrincipal;
@@ -13,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -38,6 +40,12 @@ public class CoordinatorController {
     @GetMapping("/staff")
     public ResponseEntity<ApiResponse<List<UserResponse>>> getStaff() {
         return ResponseEntity.ok(ApiResponse.success("Staff retrieved.", assignmentService.listApprovedStaff()));
+    }
+
+    /** Full retrospective of one past event: teams/results/prizes + mentor/judge assignments. */
+    @GetMapping("/history/{eventId}")
+    public ResponseEntity<ApiResponse<CoordinatorEventHistoryResponse>> getEventHistory(@PathVariable Integer eventId) {
+        return ResponseEntity.ok(ApiResponse.success("Event history retrieved.", assignmentService.getEventHistory(eventId)));
     }
 
     /** Create a GUEST judge account and assign it to a round in one step. */
