@@ -113,7 +113,6 @@ function getPageTitle(pathname: string): string {
     "/admin/dashboard": "Dashboard",
     "/admin/events": "Events",
     "/admin/accounts": "Accounts",
-    "/admin/participation-requests": "Participation Requests",
     "/admin/roles": "Role Grants",
     "/admin/logs": "System Logs",
     "/leaderboard": "Leaderboard",

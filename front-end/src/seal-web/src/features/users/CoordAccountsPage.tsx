@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import {
-  C, GradientText, PixelCard, PixelButton, PixelBadge,
+  C, GradientText, PixelCard, PixelButton, PixelBadge, PixelTabs,
 } from "@/shared/components/PixelComponents";
 import { PixelMenu } from "@/shared/components/PixelMenu";
 import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
 import { accountApprovalsApi, ApiError, apiErrorMessage, PendingAccount } from "@/shared/apiClient";
 import { usePendingAccounts } from "@/app/providers/PendingAccountsProvider";
 import { useNotifications } from "@/app/providers/NotificationProvider";
+import { ParticipationRequestsPanel } from "./CoordParticipationRequestsPage";
 
 // After the platform split, a Coordinator's only account responsibility is the
 // approval queue. Full account management (list-all, edit, read-only access,
@@ -83,6 +84,7 @@ function ApprovalModal({ account, reject, onClose, onConfirm, working, error }: 
 const HEADERS = ["Full Name", "Email", "Student Type", "Student ID", "University", "Applied"];
 
 export function CoordAccountsPage() {
+  const [tab, setTab] = useState<"approvals" | "participation">("approvals");
   const [accounts, setAccounts] = useState<PendingAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -237,9 +239,23 @@ export function CoordAccountsPage() {
       <div>
         <h1 style={{ fontFamily: MONO, fontSize: 28, fontWeight: 800 }}>
           <GradientText>Account Approvals</GradientText>
+          <GradientText from={AMBER_BRIGHT} to="#f59e0b">Accounts</GradientText>
         </h1>
       </div>
 
+      <PixelTabs
+        tabs={[
+          { id: "approvals", label: "Approvals" },
+          { id: "participation", label: "Participation" },
+        ]}
+        active={tab}
+        onChange={(id) => setTab(id as "approvals" | "participation")}
+      />
+
+      {tab === "participation" ? (
+        <ParticipationRequestsPanel />
+      ) : (
+      <>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 16, alignItems: "center", justifyContent: "space-between" }}>
         <PixelBadge color="yellow">{pendingTotal} PENDING</PixelBadge>
         <input
@@ -359,6 +375,8 @@ export function CoordAccountsPage() {
           </table>
         </div>
       </PixelCard>
+      </>
+      )}
 
       {confirmTarget && (
         <ApprovalModal

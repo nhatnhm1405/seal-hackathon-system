@@ -6,6 +6,7 @@ import {
 } from "@/shared/components/PixelComponents";
 import { SealFooter } from "@/shared/components/SealFooter";
 import { SocialAuthButtons } from "@/features/auth/SocialAuthButtons";
+import { UniversitySelect } from "@/shared/components/UniversitySelect";
 import sealLogo from "@/imports/image.png";
 import { apiFetch, ApiError, apiErrorMessage } from "@/shared/apiClient";
 import { useNotifications } from "@/app/providers/NotificationProvider";
@@ -154,9 +155,9 @@ export function RegisterPage() {
             {studentType === 'FPT' ? (
               <PixelInput label="FPT Student ID" placeholder="SE000000" value={studentId} onChange={(e) => setStudentId(e.target.value)} onBlur={(e) => checkStudentIdExists(e.target.value)} />
             ) : (
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start" }}>
                 <PixelInput label="Student ID" placeholder="Your student ID" value={studentId} onChange={(e) => setStudentId(e.target.value)} onBlur={(e) => checkStudentIdExists(e.target.value)} />
-                <PixelInput label="University Name" placeholder="e.g. Hanoi University" value={university} onChange={(e) => setUniversity(e.target.value)} />
+                <UniversitySelect label="University" value={university} onChange={setUniversity} />
               </div>
             )}
 

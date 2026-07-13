@@ -48,6 +48,7 @@ public class AdminService {
     private final PasswordEncoder passwordEncoder;
     private final AuthService authService;
     private final SystemLogService systemLogService;
+    private final NotificationService notificationService;
 
     // ── Users ─────────────────────────────────────────────────────────
 
@@ -130,6 +131,30 @@ public class AdminService {
         userRepository.save(user);
         systemLogService.record(adminId, "UPDATE_USER", "updated user#" + userId);
 
+        User refreshed = userRepository.findByIdWithRoles(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
+        return authService.mapToUserResponse(refreshed);
+    }
+
+    /**
+     * Directly toggles an account's active flag. The admin uses this to reactivate
+     * a guest judge for a new season — guest judges have no self-service "request to
+     * compete" flow (unlike student participants), so the admin flips them back on.
+     */
+    @Transactional
+    public UserResponse setUserActive(Integer userId, boolean active, Integer adminId) {
+        User user = userRepository.findByIdWithRoles(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
+        user.setIsActive(active);
+        userRepository.save(user);
+        systemLogService.record(adminId, active ? "ACTIVATE_USER" : "DEACTIVATE_USER",
+                (active ? "activated" : "deactivated") + " user#" + userId);
+        if (active) {
+            notificationService.createNotification(userId,
+                    "Account activated",
+                    "A System Admin reactivated your account. You can take part in the current season again.",
+                    "ACCOUNT_ACTIVATED");
+        }
         User refreshed = userRepository.findByIdWithRoles(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
         return authService.mapToUserResponse(refreshed);

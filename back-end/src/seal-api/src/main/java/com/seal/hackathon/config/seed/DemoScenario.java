@@ -212,6 +212,9 @@ public class DemoScenario {
         for (int i = 0; i < Math.min(3, finalRanked.size()); i++) {
             fx.prize(event, prizeNames[i], i + 1, finalRanked.get(i).team);
         }
+        // Event is COMPLETED → participants and guest judges leave the running
+        // competition, so they go inactive (mirrors HackathonEventService on complete).
+        fx.deactivateCompletedEventUsers(event);
         log.info("[demo] S3 seeded — COMPLETED event, {} teams across {} tracks, {} finalists, {} prizes.",
                 slots.size(), tracks.size(), advancing.size(), Math.min(3, finalRanked.size()));
     }
