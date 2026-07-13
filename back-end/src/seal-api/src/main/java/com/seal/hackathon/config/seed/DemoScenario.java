@@ -89,8 +89,11 @@ public class DemoScenario {
         User judge1 = staff("judge1@fpt.edu.vn", "Nguyễn Văn Ronaldo", "INTERNAL", "JUDGE");
         User judge2 = staff("judge2@fpt.edu.vn", "Trần Văn Haaland", "INTERNAL", "JUDGE");
         User guestJudge = staff("guestjudge@gmail.com", "Lê Văn Messi", "GUEST", "JUDGE");
+        // One mentor per track (business rule: a mentor manages exactly one track per event).
         User mentor1 = staff("mentor1@fpt.edu.vn", "Lê Minh Gia Mẫn", null, "MENTOR");
         User mentor2 = staff("mentor2@fpt.edu.vn", "Hồ Văn Mendes", null, "MENTOR");
+        User mentor3 = staff("mentor3@fpt.edu.vn", "Phạm Văn Guardiola", null, "MENTOR");
+        User mentor4 = staff("mentor4@fpt.edu.vn", "Vũ Văn Klopp", null, "MENTOR");
         // spare accounts to demo live actions (register/create team) alongside the seed
         fx.user("leader1@fpt.edu.vn", "Hoàng Văn Neymar Jr.", "FPT_STUDENT", null);
         fx.user("member1@fpt.edu.vn", "Đinh Văn Kane", "FPT_STUDENT", null);
@@ -115,9 +118,10 @@ public class DemoScenario {
                 w.start.plusDays(8), w.start.plusDays(14), w.start.plusDays(13), null);
         List<ScoringCriteria> prelimCriteria = criteriaFor(event, prelim);
         List<ScoringCriteria> finalCriteria = criteriaFor(event, finalRound);
-        // One mentor can cover several tracks (requirements §6.3); alternate the two demo mentors.
+        // One mentor per track — a mentor manages exactly one track per event.
+        List<User> trackMentors = List.of(mentor1, mentor2, mentor3, mentor4);
         for (int t = 0; t < tracks.size(); t++) {
-            fx.assignMentor(t % 2 == 0 ? mentor1 : mentor2, tracks.get(t));
+            fx.assignMentor(trackMentors.get(t), tracks.get(t));
         }
 
         // ── S1: forming teams (no tracks yet — assigned at SETUP) ────

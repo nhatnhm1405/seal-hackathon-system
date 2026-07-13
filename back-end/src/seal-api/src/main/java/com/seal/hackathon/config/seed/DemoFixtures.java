@@ -70,13 +70,33 @@ public class DemoFixtures {
 
     // ── People ───────────────────────────────────────────────────────
 
+    /** Partner universities used to fill in external students' `university`. */
+    private static final String[] EXTERNAL_UNIS =
+            {"HCMUS", "HCMUT (Bách Khoa)", "UIT", "RMIT Vietnam", "Văn Lang University"};
+
+    /** Running counter so each seeded student gets a distinct MSSV. */
+    private int studentSeq = 0;
+
     public User user(String email, String fullName, String userType, String judgeType) {
+        // Students carry an MSSV; external students also carry a university, mirroring
+        // what real registration collects. Staff/judges/mentors have neither.
+        String studentId = null;
+        String university = null;
+        if ("FPT_STUDENT".equals(userType)) {
+            studentId = String.format("SE%06d", 150000 + (++studentSeq));
+        } else if ("EXTERNAL_STUDENT".equals(userType)) {
+            int n = ++studentSeq;
+            studentId = String.format("EX%06d", 210000 + n);
+            university = EXTERNAL_UNIS[n % EXTERNAL_UNIS.length];
+        }
         return userRepo.save(User.builder()
                 .email(email)
                 .passwordHash(encoder.encode(DEMO_PASSWORD))
                 .fullName(fullName)
                 .userType(userType)
                 .judgeType(judgeType)
+                .studentId(studentId)
+                .university(university)
                 .provider("LOCAL")
                 .isApproved(true)
                 .isActive(true)
