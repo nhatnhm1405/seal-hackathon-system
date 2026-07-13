@@ -4,11 +4,12 @@ import {
 } from "@/shared/components/PixelComponents";
 import { apiFetch, ApiError, apiErrorMessage, eventsApi, reopenRequestsApi, type ReopenRequest } from "@/shared/apiClient";
 import { ConfirmDialog, type ConfirmVariant } from "@/shared/components/ConfirmDialog";
+import { PixelMenu, type PixelMenuEntry } from "@/shared/components/PixelMenu";
 import { usePermissions } from "@/shared/permissions";
 import { useNotifications } from "@/app/providers/NotificationProvider";
 import {
   TrackMode, EventRow, ApiEvent,
-  normalizeEvent, eventStatusBadge, eventMeta, pickDefaultEvent, EventsListCard,
+  normalizeEvent, eventStatusBadge, EventDateBadge, EventName, pickDefaultEvent, EventsListCard,
 } from "@/features/events/eventUtils";
 
 // System Admin's event console. The Admin is the only role that can CREATE an
@@ -59,6 +60,16 @@ function dateToLocalDateTime(date: string, time = "08:00:00") {
   return `${date}T${time}`;
 }
 
+// Proposed dates per season (DD/MM), offered as a starting point when the
+// Admin picks a season on the create form — registration spans the two middle
+// months of the season's window, the event itself runs 2 days early in the
+// last month. Only fills fields the Admin hasn't already typed into.
+const SEASON_DATE_DEFAULTS: Record<EventSeason, { regStart: string; regEnd: string; start: string; end: string }> = {
+  SPRING: { regStart: "01/02", regEnd: "31/03", start: "10/04", end: "11/04" },
+  SUMMER: { regStart: "01/06", regEnd: "31/07", start: "10/08", end: "11/08" },
+  FALL:   { regStart: "01/10", regEnd: "30/11", start: "10/12", end: "11/12" },
+};
+
 function seasonWindow(season: EventSeason, yearValue: string) {
   const year = Number(yearValue) || new Date().getFullYear();
   const bounds: Record<EventSeason, { start: string; end: string }> = {
@@ -76,7 +87,7 @@ function seasonWindow(season: EventSeason, yearValue: string) {
 
 // Accepts DD/MM strings for date fields; year is a separate param.
 function createEventDateErrors(
-  season: EventSeason,
+  season: EventSeason | "",
   year: string,
   registrationStart: string,
   registrationEnd: string,
@@ -84,6 +95,10 @@ function createEventDateErrors(
   endDate: string,
 ) {
   const errors: string[] = [];
+  if (season === "") {
+    errors.push("Please select a season.");
+    return errors;
+  }
   const numericYear = Number(year);
   if (!Number.isInteger(numericYear) || numericYear < 2026 || numericYear > 3000) {
     errors.push("Year must be between 2026 and 3000.");
@@ -133,7 +148,7 @@ export function AdminEventsPage() {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [evName, setEvName] = useState("");
-  const [evSeason, setEvSeason] = useState<EventSeason>("SPRING");
+  const [evSeason, setEvSeason] = useState<EventSeason | "">("");
   const [evYear, setEvYear] = useState(String(new Date().getFullYear()));
   const [evRegStart, setEvRegStart] = useState("");
   const [evRegEnd, setEvRegEnd] = useState("");
@@ -160,7 +175,6 @@ export function AdminEventsPage() {
   const [dialogError, setDialogError] = useState<string | null>(null);
 
   const selectedEvent = selectedEventId ? events.find(e => e.eventId === selectedEventId) ?? null : null;
-  const createEventSeasonWindow = seasonWindow(evSeason, evYear);
 
   // Close edit form when user switches to a different event.
   useEffect(() => { setShowEdit(false); }, [selectedEventId]);
@@ -353,7 +367,19 @@ export function AdminEventsPage() {
   // Tracks & rounds are NOT configured here — the Event Coordinator sets them up
   // during the event's SETUP phase. The Admin only creates the event shell.
   function resetCreateForm() {
-    setEvName(""); setEvRegStart(""); setEvRegEnd(""); setEvStart(""); setEvEnd(""); setEvMode("SELF_SELECT");
+    setEvName(""); setEvSeason(""); setEvRegStart(""); setEvRegEnd(""); setEvStart(""); setEvEnd(""); setEvMode("SELF_SELECT");
+  }
+
+  // Autofill the create form's date fields with the season's proposed dates —
+  // only into fields the Admin hasn't already typed into.
+  function handleCreateSeasonChange(season: EventSeason | "") {
+    setEvSeason(season);
+    if (season === "") return;
+    const d = SEASON_DATE_DEFAULTS[season];
+    setEvRegStart(prev => prev || d.regStart);
+    setEvRegEnd(prev => prev || d.regEnd);
+    setEvStart(prev => prev || d.start);
+    setEvEnd(prev => prev || d.end);
   }
 
   async function addEvent(e: React.FormEvent) {
@@ -370,6 +396,7 @@ export function AdminEventsPage() {
       addToast({ type: 'warning', title: 'CHECK DATES', message });
       return;
     }
+    if (evSeason === "") return; // unreachable — createEventDateErrors already rejects "", this just satisfies TS narrowing
     setCreateError(null);
     setCreating(true);
     try {
@@ -454,15 +481,16 @@ export function AdminEventsPage() {
               <PixelInput label="Event Name" value={evName} onChange={(e) => setEvName(e.target.value)} placeholder="SEAL Fall 2026" />
               <div>
                 <label style={{ color: C.greenMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase" }}>Season</label>
-                <select value={evSeason} onChange={(e) => setEvSeason(e.target.value as EventSeason)} style={{ width: "100%", marginTop: 6, padding: "10px 12px", background: C.surface2, border: `1px solid ${C.border}`, color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, borderRadius: 0, outline: "none" }}>
+                <select value={evSeason} onChange={(e) => handleCreateSeasonChange(e.target.value as EventSeason | "")} style={{ width: "100%", marginTop: 6, padding: "10px 12px", background: C.surface2, border: `1px solid ${C.border}`, color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, borderRadius: 0, outline: "none" }}>
+                  <option value="">— select season —</option>
                   <option value="SPRING">Spring</option>
                   <option value="SUMMER">Summer</option>
                   <option value="FALL">Fall</option>
                 </select>
               </div>
               <PixelInput label="Year" type="number" value={evYear} onChange={(e) => setEvYear(e.target.value)} />
-              <PixelInput label={`Reg. Start (DD/MM, ${evSeason} ${evYear})`} type="text" placeholder="e.g. 05/01" value={evRegStart} onChange={(e) => setEvRegStart(e.target.value)} />
-              <PixelInput label={`Reg. End (DD/MM)`} type="text" placeholder="e.g. 28/02" value={evRegEnd} onChange={(e) => setEvRegEnd(e.target.value)} />
+              <PixelInput label="Registration Start" type="text" placeholder="DD/MM" value={evRegStart} onChange={(e) => setEvRegStart(e.target.value)} />
+              <PixelInput label="Registration End" type="text" placeholder="DD/MM" value={evRegEnd} onChange={(e) => setEvRegEnd(e.target.value)} />
               <div>
                 <label style={{ color: C.greenMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase" }}>Track Assignment</label>
                 <select value={evMode} onChange={(e) => setEvMode(e.target.value as TrackMode)} style={{ width: "100%", marginTop: 6, padding: "10px 12px", background: C.surface2, border: `1px solid ${C.border}`, color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, borderRadius: 0, outline: "none" }}>
@@ -470,14 +498,8 @@ export function AdminEventsPage() {
                   <option value="RANDOM">Random draw</option>
                 </select>
               </div>
-              <PixelInput label="Start Date (DD/MM)" type="text" placeholder="e.g. 01/03" value={evStart} onChange={(e) => setEvStart(e.target.value)} />
-              <PixelInput label="End Date (DD/MM)" type="text" placeholder="e.g. 30/04" value={evEnd} onChange={(e) => setEvEnd(e.target.value)} />
-            </div>
-
-            {/* Tracks & rounds are configured by the Event Coordinator during the
-                event's SETUP phase, not here. The Admin only creates the event shell. */}
-            <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 14, color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, lineHeight: 1.6 }}>
-              Tracks and rounds are set up by the Event Coordinator during the event's SETUP phase.
+              <PixelInput label="Start Date" type="text" placeholder="DD/MM" value={evStart} onChange={(e) => setEvStart(e.target.value)} />
+              <PixelInput label="End Date" type="text" placeholder="DD/MM" value={evEnd} onChange={(e) => setEvEnd(e.target.value)} />
             </div>
 
             <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 14, display: "flex", gap: 10 }}>
@@ -530,23 +552,33 @@ export function AdminEventsPage() {
           ) : (
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
               <div>
-                <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 20, fontWeight: 700 }}>{selectedEvent.name}</div>
-                <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, marginTop: 4 }}>{eventMeta(selectedEvent)}</div>
-                <div style={{ marginTop: 8 }}>{eventStatusBadge(selectedEvent.status)}</div>
+                <div><EventName>{selectedEvent.name}</EventName></div>
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginTop: 8 }}>
+                  {eventStatusBadge(selectedEvent.status)}
+                  <EventDateBadge ev={selectedEvent} />
+                </div>
               </div>
               <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                {selectedEvent.status !== 'CANCELLED' && selectedEvent.status !== 'COMPLETED' && (
-                  <PixelButton variant="secondary" onClick={openEditForm}>EDIT</PixelButton>
-                )}
                 {selectedEvent.status === 'IN_PROGRESS' && canCompleteEvent && (
                   <PixelButton variant="cyber" onClick={confirmComplete}>COMPLETE EVENT</PixelButton>
                 )}
-                {selectedEvent.status === 'COMPLETED' && canReopenEvent && (
-                  <PixelButton variant="cyber" onClick={() => confirmReopen(selectedEvent)}>REOPEN EVENT</PixelButton>
-                )}
-                {selectedEvent.status !== 'CANCELLED' && selectedEvent.status !== 'COMPLETED' && (
-                  <PixelButton variant="danger" onClick={confirmCancelEvent}>CANCEL EVENT</PixelButton>
-                )}
+                {(() => {
+                  // Edit/Cancel only make sense before the event is done; Reopen
+                  // only makes sense once it's COMPLETED — the two sets never
+                  // overlap, so one menu covers every non-CANCELLED status.
+                  const items: PixelMenuEntry[] = [];
+                  if (selectedEvent.status !== 'CANCELLED' && selectedEvent.status !== 'COMPLETED') {
+                    items.push({ label: "Edit", onClick: openEditForm });
+                    items.push("divider");
+                    items.push({ label: "Cancel Event", danger: true, onClick: confirmCancelEvent });
+                  }
+                  if (selectedEvent.status === 'COMPLETED' && canReopenEvent) {
+                    items.push({ label: "Reopen Event", onClick: () => confirmReopen(selectedEvent) });
+                  }
+                  return items.length > 0 && (
+                    <PixelMenu ariaLabel={`More actions for ${selectedEvent.name}`} items={items} />
+                  );
+                })()}
               </div>
             </div>
           )}

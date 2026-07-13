@@ -9,7 +9,7 @@ import { usePermissions } from "@/shared/permissions";
 import { useNotifications } from "@/app/providers/NotificationProvider";
 import {
   EventStatus, TrackMode, EventRow, ApiEvent,
-  normalizeEvent, eventStatusBadge, eventMeta, nextStatusActions, statusChangeCopy, pickDefaultEvent, EventsListCard,
+  normalizeEvent, eventStatusBadge, EventDateBadge, EventName, nextStatusActions, statusChangeCopy, pickDefaultEvent, EventsListCard,
 } from "@/features/events/eventUtils";
 import { maxTeamsPerTrack, countAssigned, countUnassigned, teamsForTrack, isTrackValid, wouldExceedMax, canCompleteSetup, MIN_TEAMS_PER_TRACK } from "@/features/events/trackStats";
 import { TrackProblemsTab } from "@/features/events/TrackProblemPanel";
@@ -1213,13 +1213,9 @@ export function CoordEventsPage() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, gap: 12, flexWrap: "wrap" }}>
             <div>
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 4, flexWrap: "wrap" }}>
-                <span style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 20, fontWeight: 700 }}>
-                  {selectedEvent.name}
-                </span>
+                <EventName>{selectedEvent.name}</EventName>
                 {eventStatusBadge(selectedEvent.status)}
-              </div>
-              <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, marginTop: 4 }}>
-                {eventMeta(selectedEvent)}
+                <EventDateBadge ev={selectedEvent} />
               </div>
               <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8 }}>
                 <span style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.05em" }}>TRACK ASSIGNMENT:</span>

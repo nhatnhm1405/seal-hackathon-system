@@ -6,6 +6,7 @@ import {
   C, GradientText, PixelCard, PixelButton, PixelBadge, CyberStatCard, PixelProgress,
 } from "@/shared/components/PixelComponents";
 import { AnnouncementComposerModal } from "@/shared/components/AnnouncementComposerModal";
+import { EventName } from "@/features/events/eventUtils";
 import {
   eventsApi, roundsApi, teamsApi, submissionsApi, announcementsApi, accountApprovalsApi, ApiError,
   HackathonEvent, Team, AnnouncementItem, PendingAccount,
@@ -169,9 +170,7 @@ export function CoordinatorDashboard() {
             </PixelButton>
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-            <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 16, fontWeight: 700 }}>
-              {event.name}
-            </div>
+            <EventName size={20}>{event.name}</EventName>
             <PixelBadge color={statusBadgeColor(event.status)}>
               {event.status}
             </PixelBadge>

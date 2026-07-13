@@ -4,6 +4,7 @@ import { teamsApi, roundsApi, HackathonEvent, ActiveEventWithTracks, Round } fro
 import { useTour } from "@/app/providers/TourProvider";
 import { useTheme } from "@/app/providers/ThemeProvider";
 import { ParticipantJourneyBar } from "@/shared/components/ParticipantJourneyBar";
+import { EventName } from "@/features/events/eventUtils";
 import { fmtShort } from "../utils/formatters";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -226,7 +227,7 @@ export function NoTeamDashboard({
                             >
                                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 18, flexWrap: "wrap" }}>
                                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                                        <div style={{ color: dark ? C.green : txt, fontFamily: "'JetBrains Mono', monospace", fontSize: 24, fontWeight: 900, lineHeight: 1.15 }}>{ev.name}</div>
+                                        <EventName size={28}>{ev.name}</EventName>
                                         <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                                             <span style={{ color: txt, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 800 }}>
                                                 {fmtShort(ev.startDate)} - {fmtShort(ev.endDate)}

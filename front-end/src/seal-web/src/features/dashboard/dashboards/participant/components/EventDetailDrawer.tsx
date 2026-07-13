@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
-import { C, GradientText, PixelBadge, PixelButton } from "@/shared/components/PixelComponents";
+import { C, PixelBadge, PixelButton } from "@/shared/components/PixelComponents";
 import { tracksApi, roundsApi, HackathonEvent, Track, Round } from "@/shared/apiClient";
 import { useTheme } from "@/app/providers/ThemeProvider";
+import { EventName } from "@/features/events/eventUtils";
 import { fmtDate, fmtShort } from "../utils/formatters";
 
 function roundBadgeColor(status?: string) {
@@ -71,8 +72,8 @@ export function EventDetailDrawer({
                             <span style={{ background: "rgba(34,197,94,0.1)", border: `1px solid rgba(34,197,94,0.3)`, color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: "0.1em", padding: "2px 10px" }}>{seasonLabel}</span>
                             <PixelBadge color={statusBadgeColor}>{event.status}</PixelBadge>
                         </div>
-                        <h2 style={{ fontFamily: "'JetBrains Mono', monospace", fontWeight: 900, fontSize: 28, lineHeight: 1.1, marginBottom: 8 }}>
-                            <GradientText>{event.name}</GradientText>
+                        <h2 style={{ lineHeight: 1.1, marginBottom: 8 }}>
+                            <EventName size={34}>{event.name}</EventName>
                         </h2>
                         <div style={{ color: mut, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>
                             {fmtShort(event.startDate)} — {fmtShort(event.endDate)}

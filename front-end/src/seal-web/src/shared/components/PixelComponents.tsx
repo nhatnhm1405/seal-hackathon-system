@@ -397,18 +397,21 @@ export function PixelInput({ label, placeholder, type = "text", value, onChange,
 interface PixelBadgeProps {
   children: React.ReactNode;
   color?: "green" | "yellow" | "red" | "blue" | "orange" | "gray" | "cyan" | "purple";
+  /** Adds a colored glow halo around the badge, for content that should stand
+   * out from surrounding plain text rather than read as a routine status tag. */
+  glow?: boolean;
 }
 
-export function PixelBadge({ children, color = "green" }: PixelBadgeProps) {
+export function PixelBadge({ children, color = "green", glow = false }: PixelBadgeProps) {
   const colors = {
-    green:  { bg: "rgba(34,197,94,0.1)",   border: "rgba(34,197,94,0.35)",  text: "#4ade80" },
-    yellow: { bg: "rgba(234,179,8,0.1)",   border: "rgba(234,179,8,0.35)",  text: "#facc15" },
-    red:    { bg: "rgba(239,68,68,0.1)",   border: "rgba(239,68,68,0.35)",  text: "#f87171" },
-    blue:   { bg: "rgba(59,130,246,0.1)",  border: "rgba(59,130,246,0.35)", text: "#60a5fa" },
-    orange: { bg: "rgba(249,115,22,0.1)",  border: "rgba(249,115,22,0.35)", text: "#fb923c" },
-    gray:   { bg: "rgba(107,114,128,0.1)", border: "rgba(107,114,128,0.3)", text: "#9ca3af" },
-    cyan:   { bg: "rgba(6,182,212,0.1)",   border: "rgba(6,182,212,0.35)",  text: "#22d3ee" },
-    purple: { bg: "rgba(139,92,246,0.1)",  border: "rgba(139,92,246,0.35)", text: "#a78bfa" },
+    green:  { bg: "rgba(34,197,94,0.1)",   border: "rgba(34,197,94,0.35)",  text: "#4ade80", glow: "rgba(34,197,94,0.45)" },
+    yellow: { bg: "rgba(234,179,8,0.1)",   border: "rgba(234,179,8,0.35)",  text: "#facc15", glow: "rgba(234,179,8,0.45)" },
+    red:    { bg: "rgba(239,68,68,0.1)",   border: "rgba(239,68,68,0.35)",  text: "#f87171", glow: "rgba(239,68,68,0.45)" },
+    blue:   { bg: "rgba(59,130,246,0.1)",  border: "rgba(59,130,246,0.35)", text: "#60a5fa", glow: "rgba(59,130,246,0.45)" },
+    orange: { bg: "rgba(249,115,22,0.1)",  border: "rgba(249,115,22,0.35)", text: "#fb923c", glow: "rgba(249,115,22,0.45)" },
+    gray:   { bg: "rgba(107,114,128,0.1)", border: "rgba(107,114,128,0.3)", text: "#9ca3af", glow: "rgba(107,114,128,0.35)" },
+    cyan:   { bg: "rgba(6,182,212,0.1)",   border: "rgba(6,182,212,0.35)",  text: "#22d3ee", glow: "rgba(6,182,212,0.5)" },
+    purple: { bg: "rgba(139,92,246,0.1)",  border: "rgba(139,92,246,0.35)", text: "#a78bfa", glow: "rgba(139,92,246,0.45)" },
   };
   const c = colors[color];
   return (
@@ -417,6 +420,7 @@ export function PixelBadge({ children, color = "green" }: PixelBadgeProps) {
         background: c.bg, border: `1px solid ${c.border}`, color: c.text,
         fontFamily: "'JetBrains Mono', monospace", fontSize: 11,
         padding: "3px 9px", letterSpacing: "0.06em", borderRadius: 0,
+        boxShadow: glow ? `0 0 10px ${c.glow}, inset 0 0 14px ${c.bg}` : undefined,
       }}
       className={`pixel-badge pixel-badge--${color} uppercase inline-flex items-center gap-1`}
     >
