@@ -787,17 +787,20 @@ export function CoordEventsPage() {
   // PHẦN 4 — handle a drop. Dropping a team where it already is, is ignored. If the
   // drop would push a track past the recommended max we still allow it, but ask for
   // confirmation first (soft cap); otherwise assign immediately.
-  function onDropTeam(item: TeamDragItem, targetTrackId: number | null) {
-    if (item.fromTrackId === targetTrackId) return;
-    if (targetTrackId != null) {
-      const approved = teams.filter(t => t.status === 'APPROVED');
-      const currentCount = teamsForTrack(approved, targetTrackId).length;
-      const max = maxTeamsPerTrack(approved.length, tracks.length);
-      if (wouldExceedMax(currentCount, max)) {
-        const track = tracks.find(t => t.trackId === targetTrackId);
-        openConfirm({
-          title: 'Track over recommended max',
-          message: `Assigning this team to "${track?.name ?? 'this track'}" makes ${currentCount + 1} teams — above the recommended maximum of ${max} per track.`,
+    function onDropTeam(item: TeamDragItem, targetTrackId: number | null) {
+      if (item.fromTrackId === targetTrackId) return;
+      if (targetTrackId != null) {
+        const approved = teams.filter(t => t.status === 'APPROVED');
+        const currentCount = teamsForTrack(approved, targetTrackId).length;
+        const targetTrack = tracks.find(t => t.trackId === targetTrackId);
+        const max = Math.max(
+          targetTrack?.capacity ?? maxTeamsPerTrack(approved.length, tracks.length),
+          MIN_TEAMS_PER_TRACK,
+        );
+        if (wouldExceedMax(currentCount, max)) {
+          openConfirm({
+            title: 'Track over recommended max',
+            message: `Assigning this team to "${targetTrack?.name ?? 'this track'}" makes ${currentCount + 1} teams — above this track's maximum of ${max}.`,
           warning: 'You can proceed; this track will simply exceed the recommended maximum.',
           confirmLabel: 'ASSIGN ANYWAY',
           variant: 'cyber',
@@ -1392,7 +1395,13 @@ export function CoordEventsPage() {
                 {tracks.map(t => {
                   const trackTeams = teamsForTrack(approvedTeams, t.trackId);
                   // PHẦN 2 — a track needs >= MIN_TEAMS_PER_TRACK teams to be valid.
-                  const invalid = showTrackStats && !isTrackValid(trackTeams.length);
+                  const underMinimum = showTrackStats && !isTrackValid(trackTeams.length);
+                  // Capacity is computed per track by the backend (e.g. 15 teams
+                  // across 4 tracks => 4/4/4/3). Fall back to the aggregate max,
+                  // while never displaying a target below the business minimum.
+                  const trackMax = Math.max(t.capacity ?? maxPerTrack, MIN_TEAMS_PER_TRACK);
+                  const overCapacity = showTrackStats && trackTeams.length > trackMax;
+                  const trackTone = underMinimum ? "red" : overCapacity ? "amber" : "green";
                   // Shared team list. In SETUP each row is draggable (PHẦN 4); the
                   // empty state doubles as a drop hint.
                   const teamList = (
@@ -1435,16 +1444,20 @@ export function CoordEventsPage() {
                             </div>
                           )}
                         </div>
-                        {/* Right side — ONE readiness chip (x/min teams) + the ⋯ menu.
+                        {/* Right side — ONE capacity chip (current/max teams) + the ⋯ menu.
                             stopPropagation so chip/menu clicks don't toggle the card. */}
                         {(showTrackStats || (trackMutationAllowed && !isEditingThis)) && (
                           <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
                             {showTrackStats && (
                               <TrackChip
-                                tone={invalid ? "red" : "green"}
-                                title={`Minimum ${MIN_TEAMS_PER_TRACK} teams per track to start the event`}
+                                tone={trackTone}
+                                title={underMinimum
+                                  ? `Needs at least ${MIN_TEAMS_PER_TRACK} teams to start the event`
+                                  : overCapacity
+                                    ? `Above this track's maximum capacity of ${trackMax}`
+                                    : `${trackTeams.length} of ${trackMax} team slots used`}
                               >
-                                <b style={{ fontWeight: 800, fontSize: 13 }}>{trackTeams.length}/{MIN_TEAMS_PER_TRACK}</b>
+                                <b style={{ fontWeight: 800, fontSize: 13 }}>{trackTeams.length}/{trackMax}</b>
                                 <span style={{ marginLeft: 5 }}>teams</span>
                               </TrackChip>
                             )}
@@ -1478,10 +1491,10 @@ export function CoordEventsPage() {
                     <div key={t.trackId} className="row-actionable" style={{
                       background: C.surface2,
                       border: `1px solid ${C.border}`,
-                      // PHẦN 2 — track validity now reads as a left accent bar (green = ready,
-                      // red = under MIN_TEAMS_PER_TRACK) instead of a full red outline + badges.
+                      // PHẦN 2 — track validity reads as a left accent bar: red =
+                      // under minimum, amber = over capacity, green = within range.
                       // Neutral before SETUP, when no team is assigned yet.
-                      borderLeft: `3px solid ${showTrackStats ? (invalid ? C.red : C.green) : C.border}`,
+                      borderLeft: `3px solid ${showTrackStats ? (underMinimum ? C.red : overCapacity ? C.yellow : C.green) : C.border}`,
                     }}>
                       {/* In SETUP the WHOLE card is the drop target, so a collapsed
                           card still accepts a dragged team (it auto-expands on drop). */}
