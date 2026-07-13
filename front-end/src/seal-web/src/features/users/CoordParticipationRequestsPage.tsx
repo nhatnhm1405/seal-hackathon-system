@@ -38,7 +38,12 @@ export function ParticipationRequestsPanel() {
     setLoading(true);
     setError(null);
     participationRequestsApi.getPending()
-      .then(res => setRequests(res.data ?? []))
+      .then(res => {
+        // Newest request first — same "stack" ordering as the Approvals queue.
+        const list = (res.data ?? []).slice().sort((a, b) =>
+          new Date(b.requestedAt ?? 0).getTime() - new Date(a.requestedAt ?? 0).getTime());
+        setRequests(list);
+      })
       .catch(err => setError(err instanceof ApiError ? err.message : "Failed to load participation requests."))
       .finally(() => setLoading(false));
   }

@@ -234,8 +234,11 @@ export function CoordAccountsPage() {
     const request = tab === "participants" ? accountApprovalsApi.getActiveParticipants() : accountApprovalsApi.getActiveJudgeMentorStaff();
     request
       .then(res => {
-        if (tab === "participants") setParticipants(res.data ?? []);
-        else setStaffList(res.data ?? []);
+        // Newest account first — same "stack" ordering as the Approvals queue.
+        const list = (res.data ?? []).slice().sort((a, b) =>
+          new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime());
+        if (tab === "participants") setParticipants(list);
+        else setStaffList(list);
         setLoadedLists(prev => new Set(prev).add(tab));
       })
       .catch(err => setListError(err instanceof ApiError ? err.message : "Failed to load accounts."))
