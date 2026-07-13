@@ -1,9 +1,12 @@
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { List } from "lucide-react";
 import {
   C, GradientText, PixelCard, PixelButton, PixelBadge,
 } from "@/shared/components/PixelComponents";
 import { apiFetch, ApiError, apiErrorMessage } from "@/shared/apiClient";
 import { useNotifications } from "@/app/providers/NotificationProvider";
+import { usePendingTeams } from "@/app/providers/PendingTeamsProvider";
+import { TeamDetailModal, type TeamInfoRow } from "@/shared/components/TeamDetailModal";
 
 // ── API shapes (tolerate camelCase + snake_case from the backend) ─────
 interface ApiTrack {
@@ -23,7 +26,10 @@ interface ApiTeamMember {
   userId?: number; user_id?: number;
   fullName?: string; full_name?: string;
   email?: string;
-  role?: string; member_role?: string;
+  memberRole?: string; role?: string; member_role?: string;
+  studentId?: string | null;
+  userType?: string | null;
+  university?: string | null;
 }
 
 interface ApiTeam {
@@ -36,6 +42,7 @@ interface ApiTeam {
   description?: string | null;
   status?: string;
   disqualifiedReason?: string | null; disqualified_reason?: string | null;
+  createdAt?: string | null; created_at?: string | null;
   members?: ApiTeamMember[];
 }
 
@@ -44,7 +51,10 @@ interface MemberRow {
   userId: number;
   fullName: string;
   email: string;
-  role: 'LEADER' | 'MEMBER';
+  memberRole: 'LEADER' | 'MEMBER';
+  studentId: string | null;
+  userType: string | null;
+  university: string | null;
 }
 
 interface TrackRow {
@@ -65,6 +75,7 @@ interface TeamRow {
   description: string | null;
   status: string;
   disqualifiedReason: string | null;
+  createdAt: string | null;
   members: MemberRow[];
 }
 
@@ -85,12 +96,15 @@ function normalizeTrack(item: ApiTrack): TrackRow {
 }
 
 function normalizeMember(item: ApiTeamMember): MemberRow {
-  const role = (item.role ?? item.member_role ?? 'MEMBER').toUpperCase();
+  const role = (item.memberRole ?? item.role ?? item.member_role ?? 'MEMBER').toUpperCase();
   return {
     userId: item.userId ?? item.user_id ?? 0,
     fullName: item.fullName ?? item.full_name ?? '',
     email: item.email ?? '',
-    role: role === 'LEADER' ? 'LEADER' : 'MEMBER',
+    memberRole: role === 'LEADER' ? 'LEADER' : 'MEMBER',
+    studentId: item.studentId ?? null,
+    userType: item.userType ?? null,
+    university: item.university ?? null,
   };
 }
 
@@ -103,8 +117,37 @@ function normalizeTeam(item: ApiTeam): TeamRow {
     description: item.description ?? null,
     status: (item.status ?? 'PENDING').toUpperCase(),
     disqualifiedReason: item.disqualifiedReason ?? item.disqualified_reason ?? null,
+    createdAt: item.createdAt ?? item.created_at ?? null,
     members: (item.members ?? []).map(normalizeMember),
   };
+}
+
+// New/pending teams surface first — like a stack, newest arrival on top —
+// so the coordinator immediately sees what needs a decision, mirroring the
+// Accounts queue's "newest applicant first" ordering.
+function sortTeamsForQueue(teams: TeamRow[]): TeamRow[] {
+  return [...teams].sort((a, b) => {
+    const pendingRank = (t: TeamRow) => (t.status === 'PENDING' ? 0 : 1);
+    const rankDiff = pendingRank(a) - pendingRank(b);
+    if (rankDiff !== 0) return rankDiff;
+    return new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime();
+  });
+}
+
+// Info block shown at the top of the team-detail modal: Status/Track/Event/
+// Members, plus Description and (if applicable) the disqualification reason.
+function teamInfoRows(t: TeamRow, trackNameStr: string, eventName: string): TeamInfoRow[] {
+  const rows: TeamInfoRow[] = [
+    { label: "Status", value: statusBadge(t.status) },
+    { label: "Track", value: trackNameStr },
+    { label: "Event", value: eventName },
+    { label: "Members", value: t.members.length },
+  ];
+  if (t.description) rows.push({ label: "Description", value: t.description });
+  if (t.status === 'DISQUALIFIED' && t.disqualifiedReason) {
+    rows.push({ label: "Reason", value: <span style={{ color: C.red }}>{t.disqualifiedReason}</span> });
+  }
+  return rows;
 }
 
 function statusBadge(status: string) {
@@ -190,13 +233,13 @@ function TeamActionModal({
     <>
       <div
         onClick={onCancel}
-        style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", zIndex: 400, backdropFilter: "blur(2px)" }}
+        style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", zIndex: 1100, backdropFilter: "blur(2px)" }}
       />
       <div style={{
         position: "fixed",
         top: "50%", left: "50%",
         transform: "translate(-50%, -50%)",
-        zIndex: 401,
+        zIndex: 1101,
         width: "min(460px, calc(100vw - 32px))",
         background: C.surface,
         border: `1px solid ${accent}66`,
@@ -248,6 +291,9 @@ function TeamActionModal({
 
 export function CoordTeamsPage() {
   const { addToast } = useNotifications();
+  // Sidebar's "Teams" badge — refreshed after every approve/reject/disqualify
+  // so it stays in sync without a page reload (mirrors PendingAccountsProvider).
+  const { refreshPendingCount: refreshPendingTeamsCount } = usePendingTeams();
   const [events, setEvents] = useState<EventRow[]>([]);
   const [eventsLoading, setEventsLoading] = useState(true);
   const [eventsError, setEventsError] = useState<string | null>(null);
@@ -260,7 +306,8 @@ export function CoordTeamsPage() {
 
   const [filterTrack, setFilterTrack] = useState<number>(0);
   const [filterStatus, setFilterStatus] = useState<string>("ALL");
-  const [expandedTeamId, setExpandedTeamId] = useState<number | null>(null);
+  // The team whose full-detail modal is open (null = closed).
+  const [detailTeam, setDetailTeam] = useState<TeamRow | null>(null);
 
   const [actionError, setActionError] = useState<string | null>(null);
   const [confirmTarget, setConfirmTarget] = useState<{ type: TeamActionType; team: TeamRow } | null>(null);
@@ -294,7 +341,7 @@ export function CoordTeamsPage() {
     }
     setTeamsLoading(true);
     setTeamsError(null);
-    setExpandedTeamId(null);
+    setDetailTeam(null);
     setFilterTrack(0);
 
     apiFetch<{ data: ApiTrack[] }>(`/api/events/${selectedEventId}/tracks`)
@@ -323,11 +370,11 @@ export function CoordTeamsPage() {
     return (id: number) => (id ? map.get(id) ?? "—" : "Unassigned");
   }, [tracks]);
 
-  const filtered = teams.filter(t => {
+  const filtered = sortTeamsForQueue(teams.filter(t => {
     if (filterTrack && t.trackId !== filterTrack) return false;
     if (filterStatus !== "ALL" && t.status !== filterStatus) return false;
     return true;
-  });
+  }));
 
   function requestAction(type: TeamActionType, team: TeamRow) {
     setActionError(null);
@@ -363,7 +410,12 @@ export function CoordTeamsPage() {
         setTeams(prev => prev.map(t => t.teamId === id ? { ...t, status: 'DISQUALIFIED', disqualifiedReason: reason } : t));
         addToast({ type: 'warning', title: 'TEAM DISQUALIFIED', message: `"${team.name}" was disqualified.` });
       }
+      // All actions now live inside the detail modal, and each one moves the
+      // team out of the status that made the action available in the first
+      // place — so there's nothing left to do in there once it succeeds.
+      setDetailTeam(null);
       closeConfirm();
+      refreshPendingTeamsCount();
     } catch (err) {
       setActionError(err instanceof ApiError ? err.message : "Action failed.");
       addToast({ type: 'warning', title: 'ACTION FAILED', message: apiErrorMessage(err, 'Action failed.') });
@@ -418,9 +470,10 @@ export function CoordTeamsPage() {
           <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: "'JetBrains Mono', monospace" }}>
             <thead>
               <tr style={{ background: C.surface2, borderBottom: `1px solid ${C.border}` }}>
-                {["Team", "Track", "Leader", "Members", "Status", "Actions"].map(h => (
+                {["Team", "Track", "Leader", "Members", "Status"].map(h => (
                   <th key={h} style={{ color: C.green, fontSize: 10, letterSpacing: "0.12em", textAlign: "left", padding: "12px 14px", fontWeight: 600, textTransform: "uppercase" }}>{h}</th>
                 ))}
+                <th style={{ width: 48, padding: "12px 14px" }} aria-label="Details" />
               </tr>
             </thead>
             <tbody>
@@ -434,94 +487,63 @@ export function CoordTeamsPage() {
                 <tr><td colSpan={6} style={{ padding: 20, color: C.textMuted, fontSize: 12, textAlign: "center" }}>No teams</td></tr>
               )}
               {!teamsLoading && filtered.map((t, i) => {
-                const leader = t.members.find(m => m.role === 'LEADER');
-                const expanded = expandedTeamId === t.teamId;
+                const leader = t.members.find(m => m.memberRole === 'LEADER');
                 return (
-                  <React.Fragment key={t.teamId}>
-                    <tr onClick={() => setExpandedTeamId(expanded ? null : t.teamId)}
-                      className="row-actionable"
-                      style={{ borderBottom: `1px solid rgba(34,197,94,0.06)`, background: i % 2 === 0 ? C.surface : C.surface2, cursor: "pointer" }}>
-                      <td style={{ color: C.text, fontSize: 13, padding: "12px 14px" }}>
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                          <span style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, width: 10, flexShrink: 0 }}>{expanded ? "▾" : "▸"}</span>
-                          {t.name}
-                        </span>
-                      </td>
-                      <td style={{ color: C.textMuted, fontSize: 12, padding: "12px 14px" }}>{trackName(t.trackId)}</td>
-                      <td style={{ color: C.textMuted, fontSize: 12, padding: "12px 14px" }}>{leader?.fullName ?? "—"}</td>
-                      <td style={{ color: C.textMuted, fontSize: 12, padding: "12px 14px" }}>{t.members.length}</td>
-                      <td style={{ padding: "12px 14px" }}>{statusBadge(t.status)}</td>
-                      <td style={{ padding: "12px 14px" }} onClick={(e) => e.stopPropagation()}>
-                        {/* Queue decision: APPROVE stays one click; REJECT is a direct
-                            danger button revealed on row hover/focus (kept visible on
-                            touch by CSS). An already-approved team's DISQUALIFY is a rare,
-                            heavy action, so it lives inside the expanded detail below —
-                            not on the row. Both still confirm via TeamActionModal. */}
-                        {t.status === 'PENDING' && (
-                          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                            <PixelButton size="sm" variant="cyber" onClick={() => requestAction('approve', t)}>APPROVE</PixelButton>
-                            <span className="row-action">
-                              <PixelButton size="sm" variant="danger" onClick={() => requestAction('reject', t)}>REJECT</PixelButton>
-                            </span>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                    {expanded && (
-                      <tr>
-                        <td colSpan={6} style={{ padding: 16, background: "rgba(34,197,94,0.04)" }}>
-                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                            <div>
-                              <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: "0.1em", marginBottom: 6 }}>MEMBERS</div>
-                              {t.members.length === 0 && (
-                                <div style={{ color: C.textMuted, fontSize: 11 }}>No members</div>
-                              )}
-                              {t.members.map(m => (
-                                <div key={m.userId} style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, padding: "4px 0", display: "flex", alignItems: "center", gap: 8 }}>
-                                  <span>{m.fullName}</span>
-                                  <span style={{ color: C.textMuted, opacity: 0.7 }}>{m.email}</span>
-                                  {m.role === 'LEADER' && <PixelBadge color="cyan">LEADER</PixelBadge>}
-                                </div>
-                              ))}
-                            </div>
-                            <div>
-                              <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: "0.1em", marginBottom: 6 }}>DETAILS</div>
-                              <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, padding: "4px 0" }}>
-                                Track: {trackName(t.trackId)}
-                              </div>
-                              <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, padding: "4px 0" }}>
-                                Event: {selectedEvent?.name ?? "—"}
-                              </div>
-                              {t.description && (
-                                <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, padding: "4px 0", lineHeight: 1.6 }}>
-                                  {t.description}
-                                </div>
-                              )}
-                              {t.status === 'DISQUALIFIED' && t.disqualifiedReason && (
-                                <div style={{ color: C.red, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, padding: "4px 0", lineHeight: 1.6 }}>
-                                  Disqualified: {t.disqualifiedReason}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                          {/* Disqualify lives here (not on the row): a rare, destructive
-                              action shown only once the coordinator has opened the team
-                              to look at it. Confirms via TeamActionModal (reason required). */}
-                          {t.status === 'APPROVED' && (
-                            <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${C.border}`, display: "flex", justifyContent: "flex-end" }}>
-                              <PixelButton size="sm" variant="danger" onClick={() => requestAction('disqualify', t)}>DISQUALIFY TEAM</PixelButton>
-                            </div>
-                          )}
-                        </td>
-                      </tr>
-                    )}
-                  </React.Fragment>
+                  <tr key={t.teamId} onClick={() => setDetailTeam(t)}
+                    title="View team & member details"
+                    className="row-actionable"
+                    style={{ borderBottom: `1px solid rgba(34,197,94,0.06)`, background: i % 2 === 0 ? C.surface : C.surface2, cursor: "pointer" }}>
+                    <td style={{ color: C.text, fontSize: 13, padding: "12px 14px" }}>{t.name}</td>
+                    <td style={{ color: C.textMuted, fontSize: 12, padding: "12px 14px" }}>{trackName(t.trackId)}</td>
+                    <td style={{ color: C.textMuted, fontSize: 12, padding: "12px 14px" }}>{leader?.fullName ?? "—"}</td>
+                    <td style={{ color: C.textMuted, fontSize: 12, padding: "12px 14px" }}>{t.members.length}</td>
+                    <td style={{ padding: "12px 14px" }}>{statusBadge(t.status)}</td>
+                    {/* Approve/Reject/Disqualify all live inside the detail modal now
+                        (opened by clicking anywhere on the row) — matching the Mentor
+                        "My Tracks" row, which is pure data plus this same hover-reveal
+                        details affordance at the far right. */}
+                    <td style={{ padding: "8px 12px", textAlign: "right" }}>
+                      <span className="row-action" style={{
+                        display: "inline-flex", alignItems: "center", justifyContent: "center",
+                        width: 30, height: 30, border: `1px solid ${C.green}`,
+                        background: "rgba(34,197,94,0.14)", color: C.green,
+                      }}>
+                        <List size={15} strokeWidth={2.25} />
+                      </span>
+                    </td>
+                  </tr>
                 );
               })}
             </tbody>
           </table>
         </div>
       </PixelCard>
+
+      {detailTeam && (
+        <TeamDetailModal
+          open
+          teamName={detailTeam.name}
+          infoRows={teamInfoRows(detailTeam, trackName(detailTeam.trackId), selectedEvent?.name ?? "—")}
+          members={detailTeam.members}
+          onClose={() => setDetailTeam(null)}
+        >
+          {detailTeam.status === 'PENDING' && (
+            // Reject on the left, Approve on the right — the destructive choice
+            // sits furthest from where the eye/cursor naturally lands after
+            // reading top-to-bottom, so a quick, confident approve is harder to
+            // fat-finger into a reject.
+            <div style={{ paddingTop: 14, borderTop: `1px solid ${C.border}`, display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <PixelButton size="sm" variant="danger" onClick={() => requestAction('reject', detailTeam)}>REJECT TEAM</PixelButton>
+              <PixelButton size="sm" variant="cyber" onClick={() => requestAction('approve', detailTeam)}>APPROVE TEAM</PixelButton>
+            </div>
+          )}
+          {detailTeam.status === 'APPROVED' && (
+            <div style={{ paddingTop: 14, borderTop: `1px solid ${C.border}`, display: "flex", justifyContent: "flex-end" }}>
+              <PixelButton size="sm" variant="danger" onClick={() => requestAction('disqualify', detailTeam)}>DISQUALIFY TEAM</PixelButton>
+            </div>
+          )}
+        </TeamDetailModal>
+      )}
 
       {confirmTarget && (
         <TeamActionModal
