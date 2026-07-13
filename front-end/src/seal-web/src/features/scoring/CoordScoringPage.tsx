@@ -5,8 +5,8 @@ import {
 } from "@/shared/components/PixelComponents";
 import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
 import {
-  eventsApi, roundsApi, submissionsApi, scoringApi, resultsApi, coordinatorApi, prizesApi, ApiError, apiErrorMessage,
-  HackathonEvent, Round, Submission, RoundResult, Prize,
+  eventsApi, roundsApi, submissionsApi, scoringApi, resultsApi, prizesApi, ApiError, apiErrorMessage,
+  HackathonEvent, Round, Submission, RoundResult, Prize, SubmissionScoringProgress,
 } from "@/shared/apiClient";
 import { useNotifications } from "@/app/providers/NotificationProvider";
 
@@ -58,8 +58,7 @@ export function CoordScoringPage() {
   const [selectedRoundId, setSelectedRoundId] = useState<number | null>(null);
 
   const [submissions, setSubmissions] = useState<Submission[]>([]);
-  const [judgeCount, setJudgeCount] = useState(0);
-  const [scoresBySub, setScoresBySub] = useState<Record<number, number>>({});
+  const [progressBySub, setProgressBySub] = useState<Record<number, SubmissionScoringProgress>>({});
   const [results, setResults] = useState<RoundResult[]>([]);
   // Awarded prizes for the event — the Final round's "winner" highlight is
   // driven by who actually has a prize, not RoundResult.advanced (that flag
@@ -111,41 +110,29 @@ export function CoordScoringPage() {
   // Submissions + score completion + results when round changes.
   useEffect(() => {
     if (selectedEventId == null || selectedRoundId == null) {
-      setSubmissions([]); setScoresBySub({}); setResults([]); setJudgeCount(0);
+      setSubmissions([]); setProgressBySub({}); setResults([]);
       return;
     }
     const eventId = selectedEventId, roundId = selectedRoundId;
     setActionError(null); setNotice(null);
 
-    // Distinct judges assigned to this round.
-    coordinatorApi.getJudgeRoster(eventId)
-      .then(res => {
-        const ids = new Set((res.data ?? []).filter(a => a.roundId === roundId).map(a => a.judgeUserId));
-        setJudgeCount(ids.size);
-      })
-      .catch(() => setJudgeCount(0));
-
     loadResults(eventId, roundId);
 
-    submissionsApi.getAllForRound(roundId)
-      .then(res => {
-        const subs = res.data ?? [];
+    Promise.all([
+      submissionsApi.getAllForRound(roundId).then(res => res.data ?? []),
+      scoringApi.getProgress(eventId, roundId).then(res => res.data ?? []),
+    ])
+      .then(([subs, progress]) => {
         setSubmissions(subs);
-        // Per submission: how many distinct judges have submitted (non-draft) scores.
-        return Promise.all(subs.map(s =>
-          scoringApi.getScoresForSubmission(s.submissionId)
-            .then(r => {
-              const judges = new Set((r.data ?? []).filter(x => !x.isDraft).map(x => x.judgeUserId));
-              return [s.submissionId, judges.size] as const;
-            })
-            .catch(() => [s.submissionId, 0] as const)));
+        setProgressBySub(Object.fromEntries(progress.map(item => [item.submissionId, item])));
       })
-      .then(pairs => setScoresBySub(Object.fromEntries(pairs ?? [])))
-      .catch(() => { setSubmissions([]); setScoresBySub({}); });
+      .catch(() => { setSubmissions([]); setProgressBySub({}); });
   }, [selectedEventId, selectedRoundId, loadResults]);
 
   const selectedRound = rounds.find(r => r.roundId === selectedRoundId);
   const allPublished = results.length > 0 && results.every(r => r.isPublished);
+  const allScoringComplete = submissions.length > 0
+    && submissions.every(submission => progressBySub[submission.submissionId]?.complete === true);
 
   const sortedResults = results.slice().sort((a, b) => a.rankPosition - b.rankPosition);
   const topN = selectedRound?.topNAdvance ?? null;
@@ -294,13 +281,23 @@ export function CoordScoringPage() {
                 <tr><td colSpan={4} style={{ padding: 20, color: C.textMuted, fontSize: 12, textAlign: "center" }}>No submissions</td></tr>
               )}
               {!loading && submissions.map((s, i) => {
-                const scored = scoresBySub[s.submissionId] ?? 0;
-                const complete = judgeCount > 0 && scored >= judgeCount;
+                const progress = progressBySub[s.submissionId];
+                const scored = progress?.completedJudgeCount ?? 0;
+                const expected = progress?.assignedJudgeCount ?? 0;
+                const complete = progress?.complete === true;
+                const missingJudges = (progress?.judges ?? []).filter(judge => judge.status !== 'FINAL');
                 return (
                   <tr key={s.submissionId} style={{ borderBottom: `1px solid rgba(34,197,94,0.06)`, background: i % 2 === 0 ? C.surface : C.surface2 }}>
                     <td style={{ color: C.text, fontSize: 13, padding: "12px 14px" }}>{s.teamName}</td>
                     <td style={{ color: C.textMuted, fontSize: 11, padding: "12px 14px" }}>{fmtDT(s.submittedAt)}</td>
-                    <td style={{ color: C.textMuted, fontSize: 12, padding: "12px 14px" }}>{scored}/{judgeCount}</td>
+                    <td style={{ color: C.textMuted, fontSize: 12, padding: "12px 14px" }}>
+                      <div>{scored}/{expected}</div>
+                      {missingJudges.length > 0 && (
+                        <div style={{ color: C.yellow, fontSize: 10, marginTop: 4 }}>
+                          Missing: {missingJudges.map(judge => judge.judgeName).join(", ")}
+                        </div>
+                      )}
+                    </td>
                     <td style={{ padding: "12px 14px" }}>
                       <PixelBadge color={complete ? "green" : "yellow"}>{complete ? "COMPLETE" : "PENDING"}</PixelBadge>
                     </td>
@@ -316,7 +313,7 @@ export function CoordScoringPage() {
           additionally type-to-confirm gated since participants see the results
           the moment it lands. */}
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-        <PixelButton variant="cyber" disabled={busy || selectedRoundId == null} onClick={() => setConfirmAction("finalize")}>
+        <PixelButton variant="cyber" disabled={busy || selectedRoundId == null || !allScoringComplete} onClick={() => setConfirmAction("finalize")}>
           {busy ? "WORKING…" : "CALCULATE RANKINGS"}
         </PixelButton>
         <PixelButton variant="secondary" disabled={busy || results.length === 0 || allPublished} onClick={() => setConfirmAction("publish")}>

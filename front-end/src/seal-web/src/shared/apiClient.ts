@@ -1191,6 +1191,20 @@ export interface CreateSubmissionPayload {
   description?: string;
 }
 
+export type SubmissionEligibilityStatus = "ELIGIBLE" | "ADVANCED" | "ELIMINATED" | "WAITING_FOR_RESULTS";
+
+export interface SubmissionEligibility {
+  roundId: number;
+  roundName: string;
+  eligible: boolean;
+  status: SubmissionEligibilityStatus;
+  reason: string;
+  previousRoundId?: number | null;
+  previousRoundName?: string | null;
+  rankPosition?: number | null;
+  topNAdvance?: number | null;
+}
+
 export const submissionsApi = {
   submit: (payload: CreateSubmissionPayload) =>
     apiFetch<ApiResponse<Submission>>('/api/submissions', {
@@ -1200,6 +1214,9 @@ export const submissionsApi = {
 
   getMyForRound: (roundId: number) =>
     apiFetch<ApiResponse<Submission>>(`/api/submissions/my/round/${roundId}`),
+
+  getMyEligibility: (roundId: number) =>
+    apiFetch<ApiResponse<SubmissionEligibility>>(`/api/submissions/my/round/${roundId}/eligibility`),
 
   getAllForRound: (roundId: number) =>
     apiFetch<ApiResponse<Submission[]>>(`/api/submissions/round/${roundId}`),
@@ -1254,7 +1271,30 @@ export interface ScoreRecord {
   updatedAt?: string;
 }
 
+export interface JudgeScoringProgress {
+  judgeUserId: number;
+  judgeName: string;
+  status: 'NOT_STARTED' | 'DRAFT' | 'INCOMPLETE' | 'FINAL';
+  missingCriteria: string[];
+}
+
+export interface SubmissionScoringProgress {
+  submissionId: number;
+  teamId: number;
+  teamName: string;
+  trackId?: number | null;
+  trackName?: string | null;
+  assignedJudgeCount: number;
+  completedJudgeCount: number;
+  complete: boolean;
+  judges: JudgeScoringProgress[];
+}
+
 export const scoringApi = {
+  getProgress: (eventId: number, roundId: number) =>
+    apiFetch<ApiResponse<SubmissionScoringProgress[]>>(
+      `/api/events/${eventId}/rounds/${roundId}/scoring-progress`),
+
   getCriteria: (eventId: number, roundId: number) =>
     apiFetch<ApiResponse<ScoringCriteria[]>>(`/api/events/${eventId}/rounds/${roundId}/criteria`),
 
@@ -1498,6 +1538,7 @@ export interface JudgeAssignedTeam {
   teamName: string;
   trackName: string;
   roundId: number;
+  assignedJudgeCount?: number;
   members: AssignmentMember[];
 }
 
@@ -1524,6 +1565,7 @@ export interface MentorAssignment {
 export interface JudgeAssignment {
   judgeId: number;
   judgeName: string;
+  eventId: number | null;
   eventName: string;
   teams: JudgeAssignedTeam[];
 }
@@ -1737,6 +1779,12 @@ export const coordinatorApi = {
 
   removeJudgeAssignment: (assignmentId: number) =>
     apiFetch<ApiResponse<void>>(`/api/coordinator/assignments/judges/${assignmentId}`, { method: 'DELETE' }),
+
+  replaceJudgeAssignment: (assignmentId: number, payload: { judgeUserId: number; reason: string }) =>
+    apiFetch<ApiResponse<unknown>>(`/api/coordinator/assignments/judges/${assignmentId}/replace`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
 
   // Mentor assignments (mentor -> track, whole event)
   getMentorRoster: (eventId: number) =>
