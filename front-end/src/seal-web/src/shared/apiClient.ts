@@ -204,7 +204,19 @@ export const authApi = {
   // Remove the current profile picture. Returns the updated profile.
   deleteAvatar: () =>
     apiFetch<ApiResponse<UserProfile>>('/api/auth/me/avatar', { method: 'DELETE' }),
+
+  // Signed-in user changes their own password by proving the current one.
+  changePassword: (payload: ChangePasswordPayload) =>
+    apiFetch<ApiResponse<null>>('/api/auth/me/password', {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    }),
 };
+
+export interface ChangePasswordPayload {
+  currentPassword: string;
+  newPassword: string;
+}
 
 export interface UpdateProfilePayload {
   fullName?: string;
@@ -890,7 +902,7 @@ export interface TeamHistoryEntry {
   trackName?: string | null;
   teamStatus: string;
   myRole?: string;
-  members: { fullName: string; role: string }[];
+  members: { fullName: string; role: string; studentId?: string | null; userType?: string | null; university?: string | null }[];
   rounds: { roundName: string; isFinal: boolean; rankPosition: number; advanced: boolean; totalScore: number }[];
   submissions: { roundName: string; repoUrl?: string; demoUrl?: string; slideUrl?: string; submittedAt?: string; status: string }[];
   prize: { name: string; rankPosition: number; awardedAt?: string } | null;
@@ -1443,6 +1455,10 @@ export interface AssignmentMember {
   fullName: string;
   email: string;
   memberRole: 'LEADER' | 'MEMBER';
+  // Full member detail for the team-detail modal (mentor + judge views).
+  studentId?: string | null;
+  userType?: string | null;   // FPT_STUDENT | EXTERNAL_STUDENT | STAFF
+  university?: string | null;
 }
 
 export interface MentorAssignedTeam {
@@ -1510,7 +1526,12 @@ export interface MentorHistoryEntry {
   tracks: {
     trackId: number;
     trackName: string;
-    teams: { teamId: number; teamName: string; teamStatus: string; finalRank?: number | null; prizeName?: string | null }[];
+    teams: {
+      teamId: number; teamName: string; teamStatus: string;
+      finalRank?: number | null; prizeName?: string | null;
+      memberCount?: number;
+      members?: { fullName: string; memberRole: string; studentId?: string | null; userType?: string | null; university?: string | null }[];
+    }[];
   }[];
 }
 
@@ -1544,6 +1565,54 @@ export const announcementsApi = {
     }),
   listCoordinator: () =>
     apiFetch<ApiResponse<AnnouncementItem[]>>('/api/coordinator/announcements'),
+};
+
+// ── Mentor support requests ───────────────────────────────────────────
+export type SupportCategory = 'RULES' | 'TECHNICAL' | 'DIRECTION' | 'OTHER';
+export type SupportStatus = 'OPEN' | 'RESOLVED' | 'CANCELLED';
+
+export interface MentorContact {
+  userId: number;
+  fullName: string;
+  email?: string | null;
+  trackId: number;
+  trackName: string;
+}
+
+export interface SupportRequest {
+  requestId: number;
+  teamId: number;
+  teamName: string;
+  trackId: number;
+  trackName: string;
+  category: SupportCategory;
+  description: string;
+  status: SupportStatus;
+  requesterName?: string | null;
+  createdAt: string;
+  resolvedByName?: string | null;
+  resolvedAt?: string | null;
+}
+
+export const supportApi = {
+  // Participant (team leader raises; any member can view).
+  getMyMentors: () =>
+    apiFetch<ApiResponse<MentorContact[]>>('/api/support-requests/my-mentors'),
+  getMine: () =>
+    apiFetch<ApiResponse<SupportRequest[]>>('/api/support-requests/mine'),
+  create: (payload: { category: SupportCategory; description: string }) =>
+    apiFetch<ApiResponse<SupportRequest>>('/api/support-requests', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+  cancel: (requestId: number) =>
+    apiFetch<ApiResponse<SupportRequest>>(`/api/support-requests/${requestId}/cancel`, { method: 'PUT' }),
+
+  // Mentor.
+  listForMentor: () =>
+    apiFetch<ApiResponse<SupportRequest[]>>('/api/mentor/support-requests'),
+  resolve: (requestId: number) =>
+    apiFetch<ApiResponse<SupportRequest>>(`/api/mentor/support-requests/${requestId}/resolve`, { method: 'PUT' }),
 };
 
 // ── Coordinator lookups & assignments ─────────────────────────────
