@@ -134,9 +134,6 @@ export function CoordAssignmentHistoryPage() {
         <h1 style={{ fontFamily: mono, fontSize: 28, fontWeight: 800 }}>
           <GradientText>History</GradientText>
         </h1>
-        <p style={{ color: C.textMuted, fontFamily: mono, fontSize: 12, marginTop: 4 }}>
-          Past events you ran: teams, final standings, awards, and who mentored/judged each track.
-        </p>
       </div>
 
       {error && (

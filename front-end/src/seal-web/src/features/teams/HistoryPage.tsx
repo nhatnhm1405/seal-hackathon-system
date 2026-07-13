@@ -80,9 +80,6 @@ export function HistoryPage() {
         <h1 style={{ fontFamily: mono, fontSize: 28, fontWeight: 800 }}>
           <GradientText>History</GradientText>
         </h1>
-        <p style={{ color: C.textMuted, fontFamily: mono, fontSize: 12, marginTop: 4 }}>
-          Teams, submissions, results and certificates from events you joined.
-        </p>
       </div>
 
       {error && (

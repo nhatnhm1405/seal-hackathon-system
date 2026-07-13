@@ -39,9 +39,6 @@ export function MentorHistoryPage() {
         <h1 style={{ fontFamily: mono, fontSize: 28, fontWeight: 800 }}>
           <GradientText>Mentoring History</GradientText>
         </h1>
-        <p style={{ color: C.textMuted, fontFamily: mono, fontSize: 12, marginTop: 4 }}>
-          Events you mentored, grouped by track, team result, and awards.
-        </p>
       </div>
 
       {error && (
