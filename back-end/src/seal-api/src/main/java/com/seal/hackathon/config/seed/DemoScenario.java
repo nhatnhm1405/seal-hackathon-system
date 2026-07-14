@@ -24,6 +24,8 @@ import java.util.List;
  *   S0  accounts only            (no event)
  *   S1  + event OPEN + structure + forming teams (incl. solo/pairs for grouping)
  *   S2  + submissions + complete preliminary scores, no results  (IN_PROGRESS)
+ *   S25 + prelim FINALIZED + final round fully scored, no results — ready to
+ *        calculate the final ranking then award prizes            (IN_PROGRESS)
  *   S3  + ranked results + final scores/results + prizes          (COMPLETED)
  * </pre>
  * Statuses are set to match each cut so the snapshot is always consistent with the
@@ -223,6 +225,26 @@ public class DemoScenario {
         }
         List<User> finalJudges = List.of(judge1, judge2, guestJudge);
         writeScores(finalSubs, advancing, finalCriteria, finalJudges);
+
+        // ── S2.5: STOP right before the final ranking is calculated. Prelim is
+        // FINALIZED (finalists chosen); the final round is ACTIVE with every finalist's
+        // submission fully scored by all judges — so JudgeScoringCompletenessService
+        // passes. The coordinator's live flow runs on top: Calculate ranking
+        // (finalizeRound) → auto-generate prizes → announce (award).
+        if ("S25".equals(scenario)) {
+            // Both rounds' phases have run and expired: the prelim is finalized and the
+            // final's scoring window is closed — so the coordinator's next live action is
+            // to calculate the final ranking (mirrors S2's expired-timer treatment).
+            fx.expiredTimer(prelim, "CONTEST", prelim.getStartTime(), prelim.getSubmissionDeadline());
+            fx.expiredTimer(prelim, "JUDGING", prelim.getSubmissionDeadline(), prelim.getEndTime());
+            fx.expiredTimer(finalRound, "CONTEST", finalRound.getStartTime(), finalRound.getSubmissionDeadline());
+            fx.expiredTimer(finalRound, "JUDGING", finalRound.getSubmissionDeadline(), finalRound.getEndTime());
+            log.info("[demo] S2.5 seeded — IN_PROGRESS: prelim FINALIZED, {} finalists submitted & fully "
+                    + "scored in the ACTIVE final round; awaiting final ranking calculation → prize award.",
+                    advancing.size());
+            return;
+        }
+
         List<Slot> finalRanked = advancing.stream()
                 .sorted(Comparator.comparingDouble((Slot s) -> total(s, finalCriteria, finalJudges.size())).reversed())
                 .toList();
@@ -350,7 +372,7 @@ public class DemoScenario {
     private String eventStatusFor(String scenario) {
         return switch (scenario) {
             case "S1" -> "OPEN";
-            case "S2" -> "IN_PROGRESS";
+            case "S2", "S25" -> "IN_PROGRESS";
             default -> "COMPLETED";
         };
     }
@@ -359,6 +381,7 @@ public class DemoScenario {
         return switch (scenario) {
             case "S1" -> "PENDING";
             case "S2" -> prelim ? "ACTIVE" : "PENDING";
+            case "S25" -> prelim ? "FINALIZED" : "ACTIVE";
             default -> "FINALIZED";
         };
     }
@@ -368,6 +391,7 @@ public class DemoScenario {
         return switch (scenario) {
             case "S1" -> new Window(now.minusDays(5), now.plusDays(15), now.plusDays(20), now.plusDays(40));
             case "S2" -> new Window(now.minusDays(40), now.minusDays(20), now.minusDays(10), now.plusDays(20));
+            case "S25" -> new Window(now.minusDays(45), now.minusDays(25), now.minusDays(16), now.plusDays(5));
             default -> new Window(now.minusDays(70), now.minusDays(50), now.minusDays(45), now.minusDays(15));
         };
     }

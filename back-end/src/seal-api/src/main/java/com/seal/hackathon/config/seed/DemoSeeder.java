@@ -23,7 +23,7 @@ import java.util.Set;
 public class DemoSeeder implements CommandLineRunner {
 
     private static final Logger log = LoggerFactory.getLogger(DemoSeeder.class);
-    private static final Set<String> VALID = Set.of("NONE", "S0", "S1", "S2", "S3");
+    private static final Set<String> VALID = Set.of("NONE", "S0", "S1", "S2", "S25", "S3");
 
     @Value("${app.seed.scenario:NONE}")
     private String scenario;
