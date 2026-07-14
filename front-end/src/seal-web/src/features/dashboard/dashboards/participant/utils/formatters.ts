@@ -15,9 +15,9 @@ export function fmtShort(iso?: string) {
 
 export function roundStatusColor(status?: string): "green" | "yellow" | "red" | "gray" {
     const s = (status ?? "").toUpperCase();
-    if (["ACTIVE", "OPEN", "IN_PROGRESS"].includes(s)) return "green";
-    if (["UPCOMING", "PENDING", "DRAFT"].includes(s)) return "yellow";
-    if (["CLOSED", "CANCELLED"].includes(s)) return "red";
+    if (["ACTIVE", "OPEN", "IN_PROGRESS", "ADVANCED", "ELIGIBLE"].includes(s)) return "green";
+    if (["UPCOMING", "PENDING", "DRAFT", "WAITING", "WAITING_FOR_RESULTS", "LOCKED"].includes(s)) return "yellow";
+    if (["CLOSED", "CANCELLED", "ELIMINATED"].includes(s)) return "red";
     return "gray";
 }
 

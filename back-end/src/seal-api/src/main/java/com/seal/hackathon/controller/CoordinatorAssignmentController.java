@@ -2,6 +2,7 @@ package com.seal.hackathon.controller;
 
 import com.seal.hackathon.dto.request.AssignJudgeRequest;
 import com.seal.hackathon.dto.request.AssignMentorRequest;
+import com.seal.hackathon.dto.request.ReplaceJudgeRequest;
 import com.seal.hackathon.dto.response.ApiResponse;
 import com.seal.hackathon.dto.response.JudgeAssignmentResponse;
 import com.seal.hackathon.dto.response.JudgeRosterItemResponse;
@@ -80,5 +81,15 @@ public class CoordinatorAssignmentController {
     public ResponseEntity<ApiResponse<Void>> removeJudgeAssignment(@PathVariable Integer id) {
         assignmentService.removeJudgeAssignment(id);
         return ResponseEntity.ok(ApiResponse.success("Judge assignment removed.", null));
+    }
+
+    @PutMapping("/judges/{id}/replace")
+    public ResponseEntity<ApiResponse<JudgeAssignmentResponse>> replaceJudgeAssignment(
+            @PathVariable Integer id,
+            @Valid @RequestBody ReplaceJudgeRequest request,
+            Authentication authentication) {
+        UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
+        return ResponseEntity.ok(ApiResponse.success("Judge replaced successfully.",
+                assignmentService.replaceJudgeAssignment(id, request, principal.getUserId())));
     }
 }

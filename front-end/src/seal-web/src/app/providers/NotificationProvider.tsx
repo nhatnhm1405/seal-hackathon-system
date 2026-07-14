@@ -81,6 +81,8 @@ interface NotificationContextType {
   markRead: (id: number) => void;
   refresh: () => void;
   addToast: (t: Omit<Toast, "id">) => void;
+  /** Banner + session-local bell history for actionable UI failures. */
+  addActionNotification: (t: Omit<Toast, "id" | "notificationId">) => void;
   addAuthToast: (t: Omit<AuthToast, "id">) => void;
   // Cross-component signal: bumped when a banner asks to open the bell dropdown.
   bellOpenSignal: number;
@@ -323,6 +325,9 @@ function BannerContainer({
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const { currentUser, patchCurrentUser, isLoading } = useAuth();
   const [notifications, setNotifications] = useState<UINotification[]>([]);
+  // UI action failures are not backend domain notifications, but users still
+  // need to revisit them from the bell during the current signed-in session.
+  const [localNotifications, setLocalNotifications] = useState<UINotification[]>([]);
   const [banners, setBanners] = useState<Banner[]>([]);
   // Welcome-style splash for freshly-arrived announcement messages.
   const [announceSplash, setAnnounceSplash] = useState<{ items: UINotification[]; from: string } | null>(null);
@@ -330,6 +335,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const [detailNotif, setDetailNotif] = useState<UINotification | null>(null);
   const [bellOpenSignal, setBellOpenSignal] = useState(0);
   const counterRef = useRef(0);
+  const localNotificationIdRef = useRef(-1);
   // IDs already accounted for, so polling only banners genuinely new arrivals.
   const seenIdsRef = useRef<Set<number>>(new Set());
   // First fetch just establishes a baseline — it must NOT banner the backlog.
@@ -347,6 +353,12 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const requestOpenBell = useCallback(() => setBellOpenSignal(s => s + 1), []);
 
   const markOneRead = useCallback((notificationId: number) => {
+    if (notificationId < 0) {
+      setLocalNotifications(prev => prev.map(n =>
+        n.notification_id === notificationId ? { ...n, is_read: true } : n,
+      ));
+      return;
+    }
     setNotifications(prev => prev.map(n =>
       n.notification_id === notificationId ? { ...n, is_read: true } : n,
     ));
@@ -419,6 +431,7 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!currentUser) {
       setNotifications([]);
+      setLocalNotifications([]);
       setBanners([]);
       seenIdsRef.current = new Set();
       baselineSetRef.current = false;
@@ -438,15 +451,23 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     return () => window.clearInterval(id);
   }, [currentUser, refresh]);
 
-  const userNotifications = notifications;
-  const unreadCount = notifications.filter(n => !n.is_read).length;
+  const userNotifications = [...localNotifications, ...notifications]
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  const unreadCount = userNotifications.filter(n => !n.is_read).length;
 
   const markAllRead = useCallback(() => {
     notificationsApi.markAllAsRead().catch(() => {});
     setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+    setLocalNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
   }, []);
 
   const markRead = useCallback((id: number) => {
+    if (id < 0) {
+      setLocalNotifications(prev => prev.map(n =>
+        n.notification_id === id ? { ...n, is_read: true } : n,
+      ));
+      return;
+    }
     setNotifications(prev => {
       const target = prev.find(n => n.notification_id === id);
       if (!target || target.is_read) return prev; // already read → no API call
@@ -457,12 +478,25 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
   // Both legacy entry points now feed the single unified banner stack.
   const addToast = useCallback((t: Omit<Toast, "id">) => pushBanner(t), [pushBanner]);
+  const addActionNotification = useCallback((t: Omit<Toast, "id" | "notificationId">) => {
+    const notificationId = localNotificationIdRef.current--;
+    setLocalNotifications(prev => [{
+      notification_id: notificationId,
+      title: t.title,
+      message: t.message,
+      is_read: false,
+      type: t.type,
+      rawType: "UI_ACTION",
+      created_at: new Date().toISOString(),
+    }, ...prev].slice(0, 30));
+    pushBanner({ ...t, notificationId });
+  }, [pushBanner]);
   const addAuthToast = useCallback((t: Omit<AuthToast, "id">) => pushBanner(t), [pushBanner]);
 
   return (
     <NotificationContext.Provider value={{
       userNotifications, unreadCount, markAllRead, markRead, refresh,
-      addToast, addAuthToast, bellOpenSignal, requestOpenBell,
+      addToast, addActionNotification, addAuthToast, bellOpenSignal, requestOpenBell,
     }}>
 
       {children}

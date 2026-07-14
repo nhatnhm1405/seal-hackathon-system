@@ -7,6 +7,7 @@ import com.seal.hackathon.entity.Prize;
 import com.seal.hackathon.entity.Role;
 import com.seal.hackathon.entity.Round;
 import com.seal.hackathon.entity.RoundResult;
+import com.seal.hackathon.entity.RoundTimer;
 import com.seal.hackathon.entity.Score;
 import com.seal.hackathon.entity.ScoringCriteria;
 import com.seal.hackathon.entity.Submission;
@@ -23,6 +24,7 @@ import com.seal.hackathon.repository.PrizeRepository;
 import com.seal.hackathon.repository.RoleRepository;
 import com.seal.hackathon.repository.RoundRepository;
 import com.seal.hackathon.repository.RoundResultRepository;
+import com.seal.hackathon.repository.RoundTimerRepository;
 import com.seal.hackathon.repository.ScoreRepository;
 import com.seal.hackathon.repository.ScoringCriteriaRepository;
 import com.seal.hackathon.repository.SubmissionRepository;
@@ -37,6 +39,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -67,6 +70,7 @@ public class DemoFixtures {
     private final SubmissionRepository submissionRepo;
     private final ScoreRepository scoreRepo;
     private final RoundResultRepository resultRepo;
+    private final RoundTimerRepository timerRepo;
     private final PrizeRepository prizeRepo;
     private final SystemLogRepository systemLogRepo;
     private final PasswordEncoder encoder;
@@ -187,6 +191,20 @@ public class DemoFixtures {
                 .event(event).round(round).name(name)
                 .weight(BigDecimal.valueOf(weight)).maxScore(BigDecimal.valueOf(maxScore))
                 .orderNumber(order).build());
+    }
+
+    /** Seeds a completed phase so strict demo transitions match production rules. */
+    public void expiredTimer(Round round, String phase, LocalDateTime startedAt, LocalDateTime endsAt) {
+        long seconds = Math.max(30, Duration.between(startedAt, endsAt).getSeconds());
+        timerRepo.save(RoundTimer.builder()
+                .round(round)
+                .phase(phase)
+                .status("EXPIRED")
+                .durationSeconds((int) Math.min(Integer.MAX_VALUE, seconds))
+                .startedAt(startedAt)
+                .endsAt(endsAt)
+                .updatedAt(endsAt)
+                .build());
     }
 
     // ── Teams ────────────────────────────────────────────────────────

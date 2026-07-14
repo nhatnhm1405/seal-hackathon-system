@@ -7,7 +7,12 @@ import com.seal.hackathon.entity.Team;
 import com.seal.hackathon.entity.Track;
 import com.seal.hackathon.exception.BadRequestException;
 import com.seal.hackathon.exception.ResourceNotFoundException;
+import com.seal.hackathon.repository.AnnouncementRepository;
 import com.seal.hackathon.repository.HackathonEventRepository;
+import com.seal.hackathon.repository.JudgeAssignmentRepository;
+import com.seal.hackathon.repository.MentorAssignmentRepository;
+import com.seal.hackathon.repository.MentorSupportRequestRepository;
+import com.seal.hackathon.repository.PrizeRepository;
 import com.seal.hackathon.repository.TeamRepository;
 import com.seal.hackathon.repository.TrackRepository;
 import org.junit.jupiter.api.Test;
@@ -42,6 +47,21 @@ class TrackServiceTest {
 
     @Mock
     private TeamRepository teamRepository;
+
+    @Mock
+    private MentorAssignmentRepository mentorAssignmentRepository;
+
+    @Mock
+    private JudgeAssignmentRepository judgeAssignmentRepository;
+
+    @Mock
+    private AnnouncementRepository announcementRepository;
+
+    @Mock
+    private MentorSupportRequestRepository supportRequestRepository;
+
+    @Mock
+    private PrizeRepository prizeRepository;
 
     @InjectMocks
     private TrackService trackService;
@@ -711,7 +731,64 @@ class TrackServiceTest {
         assertNull(teamA.getTrack());
         assertNull(teamB.getTrack());
         verify(teamRepository).saveAll(List.of(teamA, teamB));
+        verify(mentorAssignmentRepository).deleteAllByTrackId(10);
+        verify(judgeAssignmentRepository).deleteAllByTrackId(10);
         verify(trackRepository).delete(track);
+    }
+
+    @Test
+    void deleteTrack_shouldRejectDelete_whenTrackHasAnnouncementHistory() {
+        HackathonEvent event = event(1, "SETUP");
+        Track track = track(10, event, "AI");
+
+        when(eventRepository.findById(1)).thenReturn(Optional.of(event));
+        when(trackRepository.findById(10)).thenReturn(Optional.of(track));
+        when(announcementRepository.existsByTrack_TrackId(10)).thenReturn(true);
+
+        BadRequestException error = assertThrows(
+                BadRequestException.class,
+                () -> trackService.deleteTrack(1, 10));
+
+        assertEquals("Cannot delete this track because it has announcement history.", error.getMessage());
+        verify(teamRepository, never()).findAllByTrack_TrackId(anyInt());
+        verify(mentorAssignmentRepository, never()).deleteAllByTrackId(anyInt());
+        verify(trackRepository, never()).delete(any());
+    }
+
+    @Test
+    void deleteTrack_shouldRejectDelete_whenTrackHasSupportRequestHistory() {
+        HackathonEvent event = event(1, "SETUP");
+        Track track = track(10, event, "AI");
+
+        when(eventRepository.findById(1)).thenReturn(Optional.of(event));
+        when(trackRepository.findById(10)).thenReturn(Optional.of(track));
+        when(supportRequestRepository.existsByTrack_TrackId(10)).thenReturn(true);
+
+        BadRequestException error = assertThrows(
+                BadRequestException.class,
+                () -> trackService.deleteTrack(1, 10));
+
+        assertEquals("Cannot delete this track because it has mentor support request history.", error.getMessage());
+        verify(mentorAssignmentRepository, never()).deleteAllByTrackId(anyInt());
+        verify(trackRepository, never()).delete(any());
+    }
+
+    @Test
+    void deleteTrack_shouldRejectDelete_whenLegacyPrizeReferencesTrack() {
+        HackathonEvent event = event(1, "SETUP");
+        Track track = track(10, event, "AI");
+
+        when(eventRepository.findById(1)).thenReturn(Optional.of(event));
+        when(trackRepository.findById(10)).thenReturn(Optional.of(track));
+        when(prizeRepository.existsByTrack_TrackId(10)).thenReturn(true);
+
+        BadRequestException error = assertThrows(
+                BadRequestException.class,
+                () -> trackService.deleteTrack(1, 10));
+
+        assertEquals("Cannot delete this track because it is referenced by a prize.", error.getMessage());
+        verify(mentorAssignmentRepository, never()).deleteAllByTrackId(anyInt());
+        verify(trackRepository, never()).delete(any());
     }
 
     private static CreateTrackRequest request(String name, String description) {

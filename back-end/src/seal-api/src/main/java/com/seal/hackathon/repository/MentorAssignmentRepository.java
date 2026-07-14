@@ -2,6 +2,7 @@ package com.seal.hackathon.repository;
 
 import com.seal.hackathon.entity.MentorAssignment;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -31,6 +32,11 @@ public interface MentorAssignmentRepository extends JpaRepository<MentorAssignme
     boolean existsByMentor_UserIdAndTrack_Event_EventIdAndIsActiveTrue(Integer mentorUserId, Integer eventId);
 
     List<MentorAssignment> findAllByTrack_TrackIdAndIsActiveTrue(Integer trackId);
+
+    /** Remove both active and inactive configuration rows before deleting a track. */
+    @Modifying(flushAutomatically = true)
+    @Query("DELETE FROM MentorAssignment ma WHERE ma.track.trackId = :trackId")
+    int deleteAllByTrackId(@Param("trackId") Integer trackId);
 
     /** Coordinator roster: all active mentor assignments in an event. */
     @Query("SELECT ma FROM MentorAssignment ma " +

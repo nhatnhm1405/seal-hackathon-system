@@ -7,8 +7,10 @@ import com.seal.hackathon.dto.response.ApiResponse;
 import com.seal.hackathon.dto.response.ScoreResponse;
 import com.seal.hackathon.dto.response.ScoringCriteriaResponse;
 import com.seal.hackathon.dto.response.ScoringCriteriaTemplateResponse;
+import com.seal.hackathon.dto.response.SubmissionScoringProgressResponse;
 import com.seal.hackathon.security.UserPrincipal;
 import com.seal.hackathon.service.ScoringService;
+import com.seal.hackathon.service.JudgeScoringCompletenessService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -27,6 +29,16 @@ import java.util.stream.Collectors;
 public class ScoringController {
 
     private final ScoringService scoringService;
+    private final JudgeScoringCompletenessService completenessService;
+
+    @GetMapping("/events/{eventId}/rounds/{roundId}/scoring-progress")
+    @PreAuthorize("hasRole('EVENT_COORDINATOR')")
+    public ResponseEntity<ApiResponse<List<SubmissionScoringProgressResponse>>> getScoringProgress(
+            @PathVariable Integer eventId,
+            @PathVariable Integer roundId) {
+        return ResponseEntity.ok(ApiResponse.success("Scoring progress retrieved successfully.",
+                completenessService.getProgress(eventId, roundId)));
+    }
 
     // ── Criteria ──────────────────────────────────────────────────────
 

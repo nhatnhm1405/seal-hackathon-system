@@ -2,7 +2,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { timersApi, type RoundTimerState, type TimerPhase, type TimerStatus } from "@/shared/apiClient";
 import { useNotifications } from "@/app/providers/NotificationProvider";
 
-const RESYNC_MS = 20_000;
+// Keep coordinator actions (especially PAUSE/STOP) visible quickly. The backend
+// remains authoritative for writes, so even this short UI delay cannot bypass it.
+const RESYNC_MS = 5_000;
 const DEFAULT_MILESTONES = [30, 15, 5, 1];
 
 export interface RoundTimerView {
@@ -15,6 +17,7 @@ export interface RoundTimerView {
   isPaused: boolean;
   isExpired: boolean;
   loading: boolean;
+  loadFailed: boolean;
   refetch: () => void;
 }
 
@@ -39,6 +42,7 @@ export function useRoundTimer(
 
   const [state, setState] = useState<RoundTimerState | null>(null);
   const [loading, setLoading] = useState<boolean>(enabled);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [remaining, setRemaining] = useState<number>(0);
 
   const skewRef = useRef(0);
@@ -59,6 +63,7 @@ export function useRoundTimer(
 
     stateRef.current = nextState;
     setState(nextState);
+    setLoadFailed(false);
   }, []);
 
   const clearState = useCallback(() => {
@@ -74,18 +79,23 @@ export function useRoundTimer(
 
     timersApi.get(eventId as number, roundId as number, phase)
       .then((response) => applyState(response.data))
-      .catch(() => clearState());
+      .catch(() => {
+        clearState();
+        setLoadFailed(true);
+      });
   }, [enabled, eventId, roundId, phase, applyState, clearState]);
 
   useEffect(() => {
     if (!enabled) {
       clearState();
+      setLoadFailed(false);
       setLoading(false);
       return;
     }
 
     let active = true;
     clearState();
+    setLoadFailed(false);
     setLoading(true);
 
     timersApi.get(eventId as number, roundId as number, phase)
@@ -93,7 +103,10 @@ export function useRoundTimer(
         if (active) applyState(response.data);
       })
       .catch(() => {
-        if (active) clearState();
+        if (active) {
+          clearState();
+          setLoadFailed(true);
+        }
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -105,7 +118,10 @@ export function useRoundTimer(
           if (active) applyState(response.data);
         })
         .catch(() => {
-          if (active) clearState();
+          if (active) {
+            clearState();
+            setLoadFailed(true);
+          }
         });
     }, RESYNC_MS);
 
@@ -211,19 +227,35 @@ export function useRoundTimer(
     return () => window.clearInterval(intervalId);
   }, [enabled, state, fireBanners, phase, addToast]);
 
-  const status: TimerStatus = state?.status ?? "IDLE";
+  useEffect(() => {
+    if (!enabled) return;
+    const syncWhenVisible = () => {
+      if (document.visibilityState === "visible") refetch();
+    };
+    window.addEventListener("focus", syncWhenVisible);
+    document.addEventListener("visibilitychange", syncWhenVisible);
+    return () => {
+      window.removeEventListener("focus", syncWhenVisible);
+      document.removeEventListener("visibilitychange", syncWhenVisible);
+    };
+  }, [enabled, refetch]);
+
+  const stateMatchesSelection = state?.roundId === roundId && state?.phase === phase;
+  const visibleState = stateMatchesSelection ? state : null;
+  const status: TimerStatus = visibleState?.status ?? "IDLE";
   const isRunning = status === "RUNNING" && remaining > 0;
 
   return {
     status,
     remainingSeconds: remaining,
-    durationSeconds: state?.durationSeconds ?? 0,
-    endsAt: state?.endsAt ?? null,
+    durationSeconds: visibleState?.durationSeconds ?? 0,
+    endsAt: visibleState?.endsAt ?? null,
     isConfigured: status !== "IDLE",
     isRunning,
     isPaused: status === "PAUSED",
     isExpired: status === "EXPIRED" || (status === "RUNNING" && remaining <= 0),
-    loading,
+    loading: loading || (enabled && !stateMatchesSelection && !loadFailed),
+    loadFailed,
     refetch,
   };
 }

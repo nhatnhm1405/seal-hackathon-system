@@ -31,7 +31,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.math.BigDecimal;
 import java.util.Objects;
 import java.util.Set;
@@ -257,36 +259,46 @@ public class ScoringService {
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + judgeId));
 
         Submission submission = findSubmissionAssignedToJudge(judgeId, request.getSubmissionId());
-        // Hard gate: if a JUDGING countdown is configured for this round, it must be
-        // running — closed/paused blocks BOTH draft and final score writes. Rounds
-        // without a judging timer keep the legacy behavior (scoring always open).
+        // Server-authoritative hard gate: no timer, pause, stop and expiry all
+        // block both draft and final score writes.
         roundTimerService.assertJudgingOpen(submission.getRound().getRoundId());
 
-        boolean isDraft = request.isDraft();
+        // A final submission is immutable even if the coordinator later starts a
+        // new judging countdown. This check protects direct API callers as well as UI.
+        if (scoreRepository.existsBySubmission_SubmissionIdAndJudge_UserIdAndIsDraftFalse(
+                submission.getSubmissionId(), judgeId)) {
+            throw new BadRequestException("Final scores have already been submitted and cannot be changed.");
+        }
 
-        List<Score> saved = request.getScores().stream().map(entry -> {
+        boolean isDraft = request.isDraft();
+        Map<Integer, ScoringCriteria> validatedCriteria = new LinkedHashMap<>();
+        for (SubmitScoresRequest.ScoreEntry entry : request.getScores()) {
             if (entry == null || entry.getCriteriaId() == null || entry.getValue() == null) {
                 throw new BadRequestException("Each score entry must include criteriaId and value.");
             }
-
             ScoringCriteria criteria = criteriaRepository.findById(entry.getCriteriaId())
                     .orElseThrow(() -> new ResourceNotFoundException(
                             "Criteria not found: " + entry.getCriteriaId()));
-
             if (criteria.getRound() == null || !Objects.equals(
                     criteria.getRound().getRoundId(), submission.getRound().getRoundId())) {
                 throw new BadRequestException("Criteria does not belong to this submission's round.");
             }
-
             if (entry.getValue().compareTo(BigDecimal.ZERO) < 0) {
                 throw new BadRequestException("Score must be greater than or equal to 0.");
             }
-
             if (entry.getValue().compareTo(criteria.getMaxScore()) > 0) {
                 throw new BadRequestException("Score " + entry.getValue()
                         + " exceeds max score " + criteria.getMaxScore()
                         + " for criteria: " + criteria.getName());
             }
+            validatedCriteria.put(entry.getCriteriaId(), criteria);
+        }
+        if (!isDraft) {
+            validateFinalCriteriaCoverage(submission.getRound().getRoundId(), request);
+        }
+
+        List<Score> saved = request.getScores().stream().map(entry -> {
+            ScoringCriteria criteria = validatedCriteria.get(entry.getCriteriaId());
 
             Score score = scoreRepository.findBySubmission_SubmissionIdAndJudge_UserIdAndCriteria_CriteriaId(
                     submission.getSubmissionId(), judgeId, criteria.getCriteriaId())
@@ -313,7 +325,8 @@ public class ScoringService {
             submissionRepository.findById(submissionId)
                     .orElseThrow(() -> new ResourceNotFoundException("Submission not found: " + submissionId));
         } else if (hasAuthority(authorities, ROLE_JUDGE)) {
-            findSubmissionAssignedToJudge(requesterId, submissionId);
+            Submission submission = findSubmissionAssignedToJudge(requesterId, submissionId);
+            roundTimerService.assertJudgingStarted(submission.getRound().getRoundId());
         } else {
             throw new ForbiddenException("You do not have permission to view scores for this submission.");
         }
@@ -327,6 +340,7 @@ public class ScoringService {
 
     @Transactional(readOnly = true)
     public List<ScoreResponse> getMyScoresByRound(Integer judgeId, Integer roundId) {
+        roundTimerService.assertJudgingStarted(roundId);
         return scoreRepository.findAllByJudge_UserIdAndSubmission_Round_RoundId(judgeId, roundId).stream()
                 .map(this::mapScoreToResponse)
                 .collect(Collectors.toList());
@@ -390,6 +404,39 @@ public class ScoringService {
         }
         if (request.getScores() == null || request.getScores().isEmpty()) {
             throw new BadRequestException("At least one score entry is required.");
+        }
+    }
+
+    private void validateFinalCriteriaCoverage(Integer roundId, SubmitScoresRequest request) {
+        List<ScoringCriteria> required = criteriaRepository
+                .findAllByRound_RoundIdOrderByOrderNumber(roundId);
+        if (required.isEmpty()) {
+            throw new BadRequestException("This round has no scoring criteria configured.");
+        }
+        if (request.getScores().stream().anyMatch(entry -> entry == null || entry.getCriteriaId() == null)) {
+            throw new BadRequestException("Every scoring criteria must be included in a final submission.");
+        }
+
+        List<Integer> submittedList = request.getScores().stream()
+                .map(SubmitScoresRequest.ScoreEntry::getCriteriaId)
+                .toList();
+        Set<Integer> submitted = submittedList.stream().collect(Collectors.toSet());
+        if (submitted.size() != submittedList.size()) {
+            throw new BadRequestException("A final score submission cannot contain duplicate criteria.");
+        }
+
+        Set<Integer> requiredIds = required.stream()
+                .map(ScoringCriteria::getCriteriaId)
+                .collect(Collectors.toSet());
+        if (!submitted.equals(requiredIds)) {
+            String missing = required.stream()
+                    .filter(criteria -> !submitted.contains(criteria.getCriteriaId()))
+                    .map(ScoringCriteria::getName)
+                    .collect(Collectors.joining(", "));
+            if (!missing.isBlank()) {
+                throw new BadRequestException("Final scores are incomplete. Missing criteria: " + missing + ".");
+            }
+            throw new BadRequestException("Final scores contain criteria that do not belong to this round.");
         }
     }
 

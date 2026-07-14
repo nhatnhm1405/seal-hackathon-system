@@ -5,6 +5,7 @@ import com.seal.hackathon.dto.request.StartTimerRequest;
 import com.seal.hackathon.dto.response.RoundTimerResponse;
 import com.seal.hackathon.entity.Round;
 import com.seal.hackathon.entity.RoundTimer;
+import com.seal.hackathon.entity.Submission;
 import com.seal.hackathon.entity.Track;
 import com.seal.hackathon.entity.User;
 import com.seal.hackathon.exception.BadRequestException;
@@ -13,6 +14,8 @@ import com.seal.hackathon.repository.JudgeAssignmentRepository;
 import com.seal.hackathon.repository.RoundRepository;
 import com.seal.hackathon.repository.RoundTimerNoticeRepository;
 import com.seal.hackathon.repository.RoundTimerRepository;
+import com.seal.hackathon.repository.ScoringCriteriaRepository;
+import com.seal.hackathon.repository.SubmissionRepository;
 import com.seal.hackathon.repository.TeamMemberRepository;
 import com.seal.hackathon.repository.TeamRepository;
 import com.seal.hackathon.repository.TrackRepository;
@@ -27,6 +30,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -62,6 +66,8 @@ public class RoundTimerService {
     private final TeamRepository teamRepository;
     private final TeamMemberRepository teamMemberRepository;
     private final JudgeAssignmentRepository judgeAssignmentRepository;
+    private final ScoringCriteriaRepository scoringCriteriaRepository;
+    private final SubmissionRepository submissionRepository;
     private final NotificationService notificationService;
     private final AuditLogService auditLogService;
     private final TimerNoticeClaimer noticeClaimer;
@@ -79,10 +85,24 @@ public class RoundTimerService {
             throw new BadRequestException("Duration must be at least " + MIN_DURATION_SECONDS + " seconds.");
         }
 
-        RoundTimer timer = timerRepository.findByRound_RoundIdAndPhase(roundId, phase)
-                .orElseGet(() -> RoundTimer.builder().round(round).phase(phase).build());
-
         LocalDateTime now = LocalDateTime.now();
+        RoundTimer timer = timerRepository.findByRound_RoundIdAndPhase(roundId, phase).orElse(null);
+        if (timer != null && RUNNING.equals(timer.getStatus())
+                && secondsBetween(now, timer.getEndsAt()) <= 0) {
+            materializeMilestones(round, timer, now);
+        }
+        if (timer != null && (RUNNING.equals(timer.getStatus()) || PAUSED.equals(timer.getStatus()))) {
+            throw new BadRequestException(PAUSED.equals(timer.getStatus())
+                    ? "This timer is paused. Resume or stop it before starting a new countdown."
+                    : "This timer is already running.");
+        }
+        if (PHASE_JUDGING.equals(phase)) {
+            assertJudgingReady(round, now);
+        }
+        if (timer == null) {
+            timer = RoundTimer.builder().round(round).phase(phase).build();
+        }
+
         timer.setStatus(RUNNING);
         timer.setDurationSeconds(duration);
         timer.setStartedAt(now);
@@ -258,30 +278,112 @@ public class RoundTimerService {
 
     // ── Gate helpers (no side effects) — called from Submission/Scoring ───────
 
-    /** Throws if a CONTEST timer exists for the round and is not currently open. */
+    /** Throws unless the CONTEST timer is running with time remaining. */
     public void assertContestOpen(Integer roundId) {
         assertOpen(roundId, PHASE_CONTEST,
                 "Time is up — submissions are closed for this round.",
                 "The contest is paused — submissions are temporarily disabled.");
     }
 
-    /** Throws if a JUDGING timer exists for the round and is not currently open. */
+    /** Throws unless the JUDGING timer is running with time remaining. */
     public void assertJudgingOpen(Integer roundId) {
         assertOpen(roundId, PHASE_JUDGING,
                 "Time is up — scoring is closed for this round.",
                 "Scoring is paused — please wait for the organizers to resume.");
     }
 
+    /**
+     * Submission details stay hidden until judging has been started once. After
+     * that, paused or closed windows may still be viewed as read-only history.
+     */
+    public void assertJudgingStarted(Integer roundId) {
+        RoundTimer timer = timerRepository.findByRound_RoundIdAndPhase(roundId, PHASE_JUDGING).orElse(null);
+        if (timer == null || IDLE.equals(timer.getStatus())) {
+            throw new BadRequestException("Scoring has not started for this round.");
+        }
+    }
+
+    /** Normal add/remove is allowed only before the judging roster becomes live. */
+    @Transactional(readOnly = true)
+    public void assertJudgeAssignmentsMutable(Integer roundId) {
+        RoundTimer timer = timerRepository.findByRound_RoundIdAndPhase(roundId, PHASE_JUDGING).orElse(null);
+        if (timer != null && !IDLE.equals(timer.getStatus())) {
+            throw new BadRequestException(
+                    "Judge assignments are locked after judging starts. Pause or stop judging and use Replace Judge instead.");
+        }
+    }
+
+    /** A controlled replacement is allowed only while no judging countdown is running. */
+    @Transactional(readOnly = true)
+    public void assertJudgeReplacementAllowed(Integer roundId) {
+        RoundTimer timer = timerRepository.findByRound_RoundIdAndPhase(roundId, PHASE_JUDGING).orElse(null);
+        if (timer == null || IDLE.equals(timer.getStatus())) {
+            return;
+        }
+        if (RUNNING.equals(timer.getStatus())
+                && timer.getEndsAt() != null
+                && timer.getEndsAt().isAfter(LocalDateTime.now())) {
+            throw new BadRequestException("Pause or stop judging before replacing a judge.");
+        }
+    }
+
     private void assertOpen(Integer roundId, String phase, String closedMsg, String pausedMsg) {
         RoundTimer timer = timerRepository.findByRound_RoundIdAndPhase(roundId, phase).orElse(null);
-        if (timer == null) {
-            return; // phase not timed → no gate, keep legacy behavior
+        if (timer == null || IDLE.equals(timer.getStatus())) {
+            throw new BadRequestException(PHASE_JUDGING.equals(phase)
+                    ? "Scoring has not started for this round."
+                    : "The contest has not started for this round.");
         }
         LocalDateTime now = LocalDateTime.now();
         if (RUNNING.equals(timer.getStatus()) && secondsBetween(now, timer.getEndsAt()) > 0) {
             return; // open
         }
         throw new BadRequestException(PAUSED.equals(timer.getStatus()) ? pausedMsg : closedMsg);
+    }
+
+    /** Strict transition guard: CONTEST must be over and the round must be score-ready. */
+    private void assertJudgingReady(Round round, LocalDateTime now) {
+        if (!"IN_PROGRESS".equalsIgnoreCase(round.getEvent().getStatus())) {
+            throw new BadRequestException("Judging can only start while the event is IN_PROGRESS.");
+        }
+        if (!"ACTIVE".equalsIgnoreCase(round.getStatus())) {
+            throw new BadRequestException("Judging can only start for an ACTIVE round.");
+        }
+
+        RoundTimer contestTimer = timerRepository
+                .findByRound_RoundIdAndPhase(round.getRoundId(), PHASE_CONTEST)
+                .orElseThrow(() -> new BadRequestException(
+                        "The CONTEST timer must finish before judging can start."));
+        if (RUNNING.equals(contestTimer.getStatus())
+                && secondsBetween(now, contestTimer.getEndsAt()) <= 0) {
+            materializeMilestones(round, contestTimer, now);
+        }
+        if (!STOPPED.equals(contestTimer.getStatus()) && !EXPIRED.equals(contestTimer.getStatus())) {
+            throw new BadRequestException("The CONTEST timer must be STOPPED or EXPIRED before judging can start.");
+        }
+
+        if (scoringCriteriaRepository
+                .findAllByRound_RoundIdOrderByOrderNumber(round.getRoundId()).isEmpty()) {
+            throw new BadRequestException("Configure scoring criteria before starting judging.");
+        }
+
+        List<Submission> submissions = submissionRepository.findAllByRound_RoundId(round.getRoundId());
+        if (submissions.isEmpty()) {
+            throw new BadRequestException("At least one submission is required before starting judging.");
+        }
+        var assignments = judgeAssignmentRepository
+                .findAllByRound_RoundIdAndIsActiveTrue(round.getRoundId());
+        if (assignments.isEmpty()) {
+            throw new BadRequestException("Assign at least one judge before starting judging.");
+        }
+        boolean uncoveredSubmission = submissions.stream().anyMatch(submission ->
+                assignments.stream().noneMatch(assignment -> assignment.getTrack() == null
+                        || (submission.getTeam().getTrack() != null
+                        && Objects.equals(assignment.getTrack().getTrackId(),
+                                submission.getTeam().getTrack().getTrackId()))));
+        if (uncoveredSubmission) {
+            throw new BadRequestException("Every submission must be covered by an active judge assignment.");
+        }
     }
 
     // ── Milestone materialisation ──────────────────────────────────────────────

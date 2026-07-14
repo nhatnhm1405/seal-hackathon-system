@@ -4,7 +4,7 @@ import {
   C, GradientText, PixelCard, PixelButton, PixelBadge,
 } from "@/shared/components/PixelComponents";
 import {
-  assignmentsApi, eventsApi, roundsApi, submissionsApi, scoringApi, aiApi, ApiError, apiErrorMessage,
+  assignmentsApi, roundsApi, submissionsApi, scoringApi, aiApi, ApiError, apiErrorMessage,
   Round, Submission, ScoringCriteria, ScoreRecord, AiInsight, JudgeAssignedTeam,
 } from "@/shared/apiClient";
 import { useNotifications } from "@/app/providers/NotificationProvider";
@@ -25,6 +25,10 @@ function fmtDateTime(iso?: string) {
 function roundIsOpen(status?: string): boolean {
   const s = (status ?? "").toUpperCase();
   return s === "ACTIVE" || s === "OPEN";
+}
+
+function normalizeScoreInput(rawValue: string): string {
+  return rawValue.replace(/^0+(?=\d)/, "");
 }
 
 /** Compact 32px square icon action — a link (href) or a button (onClick). */
@@ -95,16 +99,15 @@ export function JudgeScoringPage() {
         const byTeam = new Map<number, JudgeAssignedTeam>();
         teams.forEach(t => { if (!byTeam.has(t.teamId)) byTeam.set(t.teamId, t); });
 
-        const events = await eventsApi.getAll().then(r => r.data ?? []).catch(() => []);
-        const event = events.find(e => e.name === assignment?.eventName)
-          ?? events.find(e => e.status === 'IN_PROGRESS' || e.status === 'OPEN')
-          ?? events[events.length - 1];
-        const rs = event ? await roundsApi.getAll(event.eventId).then(r => r.data ?? []).catch(() => []) : [];
+        const assignedEventId = assignment?.eventId ?? null;
+        const rs = assignedEventId != null
+          ? await roundsApi.getAll(assignedEventId).then(r => r.data ?? []).catch(() => [])
+          : [];
 
         if (cancelled) return;
         setTeamsByRound(map);
         setTeamsById(byTeam);
-        setEventId(event?.eventId ?? null);
+        setEventId(assignedEventId);
         // Only rounds the judge is actually assigned to.
         const assignedRounds = rs.filter(r => map[r.roundId])
           .sort((a, b) => (a.orderNumber ?? a.roundId) - (b.orderNumber ?? b.roundId));
@@ -135,15 +138,6 @@ export function JudgeScoringPage() {
     }).finally(() => setLoadingRound(false));
   }, [teamsByRound]);
 
-  useEffect(() => {
-    if (eventId == null || selectedRoundId == null) return;
-    setSelectedSubId(null);
-    setScoreInputs({});
-    setActionError(null);
-    setNotice(null);
-    loadRound(eventId, selectedRoundId);
-  }, [eventId, selectedRoundId, loadRound]);
-
   // ── Derived ─────────────────────────────────────────────────────────
   const statusOf = useCallback((subId: number): SubStatus => {
     const s = myScores.filter(x => x.submissionId === subId);
@@ -162,9 +156,32 @@ export function JudgeScoringPage() {
   const selectedRound = rounds.find(r => r.roundId === selectedRoundId) ?? null;
   const selectedSub = submissions.find(s => s.submissionId === selectedSubId) ?? null;
   const isReadOnly = selectedSub ? statusOf(selectedSub.submissionId) === "scored" : false;
-  // Live JUDGING countdown; a configured-but-not-running timer hard-blocks scoring.
+  // Live JUDGING countdown. Only a verified RUNNING timer opens score writes.
   const judgingTimer = useRoundTimer(eventId, selectedRoundId, "JUDGING", { fireBanners: true });
-  const open = roundIsOpen(selectedRound?.status) && (!judgingTimer.isConfigured || judgingTimer.isRunning);
+  const open = !judgingTimer.loading
+    && !judgingTimer.loadFailed
+    && roundIsOpen(selectedRound?.status)
+    && judgingTimer.isRunning;
+  const workspaceAvailable = !judgingTimer.loading
+    && !judgingTimer.loadFailed
+    && judgingTimer.isConfigured;
+
+  // Submission details are not requested before judging starts. Once started,
+  // paused/closed windows remain visible but become read-only through `open`.
+  useEffect(() => {
+    setSelectedSubId(null);
+    setScoreInputs({});
+    setActionError(null);
+    setNotice(null);
+
+    if (eventId == null || selectedRoundId == null || !workspaceAvailable) {
+      setSubmissions([]);
+      setCriteria([]);
+      setMyScores([]);
+      return;
+    }
+    loadRound(eventId, selectedRoundId);
+  }, [eventId, selectedRoundId, workspaceAvailable, loadRound]);
 
   const filteredSubs = submissions.filter(s => filter === "all" || statusOf(s.submissionId) === filter);
 
@@ -185,7 +202,7 @@ export function JudgeScoringPage() {
   }, [selectedSubId, selectedSub, myScores]);
 
   async function askAi() {
-    if (!selectedSub) return;
+    if (!selectedSub || !open) return;
     setAiError(null);
     setAiLoading(true);
     try {
@@ -220,7 +237,7 @@ export function JudgeScoringPage() {
   }
 
   async function save(draft: boolean) {
-    if (!selectedSub) return;
+    if (!selectedSub || !open || isReadOnly) return;
     setActionError(null);
     // Client-side validation against maxScore.
     for (const c of criteria) {
@@ -260,6 +277,17 @@ export function JudgeScoringPage() {
 
   const statusBadge = (st: SubStatus) =>
     <PixelBadge color={st === "scored" ? "green" : st === "draft" ? "yellow" : "gray"}>{st.replace("_", " ")}</PixelBadge>;
+
+  const lockedTitle = judgingTimer.loadFailed
+    ? "KHÔNG THỂ XÁC MINH THỜI GIAN CHẤM"
+    : judgingTimer.loading
+      ? "ĐANG KIỂM TRA THỜI GIAN CHẤM…"
+      : "CHƯA TỚI GIỜ CHẤM BÀI";
+  const lockedMessage = judgingTimer.loadFailed
+    ? "Khu vực chấm đang được khóa an toàn. Vui lòng thử lại sau."
+    : judgingTimer.loading
+      ? "Đang đồng bộ trạng thái timer với hệ thống."
+      : "Event Coordinator chưa bắt đầu thời gian chấm cho vòng này.";
 
   return (
     <div style={{ padding: 24 }}>
@@ -305,7 +333,7 @@ export function JudgeScoringPage() {
               </div>
             </PixelCard>
 
-            {selectedRoundId && (
+            {selectedRoundId && workspaceAvailable && (
               <PixelCard style={{ padding: 14 }}>
                 <div style={{ display: "flex", gap: 4, marginBottom: 10, flexWrap: "wrap" }}>
                   {(["all", "not_scored", "draft", "scored"] as FilterType[]).map(f => (
@@ -345,11 +373,30 @@ export function JudgeScoringPage() {
                 </div>
               </PixelCard>
             )}
+            {selectedRoundId && !workspaceAvailable && (
+              <PixelCard style={{ padding: 14 }}>
+                <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, marginBottom: 8, letterSpacing: "0.08em" }}>
+                  JUDGING STATUS
+                </div>
+                {!judgingTimer.loading && !judgingTimer.loadFailed && (
+                  <CountdownDisplay remainingSeconds={0} status="IDLE" size="sm" icon />
+                )}
+              </PixelCard>
+            )}
           </div>
 
           {/* Right panel */}
           <div style={{ flex: 1, minWidth: 320 }}>
-            {!selectedSub ? (
+            {!workspaceAvailable ? (
+              <PixelCard glow glowColor="cyan" style={{ padding: "64px 28px", textAlign: "center" }}>
+                <div style={{ color: judgingTimer.loadFailed ? C.red : C.cyanBright, fontFamily: "'JetBrains Mono', monospace", fontSize: 18, fontWeight: 800, letterSpacing: "0.06em", marginBottom: 12 }}>
+                  {lockedTitle}
+                </div>
+                <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, lineHeight: 1.7 }}>
+                  {lockedMessage}
+                </div>
+              </PixelCard>
+            ) : !selectedSub ? (
               <PixelCard style={{ padding: 40, textAlign: "center" }}>
                 <p style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 13 }}>Select a submission to score.</p>
               </PixelCard>
@@ -359,9 +406,15 @@ export function JudgeScoringPage() {
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
                     <div>
                       <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 20, fontWeight: 700 }}>{teamNameOf(selectedSub)}</div>
-                      <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginTop: 4 }}>
-                        {selectedRound?.name} · Submitted {fmtDateTime(selectedSub.submittedAt)}
-                      </div>
+              <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginTop: 4 }}>
+                {selectedRound?.name} · Submitted {fmtDateTime(selectedSub.submittedAt)}
+              </div>
+              <div style={{ marginTop: 8 }}>
+                {(() => {
+                  const panelSize = teamsById.get(selectedSub.teamId)?.assignedJudgeCount ?? 1;
+                  return <PixelBadge color="cyan">PANEL · {panelSize} JUDGE{panelSize === 1 ? "" : "S"}</PixelBadge>;
+                })()}
+              </div>
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
                       {judgingTimer.isConfigured && <CountdownDisplay remainingSeconds={judgingTimer.remainingSeconds} status={judgingTimer.status} size="sm" icon />}
@@ -375,7 +428,7 @@ export function JudgeScoringPage() {
                     {selectedSub.repoUrl && <ActionIcon title="Open repository" href={selectedSub.repoUrl}><Github size={15} strokeWidth={2.25} /></ActionIcon>}
                     {selectedSub.demoUrl && <ActionIcon title="Open demo" href={selectedSub.demoUrl}><Play size={15} strokeWidth={2.25} /></ActionIcon>}
                     {selectedSub.slideUrl && <ActionIcon title="Open slides" href={selectedSub.slideUrl}><FileText size={15} strokeWidth={2.25} /></ActionIcon>}
-                    <PixelButton variant="cyber" size="sm" disabled={aiLoading} onClick={askAi}>
+                    <PixelButton variant="cyber" size="sm" disabled={aiLoading || !open} onClick={askAi}>
                       {aiLoading
                         ? "AI THINKING…"
                         : aiInsight
@@ -522,12 +575,16 @@ export function JudgeScoringPage() {
                             <input
                               type="number" min={0} max={Number(c.maxScore)} step={0.1}
                               value={scoreInputs[c.criteriaId]?.value ?? ""}
-                              disabled={isReadOnly}
-                              onChange={(e) => setVal(c.criteriaId, e.target.value === "" ? 0 : Number(e.target.value))}
+                              disabled={isReadOnly || !open}
+                              onChange={(e) => {
+                                const normalizedValue = normalizeScoreInput(e.currentTarget.value);
+                                e.currentTarget.value = normalizedValue;
+                                setVal(c.criteriaId, normalizedValue === "" ? 0 : Number(normalizedValue));
+                              }}
                               style={{ width: 80, padding: "8px 10px", background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 14, borderRadius: 0, outline: "none" }}
                             />
                             <textarea
-                              placeholder="Comment..." disabled={isReadOnly}
+                              placeholder="Comment..." disabled={isReadOnly || !open}
                               value={scoreInputs[c.criteriaId]?.comment ?? ""}
                               onChange={(e) => setComment(c.criteriaId, e.target.value)}
                               style={{ flex: 1, padding: "8px 10px", background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, borderRadius: 0, outline: "none", minHeight: 38, resize: "vertical" }}
@@ -540,11 +597,11 @@ export function JudgeScoringPage() {
                 </PixelCard>
 
                 <PixelCard glow glowColor="cyan" style={{ padding: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div style={{ color: C.cyanBright, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em" }}>
-                    OVERALL SCORE (weighted, out of 100)
+                  <div style={{ color: C.cyanBright, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 800, letterSpacing: "0.08em" }}>
+                    OVERALL SCORE
                   </div>
                   <div style={{ color: C.cyan, fontFamily: "'JetBrains Mono', monospace", fontSize: 24, fontWeight: 800 }}>
-                    {weightedTotal.toFixed(2)}<span style={{ fontSize: 14, color: C.textMuted }}> /100</span>
+                    {weightedTotal.toFixed(2)}<span style={{ fontSize: 24, color: C.textMuted }}> /100</span>
                   </div>
                 </PixelCard>
 

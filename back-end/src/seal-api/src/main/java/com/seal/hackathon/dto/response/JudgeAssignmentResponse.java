@@ -24,6 +24,7 @@ public class JudgeAssignmentResponse {
 
     private Integer judgeId;
     private String judgeName;
+    private Integer eventId;
     private String eventName;
     private List<AssignedTeamInfo> teams;
 
@@ -36,6 +37,7 @@ public class JudgeAssignmentResponse {
         private String teamName;
         private String trackName;
         private Integer roundId;  // Vòng đấu cần chấm
+        private Integer assignedJudgeCount; // panel size for this (round, track) cell
         private List<TeamMemberInfo> members;
     }
 

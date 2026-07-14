@@ -28,6 +28,7 @@ public class RoundResultService {
     private final HackathonEventRepository eventRepository;
     private final TeamMemberRepository teamMemberRepository;
     private final NotificationService notificationService;
+    private final JudgeScoringCompletenessService completenessService;
 
     // ── Get leaderboard (published results only) ──────────────────────
 
@@ -66,6 +67,11 @@ public class RoundResultService {
         if (submissions.isEmpty()) {
             throw new BadRequestException("No submissions found for this round.");
         }
+
+        // Every judge assigned to the submission's (round, track) cell must have
+        // finalized every criterion. Missing judges are never treated as zero or
+        // silently removed from the panel average.
+        completenessService.assertRoundComplete(roundId);
 
         // Delete existing results for this round before re-computing
         List<RoundResult> existing = resultRepository.findAllByRound_RoundIdOrderByRankPosition(roundId);

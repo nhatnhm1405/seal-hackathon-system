@@ -47,6 +47,10 @@ function PhaseTimerControl({
 }) {
   const { addToast } = useNotifications();
   const timer = useRoundTimer(eventId, roundId, phase, { fireBanners: false });
+  const contestGate = useRoundTimer(eventId, roundId, "CONTEST", {
+    fireBanners: false,
+    enabled: phase === "JUDGING",
+  });
   const [durationSec, setDurationSec] = useState(30 * 60);
   const [extendMin, setExtendMin] = useState(5);
   const [showExtend, setShowExtend] = useState(false);
@@ -54,6 +58,10 @@ function PhaseTimerControl({
   const [confirmStop, setConfirmStop] = useState(false);
 
   const idle = !timer.isConfigured || timer.status === "STOPPED" || timer.status === "EXPIRED";
+  const contestFinished = contestGate.status === "STOPPED" || contestGate.status === "EXPIRED";
+  const startBlocked = timer.loading
+    || timer.loadFailed
+    || (phase === "JUDGING" && (contestGate.loading || contestGate.loadFailed || !contestFinished));
 
   async function run(action: () => Promise<{ data: RoundTimerState }>, okTitle: string, okMsg: string) {
     setBusy(true);
@@ -92,8 +100,18 @@ function PhaseTimerControl({
         {idle ? (
           // Compact drum picker (hours/min, 3 rows) centered in the card.
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
-            <WheelTimePicker valueSeconds={durationSec} onChange={setDurationSec} maxHours={99} disabled={busy} />
-            <PixelButton variant="cyber" disabled={busy || durationSec < MIN_DURATION} onClick={start}>
+            <WheelTimePicker valueSeconds={durationSec} onChange={setDurationSec} maxHours={99} disabled={busy || startBlocked} />
+            {phase === "JUDGING" && !contestGate.loading && !contestGate.loadFailed && !contestFinished && (
+              <div style={{ color: C.textMuted, fontFamily: MONO, fontSize: 11, textAlign: "center" }}>
+                Finish the CONTEST timer before starting JUDGING.
+              </div>
+            )}
+            {(timer.loadFailed || (phase === "JUDGING" && contestGate.loadFailed)) && (
+              <div style={{ color: C.red, fontFamily: MONO, fontSize: 11, textAlign: "center" }}>
+                Timer state could not be verified. Controls are locked.
+              </div>
+            )}
+            <PixelButton variant="cyber" disabled={busy || startBlocked || durationSec < MIN_DURATION} onClick={start}>
               START
             </PixelButton>
           </div>
@@ -102,13 +120,13 @@ function PhaseTimerControl({
             {/* One button per job: PAUSE/RESUME · EXTEND · STOP. */}
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
               {timer.status === "PAUSED" ? (
-                <PixelButton size="sm" variant="cyber" disabled={busy} onClick={resume}>RESUME</PixelButton>
+                <PixelButton size="sm" variant="cyber" disabled={busy || timer.loadFailed} onClick={resume}>RESUME</PixelButton>
               ) : (
-                <PixelButton size="sm" variant="secondary" disabled={busy} onClick={pause}>PAUSE</PixelButton>
+                <PixelButton size="sm" variant="secondary" disabled={busy || timer.loadFailed} onClick={pause}>PAUSE</PixelButton>
               )}
-              <PixelButton size="sm" variant="secondary" disabled={busy} onClick={() => setShowExtend(v => !v)}>EXTEND</PixelButton>
+              <PixelButton size="sm" variant="secondary" disabled={busy || timer.loadFailed} onClick={() => setShowExtend(v => !v)}>EXTEND</PixelButton>
               {/* STOP ends the window for everyone at once — confirmed first. */}
-              <PixelButton size="sm" variant="danger" disabled={busy} onClick={() => setConfirmStop(true)}>STOP</PixelButton>
+              <PixelButton size="sm" variant="danger" disabled={busy || timer.loadFailed} onClick={() => setConfirmStop(true)}>STOP</PixelButton>
             </div>
             {showExtend && (
               <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
