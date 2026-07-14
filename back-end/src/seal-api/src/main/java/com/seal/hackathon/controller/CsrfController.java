@@ -1,8 +1,11 @@
 package com.seal.hackathon.controller;
 
 import com.seal.hackathon.dto.response.ApiResponse;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.web.csrf.CsrfToken;
+import org.springframework.security.web.csrf.CsrfTokenRepository;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -18,8 +21,22 @@ import java.util.Map;
 @RestController
 public class CsrfController {
 
+    private final CsrfTokenRepository csrfTokenRepository;
+
+    public CsrfController(CsrfTokenRepository csrfTokenRepository) {
+        this.csrfTokenRepository = csrfTokenRepository;
+    }
+
     @GetMapping("/api/csrf")
-    public ResponseEntity<ApiResponse<Map<String, String>>> csrf(CsrfToken csrfToken) {
+    public ResponseEntity<ApiResponse<Map<String, String>>> csrf(
+            HttpServletRequest request,
+            HttpServletResponse response) {
+        CsrfToken csrfToken = csrfTokenRepository.loadToken(request);
+        if (csrfToken == null) {
+            csrfToken = csrfTokenRepository.generateToken(request);
+            csrfTokenRepository.saveToken(csrfToken, request, response);
+        }
+
         return ResponseEntity.ok(ApiResponse.success(
                 "CSRF token issued.",
                 Map.of("token", csrfToken.getToken())));
