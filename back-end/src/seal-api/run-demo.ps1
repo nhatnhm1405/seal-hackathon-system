@@ -13,11 +13,13 @@
     old data it SKIPS seeding. A clean drop means a clean reseed.
 
 .PARAMETER Scenario
-    NONE | S0 | S1 | S2 | S3  (default NONE = real run, no fake data)
+    NONE | S0 | S1 | S2 | S25 | S3  (default NONE = real run, no fake data)
       NONE  bootstrap admin only
       S0    + all demo accounts (pre-approved)
       S1    + OPEN event + track/round/criteria + 15 forming teams
       S2    + complete preliminary scores, ready to rank       (IN_PROGRESS)
+      S25   + prelim finalized + final round fully scored,
+            ready to calculate the final ranking then award    (IN_PROGRESS)
       S3    + rankings + final scores/results + prizes         (COMPLETED)
 
 .PARAMETER Force
@@ -35,7 +37,7 @@
 #>
 [CmdletBinding()]
 param(
-    [ValidateSet('NONE', 'S0', 'S1', 'S2', 'S3')]
+    [ValidateSet('NONE', 'S0', 'S1', 'S2', 'S25', 'S3')]
     [string]$Scenario = 'NONE',
     [switch]$Force,
     [switch]$NoDrop
