@@ -41,15 +41,20 @@ This repository contains a full-stack web platform that digitizes and centralize
 
 ### Khanh Nguyen Le Huu — Frontend Developer
 
-- Built and maintained core dashboard flows — events, tracks, teams, notifications, and the admin/coordinator account approval pipeline.
-- Fixed cross-cutting UX issues (navigation, dropdowns, scroll and layout bugs) across the application.
-- Added unit and integration test coverage for track assignment and setup-gate logic.
+- Bootstrapped the frontend codebase, initializing the Vite + React + TypeScript project that the rest of the team built on.
+- Built and maintained core dashboard flows across events, tracks, teams, and notifications, including audit-detail display with formatted metadata and judging-start gating with track-capacity checks.
+- Implemented the admin/coordinator account approval pipeline, including asynchronous approval emails and deduplication of approval notifications.
+- Refined judge and mentor assignment logic, excluding admin/coordinator accounts from the assignment picker, and localized the AI Judge Assistant's UI to English.
+- Fixed cross-cutting UX issues across the application — unified dashboard navigation, auth-aware landing CTAs, scroll-position reset on route change, and consistent event date formatting.
+- Added unit and integration test coverage (Vitest) for track assignment, setup-gate logic, and track statistics helpers.
 
 ### Đào Hoàng Nhật — Backend Developer
 
-- Implemented backend CRUD and validation logic for events, tracks, and teams.
-- Built participant read-only/access-request handling and the OTP-based password reset flow.
-- Handled deployment.
+- Bootstrapped the backend codebase, initializing the Spring Boot + Maven project structure used throughout development.
+- Built the OTP-based password reset flow end-to-end, from backend token generation/validation to the frontend reset screen.
+- Hardened validation across team invites, event scoring, and system logs, and added test coverage for validation and auth/password-reset flows.
+- Implemented in-app notification events on the backend and restored the mentor history API and participant read-only views.
+- Configured OAuth2 redirect handling for deployment and owned the project's deployment process.
 
 ## Scope
 
