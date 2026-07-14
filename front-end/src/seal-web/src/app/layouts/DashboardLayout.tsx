@@ -641,12 +641,16 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
     setShowLogoutConfirm(true);
   }
 
-  function performLogout() {
+  async function performLogout() {
     const name = currentUser?.full_name ?? 'User';
     setShowLogoutConfirm(false);
-    addAuthToast({ type: 'info', title: 'LOGGED OUT', message: `Goodbye, ${name}. See you next time!` });
-    logout();
-    navigate('/');
+    try {
+      await logout();
+      addAuthToast({ type: 'info', title: 'LOGGED OUT', message: `Goodbye, ${name}. See you next time!` });
+      navigate('/');
+    } catch {
+      addAuthToast({ type: 'warning', title: 'LOGOUT FAILED', message: 'Please try again.' });
+    }
   }
 
   function handleSwitchRole() {

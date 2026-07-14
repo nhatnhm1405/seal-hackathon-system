@@ -111,7 +111,7 @@ export function CompleteProfilePage() {
             </form>
 
             <div style={{ marginTop: 20, textAlign: "center" }}>
-              <button onClick={() => { logout(); navigate("/login", { replace: true }); }}
+              <button onClick={async () => { await logout(); navigate("/login", { replace: true }); }}
                 style={{ background: "none", border: "none", cursor: "pointer", color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.08em" }}>
                 ← CANCEL & SIGN OUT
               </button>

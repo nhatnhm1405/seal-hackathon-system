@@ -3,7 +3,7 @@ name: Deploy to AWS EC2
 on:
   push:
     branches:
-      - develop
+      - develop-draft
 
 jobs:
   deploy:
@@ -55,12 +55,12 @@ jobs:
             fi
 
             cd "$APP_DIR"
-            git fetch origin develop
-            if git show-ref --verify --quiet refs/heads/develop; then
-              git checkout develop
+            git fetch origin develop-draft
+            if git show-ref --verify --quiet refs/heads/develop-draft; then
+              git checkout develop-draft
             else
-              git checkout -b develop origin/develop
+              git checkout -b develop-draft origin/develop-draft
             fi
-            git pull --ff-only origin develop
+            git pull --ff-only origin develop-draft
             sudo docker compose up -d --build --remove-orphans
             sudo docker compose ps

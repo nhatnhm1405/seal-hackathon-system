@@ -30,7 +30,7 @@ interface AuthContextType {
   activeRole: string | null;
   setActiveRole: (role: string | null) => void;
   login: (email: string, password: string, rememberMe?: boolean) => Promise<'ok' | 'ok:select-role' | 'invalid_credentials' | 'pending_approval'>;
-  logout: () => void;
+  logout: () => Promise<void>;
   updateLeaderStatus: (isLeader: boolean) => void;
   clearTeam: () => void;
   refreshTeamContext: () => Promise<void>;
@@ -171,6 +171,10 @@ function mapApiUser(profile: ApiUserProfile): AuthUser {
   };
 }
 
+function isPendingApprovalError(err: ApiError): boolean {
+  return err.status === 403 && /pending approval|coordinator.*review|review your registration/i.test(err.message);
+}
+
 // ── Team context ──────────────────────────────────────────────────────
 // team_id / is_leader are NOT in /api/auth/me — they live in /api/teams/my,
 // which only PARTICIPANTs may call. Until the backend adds member userId / a
@@ -294,7 +298,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       setStoredActiveRole(null);
       if (err instanceof ApiError) {
-        if (err.status === 403) {
+        if (isPendingApprovalError(err)) {
           return 'pending_approval';
         }
         if (err.status === 401) return 'invalid_credentials';
@@ -304,10 +308,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   // ── Logout ──────────────────────────────────────────────────────────
-  function logout() {
-    // Fire-and-forget — clear local state immediately for snappy UX.
-    // Can't check for a cookie from JS, so always call; the backend clears it.
-    apiFetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+  async function logout() {
+    // Wait for the server to clear auth cookies before removing local state.
+    await apiFetch('/api/auth/logout', { method: 'POST' });
     setStoredActiveRole(null);
     setCurrentUser(null);
     setAvailableRoles([]);

@@ -58,7 +58,7 @@ export function PendingApprovalPage() {
           </p>
 
           {isAuthenticated ? (
-            <PixelButton variant="cyber" size="lg" onClick={() => { logout(); navigate('/login', { replace: true }); }}>
+            <PixelButton variant="cyber" size="lg" onClick={async () => { await logout(); navigate('/login', { replace: true }); }}>
               SIGN OUT
             </PixelButton>
           ) : (

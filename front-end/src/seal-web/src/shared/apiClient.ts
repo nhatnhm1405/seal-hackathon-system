@@ -1,5 +1,6 @@
 const BASE_URL = (import.meta as { env?: { VITE_API_URL?: string } }).env?.VITE_API_URL ?? 'http://localhost:8080';
 export const API_BASE_URL = BASE_URL;
+let csrfTokenCache: string | null = null;
 
 // ── CSRF helper ──────────────────────────────────────────────────────
 // The JWT itself lives in an HttpOnly cookie the browser attaches automatically
@@ -8,7 +9,7 @@ export const API_BASE_URL = BASE_URL;
 // on state-changing requests.
 function getCsrfToken(): string | null {
   const match = document.cookie.match(/(?:^|; )XSRF-TOKEN=([^;]*)/);
-  return match ? decodeURIComponent(match[1]) : null;
+  return match ? decodeURIComponent(match[1]) : csrfTokenCache;
 }
 
 // The XSRF-TOKEN cookie is only set once the browser has processed a response
@@ -20,7 +21,11 @@ function getCsrfToken(): string | null {
 async function ensureCsrfToken(): Promise<string | null> {
   const existing = getCsrfToken();
   if (existing) return existing;
-  await fetch(`${BASE_URL}/api/csrf`, { credentials: 'include' }).catch(() => {});
+  const res = await fetch(`${BASE_URL}/api/csrf`, { credentials: 'include' }).catch(() => null);
+  if (res?.ok) {
+    const body = await res.json().catch(() => null) as { data?: { token?: string } } | null;
+    csrfTokenCache = body?.data?.token ?? null;
+  }
   return getCsrfToken();
 }
 
@@ -63,10 +68,12 @@ export async function apiFetch<T>(
   });
 
   if (!res.ok) {
+    if (res.status === 403) csrfTokenCache = null;
     const body = await res.json().catch(() => ({}));
     throw new ApiError(res.status, body?.message ?? `HTTP ${res.status}`);
   }
 
+  if (path === '/api/auth/logout') csrfTokenCache = null;
   return res.json() as Promise<T>;
 }
 
