@@ -227,3 +227,18 @@ html.theme-transitioning *::after {
     padding-inline: 8px;
   }
 }
+
+/* ── Autofill override ───────────────────────────────────────────────
+   Auth forms opt out of autofill via autoComplete="off" / "new-password",
+   but browsers may still force-fill. Neutralise the default light-yellow
+   highlight so filled inputs keep the dark surface + text of PixelInput. */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-text-fill-color: var(--c-text);
+  caret-color: var(--c-text);
+  -webkit-box-shadow: 0 0 0 1000px var(--c-surface2) inset;
+  box-shadow: 0 0 0 1000px var(--c-surface2) inset;
+  transition: background-color 5000s ease-in-out 0s;
+}
