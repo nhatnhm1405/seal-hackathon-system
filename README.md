@@ -29,17 +29,21 @@ This repository contains a full-stack web platform that digitizes and centralize
 - Owned the team's Git workflow — branching strategy, pull request review, merge conflict resolution, and release coordination — across the project's development history.
 - Served as technical lead: made architectural decisions and coordinated integration across the frontend, backend, and database work streams.
 
+### Nguyen Huynh Khanh Trang — Frontend Developer & UI/UX
+
+- Led UI/UX design in Figma and translated it into a shared, reusable component library (layout, overlay, navigation, data-display, and interaction components) used consistently across the application.
+- Designed and implemented the light/dark theming system, including a full visual redesign of light mode to a neutral, HackerRank-style palette.
+- Built the scoring and ranking engine: Top-N advancement per track and overall, tie-break resolution by submission time, and anonymized team names in judge-facing views to reduce scoring bias.
+- Implemented the final results experience — awards, history pages, and mentor/judge guide popups to support scoring and adjudication workflows.
+- Built participant-facing flows: join-request handling for teams without an assigned track, the competition rules popup (with login auto-show and footer access), and event-status gating for participant team actions.
+- Authored unit tests for the AI Judge Assistant's repository parsing and analysis-mapping logic.
+- Contributed to backend service/entity/DTO alignment when the database schema was restructured (admin-split schema, `judgeType` field).
+
 ### Khanh Nguyen Le Huu — Frontend Developer
 
 - Built and maintained core dashboard flows — events, tracks, teams, notifications, and the admin/coordinator account approval pipeline.
 - Fixed cross-cutting UX issues (navigation, dropdowns, scroll and layout bugs) across the application.
 - Added unit and integration test coverage for track assignment and setup-gate logic.
-
-### Nguyen Huynh Khanh Trang — Frontend Developer & UI/UX
-
-- Designed and implemented the shared UI component library (layout, overlay, navigation, data-display, and interaction components) and the light/dark theming system.
-- Built scoring and ranking features: Top-N advancement, tie-breaks, anonymized judge views, and awards/history pages.
-- Implemented participant-facing flows, including join requests, competition rules, and team management.
 
 ### Đào Hoàng Nhật — Backend Developer
 
