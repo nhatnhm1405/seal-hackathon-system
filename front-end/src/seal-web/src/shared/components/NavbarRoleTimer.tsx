@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   assignmentsApi,
+  eventsApi,
   roundsApi,
   teamsApi,
   type TimerPhase,
@@ -62,10 +63,14 @@ export function NavbarRoleTimer({ role, teamId }: NavbarRoleTimerProps) {
   const [target, setTarget] = useState<TimerTarget | null>(null);
   const [contextLoading, setContextLoading] = useState(supportedRole);
   const [contextFailed, setContextFailed] = useState(false);
+  // The round timer must only surface while the owner's event is actually
+  // running (IN_PROGRESS); before/after that the whole badge stays hidden.
+  const [eventInProgress, setEventInProgress] = useState(false);
 
   const loadContext = useCallback(async () => {
     if (!timerRole) {
       setTarget(null);
+      setEventInProgress(false);
       setContextLoading(false);
       setContextFailed(false);
       return;
@@ -73,6 +78,7 @@ export function NavbarRoleTimer({ role, teamId }: NavbarRoleTimerProps) {
 
     if (timerRole === "PARTICIPANT" && teamId == null) {
       setTarget(null);
+      setEventInProgress(false);
       setContextLoading(false);
       setContextFailed(false);
       return;
@@ -84,23 +90,33 @@ export function NavbarRoleTimer({ role, teamId }: NavbarRoleTimerProps) {
         const response = await teamsApi.getMy();
         const team = response.data;
         const round = team.round;
-        setTarget(team.eventId != null && round
+        const isInProgress = team.eventStatus === "IN_PROGRESS";
+        setEventInProgress(isInProgress);
+        setTarget(isInProgress && team.eventId != null && round
           ? { ownerRole: timerRole, eventId: team.eventId, roundId: round.roundId, roundName: round.name }
           : null);
       } else {
         const assignmentResponse = await assignmentsApi.getJudgeAssignments();
         const assignment = assignmentResponse.data;
         if (assignment.eventId == null) {
+          setEventInProgress(false);
           setTarget(null);
         } else {
-          const roundsResponse = await roundsApi.getAll(assignment.eventId);
+          const [roundsResponse, events] = await Promise.all([
+            roundsApi.getAll(assignment.eventId),
+            eventsApi.getAll().then((r) => r.data ?? []).catch(() => []),
+          ]);
+          const isInProgress =
+            events.find((e) => e.eventId === assignment.eventId)?.status === "IN_PROGRESS";
+          setEventInProgress(isInProgress);
+
           const assignedRoundIds = new Set(assignment.teams.map((team) => team.roundId));
           const activeRound = roundsResponse.data
             .filter((round) => assignedRoundIds.has(round.roundId))
             .filter((round) => ["ACTIVE", "OPEN"].includes((round.status ?? "").toUpperCase()))
             .sort((a, b) => a.orderNumber - b.orderNumber)[0];
 
-          setTarget(activeRound
+          setTarget(isInProgress && activeRound
             ? {
                 ownerRole: timerRole,
                 eventId: assignment.eventId,
@@ -112,6 +128,7 @@ export function NavbarRoleTimer({ role, teamId }: NavbarRoleTimerProps) {
       }
     } catch {
       setTarget(null);
+      setEventInProgress(false);
       setContextFailed(true);
     } finally {
       setContextLoading(false);
@@ -120,6 +137,7 @@ export function NavbarRoleTimer({ role, teamId }: NavbarRoleTimerProps) {
 
   useEffect(() => {
     setTarget(null);
+    setEventInProgress(false);
     setContextLoading(Boolean(timerRole));
     void loadContext();
 
@@ -146,6 +164,8 @@ export function NavbarRoleTimer({ role, teamId }: NavbarRoleTimerProps) {
   );
 
   if (!timerRole) return null;
+  // Badge stays hidden unless the owner's event is currently IN_PROGRESS.
+  if (!eventInProgress) return null;
 
   const failed = contextFailed || timer.loadFailed;
   const loading = contextLoading || timer.loading;

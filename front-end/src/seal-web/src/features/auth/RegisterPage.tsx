@@ -112,13 +112,13 @@ export function RegisterPage() {
         </div>
 
         <PixelCard glow gradient style={{ padding: 28 }}>
-          <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-            <PixelInput label="Full Name" placeholder="Your full name" value={fullName} onChange={(e) => setFullName(e.target.value)} />
-            <PixelInput label="Email" type="email" placeholder="you@seal.edu" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <form onSubmit={handleSubmit} autoComplete="off" style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+            <PixelInput label="Full Name" placeholder="Your full name" value={fullName} onChange={(e) => setFullName(e.target.value)} autoComplete="off" />
+            <PixelInput label="Email" type="email" placeholder="you@seal.edu" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="off" />
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-              <PixelInput label="Password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} showToggle />
-              <PixelInput label="Confirm Password" type="password" placeholder="••••••••" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} showToggle />
+              <PixelInput label="Password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} showToggle autoComplete="new-password" />
+              <PixelInput label="Confirm Password" type="password" placeholder="••••••••" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} showToggle autoComplete="new-password" />
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -153,10 +153,10 @@ export function RegisterPage() {
             </div>
 
             {studentType === 'FPT' ? (
-              <PixelInput label="FPT Student ID" placeholder="SE000000" value={studentId} onChange={(e) => setStudentId(e.target.value)} onBlur={(e) => checkStudentIdExists(e.target.value)} />
+              <PixelInput label="FPT Student ID" placeholder="SE000000" value={studentId} onChange={(e) => setStudentId(e.target.value)} onBlur={(e) => checkStudentIdExists(e.target.value)} autoComplete="off" />
             ) : (
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start" }}>
-                <PixelInput label="Student ID" placeholder="Your student ID" value={studentId} onChange={(e) => setStudentId(e.target.value)} onBlur={(e) => checkStudentIdExists(e.target.value)} />
+                <PixelInput label="Student ID" placeholder="Your student ID" value={studentId} onChange={(e) => setStudentId(e.target.value)} onBlur={(e) => checkStudentIdExists(e.target.value)} autoComplete="off" />
                 <UniversitySelect label="University" value={university} onChange={setUniversity} />
               </div>
             )}
