@@ -954,6 +954,22 @@ export interface GroupingCommitResult {
   warnings: GroupingWarning[];
 }
 
+// Manual override for the leftover pool the planner couldn't place: place userIds
+// onto targetTeamId, or force-create a new team from them when targetTeamId is null.
+export interface ManualAssignLeftoverPayload {
+  userIds: number[];
+  targetTeamId?: number | null;
+  reason?: string;
+}
+
+// A coordinator-edited version of one Proposed Teams card, submitted in bulk to
+// /leftover-grouping/apply — memberUserIds is the team's COMPLETE final roster
+// (not just newcomers), after freely dragging people between cards.
+export interface ApplyLeftoverGroupingPayload {
+  teams: { existingTeamId: number | null; memberUserIds: number[] }[];
+  reason?: string;
+}
+
 export const teamsApi = {
   getActiveEvents: () =>
     apiFetch<ApiResponse<ActiveEventWithTracks[]>>('/api/teams/active-events'),
@@ -1052,6 +1068,22 @@ export const teamsApi = {
     apiFetch<ApiResponse<GroupingCommitResult>>(
       `/api/teams/event/${eventId}/leftover-grouping/commit${reason ? `?reason=${encodeURIComponent(reason)}` : ''}`,
       { method: 'POST' },
+    ),
+
+  // SETUP only: manual escape hatch for people the planner couldn't place — put
+  // specific userIds onto an existing team, or force-approve them as a new one.
+  leftoverGroupingManualAssign: (eventId: number, payload: ManualAssignLeftoverPayload) =>
+    apiFetch<ApiResponse<GroupingCommitResult>>(
+      `/api/teams/event/${eventId}/leftover-grouping/manual-assign`,
+      { method: 'POST', body: JSON.stringify(payload) },
+    ),
+
+  // SETUP only: apply a coordinator-edited version of the preview's Proposed Teams
+  // (people dragged between team cards) instead of blindly re-running the planner.
+  leftoverGroupingApplyPlan: (eventId: number, payload: ApplyLeftoverGroupingPayload) =>
+    apiFetch<ApiResponse<GroupingCommitResult>>(
+      `/api/teams/event/${eventId}/leftover-grouping/apply`,
+      { method: 'POST', body: JSON.stringify(payload) },
     ),
 };
 

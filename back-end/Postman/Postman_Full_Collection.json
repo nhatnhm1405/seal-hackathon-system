@@ -1434,6 +1434,68 @@
               }
             }
           ]
+        },
+        {
+          "name": "POST manually place free agent onto existing team (leftover override, Coordinator)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{coordinatorToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/teams/event/{{eventId}}/leftover-grouping/manual-assign",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userIds\": [{{userId}}],\n  \"targetTeamId\": {{teamId}},\n  \"reason\": \"Manually placing a leftover free agent onto an existing under-sized team\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST force-create solo team from leftover free agent (leftover override, Coordinator)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{coordinatorToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/teams/event/{{eventId}}/leftover-grouping/manual-assign",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"userIds\": [{{userId}}],\n  \"targetTeamId\": null,\n  \"reason\": \"Force-approving a lone leftover participant as a solo team\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
