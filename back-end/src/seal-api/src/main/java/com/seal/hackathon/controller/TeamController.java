@@ -168,6 +168,18 @@ public class TeamController {
         return ResponseEntity.ok(ApiResponse.success("You have left the team.", null));
     }
 
+    // A teamless participant opts out of the current (still-OPEN) season entirely —
+    // distinct from leaveTeam, which only makes you teamless and keeps you active.
+    @PostMapping("/event/{eventId}/leave-event")
+    @PreAuthorize("hasRole('PARTICIPANT')")
+    public ResponseEntity<ApiResponse<Void>> leaveEvent(
+            @PathVariable Integer eventId,
+            Authentication authentication) {
+        UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
+        teamService.leaveEvent(principal.getUserId(), eventId);
+        return ResponseEntity.ok(ApiResponse.success("You have left this event.", null));
+    }
+
     // ── Coordinator endpoints ────────────────────────────────────────
 
     @GetMapping("/event/{eventId}")

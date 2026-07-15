@@ -302,6 +302,9 @@ public class TeamService {
     /**
      * A member leaves the team. The leader must transfer leadership first unless
      * they are the only member, in which case the (empty) team is disbanded.
+     * Does NOT touch the season's {@code isActive} — leaving a team just makes you
+     * teamless (you stay eligible to join/create another team this season). That is
+     * a deliberately separate, distinct action — see {@link #leaveEvent}.
      */
     @Transactional
     public void leaveTeam(Integer userId, Integer teamId) {
@@ -322,6 +325,33 @@ public class TeamService {
             return;
         }
         teamMemberRepository.delete(me);
+    }
+
+    /**
+     * A teamless participant opts out of the current season entirely — the actual
+     * counterpart to {@link ParticipationAccessRequestService#approve} (which
+     * reactivates), this is the participant deactivating themselves. Only available
+     * while the event is OPEN (registration hasn't closed) and only for someone who
+     * currently has no team in it — leaving a team ({@link #leaveTeam}) is a
+     * separate, prior step. No coordinator approval needed (self-service, mirrors
+     * {@link #leaveTeam}); no reason recorded.
+     */
+    @Transactional
+    public void leaveEvent(Integer userId, Integer eventId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
+        HackathonEvent event = eventRepository.findById(eventId)
+                .orElseThrow(() -> new ResourceNotFoundException("Event not found: " + eventId));
+        if (!"OPEN".equalsIgnoreCase(event.getStatus())) {
+            throw new BadRequestException("You can only leave this event while it is open for registration.");
+        }
+        if (!Boolean.TRUE.equals(user.getIsActive())) {
+            throw new BadRequestException("You are already inactive for this season.");
+        }
+        if (teamMemberRepository.existsByUser_UserIdAndTeam_Event_EventId(userId, eventId)) {
+            throw new BadRequestException("Leave your team before leaving the event.");
+        }
+        deactivate(user);
     }
 
     /**
