@@ -2,6 +2,7 @@ package com.seal.hackathon.controller;
 
 import com.seal.hackathon.dto.request.ApplyLeftoverGroupingRequest;
 import com.seal.hackathon.dto.request.AssignTeamTrackRequest;
+import com.seal.hackathon.dto.request.CoordinatorRemoveMemberRequest;
 import com.seal.hackathon.dto.request.CreateTeamRequest;
 import com.seal.hackathon.dto.request.ManualAssignLeftoverRequest;
 import com.seal.hackathon.dto.request.RejectTeamRequest;
@@ -291,5 +292,20 @@ public class TeamController {
             @RequestBody(required = false) RejectTeamRequest request) {
         return ResponseEntity.ok(ApiResponse.success("Team disqualified.",
                 teamService.disqualifyTeam(teamId, request)));
+    }
+
+    // Coordinator removes one specific member during a live (IN_PROGRESS) competition
+    // — e.g. absence at a roll call. Requires a reason; auto-promotes a new leader or
+    // disqualifies the team if that was the last remaining member.
+    @PutMapping("/{teamId}/members/{userId}/coordinator-remove")
+    @PreAuthorize("hasRole('EVENT_COORDINATOR')")
+    public ResponseEntity<ApiResponse<TeamDetailResponse>> coordinatorRemoveMember(
+            @PathVariable Integer teamId,
+            @PathVariable Integer userId,
+            @Valid @RequestBody CoordinatorRemoveMemberRequest request,
+            Authentication authentication) {
+        UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
+        return ResponseEntity.ok(ApiResponse.success("Member removed from the competition.",
+                teamService.coordinatorRemoveMember(principal.getUserId(), teamId, userId, request.getReason())));
     }
 }
