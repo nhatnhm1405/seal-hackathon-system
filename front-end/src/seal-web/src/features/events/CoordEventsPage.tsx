@@ -1930,11 +1930,19 @@ export function CoordEventsPage() {
         <LeftoverGroupingModal
           eventId={selectedEvent.eventId}
           eventName={selectedEvent.name}
+          teams={teams}
           onClose={() => setShowGrouping(false)}
           onCommitted={(summary) => {
             setShowGrouping(false);
             setSuccessMsg(summary);
             addToast({ type: 'success', title: 'GROUPING APPLIED', message: summary });
+            refreshTeams();
+          }}
+          onManualAssigned={(summary) => {
+            // Keep the modal open — the coordinator may resolve several warnings in
+            // one sitting — but refresh the roster so the leftover count and the
+            // modal's target-team dropdown stay accurate.
+            addToast({ type: 'success', title: 'PARTICIPANT PLACED', message: summary });
             refreshTeams();
           }}
         />
