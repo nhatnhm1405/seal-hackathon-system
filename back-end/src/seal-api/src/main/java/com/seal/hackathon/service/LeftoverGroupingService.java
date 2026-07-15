@@ -1,5 +1,6 @@
 package com.seal.hackathon.service;
 
+import com.seal.hackathon.dto.request.ApplyLeftoverGroupingRequest;
 import com.seal.hackathon.dto.request.ManualAssignLeftoverRequest;
 import com.seal.hackathon.dto.response.GroupingCommitResponse;
 import com.seal.hackathon.dto.response.GroupingPreviewResponse;
@@ -38,6 +39,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -133,10 +135,11 @@ public class LeftoverGroupingService {
      * place: places {@code userIds} onto an existing team ({@code targetTeamId} set)
      * or force-creates a brand-new team from them ({@code targetTeamId} null — a
      * single-element list is the intended way to force-approve a lone straggler as
-     * their own team). Bypasses the recommended MIN entirely; the hard MAX is always
-     * enforced. Only touches people already in this event's leftover pool — a
-     * teamless free agent, or a member of an existing APPROVED team below MIN —
-     * pulling someone off an already-valid (&gt;= MIN) team is rejected.
+     * their own team). Bypasses the recommended MIN entirely (unlike {@link #applyPlan},
+     * this is exactly the point of this endpoint); the hard MAX is always enforced.
+     * Only touches people already in this event's leftover pool — a teamless free
+     * agent, or a member of an existing APPROVED team below MIN — pulling someone
+     * off an already-valid (&gt;= MIN) team is rejected.
      *
      * <p><b>Caveat (documented, not fixed):</b> a manually force-approved team of
      * size 1 or 2 is indistinguishable from an organically-leftover under-sized team
@@ -150,55 +153,160 @@ public class LeftoverGroupingService {
     public GroupingCommitResponse manualAssign(Integer eventId, Integer actorUserId,
                                                 ManualAssignLeftoverRequest request) {
         HackathonEvent event = requireSetupEvent(eventId);
-        List<Integer> userIds = request.getUserIds();
 
-        if (new LinkedHashSet<>(userIds).size() != userIds.size()) {
-            throw new BadRequestException("userIds must not contain duplicates.");
+        CompositionResult result = applyComposition(event, request.getTargetTeamId(), request.getUserIds());
+
+        // The roster changed mid-SETUP, so slot counts frozen on SETUP entry are stale.
+        hackathonEventService.recomputeSetupTrackCapacities(eventId);
+
+        auditLogService.record(actorUserId, "MANUAL_ASSIGN_SETUP_LEFTOVERS", "EVENT", eventId,
+                (request.getReason() != null && !request.getReason().isBlank())
+                        ? request.getReason().trim() : null,
+                Map.<String, Object>of("userIds", request.getUserIds(),
+                        "targetTeamId", result.newTeamCreated() ? "NEW" : String.valueOf(request.getTargetTeamId()),
+                        "teamId", result.team().getTeamId()));
+
+        return GroupingCommitResponse.builder()
+                .teamsCreated(result.newTeamCreated() ? 1 : 0)
+                .teamsGrown(result.newTeamCreated() ? 0 : 1)
+                .peoplePlaced(result.newlyPlacedCount())
+                .unresolvedWarnings(0)
+                .warnings(List.of())
+                .build();
+    }
+
+    // ── Apply an edited preview (coordinator rearranged Proposed Teams) ──
+
+    /**
+     * Applies a coordinator-edited version of the leftover-grouping preview: the
+     * Proposed Teams cards shown by {@link #preview}, after the coordinator freely
+     * dragged people between them. Unlike {@link #manualAssign} (a deliberate,
+     * one-off bypass of the recommended MIN for a single straggler), every team this
+     * touches must land on either 0 members (dissolved/left empty — simply omit it,
+     * or submit it with an empty roster) or at least {@value #MIN}; violating that
+     * rejects the whole request and rolls back every placement already applied in
+     * this call, so a coordinator's edit is all-or-nothing.
+     *
+     * <p>Each {@code TeamComposition} carries a team's <em>complete</em> final
+     * roster (not just newcomers) — people already exactly on that team are a no-op
+     * (their row, and any existing LEADER role, is left untouched); anyone dragged
+     * elsewhere is moved there instead, dissolving their now-empty source team.
+     * Eligibility is the same leftover-pool rule as {@link #manualAssign}, checked
+     * per team as it's applied — a coordinator can only redistribute the people the
+     * planner itself considered, never pull someone off an already-valid team.
+     */
+    @Transactional
+    public GroupingCommitResponse applyPlan(Integer eventId, Integer actorUserId,
+                                             ApplyLeftoverGroupingRequest request) {
+        HackathonEvent event = requireSetupEvent(eventId);
+
+        Set<Integer> seen = new LinkedHashSet<>();
+        for (ApplyLeftoverGroupingRequest.TeamComposition c : request.getTeams()) {
+            for (Integer userId : c.getMemberUserIds()) {
+                if (!seen.add(userId)) {
+                    throw new BadRequestException("User " + userId + " appears in more than one team.");
+                }
+            }
+        }
+
+        int created = 0;
+        int grown = 0;
+        int placed = 0;
+        List<Integer> touchedTeamIds = new ArrayList<>();
+        for (ApplyLeftoverGroupingRequest.TeamComposition c : request.getTeams()) {
+            if (c.getMemberUserIds().isEmpty()) {
+                continue; // untouched or fully emptied slot — nothing to place
+            }
+            CompositionResult result = applyComposition(event, c.getExistingTeamId(), c.getMemberUserIds());
+            touchedTeamIds.add(result.team().getTeamId());
+            if (result.newTeamCreated()) {
+                created++;
+            } else {
+                grown++;
+            }
+            placed += result.newlyPlacedCount();
+        }
+
+        for (Integer teamId : touchedTeamIds) {
+            long size = teamMemberRepository.countByTeam_TeamId(teamId);
+            if (size > 0 && size < MIN) {
+                throw new BadRequestException("Team '" + teamName(teamId) + "' would end up with only "
+                        + size + " member(s) — must be either 0 or at least " + MIN + ".");
+            }
+            if (size > MAX) {
+                throw new BadRequestException("Team '" + teamName(teamId) + "' would end up with "
+                        + size + " members, above the maximum of " + MAX + ".");
+            }
+        }
+
+        hackathonEventService.recomputeSetupTrackCapacities(eventId);
+
+        auditLogService.record(actorUserId, "APPLY_EDITED_LEFTOVER_GROUPING", "EVENT", eventId,
+                (request.getReason() != null && !request.getReason().isBlank())
+                        ? request.getReason().trim() : null,
+                Map.<String, Object>of("teamsCreated", created, "teamsGrown", grown, "peoplePlaced", placed));
+
+        return GroupingCommitResponse.builder()
+                .teamsCreated(created)
+                .teamsGrown(grown)
+                .peoplePlaced(placed)
+                .unresolvedWarnings(0)
+                .warnings(List.of())
+                .build();
+    }
+
+    private String teamName(Integer teamId) {
+        return teamRepository.findById(teamId).map(Team::getName).orElse("#" + teamId);
+    }
+
+    // ── Shared placement core (manualAssign + applyPlan) ─────────────
+
+    /**
+     * Validates and applies one team's final roster: every userId in
+     * {@code memberUserIds} must currently be a teamless free agent or a member of
+     * an under-{@value #MIN} APPROVED team of this event (else rejected, naming the
+     * offending user) — then each is placed onto {@code existingTeamId} (or a fresh
+     * team when null), notifying everyone affected. A user already exactly on the
+     * target team is a no-op.
+     */
+    private CompositionResult applyComposition(HackathonEvent event, Integer existingTeamId,
+                                                List<Integer> memberUserIds) {
+        Integer eventId = event.getEventId();
+
+        if (new LinkedHashSet<>(memberUserIds).size() != memberUserIds.size()) {
+            throw new BadRequestException("A team's memberUserIds must not contain duplicates.");
         }
 
         Map<Integer, TeamMember> membershipByUser = teamMemberRepository
-                .findByTeam_Event_EventIdAndTeam_StatusAndUser_UserIdIn(eventId, "APPROVED", userIds)
+                .findByTeam_Event_EventIdAndTeam_StatusAndUser_UserIdIn(eventId, "APPROVED", memberUserIds)
                 .stream()
                 .collect(Collectors.toMap(tm -> tm.getUser().getUserId(), tm -> tm));
         Map<Integer, User> freeAgentByUser = userRepository.findGroupableFreeAgents(eventId).stream()
-                .filter(u -> userIds.contains(u.getUserId()))
+                .filter(u -> memberUserIds.contains(u.getUserId()))
                 .collect(Collectors.toMap(User::getUserId, u -> u));
-
-        for (Integer userId : userIds) {
-            TeamMember membership = membershipByUser.get(userId);
-            if (membership != null) {
-                long size = teamMemberRepository.countByTeam_TeamId(membership.getTeam().getTeamId());
-                if (size >= MIN) {
-                    throw new BadRequestException("User " + userId + " belongs to a team that "
-                            + "already meets the recommended minimum size and cannot be "
-                            + "reassigned by this override.");
-                }
-            } else if (!freeAgentByUser.containsKey(userId)) {
-                throw new BadRequestException("User " + userId + " is not part of this event's "
-                        + "leftover pool (not a free agent and not on an under-sized team).");
-            }
-        }
 
         Team targetTeam;
         List<Integer> originalMemberIds;
         boolean newTeamCreated;
-        if (request.getTargetTeamId() != null) {
-            Team existing = teamRepository.findById(request.getTargetTeamId())
-                    .orElseThrow(() -> new ResourceNotFoundException(
-                            "Team not found: " + request.getTargetTeamId()));
+        if (existingTeamId != null) {
+            Team existing = teamRepository.findById(existingTeamId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Team not found: " + existingTeamId));
             if (!existing.getEvent().getEventId().equals(eventId)) {
-                throw new ResourceNotFoundException("Team not found: " + request.getTargetTeamId());
+                throw new ResourceNotFoundException("Team not found: " + existingTeamId);
             }
             if (!"APPROVED".equalsIgnoreCase(existing.getStatus())) {
                 throw new BadRequestException("Target team must be an approved team.");
             }
             List<TeamMember> currentMembers = teamMemberRepository.findByTeam_TeamId(existing.getTeamId());
-            if (currentMembers.size() + userIds.size() > MAX) {
-                throw new BadRequestException("Placing these " + userIds.size() + " user(s) would "
-                        + "grow team '" + existing.getName() + "' beyond the maximum size of " + MAX + ".");
+            Set<Integer> currentIds = currentMembers.stream()
+                    .map(m -> m.getUser().getUserId()).collect(Collectors.toSet());
+            long newcomers = memberUserIds.stream().filter(uid -> !currentIds.contains(uid)).count();
+            if (currentMembers.size() + newcomers > MAX) {
+                throw new BadRequestException("Placing these user(s) would grow team '"
+                        + existing.getName() + "' beyond the maximum size of " + MAX + ".");
             }
             targetTeam = existing;
-            originalMemberIds = currentMembers.stream().map(m -> m.getUser().getUserId()).toList();
+            originalMemberIds = List.copyOf(currentIds);
             newTeamCreated = false;
         } else {
             targetTeam = teamRepository.save(Team.builder()
@@ -210,31 +318,41 @@ public class LeftoverGroupingService {
             newTeamCreated = true;
         }
 
-        List<TeamMember> placed = new ArrayList<>();
-        for (int i = 0; i < userIds.size(); i++) {
-            String role = (newTeamCreated && i == 0) ? "LEADER" : "MEMBER";
-            placed.add(placeUser(targetTeam, userIds.get(i), role, membershipByUser, freeAgentByUser));
+        // Eligibility is checked here, per person, AFTER the no-op check below — not
+        // up front — because a person merely re-submitted as already exactly on
+        // targetTeam has no state actually changing, so the leftover-pool rule
+        // doesn't apply to them (e.g. the other real members of a settled team that
+        // absorbed a spilled straggler: they must be resubmittable as-is even
+        // though they were never "leftover" themselves; only genuinely moving
+        // someone off an already-valid team is rejected).
+        List<TeamMember> newlyPlaced = new ArrayList<>();
+        for (Integer userId : memberUserIds) {
+            TeamMember membership = membershipByUser.get(userId);
+            if (membership != null && membership.getTeam().getTeamId().equals(targetTeam.getTeamId())) {
+                continue; // already exactly here — leave their row (and any LEADER role) untouched
+            }
+            if (membership != null) {
+                long size = teamMemberRepository.countByTeam_TeamId(membership.getTeam().getTeamId());
+                if (size >= MIN) {
+                    throw new BadRequestException("User " + userId + " belongs to a team that "
+                            + "already meets the recommended minimum size and cannot be "
+                            + "reassigned by this override.");
+                }
+            } else if (!freeAgentByUser.containsKey(userId)) {
+                throw new BadRequestException("User " + userId + " is not part of this event's "
+                        + "leftover pool (not a free agent and not on an under-sized team).");
+            }
+            String role = (newTeamCreated && newlyPlaced.isEmpty()) ? "LEADER" : "MEMBER";
+            newlyPlaced.add(placeUser(targetTeam, userId, role, membershipByUser, freeAgentByUser));
         }
 
-        notifyManualAssign(targetTeam, originalMemberIds, placed, newTeamCreated, event.getName());
+        if (!newlyPlaced.isEmpty()) {
+            notifyManualAssign(targetTeam, originalMemberIds, newlyPlaced, newTeamCreated, event.getName());
+        }
+        return new CompositionResult(targetTeam, newTeamCreated, newlyPlaced.size());
+    }
 
-        // The roster changed mid-SETUP, so slot counts frozen on SETUP entry are stale.
-        hackathonEventService.recomputeSetupTrackCapacities(eventId);
-
-        auditLogService.record(actorUserId, "MANUAL_ASSIGN_SETUP_LEFTOVERS", "EVENT", eventId,
-                (request.getReason() != null && !request.getReason().isBlank())
-                        ? request.getReason().trim() : null,
-                Map.<String, Object>of("userIds", userIds,
-                        "targetTeamId", newTeamCreated ? "NEW" : String.valueOf(request.getTargetTeamId()),
-                        "teamId", targetTeam.getTeamId()));
-
-        return GroupingCommitResponse.builder()
-                .teamsCreated(newTeamCreated ? 1 : 0)
-                .teamsGrown(newTeamCreated ? 0 : 1)
-                .peoplePlaced(userIds.size())
-                .unresolvedWarnings(0)
-                .warnings(List.of())
-                .build();
+    private record CompositionResult(Team team, boolean newTeamCreated, int newlyPlacedCount) {
     }
 
     /**

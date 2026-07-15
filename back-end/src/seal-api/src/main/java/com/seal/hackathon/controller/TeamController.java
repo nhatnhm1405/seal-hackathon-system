@@ -1,5 +1,6 @@
 package com.seal.hackathon.controller;
 
+import com.seal.hackathon.dto.request.ApplyLeftoverGroupingRequest;
 import com.seal.hackathon.dto.request.AssignTeamTrackRequest;
 import com.seal.hackathon.dto.request.CreateTeamRequest;
 import com.seal.hackathon.dto.request.ManualAssignLeftoverRequest;
@@ -210,6 +211,20 @@ public class TeamController {
         UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
         return ResponseEntity.ok(ApiResponse.success("Leftover grouping applied.",
                 leftoverGroupingService.commit(eventId, principal.getUserId(), reason)));
+    }
+
+    // Applies a coordinator-edited version of the preview's Proposed Teams (people
+    // dragged between team cards before committing) instead of blindly re-running
+    // the planner. Every touched team must land on 0 or >= MIN members.
+    @PostMapping("/event/{eventId}/leftover-grouping/apply")
+    @PreAuthorize("hasRole('EVENT_COORDINATOR')")
+    public ResponseEntity<ApiResponse<GroupingCommitResponse>> applyLeftoverGroupingPlan(
+            @PathVariable Integer eventId,
+            @Valid @RequestBody ApplyLeftoverGroupingRequest request,
+            Authentication authentication) {
+        UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
+        return ResponseEntity.ok(ApiResponse.success("Leftover grouping applied.",
+                leftoverGroupingService.applyPlan(eventId, principal.getUserId(), request)));
     }
 
     // Manual override for the two gaps the automatic planner can't close on its own:
