@@ -962,6 +962,14 @@ export interface ManualAssignLeftoverPayload {
   reason?: string;
 }
 
+// A coordinator-edited version of one Proposed Teams card, submitted in bulk to
+// /leftover-grouping/apply — memberUserIds is the team's COMPLETE final roster
+// (not just newcomers), after freely dragging people between cards.
+export interface ApplyLeftoverGroupingPayload {
+  teams: { existingTeamId: number | null; memberUserIds: number[] }[];
+  reason?: string;
+}
+
 export const teamsApi = {
   getActiveEvents: () =>
     apiFetch<ApiResponse<ActiveEventWithTracks[]>>('/api/teams/active-events'),
@@ -1067,6 +1075,14 @@ export const teamsApi = {
   leftoverGroupingManualAssign: (eventId: number, payload: ManualAssignLeftoverPayload) =>
     apiFetch<ApiResponse<GroupingCommitResult>>(
       `/api/teams/event/${eventId}/leftover-grouping/manual-assign`,
+      { method: 'POST', body: JSON.stringify(payload) },
+    ),
+
+  // SETUP only: apply a coordinator-edited version of the preview's Proposed Teams
+  // (people dragged between team cards) instead of blindly re-running the planner.
+  leftoverGroupingApplyPlan: (eventId: number, payload: ApplyLeftoverGroupingPayload) =>
+    apiFetch<ApiResponse<GroupingCommitResult>>(
+      `/api/teams/event/${eventId}/leftover-grouping/apply`,
       { method: 'POST', body: JSON.stringify(payload) },
     ),
 };

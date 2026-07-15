@@ -8,6 +8,7 @@ import {
 } from "@/shared/apiClient";
 
 const MONO = "'JetBrains Mono', monospace";
+const MIN_TEAM_MEMBERS = 3;
 const MAX_TEAM_MEMBERS = 5;
 
 // react-dnd payload + type for dragging a leftover person onto a team (or the
@@ -15,7 +16,32 @@ const MAX_TEAM_MEMBERS = 5;
 const PERSON_DND_TYPE = "LEFTOVER_PERSON";
 interface PersonDragItem { userId: number; }
 
-// Shared phrasing for both the full APPLY GROUPING commit and a manual placement.
+// react-dnd payload + type for dragging a person BETWEEN Proposed Teams cards.
+// Deliberately a separate type from PERSON_DND_TYPE so the two drag-and-drop
+// systems (warnings vs. proposed teams) never accept each other's drops.
+const PROPOSED_MEMBER_DND_TYPE = "PROPOSED_TEAM_MEMBER";
+interface ProposedMemberDragItem { userId: number; fromKey: string; }
+
+// A Proposed Teams card, locally editable by drag-and-drop before APPLY is sent.
+// `key` is stable across edits (existingTeamId, or `new-{index}` for a brand-new
+// team) — member counts change but the set of cards never does.
+interface EditableTeam {
+  key: string;
+  existingTeamId: number | null;
+  teamName: string;
+  members: GroupingMember[];
+}
+
+function toEditableTeams(proposedTeams: GroupingProposedTeam[]): EditableTeam[] {
+  return proposedTeams.map((t, i) => ({
+    key: t.existingTeamId != null ? `existing-${t.existingTeamId}` : `new-${i}`,
+    existingTeamId: t.existingTeamId ?? null,
+    teamName: t.teamName,
+    members: t.members.length ? [...t.members] : [...t.addedMembers],
+  }));
+}
+
+// Shared phrasing for both APPLY GROUPING and a manual placement.
 function summarizeGrouping(r: GroupingCommitResult): string {
   return `${r.teamsCreated} team(s) created, ${r.teamsGrown} grown, `
     + `${r.peoplePlaced} participant(s) placed`
@@ -56,6 +82,10 @@ export function LeftoverGroupingModal({ eventId, teams, onClose, onCommitted, on
   // disabled while placingUserId is set, so drops can't race each other.
   const [placingUserId, setPlacingUserId] = useState<number | null>(null);
   const [placeError, setPlaceError] = useState<string | null>(null);
+  // The coordinator's locally-edited copy of preview.proposedTeams — re-seeded
+  // from the server every time the preview reloads (a Warnings-flow placement can
+  // change the underlying pool, so in-progress card edits don't survive that).
+  const [editedTeams, setEditedTeams] = useState<EditableTeam[]>([]);
 
   const load = useCallback((opts?: { silent?: boolean }) => {
     if (!opts?.silent) setLoading(true);
@@ -67,6 +97,27 @@ export function LeftoverGroupingModal({ eventId, teams, onClose, onCommitted, on
   }, [eventId]);
 
   useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    setEditedTeams(preview ? toEditableTeams(preview.proposedTeams) : []);
+  }, [preview]);
+
+  // Moves a person between two Proposed Teams cards, purely client-side — nothing
+  // is persisted until CONFIRM APPLY sends the whole edited plan in one call.
+  const moveMember = useCallback((userId: number, fromKey: string, toKey: string) => {
+    if (fromKey === toKey) return;
+    setEditedTeams(prev => {
+      const next = prev.map(t => ({ ...t, members: t.members.slice() }));
+      const from = next.find(t => t.key === fromKey);
+      const to = next.find(t => t.key === toKey);
+      if (!from || !to) return prev;
+      const idx = from.members.findIndex(m => m.userId === userId);
+      if (idx === -1) return prev;
+      const [person] = from.members.splice(idx, 1);
+      to.members.push(person);
+      return next;
+    });
+  }, []);
 
   // Escape closes (never commits) while nothing is in flight.
   useEffect(() => {
@@ -81,7 +132,10 @@ export function LeftoverGroupingModal({ eventId, teams, onClose, onCommitted, on
     setCommitting(true);
     setError(null);
     try {
-      const res = await teamsApi.leftoverGroupingCommit(eventId);
+      const teams = editedTeams
+        .filter(t => t.members.length > 0)
+        .map(t => ({ existingTeamId: t.existingTeamId, memberUserIds: t.members.map(m => m.userId) }));
+      const res = await teamsApi.leftoverGroupingApplyPlan(eventId, { teams });
       onCommitted(summarizeGrouping(res.data));
     } catch (err) {
       setError(apiErrorMessage(err, "Failed to apply grouping."));
@@ -108,6 +162,9 @@ export function LeftoverGroupingModal({ eventId, teams, onClose, onCommitted, on
 
   const nothingToDo = !loading && !error && preview
     && preview.proposedTeams.length === 0 && preview.warnings.length === 0;
+  const nonEmptyTeams = editedTeams.filter(t => t.members.length > 0);
+  const invalidTeams = nonEmptyTeams.filter(t => t.members.length < MIN_TEAM_MEMBERS);
+  const canApply = !loading && !error && nonEmptyTeams.length > 0 && invalidTeams.length === 0;
 
   return (
     <>
@@ -160,11 +217,23 @@ export function LeftoverGroupingModal({ eventId, teams, onClose, onCommitted, on
               <Stat label="Pairs kept" value={preview.pairCount} />
             </div>
 
-            {preview.proposedTeams.length > 0 && (
+            {editedTeams.length > 0 && (
               <div style={{ marginBottom: preview.warnings.length ? 18 : 8 }}>
-                <SectionLabel>Proposed teams ({preview.proposedTeams.length})</SectionLabel>
+                <SectionLabel>Proposed teams ({editedTeams.length})</SectionLabel>
+                <div style={{ fontFamily: MONO, fontSize: 10, color: C.textMuted, marginBottom: 8, lineHeight: 1.6 }}>
+                  Drag a person between teams to rearrange before applying. A team must end up with 0
+                  or at least {MIN_TEAM_MEMBERS} members.
+                </div>
+                {invalidTeams.length > 0 && (
+                  <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.35)", color: C.red, fontFamily: MONO, fontSize: 11, padding: "6px 10px", marginBottom: 8, lineHeight: 1.6 }}>
+                    ⚠ {invalidTeams.map(t => `'${t.teamName}' has only ${t.members.length}`).join(", ")}
+                    {" "}— move people in or out (0 or {MIN_TEAM_MEMBERS}+) before applying.
+                  </div>
+                )}
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {preview.proposedTeams.map((t, i) => <ProposedTeamRow key={i} team={t} />)}
+                  {editedTeams.map(t => (
+                    <ProposedTeamCard key={t.key} team={t} onMoveMember={moveMember} disabled={committing} />
+                  ))}
                 </div>
               </div>
             )}
@@ -193,19 +262,19 @@ export function LeftoverGroupingModal({ eventId, teams, onClose, onCommitted, on
 
         {confirming && !nothingToDo && (
           <div style={{ background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.4)", color: C.yellow, fontFamily: MONO, fontSize: 11, lineHeight: 1.7, padding: "10px 12px", margin: "16px 0" }}>
-            ⚠ This will create/grow teams and dissolve solo teams. It can't be auto-undone. Apply?
+            ⚠ This will create/grow the teams shown above (including any rearranging you did) and
+            dissolve any team left with 0 members. It can't be auto-undone. Apply?
           </div>
         )}
 
         <div style={{ display: "flex", gap: 10, marginTop: 20 }}>
           {!nothingToDo && !confirming && (
-            <PixelButton variant="cyber" onClick={() => setConfirming(true)}
-              disabled={loading || !!error || !preview || preview.proposedTeams.length === 0}>
+            <PixelButton variant="cyber" onClick={() => setConfirming(true)} disabled={!canApply}>
               APPLY GROUPING
             </PixelButton>
           )}
           {!nothingToDo && confirming && (
-            <PixelButton variant="cyber" onClick={commit} disabled={committing}>
+            <PixelButton variant="cyber" onClick={commit} disabled={committing || !canApply}>
               {committing ? "APPLYING…" : "CONFIRM APPLY"}
             </PixelButton>
           )}
@@ -235,42 +304,80 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-// Renders people as a compact table. `addedIds` marks newly-added members with a tag.
-function MemberTable({ members, addedIds }: { members: GroupingMember[]; addedIds?: Set<number> }) {
-  if (members.length === 0) return null;
+// One Proposed Teams card: both a drag source (each member row) and a drop target
+// (accepts a member dragged from a different card). Purely local state — nothing
+// is sent to the server until CONFIRM APPLY.
+function ProposedTeamCard({ team, onMoveMember, disabled }: {
+  team: EditableTeam;
+  onMoveMember: (userId: number, fromKey: string, toKey: string) => void;
+  disabled: boolean;
+}) {
+  const room = MAX_TEAM_MEMBERS - team.members.length;
+  const [{ isOver, canDrop }, dropRef] = useDrop(() => ({
+    accept: PROPOSED_MEMBER_DND_TYPE,
+    canDrop: (item: ProposedMemberDragItem) => !disabled && (item.fromKey === team.key || room > 0),
+    drop: (item: ProposedMemberDragItem) => onMoveMember(item.userId, item.fromKey, team.key),
+    collect: (monitor) => ({ isOver: monitor.isOver(), canDrop: monitor.canDrop() }),
+  }), [team.key, room, disabled, onMoveMember]);
+
+  const invalid = team.members.length > 0 && team.members.length < MIN_TEAM_MEMBERS;
+  const active = isOver && canDrop;
+
   return (
-    <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: MONO, fontSize: 11 }}>
-      <tbody>
-        {members.map((m, i) => (
-          <tr key={m.userId} style={{ borderTop: i === 0 ? "none" : `1px solid ${C.border}` }}>
-            <td style={{ color: C.textMuted, padding: "5px 8px 5px 0", width: 22, textAlign: "right" }}>{i + 1}</td>
-            <td style={{ color: C.text, padding: "5px 0" }}>{m.fullName}</td>
-            <td style={{ padding: "5px 0", textAlign: "right", width: 44 }}>
-              {addedIds?.has(m.userId) && (
-                <span style={{ color: "#60a5fa", fontSize: 9, fontWeight: 700, letterSpacing: "0.05em" }}>NEW</span>
-              )}
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <div ref={(node) => { dropRef(node); }}
+      style={{
+        padding: "10px 12px", background: C.surface2,
+        border: `1px solid ${invalid ? C.red : active ? C.green : C.border}`,
+        outline: active ? `1px dashed ${C.green}` : "none",
+        transition: "background 0.12s",
+      }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+        <PixelBadge color={team.existingTeamId == null ? "blue" : "green"}>
+          {team.existingTeamId == null ? "NEW" : "GROWN"}
+        </PixelBadge>
+        <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: C.text }}>{team.teamName}</span>
+        <span style={{ fontFamily: MONO, fontSize: 11, color: invalid ? C.red : C.textMuted }}>
+          · {team.members.length} member{team.members.length === 1 ? "" : "s"}{invalid ? ` (below ${MIN_TEAM_MEMBERS})` : ""}
+        </span>
+      </div>
+      {team.members.length === 0 ? (
+        <div style={{ fontFamily: MONO, fontSize: 10, color: C.textMuted, fontStyle: "italic" }}>
+          Empty — won't be created.
+        </div>
+      ) : (
+        <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: MONO, fontSize: 11 }}>
+          <tbody>
+            {team.members.map((m, i) => (
+              <DraggableProposedMemberRow key={m.userId} member={m} index={i} teamKey={team.key} disabled={disabled} />
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
   );
 }
 
-function ProposedTeamRow({ team }: { team: GroupingProposedTeam }) {
-  const roster = team.members.length ? team.members : team.addedMembers;
-  const addedIds = new Set(team.addedMembers.map(m => m.userId));
+function DraggableProposedMemberRow({ member, index, teamKey, disabled }: {
+  member: GroupingMember; index: number; teamKey: string; disabled: boolean;
+}) {
+  const [{ isDragging }, dragRef] = useDrag(() => ({
+    type: PROPOSED_MEMBER_DND_TYPE,
+    item: { userId: member.userId, fromKey: teamKey } as ProposedMemberDragItem,
+    canDrag: !disabled,
+    collect: (monitor) => ({ isDragging: monitor.isDragging() }),
+  }), [member.userId, teamKey, disabled]);
+
   return (
-    <div style={{ padding: "10px 12px", background: C.surface2, border: `1px solid ${C.border}` }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-        <PixelBadge color={team.origin === "NEW" ? "blue" : "green"}>
-          {team.origin === "NEW" ? "NEW" : "GROWN"}
-        </PixelBadge>
-        <span style={{ fontFamily: MONO, fontSize: 13, fontWeight: 700, color: C.text }}>{team.teamName}</span>
-        <span style={{ fontFamily: MONO, fontSize: 11, color: C.textMuted }}>· {team.size} members</span>
-      </div>
-      <MemberTable members={roster} addedIds={team.origin === "EXISTING" ? addedIds : undefined} />
-    </div>
+    <tr ref={(node) => { if (!disabled) dragRef(node); }}
+      style={{
+        borderTop: index === 0 ? "none" : `1px solid ${C.border}`,
+        cursor: disabled ? "default" : "grab", opacity: isDragging ? 0.35 : 1,
+      }}>
+      <td style={{ color: C.textMuted, padding: "5px 8px 5px 0", width: 22, textAlign: "right" }}>
+        {index + 1}
+      </td>
+      <td style={{ color: C.text, padding: "5px 0" }}>{member.fullName}</td>
+    </tr>
   );
 }
 
