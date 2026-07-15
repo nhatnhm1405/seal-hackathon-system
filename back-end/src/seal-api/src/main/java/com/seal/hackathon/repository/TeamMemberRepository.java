@@ -28,4 +28,9 @@ public interface TeamMemberRepository extends JpaRepository<TeamMember, Integer>
      *  team in the track. */
     boolean existsByUser_UserIdAndTeam_Track_TrackIdAndTeam_StatusIgnoreCase(
             Integer userId, Integer trackId, String status);
+
+    /** Current memberships (with team) for a batch of users, restricted to one event's
+     *  teams in the given status. Used to resolve manual-leftover-assign eligibility. */
+    List<TeamMember> findByTeam_Event_EventIdAndTeam_StatusAndUser_UserIdIn(
+            Integer eventId, String status, List<Integer> userIds);
 }
