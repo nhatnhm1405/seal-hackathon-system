@@ -32,6 +32,7 @@ public class PrizeService {
     private final RoundRepository roundRepository;
     private final RoundResultRepository resultRepository;
     private final TeamRepository teamRepository;
+    private final TeamEventEntryRepository teamEventEntryRepository;
     private final TeamMemberRepository teamMemberRepository;
     private final NotificationService notificationService;
     private final AuditLogService auditLogService;
@@ -216,7 +217,7 @@ public class PrizeService {
         if (teamId == null) return null;
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new ResourceNotFoundException("Team not found: " + teamId));
-        if (!team.getEvent().getEventId().equals(eventId)) {
+        if (!teamEventEntryRepository.existsByTeam_TeamIdAndEvent_EventId(teamId, eventId)) {
             throw new BadRequestException("Team " + teamId + " does not belong to event " + eventId);
         }
         return team;
@@ -243,6 +244,9 @@ public class PrizeService {
 
     private PrizeResponse mapToResponse(Prize p, Map<Integer, BigDecimal> finalScores) {
         Team team = p.getTeam();
+        TeamEventEntry entry = team == null ? null : teamEventEntryRepository
+                .findByTeam_TeamIdAndEvent_EventId(team.getTeamId(), p.getEvent().getEventId())
+                .orElse(null);
         return PrizeResponse.builder()
                 .prizeId(p.getPrizeId())
                 .eventId(p.getEvent().getEventId())
@@ -251,7 +255,7 @@ public class PrizeService {
                 .rankPosition(p.getRankPosition())
                 .teamId(team != null ? team.getTeamId() : null)
                 .teamName(team != null ? team.getName() : null)
-                .teamTrackName(team != null && team.getTrack() != null ? team.getTrack().getName() : null)
+                .teamTrackName(entry != null && entry.getTrack() != null ? entry.getTrack().getName() : null)
                 .finalScore(team != null ? finalScores.get(team.getTeamId()) : null)
                 .awardedAt(p.getAwardedAt())
                 .announced(p.getAwardedAt() != null)

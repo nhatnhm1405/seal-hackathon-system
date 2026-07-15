@@ -27,6 +27,7 @@ public class RoundResultService {
     private final UserRepository userRepository;
     private final HackathonEventRepository eventRepository;
     private final TeamMemberRepository teamMemberRepository;
+    private final TeamEventEntryRepository teamEventEntryRepository;
     private final NotificationService notificationService;
     private final JudgeScoringCompletenessService completenessService;
 
@@ -159,7 +160,10 @@ public class RoundResultService {
             // with no track fall into a single null bucket. Preserves track encounter order.
             Map<Integer, List<Map.Entry<Integer, BigDecimal>>> byTrack = new LinkedHashMap<>();
             for (Map.Entry<Integer, BigDecimal> entry : teamScores.entrySet()) {
-                Track track = teamById.get(entry.getKey()).getTrack();
+                Track track = teamEventEntryRepository
+                        .findByTeam_TeamIdAndEvent_EventId(entry.getKey(), eventId)
+                        .map(TeamEventEntry::getTrack)
+                        .orElse(null);
                 Integer trackId = track != null ? track.getTrackId() : null;
                 byTrack.computeIfAbsent(trackId, k -> new ArrayList<>()).add(entry);
             }
@@ -277,11 +281,15 @@ public class RoundResultService {
     }
 
     private RoundResultResponse mapToResponse(RoundResult r) {
+        Track track = teamEventEntryRepository
+                .findByTeam_TeamIdAndEvent_EventId(r.getTeam().getTeamId(), r.getRound().getEvent().getEventId())
+                .map(TeamEventEntry::getTrack)
+                .orElse(null);
         return RoundResultResponse.builder()
                 .resultId(r.getResultId())
                 .teamId(r.getTeam().getTeamId())
                 .teamName(r.getTeam().getName())
-                .trackName(r.getTeam().getTrack().getName())
+                .trackName(track != null ? track.getName() : null)
                 .roundId(r.getRound().getRoundId())
                 .roundName(r.getRound().getName())
                 .totalScore(r.getTotalScore())

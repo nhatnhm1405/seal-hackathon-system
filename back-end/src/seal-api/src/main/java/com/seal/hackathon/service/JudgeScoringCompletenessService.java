@@ -5,6 +5,8 @@ import com.seal.hackathon.entity.JudgeAssignment;
 import com.seal.hackathon.entity.Score;
 import com.seal.hackathon.entity.ScoringCriteria;
 import com.seal.hackathon.entity.Submission;
+import com.seal.hackathon.entity.TeamEventEntry;
+import com.seal.hackathon.entity.Track;
 import com.seal.hackathon.exception.BadRequestException;
 import com.seal.hackathon.exception.ResourceNotFoundException;
 import com.seal.hackathon.repository.JudgeAssignmentRepository;
@@ -12,6 +14,7 @@ import com.seal.hackathon.repository.RoundRepository;
 import com.seal.hackathon.repository.ScoreRepository;
 import com.seal.hackathon.repository.ScoringCriteriaRepository;
 import com.seal.hackathon.repository.SubmissionRepository;
+import com.seal.hackathon.repository.TeamEventEntryRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,6 +36,7 @@ public class JudgeScoringCompletenessService {
     private final JudgeAssignmentRepository assignmentRepository;
     private final ScoringCriteriaRepository criteriaRepository;
     private final ScoreRepository scoreRepository;
+    private final TeamEventEntryRepository teamEventEntryRepository;
 
     @Transactional(readOnly = true)
     public List<SubmissionScoringProgressResponse> getProgress(Integer eventId, Integer roundId) {
@@ -83,8 +87,12 @@ public class JudgeScoringCompletenessService {
 
         List<SubmissionScoringProgressResponse> result = new ArrayList<>();
         for (Submission submission : submissions) {
-            Integer trackId = submission.getTeam().getTrack() == null
-                    ? null : submission.getTeam().getTrack().getTrackId();
+            Track track = teamEventEntryRepository
+                    .findByTeam_TeamIdAndEvent_EventId(
+                            submission.getTeam().getTeamId(), submission.getRound().getEvent().getEventId())
+                    .map(TeamEventEntry::getTrack)
+                    .orElse(null);
+            Integer trackId = track == null ? null : track.getTrackId();
             List<JudgeAssignment> expected = assignments.stream()
                     .filter(assignment -> assignment.getTrack() == null
                             || Objects.equals(trackId, assignment.getTrack().getTrackId()))
@@ -108,8 +116,7 @@ public class JudgeScoringCompletenessService {
                     .teamId(submission.getTeam().getTeamId())
                     .teamName(submission.getTeam().getName())
                     .trackId(trackId)
-                    .trackName(submission.getTeam().getTrack() == null
-                            ? null : submission.getTeam().getTrack().getName())
+                    .trackName(track == null ? null : track.getName())
                     .assignedJudgeCount(judgeProgress.size())
                     .completedJudgeCount(completed)
                     .complete(complete)

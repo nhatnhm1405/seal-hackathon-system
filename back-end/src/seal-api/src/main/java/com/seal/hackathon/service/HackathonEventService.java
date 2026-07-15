@@ -6,6 +6,7 @@ import com.seal.hackathon.dto.response.HackathonEventResponse;
 import com.seal.hackathon.entity.HackathonEvent;
 import com.seal.hackathon.entity.JudgeAssignment;
 import com.seal.hackathon.entity.Team;
+import com.seal.hackathon.entity.TeamEventEntry;
 import com.seal.hackathon.entity.TeamMember;
 import com.seal.hackathon.entity.Track;
 import com.seal.hackathon.entity.User;
@@ -13,6 +14,7 @@ import com.seal.hackathon.exception.BadRequestException;
 import com.seal.hackathon.exception.ResourceNotFoundException;
 import com.seal.hackathon.repository.HackathonEventRepository;
 import com.seal.hackathon.repository.JudgeAssignmentRepository;
+import com.seal.hackathon.repository.TeamEventEntryRepository;
 import com.seal.hackathon.repository.TeamMemberRepository;
 import com.seal.hackathon.repository.TeamRepository;
 import com.seal.hackathon.repository.TrackRepository;
@@ -37,6 +39,7 @@ public class HackathonEventService {
     private final HackathonEventRepository hackathonEventRepository;
     private final TrackRepository trackRepository;
     private final TeamRepository teamRepository;
+    private final TeamEventEntryRepository teamEventEntryRepository;
     private final TeamMemberRepository teamMemberRepository;
     private final UserRepository userRepository;
     private final JudgeAssignmentRepository judgeAssignmentRepository;
@@ -305,7 +308,7 @@ public class HackathonEventService {
      * and track draw would run on a set the coordinator has not finished reviewing.
      */
     private void requireAllTeamsResolved(HackathonEvent event) {
-        long pending = teamRepository.countByEvent_EventIdAndStatus(event.getEventId(), "PENDING");
+        long pending = teamEventEntryRepository.countByEvent_EventIdAndStatus(event.getEventId(), "PENDING");
         if (pending > 0) {
             throw new BadRequestException("Cannot move to SETUP while " + pending
                     + " team(s) are still pending approval — approve or reject them first.");
@@ -313,8 +316,10 @@ public class HackathonEventService {
     }
 
     private void lockCompletedEventParticipantsReadOnly(Integer completedEventId) {
-        List<User> students = teamRepository.findAllByEvent_EventId(completedEventId).stream()
-                .flatMap(team -> teamMemberRepository.findByTeam_TeamId(team.getTeamId()).stream())
+        List<TeamEventEntry> entries = teamEventEntryRepository.findAllByEvent_EventId(completedEventId);
+
+        List<User> students = entries.stream()
+                .flatMap(entry -> teamMemberRepository.findByTeam_TeamId(entry.getTeam().getTeamId()).stream())
                 .map(TeamMember::getUser)
                 .filter(this::isStudent)
                 .filter(user -> !hasNonCompletedMembership(user, completedEventId))
@@ -322,6 +327,13 @@ public class HackathonEventService {
                 .collect(Collectors.toList());
         students.forEach(user -> user.setIsActive(false));
         userRepository.saveAll(students);
+
+        // Teams mirror User's isActive: no longer "in a running competition" once
+        // the event completes. A DISQUALIFIED entry already flipped this earlier —
+        // leave it false either way, it's a no-op to re-set it.
+        List<Team> teams = entries.stream().map(TeamEventEntry::getTeam).distinct().collect(Collectors.toList());
+        teams.forEach(team -> team.setIsActive(false));
+        teamRepository.saveAll(teams);
 
         // Guest judges are per-event temporary accounts — they too leave the
         // "in a running competition" state when the event ends. (Internal judges
@@ -331,17 +343,29 @@ public class HackathonEventService {
         userRepository.saveAll(guestJudges);
     }
 
-    // Reverse of the completion lock: reactivate every student and guest judge tied
-    // to this (reopened) event so they resume as active participants.
+    // Reverse of the completion lock: reactivate every student, guest judge, and
+    // team tied to this (reopened) event so they resume as active participants.
     private void reactivateEventParticipants(Integer eventId) {
-        List<User> students = teamRepository.findAllByEvent_EventId(eventId).stream()
-                .flatMap(team -> teamMemberRepository.findByTeam_TeamId(team.getTeamId()).stream())
+        List<TeamEventEntry> entries = teamEventEntryRepository.findAllByEvent_EventId(eventId);
+
+        List<User> students = entries.stream()
+                .flatMap(entry -> teamMemberRepository.findByTeam_TeamId(entry.getTeam().getTeamId()).stream())
                 .map(TeamMember::getUser)
                 .filter(this::isStudent)
                 .distinct()
                 .collect(Collectors.toList());
         students.forEach(user -> user.setIsActive(true));
         userRepository.saveAll(students);
+
+        // A disqualified team must not be resurrected just because the event
+        // reopened — DISQUALIFIED is a standalone, permanent-for-the-season state.
+        List<Team> teams = entries.stream()
+                .filter(entry -> !"DISQUALIFIED".equalsIgnoreCase(entry.getStatus()))
+                .map(TeamEventEntry::getTeam)
+                .distinct()
+                .collect(Collectors.toList());
+        teams.forEach(team -> team.setIsActive(true));
+        teamRepository.saveAll(teams);
 
         List<User> guestJudges = guestJudgesOf(eventId);
         guestJudges.forEach(user -> user.setIsActive(true));
@@ -364,7 +388,9 @@ public class HackathonEventService {
 
     private boolean hasNonCompletedMembership(User user, Integer completedEventId) {
         return teamMemberRepository.findByUser_UserIdOrderByIdDesc(user.getUserId()).stream()
-                .map(member -> member.getTeam().getEvent())
+                .flatMap(member -> teamEventEntryRepository
+                        .findAllByTeam_TeamId(member.getTeam().getTeamId()).stream())
+                .map(TeamEventEntry::getEvent)
                 .filter(event -> !event.getEventId().equals(completedEventId))
                 .anyMatch(event -> !"COMPLETED".equalsIgnoreCase(event.getStatus()));
     }
@@ -388,7 +414,7 @@ public class HackathonEventService {
             throw new BadRequestException(
                     "Add at least one track before closing registration (moving to SETUP).");
         }
-        int approved = teamRepository
+        int approved = teamEventEntryRepository
                 .findAllByEvent_EventIdAndStatus(event.getEventId(), "APPROVED").size();
         int n = tracks.size();
         int floor = approved / n;
@@ -426,7 +452,7 @@ public class HackathonEventService {
      */
     private void requireSetupComplete(HackathonEvent event) {
         List<Track> tracks = trackRepository.findAllByEvent_EventId(event.getEventId());
-        List<Team> approved = teamRepository
+        List<TeamEventEntry> approved = teamEventEntryRepository
                 .findAllByEvent_EventIdAndStatus(event.getEventId(), "APPROVED");
 
         Map<Integer, Long> perTrack = approved.stream()

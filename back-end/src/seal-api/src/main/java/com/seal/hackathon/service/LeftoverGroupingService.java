@@ -10,6 +10,7 @@ import com.seal.hackathon.dto.response.GroupingPreviewResponse.WarningView;
 import com.seal.hackathon.entity.HackathonEvent;
 import com.seal.hackathon.entity.JoinRequest;
 import com.seal.hackathon.entity.Team;
+import com.seal.hackathon.entity.TeamEventEntry;
 import com.seal.hackathon.entity.TeamInvite;
 import com.seal.hackathon.entity.TeamMember;
 import com.seal.hackathon.entity.User;
@@ -17,6 +18,7 @@ import com.seal.hackathon.exception.BadRequestException;
 import com.seal.hackathon.exception.ResourceNotFoundException;
 import com.seal.hackathon.repository.HackathonEventRepository;
 import com.seal.hackathon.repository.JoinRequestRepository;
+import com.seal.hackathon.repository.TeamEventEntryRepository;
 import com.seal.hackathon.repository.TeamInviteRepository;
 import com.seal.hackathon.repository.TeamMemberRepository;
 import com.seal.hackathon.repository.TeamRepository;
@@ -68,6 +70,7 @@ public class LeftoverGroupingService {
     private static final String GROUPED_NOTIFICATION = "TEAM_GROUPED";
 
     private final TeamRepository teamRepository;
+    private final TeamEventEntryRepository teamEventEntryRepository;
     private final TeamMemberRepository teamMemberRepository;
     private final HackathonEventRepository eventRepository;
     private final JoinRequestRepository joinRequestRepository;
@@ -291,10 +294,10 @@ public class LeftoverGroupingService {
         if (existingTeamId != null) {
             Team existing = teamRepository.findById(existingTeamId)
                     .orElseThrow(() -> new ResourceNotFoundException("Team not found: " + existingTeamId));
-            if (!existing.getEvent().getEventId().equals(eventId)) {
-                throw new ResourceNotFoundException("Team not found: " + existingTeamId);
-            }
-            if (!"APPROVED".equalsIgnoreCase(existing.getStatus())) {
+            TeamEventEntry existingEntry = teamEventEntryRepository
+                    .findByTeam_TeamIdAndEvent_EventId(existingTeamId, eventId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Team not found: " + existingTeamId));
+            if (!"APPROVED".equalsIgnoreCase(existingEntry.getStatus())) {
                 throw new BadRequestException("Target team must be an approved team.");
             }
             List<TeamMember> currentMembers = teamMemberRepository.findByTeam_TeamId(existing.getTeamId());
@@ -310,8 +313,11 @@ public class LeftoverGroupingService {
             newTeamCreated = false;
         } else {
             targetTeam = teamRepository.save(Team.builder()
-                    .event(event)
                     .name(uniqueAutoName(event))
+                    .build());
+            teamEventEntryRepository.save(TeamEventEntry.builder()
+                    .team(targetTeam)
+                    .event(event)
                     .status("APPROVED")
                     .build());
             originalMemberIds = List.of();
@@ -343,7 +349,7 @@ public class LeftoverGroupingService {
                         + "leftover pool (not a free agent and not on an under-sized team).");
             }
             String role = (newTeamCreated && newlyPlaced.isEmpty()) ? "LEADER" : "MEMBER";
-            newlyPlaced.add(placeUser(targetTeam, userId, role, membershipByUser, freeAgentByUser));
+            newlyPlaced.add(placeUser(targetTeam, eventId, userId, role, membershipByUser, freeAgentByUser));
         }
 
         if (!newlyPlaced.isEmpty()) {
@@ -361,7 +367,7 @@ public class LeftoverGroupingService {
      * source team if the move empties it — reuses {@link #dissolve}), or creates a
      * fresh row if they were a teamless free agent.
      */
-    private TeamMember placeUser(Team target, Integer userId, String role,
+    private TeamMember placeUser(Team target, Integer eventId, Integer userId, String role,
                                   Map<Integer, TeamMember> membershipByUser,
                                   Map<Integer, User> freeAgentByUser) {
         TeamMember membership = membershipByUser.get(userId);
@@ -372,7 +378,7 @@ public class LeftoverGroupingService {
             teamMemberRepository.save(membership);
             if (!source.getTeamId().equals(target.getTeamId())
                     && teamMemberRepository.countByTeam_TeamId(source.getTeamId()) == 0) {
-                dissolve(source);
+                dissolve(source, eventId);
             }
             return membership;
         }
@@ -413,9 +419,10 @@ public class LeftoverGroupingService {
         List<SettledTeam> settled = new ArrayList<>();
         Map<String, Source> byRef = new LinkedHashMap<>();
 
-        for (Team team : teamRepository.findAllByEvent_EventIdAndStatus(eventId, "APPROVED")) {
+        for (TeamEventEntry entry : teamEventEntryRepository.findAllByEvent_EventIdAndStatus(eventId, "APPROVED")) {
+            Team team = entry.getTeam();
             List<TeamMember> members = teamMemberRepository.findByTeam_TeamId(team.getTeamId());
-            Source src = Source.ofTeam(team, members);
+            Source src = Source.ofTeam(team, entry, members);
             byRef.put(src.ref(), src);
 
             int size = members.size();
@@ -453,11 +460,11 @@ public class LeftoverGroupingService {
 
         int moved = 0;
         for (String addedRef : pt.addedRefs()) {
-            moved += absorbInto(target.team(), ctx.byRef.get(addedRef));
+            moved += absorbInto(target.team(), target.entry().getEvent().getEventId(), ctx.byRef.get(addedRef));
         }
 
         String teamName = target.team().getName();
-        String eventName = target.team().getEvent().getName();
+        String eventName = target.entry().getEvent().getName();
         // Notify the members already on the team that it grew.
         originalMemberIds.forEach(uid -> notificationService.createNotification(uid,
                 "New teammate(s) added",
@@ -469,14 +476,17 @@ public class LeftoverGroupingService {
     /** Creates a brand-new team from lone free agents and gives it a random leader. */
     private int applyNewTeam(HackathonEvent event, ProposedTeam pt, Context ctx) {
         Team newTeam = teamRepository.save(Team.builder()
-                .event(event)
                 .name(uniqueAutoName(event))
+                .build());
+        teamEventEntryRepository.save(TeamEventEntry.builder()
+                .team(newTeam)
+                .event(event)
                 .status("APPROVED")
                 .build());
 
         List<TeamMember> moved = new ArrayList<>();
         for (String ref : pt.memberRefs()) {
-            moved.addAll(reassignMembers(newTeam, ctx.byRef.get(ref)));
+            moved.addAll(reassignMembers(newTeam, event.getEventId(), ctx.byRef.get(ref)));
         }
 
         TeamMember leader = moved.get(random.nextInt(moved.size()));
@@ -493,17 +503,17 @@ public class LeftoverGroupingService {
     }
 
     /** Moves every member of {@code src} into {@code target} as MEMBER, then dissolves src. */
-    private int absorbInto(Team target, Source src) {
-        int moved = reassignMembers(target, src).size();
+    private int absorbInto(Team target, Integer eventId, Source src) {
+        int moved = reassignMembers(target, eventId, src).size();
         return moved;
     }
 
     /**
      * Places src's people onto {@code target} as MEMBERs. A team source has its members
-     * reassigned and its now-empty team dissolved; a teamless free-agent user has no
-     * membership yet, so one is created and there is nothing to dissolve.
+     * reassigned and its now-empty team's season entry dissolved; a teamless free-agent
+     * user has no membership yet, so one is created and there is nothing to dissolve.
      */
-    private List<TeamMember> reassignMembers(Team target, Source src) {
+    private List<TeamMember> reassignMembers(Team target, Integer eventId, Source src) {
         if (src.isFreeAgentUser()) {
             TeamMember created = teamMemberRepository.save(TeamMember.builder()
                     .team(target).user(src.freeAgentUser()).memberRole("MEMBER").build());
@@ -515,16 +525,19 @@ public class LeftoverGroupingService {
             m.setMemberRole("MEMBER");
             teamMemberRepository.save(m);
         }
-        dissolve(src.team());
+        dissolve(src.team(), eventId);
         return moved;
     }
 
     /**
-     * Removes an emptied source team. FKs to Team do not cascade, so the only child
-     * rows that can exist at SETUP (join requests, invites) are cleared first;
-     * submissions/scores/results/prizes only appear once the event is IN_PROGRESS.
+     * Removes an emptied source team's participation in this season — only the
+     * {@link TeamEventEntry}, never the {@code Team} identity, which may have
+     * competed (or will compete) in other seasons. FKs to Team do not cascade, so
+     * the only child rows that can exist at SETUP (join requests, invites) are
+     * cleared first; submissions/scores/results/prizes only appear once the event
+     * is IN_PROGRESS.
      */
-    private void dissolve(Team team) {
+    private void dissolve(Team team, Integer eventId) {
         List<JoinRequest> requests = joinRequestRepository.findByTeam_TeamId(team.getTeamId());
         if (!requests.isEmpty()) {
             joinRequestRepository.deleteAll(requests);
@@ -533,7 +546,8 @@ public class LeftoverGroupingService {
         if (!invites.isEmpty()) {
             teamInviteRepository.deleteAll(invites);
         }
-        teamRepository.delete(team);
+        teamEventEntryRepository.findByTeam_TeamIdAndEvent_EventId(team.getTeamId(), eventId)
+                .ifPresent(teamEventEntryRepository::delete);
     }
 
     private String uniqueAutoName(HackathonEvent event) {
@@ -542,7 +556,7 @@ public class LeftoverGroupingService {
         do {
             name = "Auto Team " + n;
             n++;
-        } while (teamRepository.existsByEventIdAndNormalizedName(
+        } while (teamEventEntryRepository.existsByEventIdAndNormalizedName(
                 event.getEventId(), name.trim().toUpperCase(Locale.ROOT)));
         return name;
     }
@@ -632,13 +646,13 @@ public class LeftoverGroupingService {
      * "T{teamId}") or a teamless free-agent user (ref "U{userId}"). A user source has no
      * TeamMember rows yet — commit creates one when the user is placed onto a team.
      */
-    private record Source(Team team, List<TeamMember> members, User freeAgentUser) {
-        static Source ofTeam(Team team, List<TeamMember> members) {
-            return new Source(team, members, null);
+    private record Source(Team team, TeamEventEntry entry, List<TeamMember> members, User freeAgentUser) {
+        static Source ofTeam(Team team, TeamEventEntry entry, List<TeamMember> members) {
+            return new Source(team, entry, members, null);
         }
 
         static Source ofUser(User user) {
-            return new Source(null, List.of(), user);
+            return new Source(null, null, List.of(), user);
         }
 
         boolean isFreeAgentUser() {

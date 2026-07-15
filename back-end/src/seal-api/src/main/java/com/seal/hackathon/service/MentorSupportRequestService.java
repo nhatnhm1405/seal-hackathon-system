@@ -6,6 +6,7 @@ import com.seal.hackathon.dto.response.SupportRequestResponse;
 import com.seal.hackathon.entity.MentorAssignment;
 import com.seal.hackathon.entity.MentorSupportRequest;
 import com.seal.hackathon.entity.Team;
+import com.seal.hackathon.entity.TeamEventEntry;
 import com.seal.hackathon.entity.TeamMember;
 import com.seal.hackathon.entity.Track;
 import com.seal.hackathon.entity.User;
@@ -14,6 +15,7 @@ import com.seal.hackathon.exception.ForbiddenException;
 import com.seal.hackathon.exception.ResourceNotFoundException;
 import com.seal.hackathon.repository.MentorAssignmentRepository;
 import com.seal.hackathon.repository.MentorSupportRequestRepository;
+import com.seal.hackathon.repository.TeamEventEntryRepository;
 import com.seal.hackathon.repository.TeamMemberRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -39,6 +41,7 @@ public class MentorSupportRequestService {
     private final MentorSupportRequestRepository supportRequestRepository;
     private final MentorAssignmentRepository mentorAssignmentRepository;
     private final TeamMemberRepository teamMemberRepository;
+    private final TeamEventEntryRepository teamEventEntryRepository;
     private final NotificationService notificationService;
 
     // ── Participant side ──────────────────────────────────────────────
@@ -47,7 +50,7 @@ public class MentorSupportRequestService {
     @Transactional(readOnly = true)
     public List<MentorContactResponse> getMyTeamMentors(Integer userId) {
         Team team = currentTeam(userId);
-        Track track = team.getTrack();
+        Track track = currentEntry(team).getTrack();
         if (track == null) return List.of();
         return mentorAssignmentRepository.findAllByTrack_TrackIdAndIsActiveTrue(track.getTrackId()).stream()
                 .map(ma -> MentorContactResponse.builder()
@@ -81,7 +84,7 @@ public class MentorSupportRequestService {
             throw new ForbiddenException("Only the team leader can request mentor support.");
         }
         Team team = membership.getTeam();
-        Track track = team.getTrack();
+        Track track = currentEntry(team).getTrack();
         if (track == null) {
             throw new BadRequestException("Your team has no track yet, so it has no mentor to ask.");
         }
@@ -187,6 +190,13 @@ public class MentorSupportRequestService {
 
     private Team currentTeam(Integer userId) {
         return currentMembership(userId).getTeam();
+    }
+
+    /** The team's current TeamEventEntry — one per team in practice today (rejoin isn't built yet). */
+    private TeamEventEntry currentEntry(Team team) {
+        return teamEventEntryRepository.findTopByTeam_TeamIdOrderByIdDesc(team.getTeamId())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "No season participation found for team: " + team.getTeamId()));
     }
 
     private String categoryLabel(String category) {

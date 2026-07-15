@@ -16,6 +16,7 @@ import com.seal.hackathon.repository.RoundTimerNoticeRepository;
 import com.seal.hackathon.repository.RoundTimerRepository;
 import com.seal.hackathon.repository.ScoringCriteriaRepository;
 import com.seal.hackathon.repository.SubmissionRepository;
+import com.seal.hackathon.repository.TeamEventEntryRepository;
 import com.seal.hackathon.repository.TeamMemberRepository;
 import com.seal.hackathon.repository.TeamRepository;
 import com.seal.hackathon.repository.TrackRepository;
@@ -64,6 +65,7 @@ public class RoundTimerService {
     private final RoundRepository roundRepository;
     private final TrackRepository trackRepository;
     private final TeamRepository teamRepository;
+    private final TeamEventEntryRepository teamEventEntryRepository;
     private final TeamMemberRepository teamMemberRepository;
     private final JudgeAssignmentRepository judgeAssignmentRepository;
     private final ScoringCriteriaRepository scoringCriteriaRepository;
@@ -376,11 +378,17 @@ public class RoundTimerService {
         if (assignments.isEmpty()) {
             throw new BadRequestException("Assign at least one judge before starting judging.");
         }
-        boolean uncoveredSubmission = submissions.stream().anyMatch(submission ->
-                assignments.stream().noneMatch(assignment -> assignment.getTrack() == null
-                        || (submission.getTeam().getTrack() != null
-                        && Objects.equals(assignment.getTrack().getTrackId(),
-                                submission.getTeam().getTrack().getTrackId()))));
+        Integer eventId = round.getEvent().getEventId();
+        boolean uncoveredSubmission = submissions.stream().anyMatch(submission -> {
+            Integer submissionTrackId = teamEventEntryRepository
+                    .findByTeam_TeamIdAndEvent_EventId(submission.getTeam().getTeamId(), eventId)
+                    .map(entry -> entry.getTrack())
+                    .map(track -> track.getTrackId())
+                    .orElse(null);
+            return assignments.stream().noneMatch(assignment -> assignment.getTrack() == null
+                    || (submissionTrackId != null
+                    && Objects.equals(assignment.getTrack().getTrackId(), submissionTrackId)));
+        });
         if (uncoveredSubmission) {
             throw new BadRequestException("Every submission must be covered by an active judge assignment.");
         }
@@ -462,8 +470,8 @@ public class RoundTimerService {
         if (PHASE_CONTEST.equals(phase)) {
             Integer eventId = round.getEvent().getEventId();
             for (Track track : trackRepository.findAllByEvent_EventId(eventId)) {
-                teamRepository.findAllByTrack_TrackIdAndStatus(track.getTrackId(), "APPROVED").forEach(team ->
-                        teamMemberRepository.findByTeam_TeamId(team.getTeamId()).forEach(member -> {
+                teamEventEntryRepository.findAllByTrack_TrackIdAndStatus(track.getTrackId(), "APPROVED").forEach(entry ->
+                        teamMemberRepository.findByTeam_TeamId(entry.getTeam().getTeamId()).forEach(member -> {
                             User u = member.getUser();
                             if (isActiveApproved(u)) {
                                 ids.add(u.getUserId());

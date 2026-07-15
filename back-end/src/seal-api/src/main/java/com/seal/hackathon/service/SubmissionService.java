@@ -33,6 +33,7 @@ public class SubmissionService {
 
     private final SubmissionRepository submissionRepository;
     private final TeamMemberRepository teamMemberRepository;
+    private final TeamEventEntryRepository teamEventEntryRepository;
     private final RoundRepository roundRepository;
     private final RoundResultRepository resultRepository;
     private final UserRepository userRepository;
@@ -65,14 +66,18 @@ public class SubmissionService {
                 .findByUser_UserIdAndTeam_Event_StatusIn(userId,
                         List.of("OPEN", "IN_PROGRESS"));
         TeamMember membership = memberships.stream()
-                .filter(m -> m.getTeam().getEvent().getEventId()
-                        .equals(round.getEvent().getEventId()))
+                .filter(m -> teamEventEntryRepository.existsByTeam_TeamIdAndEvent_EventId(
+                        m.getTeam().getTeamId(), round.getEvent().getEventId()))
                 .findFirst()
                 .orElseThrow(() -> new BadRequestException(
                         "You are not a member of any approved team in this event."));
 
         Team team = membership.getTeam();
-        if (!"APPROVED".equalsIgnoreCase(team.getStatus())) {
+        TeamEventEntry entry = teamEventEntryRepository
+                .findByTeam_TeamIdAndEvent_EventId(team.getTeamId(), round.getEvent().getEventId())
+                .orElseThrow(() -> new BadRequestException(
+                        "You are not a member of any approved team in this event."));
+        if (!"APPROVED".equalsIgnoreCase(entry.getStatus())) {
             throw new BadRequestException("Your team must be approved before submitting.");
         }
         if (!"LEADER".equalsIgnoreCase(membership.getMemberRole())) {
@@ -132,14 +137,14 @@ public class SubmissionService {
                 .findByUser_UserIdAndTeam_Event_StatusIn(userId,
                         List.of("OPEN", "IN_PROGRESS"));
         TeamMember membership = memberships.stream()
-                .filter(m -> m.getTeam().getEvent().getEventId()
-                        .equals(round.getEvent().getEventId()))
+                .filter(m -> teamEventEntryRepository.existsByTeam_TeamIdAndEvent_EventId(
+                        m.getTeam().getTeamId(), round.getEvent().getEventId()))
                 .findFirst()
                 .orElse(null);
         if (membership == null) {
             membership = teamMemberRepository.findByUser_UserIdOrderByIdDesc(userId).stream()
-                    .filter(m -> m.getTeam().getEvent().getEventId()
-                            .equals(round.getEvent().getEventId()))
+                    .filter(m -> teamEventEntryRepository.existsByTeam_TeamIdAndEvent_EventId(
+                            m.getTeam().getTeamId(), round.getEvent().getEventId()))
                     .findFirst()
                     .orElseThrow(() -> new ResourceNotFoundException(
                             "You are not part of any team in this event."));
@@ -305,15 +310,15 @@ public class SubmissionService {
         Optional<TeamMember> current = teamMemberRepository
                 .findByUser_UserIdAndTeam_Event_StatusIn(userId, List.of("OPEN", "IN_PROGRESS"))
                 .stream()
-                .filter(member -> member.getTeam().getEvent().getEventId()
-                        .equals(round.getEvent().getEventId()))
+                .filter(member -> teamEventEntryRepository.existsByTeam_TeamIdAndEvent_EventId(
+                        member.getTeam().getTeamId(), round.getEvent().getEventId()))
                 .findFirst();
         if (current.isPresent()) {
             return current;
         }
         return teamMemberRepository.findByUser_UserIdOrderByIdDesc(userId).stream()
-                .filter(member -> member.getTeam().getEvent().getEventId()
-                        .equals(round.getEvent().getEventId()))
+                .filter(member -> teamEventEntryRepository.existsByTeam_TeamIdAndEvent_EventId(
+                        member.getTeam().getTeamId(), round.getEvent().getEventId()))
                 .findFirst();
     }
 
