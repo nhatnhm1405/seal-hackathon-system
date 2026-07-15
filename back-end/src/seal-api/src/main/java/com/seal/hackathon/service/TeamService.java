@@ -43,6 +43,8 @@ public class TeamService {
     private final NotificationService notificationService;
     private final AuditLogService auditLogService;
     private final RoundRepository roundRepository;
+    private final JoinRequestRepository joinRequestRepository;
+    private final TeamInviteRepository teamInviteRepository;
 
     // ── Participant: Create team ──────────────────────────────────────
 
@@ -315,10 +317,27 @@ public class TeamService {
                 throw new BadRequestException("Transfer leadership before leaving the team.");
             }
             teamMemberRepository.delete(me);
+            deletePendingTeamRequests(team);
             teamRepository.delete(team);
             return;
         }
         teamMemberRepository.delete(me);
+    }
+
+    /**
+     * Deletes pending JoinRequest/TeamInvite rows referencing this team — required
+     * before deleting the Team row itself, since neither FK has ON DELETE CASCADE
+     * (mirrors LeftoverGroupingService#dissolve).
+     */
+    private void deletePendingTeamRequests(Team team) {
+        List<JoinRequest> requests = joinRequestRepository.findByTeam_TeamId(team.getTeamId());
+        if (!requests.isEmpty()) {
+            joinRequestRepository.deleteAll(requests);
+        }
+        List<TeamInvite> invites = teamInviteRepository.findByTeam_TeamId(team.getTeamId());
+        if (!invites.isEmpty()) {
+            teamInviteRepository.deleteAll(invites);
+        }
     }
 
     /** Search active student accounts a participant may invite. */
