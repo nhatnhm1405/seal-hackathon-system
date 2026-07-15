@@ -89,6 +89,8 @@ public interface UserRepository extends JpaRepository<User, Integer> {
            "AND u.isActive = true " +
            "AND u.userType IN ('FPT_STUDENT', 'EXTERNAL_STUDENT') " +
            "AND u.userId NOT IN (" +
-           "  SELECT tm.user.userId FROM TeamMember tm WHERE tm.team.event.eventId = :eventId)")
+           "  SELECT tm.user.userId FROM TeamMember tm " +
+           "  JOIN TeamEventEntry te ON te.team = tm.team " +
+           "  WHERE te.event.eventId = :eventId)")
     List<User> findGroupableFreeAgents(@Param("eventId") Integer eventId);
 }
