@@ -1436,6 +1436,114 @@
           ]
         },
         {
+          "name": "POST leave event (teamless, event OPEN, Participant)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{participantToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/teams/event/{{eventId}}/leave-event"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST leave event – still has a team (expect 400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{participantToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/teams/event/{{eventId}}/leave-event"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 400 (still on a team)', function () { pm.response.to.have.status(400); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PUT coordinator-remove member (Coordinator, IN_PROGRESS)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{coordinatorToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/teams/{{teamId}}/members/{{userId}}/coordinator-remove",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Absent at round roll-call\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PUT coordinator-remove member – Participant calls (expect 403)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{participantToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/teams/{{teamId}}/members/{{userId}}/coordinator-remove",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Absent at round roll-call\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('status 403', function () { pm.response.to.have.status(403); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "POST manually place free agent onto existing team (leftover override, Coordinator)",
           "request": {
             "method": "POST",

@@ -31,6 +31,10 @@ interface Props {
   members: TeamDetailMember[];
   /** Extra sections below the roster (rarely needed now info lives up top). */
   children?: React.ReactNode;
+  /** Optional per-member action rendered next to their role badge (e.g. the
+   *  Coordinator's "Remove from competition"). Omitted by mentor/judge callers,
+   *  who show no per-member actions. */
+  renderMemberAction?: (member: TeamDetailMember) => React.ReactNode;
   onClose: () => void;
 }
 
@@ -63,7 +67,7 @@ function Field({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-function MemberCard({ m, index }: { m: TeamDetailMember; index: number }) {
+function MemberCard({ m, index, action }: { m: TeamDetailMember; index: number; action?: React.ReactNode }) {
   const isLeader = m.memberRole === "LEADER";
   const accent = "#22c55e";
   return (
@@ -83,7 +87,10 @@ function MemberCard({ m, index }: { m: TeamDetailMember; index: number }) {
             {m.fullName}
           </span>
         </div>
-        <PixelBadge color={isLeader ? "green" : "gray"}>{m.memberRole}</PixelBadge>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+          <PixelBadge color={isLeader ? "green" : "gray"}>{m.memberRole}</PixelBadge>
+          {action}
+        </div>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 14 }}>
         <Field label="MSSV" value={m.studentId} />
@@ -113,7 +120,7 @@ function InfoLine({ label, value }: TeamInfoRow) {
  * Used by the mentor "My Tracks" view and the judge scoring view. Note: on the
  * judge side this intentionally lifts team anonymisation (see scoring/anon.ts).
  */
-export function TeamDetailModal({ open, teamName, infoRows, members, children, onClose }: Props) {
+export function TeamDetailModal({ open, teamName, infoRows, members, children, renderMemberAction, onClose }: Props) {
   if (!open) return null;
   const accent = "#22c55e";
 
@@ -153,7 +160,9 @@ export function TeamDetailModal({ open, teamName, infoRows, members, children, o
           <div style={{ color: C.textMuted, fontFamily: mono, fontSize: 12 }}>No members in this team.</div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {orderedMembers(members).map((m, i) => <MemberCard key={m.userId} m={m} index={i + 1} />)}
+            {orderedMembers(members).map((m, i) => (
+              <MemberCard key={m.userId} m={m} index={i + 1} action={renderMemberAction?.(m)} />
+            ))}
           </div>
         )}
 

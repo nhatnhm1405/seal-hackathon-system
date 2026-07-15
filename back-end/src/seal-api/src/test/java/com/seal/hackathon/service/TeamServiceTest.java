@@ -18,12 +18,14 @@ import com.seal.hackathon.entity.User;
 import com.seal.hackathon.exception.BadRequestException;
 import com.seal.hackathon.exception.ResourceNotFoundException;
 import com.seal.hackathon.repository.HackathonEventRepository;
+import com.seal.hackathon.repository.JoinRequestRepository;
 import com.seal.hackathon.repository.PrizeRepository;
 import com.seal.hackathon.repository.RoundRepository;
 import com.seal.hackathon.repository.RoundResultRepository;
 import com.seal.hackathon.repository.SubmissionRepository;
 import com.seal.hackathon.repository.TeamMemberRepository;
 import com.seal.hackathon.repository.TeamRepository;
+import com.seal.hackathon.repository.TeamInviteRepository;
 import com.seal.hackathon.repository.TrackRepository;
 import com.seal.hackathon.repository.UserRepository;
 import org.junit.jupiter.api.Test;
@@ -86,6 +88,12 @@ class TeamServiceTest {
 
     @Mock
     private AuditLogService auditLogService;
+
+    @Mock
+    private JoinRequestRepository joinRequestRepository;
+
+    @Mock
+    private TeamInviteRepository teamInviteRepository;
 
     @InjectMocks
     private TeamService teamService;

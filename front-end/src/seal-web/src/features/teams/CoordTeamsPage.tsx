@@ -65,6 +65,7 @@ interface TrackRow {
 interface EventRow {
   eventId: number;
   name: string;
+  status: string;
 }
 
 interface TeamRow {
@@ -85,6 +86,7 @@ function normalizeEvent(item: ApiEvent): EventRow {
   return {
     eventId: item.id ?? item.eventId ?? item.event_id ?? 0,
     name: name || (suffix ? suffix : `Event ${item.id ?? item.eventId ?? item.event_id ?? ''}`),
+    status: (item.status ?? '').toUpperCase(),
   };
 }
 
@@ -289,6 +291,85 @@ function TeamActionModal({
   );
 }
 
+// ── Coordinator removes one member during a live (IN_PROGRESS) competition ──
+function RemoveMemberModal({
+  team, member, reason, onReasonChange, onConfirm, onCancel, busy, error,
+}: {
+  team: TeamRow;
+  member: MemberRow;
+  reason: string;
+  onReasonChange: (value: string) => void;
+  onConfirm: () => void;
+  onCancel: () => void;
+  busy: boolean;
+  error: string | null;
+}) {
+  const accent = "#ef4444";
+  const disabled = busy || reason.trim().length === 0;
+  const message = team.members.length === 1
+    ? <>You are about to remove <b style={{ color: C.text }}>{member.fullName}</b> — the only remaining member. The team will be disqualified.</>
+    : member.memberRole === 'LEADER'
+      ? <>You are about to remove <b style={{ color: C.text }}>{member.fullName}</b>, the team leader. The earliest-joined remaining member will automatically become leader.</>
+      : <>You are about to remove <b style={{ color: C.text }}>{member.fullName}</b> from the competition.</>;
+
+  return (
+    <>
+      <div
+        onClick={onCancel}
+        style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", zIndex: 1100, backdropFilter: "blur(2px)" }}
+      />
+      <div style={{
+        position: "fixed",
+        top: "50%", left: "50%",
+        transform: "translate(-50%, -50%)",
+        zIndex: 1101,
+        width: "min(460px, calc(100vw - 32px))",
+        background: C.surface,
+        border: `1px solid ${accent}66`,
+        boxShadow: `0 0 40px ${accent}22, 0 16px 48px rgba(0,0,0,0.4)`,
+        padding: 32,
+      }}>
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${accent}, transparent)` }} />
+
+        <h2 style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 20, fontWeight: 800, color: C.text, marginBottom: 12, lineHeight: 1.2 }}>
+          Remove from competition?
+        </h2>
+        <p style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, lineHeight: 1.8, marginBottom: 16 }}>
+          {message}
+        </p>
+
+        <div style={{ marginBottom: 20 }}>
+          <label style={{ display: "block", color: C.greenMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 8 }}>
+            Reason *
+          </label>
+          <textarea
+            value={reason}
+            onChange={(e) => onReasonChange(e.target.value)}
+            placeholder="e.g. Absent at round roll-call…"
+            rows={3}
+            style={{ width: "100%", boxSizing: "border-box", padding: "10px 12px", background: C.surface2, border: `1px solid ${C.border}`, color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, outline: "none", borderRadius: 0, resize: "vertical" }}
+          />
+        </div>
+
+        {error && (
+          <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.35)", color: C.red, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, padding: "8px 12px", marginBottom: 16 }}>
+            ERROR: {error}
+          </div>
+        )}
+
+        <div style={{ display: "flex", gap: 10 }}>
+          <PixelButton variant="danger" disabled={disabled} onClick={onConfirm}>
+            {busy ? "WORKING…" : "REMOVE FROM COMPETITION"}
+          </PixelButton>
+          <PixelButton variant="secondary" disabled={busy} onClick={onCancel}>
+            CANCEL
+          </PixelButton>
+        </div>
+      </div>
+    </>
+  );
+}
+
 export function CoordTeamsPage() {
   const { addToast } = useNotifications();
   // Sidebar's "Teams" badge — refreshed after every approve/reject/disqualify
@@ -313,6 +394,12 @@ export function CoordTeamsPage() {
   const [confirmTarget, setConfirmTarget] = useState<{ type: TeamActionType; team: TeamRow } | null>(null);
   const [reasonInput, setReasonInput] = useState("");
   const [actionBusy, setActionBusy] = useState(false);
+
+  // Coordinator removes one member during a live (IN_PROGRESS) competition.
+  const [removeMemberTarget, setRemoveMemberTarget] = useState<{ team: TeamRow; member: MemberRow } | null>(null);
+  const [removeReason, setRemoveReason] = useState("");
+  const [removeBusy, setRemoveBusy] = useState(false);
+  const [removeError, setRemoveError] = useState<string | null>(null);
 
   // Load every event (any status) so the coordinator can browse teams
   // across all of them, not just the currently-active one.
@@ -424,6 +511,44 @@ export function CoordTeamsPage() {
     }
   }
 
+  function closeRemoveMember() {
+    setRemoveMemberTarget(null);
+    setRemoveReason("");
+    setRemoveError(null);
+  }
+
+  async function handleRemoveMember() {
+    if (!removeMemberTarget) return;
+    const { team, member } = removeMemberTarget;
+    setRemoveError(null);
+    setRemoveBusy(true);
+    try {
+      const res = await apiFetch<{ data: ApiTeam }>(
+        `/api/teams/${team.teamId}/members/${member.userId}/coordinator-remove`,
+        { method: 'PUT', body: JSON.stringify({ reason: removeReason.trim() }) },
+      );
+      const updated = normalizeTeam(res.data);
+      setTeams(prev => prev.map(t => t.teamId === updated.teamId ? updated : t));
+      // Nothing left to manage once the last member is gone (team is now
+      // disqualified) — otherwise keep the modal open on the refreshed roster
+      // so the coordinator can remove another absent member in one sitting.
+      setDetailTeam(updated.members.length === 0 ? null : updated);
+      addToast({
+        type: 'warning',
+        title: 'MEMBER REMOVED',
+        message: updated.status === 'DISQUALIFIED'
+          ? `"${member.fullName}" was removed — "${team.name}" has no remaining members and was disqualified.`
+          : `"${member.fullName}" was removed from "${team.name}".`,
+      });
+      closeRemoveMember();
+    } catch (err) {
+      setRemoveError(err instanceof ApiError ? err.message : "Failed to remove member.");
+      addToast({ type: 'warning', title: 'REMOVE FAILED', message: apiErrorMessage(err, 'Failed to remove member.') });
+    } finally {
+      setRemoveBusy(false);
+    }
+  }
+
   return (
     <div style={{ padding: 24, display: "flex", flexDirection: "column", gap: 20 }}>
       <div>
@@ -526,6 +651,24 @@ export function CoordTeamsPage() {
           infoRows={teamInfoRows(detailTeam, trackName(detailTeam.trackId), selectedEvent?.name ?? "—")}
           members={detailTeam.members}
           onClose={() => setDetailTeam(null)}
+          renderMemberAction={(m) => {
+            if (detailTeam.status !== 'APPROVED' || selectedEvent?.status !== 'IN_PROGRESS') return null;
+            const target = detailTeam.members.find(x => x.userId === m.userId);
+            if (!target) return null;
+            return (
+              <button
+                type="button"
+                onClick={() => setRemoveMemberTarget({ team: detailTeam, member: target })}
+                style={{
+                  fontFamily: "'JetBrains Mono', monospace", fontSize: 9, letterSpacing: "0.06em", textTransform: "uppercase",
+                  color: C.red, background: "transparent", border: "1px solid rgba(239,68,68,0.4)",
+                  padding: "4px 8px", cursor: "pointer", borderRadius: 0,
+                }}
+              >
+                Remove
+              </button>
+            );
+          }}
         >
           {detailTeam.status === 'PENDING' && (
             // Reject on the left, Approve on the right — the destructive choice
@@ -555,6 +698,19 @@ export function CoordTeamsPage() {
           onCancel={closeConfirm}
           busy={actionBusy}
           error={actionError}
+        />
+      )}
+
+      {removeMemberTarget && (
+        <RemoveMemberModal
+          team={removeMemberTarget.team}
+          member={removeMemberTarget.member}
+          reason={removeReason}
+          onReasonChange={setRemoveReason}
+          onConfirm={handleRemoveMember}
+          onCancel={closeRemoveMember}
+          busy={removeBusy}
+          error={removeError}
         />
       )}
     </div>

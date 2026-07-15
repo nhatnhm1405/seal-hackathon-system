@@ -43,6 +43,8 @@ public class TeamService {
     private final NotificationService notificationService;
     private final AuditLogService auditLogService;
     private final RoundRepository roundRepository;
+    private final JoinRequestRepository joinRequestRepository;
+    private final TeamInviteRepository teamInviteRepository;
 
     // ── Participant: Create team ──────────────────────────────────────
 
@@ -300,6 +302,9 @@ public class TeamService {
     /**
      * A member leaves the team. The leader must transfer leadership first unless
      * they are the only member, in which case the (empty) team is disbanded.
+     * Does NOT touch the season's {@code isActive} — leaving a team just makes you
+     * teamless (you stay eligible to join/create another team this season). That is
+     * a deliberately separate, distinct action — see {@link #leaveEvent}.
      */
     @Transactional
     public void leaveTeam(Integer userId, Integer teamId) {
@@ -315,10 +320,136 @@ public class TeamService {
                 throw new BadRequestException("Transfer leadership before leaving the team.");
             }
             teamMemberRepository.delete(me);
+            deletePendingTeamRequests(team);
             teamRepository.delete(team);
             return;
         }
         teamMemberRepository.delete(me);
+    }
+
+    /**
+     * A teamless participant opts out of the current season entirely — the actual
+     * counterpart to {@link ParticipationAccessRequestService#approve} (which
+     * reactivates), this is the participant deactivating themselves. Only available
+     * while the event is OPEN (registration hasn't closed) and only for someone who
+     * currently has no team in it — leaving a team ({@link #leaveTeam}) is a
+     * separate, prior step. No coordinator approval needed (self-service, mirrors
+     * {@link #leaveTeam}); no reason recorded.
+     */
+    @Transactional
+    public void leaveEvent(Integer userId, Integer eventId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
+        HackathonEvent event = eventRepository.findById(eventId)
+                .orElseThrow(() -> new ResourceNotFoundException("Event not found: " + eventId));
+        if (!"OPEN".equalsIgnoreCase(event.getStatus())) {
+            throw new BadRequestException("You can only leave this event while it is open for registration.");
+        }
+        if (!Boolean.TRUE.equals(user.getIsActive())) {
+            throw new BadRequestException("You are already inactive for this season.");
+        }
+        if (teamMemberRepository.existsByUser_UserIdAndTeam_Event_EventId(userId, eventId)) {
+            throw new BadRequestException("Leave your team before leaving the event.");
+        }
+        deactivate(user);
+    }
+
+    /**
+     * Coordinator-driven removal during a live competition (attendance/absence),
+     * with a mandatory audited reason — the mirror image of
+     * {@link ParticipationAccessRequestService#approve}, which is the only other
+     * place a Coordinator sets a student's {@code isActive}. Unlike the self-service
+     * {@link #leaveTeam}, this only runs while the event is IN_PROGRESS: the removed
+     * member may be unreachable, so there is no leadership hand-off to ask for —
+     * if they were the LEADER, the remaining member who joined earliest is
+     * auto-promoted; if they were the last member left, the team is disqualified
+     * (not deleted — unlike the SETUP-phase solo-leave case, submissions/scores may
+     * already reference this team, and DISQUALIFIED already excludes it from ranking).
+     */
+    @Transactional
+    public TeamDetailResponse coordinatorRemoveMember(Integer coordinatorId, Integer teamId,
+                                                       Integer targetUserId, String reason) {
+        Team team = teamRepository.findById(teamId)
+                .orElseThrow(() -> new ResourceNotFoundException("Team not found: " + teamId));
+        if (!"IN_PROGRESS".equalsIgnoreCase(team.getEvent().getStatus())) {
+            throw new BadRequestException("Coordinator removal is only available while the event is in progress.");
+        }
+        if (!"APPROVED".equalsIgnoreCase(team.getStatus())) {
+            throw new BadRequestException("Only an approved team's members can be removed this way.");
+        }
+
+        List<TeamMember> members = teamMemberRepository.findByTeam_TeamId(teamId);
+        TeamMember target = members.stream()
+                .filter(m -> m.getUser().getUserId().equals(targetUserId))
+                .findFirst()
+                .orElseThrow(() -> new BadRequestException("That user is not a member of this team."));
+        boolean wasLeader = "LEADER".equalsIgnoreCase(target.getMemberRole());
+
+        teamMemberRepository.delete(target);
+        deactivate(target.getUser());
+
+        List<TeamMember> remaining = members.stream()
+                .filter(m -> !m.getId().equals(target.getId()))
+                .collect(Collectors.toList());
+
+        Integer promotedLeaderUserId = null;
+        if (remaining.isEmpty()) {
+            team.setStatus("DISQUALIFIED");
+            team.setDisqualifiedReason("No remaining members (last member removed by coordinator): " + reason);
+            team.setDisqualifiedAt(LocalDateTime.now());
+            teamRepository.save(team);
+        } else if (wasLeader) {
+            TeamMember newLeader = remaining.stream()
+                    .min(Comparator.comparing(TeamMember::getJoinedAt))
+                    .orElseThrow();
+            newLeader.setMemberRole("LEADER");
+            teamMemberRepository.save(newLeader);
+            promotedLeaderUserId = newLeader.getUser().getUserId();
+            notificationService.createNotification(
+                    promotedLeaderUserId,
+                    "You are now the team leader",
+                    "You are now the leader of team '" + team.getName()
+                            + "' — the previous leader was removed from the competition.",
+                    "TEAM_LEADER_PROMOTED"
+            );
+        }
+
+        notificationService.createNotification(
+                targetUserId,
+                "Removed from the competition",
+                "You have been removed from team '" + team.getName() + "' and are no longer part of "
+                        + team.getEvent().getName() + ". Reason: " + reason
+                        + ". If this was a mistake, request to rejoin the competition.",
+                "TEAM_COORDINATOR_REMOVED"
+        );
+
+        auditLogService.record(coordinatorId, "COORDINATOR_REMOVE_MEMBER", "TEAM", teamId, reason,
+                Map.of("removedUserId", targetUserId,
+                        "resultingStatus", team.getStatus(),
+                        "promotedLeaderUserId", promotedLeaderUserId == null ? "NONE" : promotedLeaderUserId));
+
+        return mapToDetailResponse(team);
+    }
+
+    private void deactivate(User user) {
+        user.setIsActive(false);
+        userRepository.save(user);
+    }
+
+    /**
+     * Deletes pending JoinRequest/TeamInvite rows referencing this team — required
+     * before deleting the Team row itself, since neither FK has ON DELETE CASCADE
+     * (mirrors LeftoverGroupingService#dissolve).
+     */
+    private void deletePendingTeamRequests(Team team) {
+        List<JoinRequest> requests = joinRequestRepository.findByTeam_TeamId(team.getTeamId());
+        if (!requests.isEmpty()) {
+            joinRequestRepository.deleteAll(requests);
+        }
+        List<TeamInvite> invites = teamInviteRepository.findByTeam_TeamId(team.getTeamId());
+        if (!invites.isEmpty()) {
+            teamInviteRepository.deleteAll(invites);
+        }
     }
 
     /** Search active student accounts a participant may invite. */
