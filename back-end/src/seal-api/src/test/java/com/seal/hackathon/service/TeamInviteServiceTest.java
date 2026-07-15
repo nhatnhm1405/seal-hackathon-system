@@ -4,6 +4,7 @@ import com.seal.hackathon.dto.request.CreateInviteRequest;
 import com.seal.hackathon.dto.response.TeamInviteResponse;
 import com.seal.hackathon.entity.HackathonEvent;
 import com.seal.hackathon.entity.Team;
+import com.seal.hackathon.entity.TeamEventEntry;
 import com.seal.hackathon.entity.TeamInvite;
 import com.seal.hackathon.entity.TeamMember;
 import com.seal.hackathon.entity.Track;
@@ -11,6 +12,7 @@ import com.seal.hackathon.entity.User;
 import com.seal.hackathon.exception.BadRequestException;
 import com.seal.hackathon.exception.ForbiddenException;
 import com.seal.hackathon.exception.ResourceNotFoundException;
+import com.seal.hackathon.repository.TeamEventEntryRepository;
 import com.seal.hackathon.repository.TeamInviteRepository;
 import com.seal.hackathon.repository.TeamMemberRepository;
 import com.seal.hackathon.repository.TeamRepository;
@@ -31,6 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -44,6 +47,9 @@ class TeamInviteServiceTest {
 
     @Mock
     private TeamRepository teamRepository;
+
+    @Mock
+    private TeamEventEntryRepository teamEventEntryRepository;
 
     @Mock
     private TeamMemberRepository teamMemberRepository;
@@ -389,7 +395,7 @@ class TeamInviteServiceTest {
         when(teamMemberRepository.existsByUser_UserIdAndTeam_Event_EventId(101, 1)).thenReturn(false);
         when(inviteRepository.saveAndFlush(any(TeamInvite.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(teamMemberRepository.findByTeam_TeamId(99)).thenReturn(List.of(member(1, team, leader, "LEADER")));
-        when(inviteRepository.findByInvitedUser_UserIdAndStatusAndTeam_Event_EventId(101, "PENDING", 1))
+        when(inviteRepository.findByInvitedUser_UserIdAndStatusAndEventId(101, "PENDING", 1))
                 .thenReturn(List.of(invite, other));
 
         TeamInviteResponse response = teamInviteService.acceptInvite(101, 500);
@@ -516,14 +522,23 @@ class TeamInviteServiceTest {
                 .build();
     }
 
-    private static Team team(Integer id, HackathonEvent event, String status) {
-        return Team.builder()
+    private Team team(Integer id, HackathonEvent event, String status) {
+        Team team = Team.builder()
                 .teamId(id)
+                .name("Seal Team")
+                .build();
+        TeamEventEntry entry = TeamEventEntry.builder()
+                .id(id)
+                .team(team)
                 .event(event)
                 .track(track(10, event))
-                .name("Seal Team")
                 .status(status)
                 .build();
+        lenient().when(teamEventEntryRepository.findTopByTeam_TeamIdOrderByIdDesc(id))
+                .thenReturn(Optional.of(entry));
+        lenient().when(teamEventEntryRepository.findByTeam_TeamIdAndEvent_EventId(id, event.getEventId()))
+                .thenReturn(Optional.of(entry));
+        return team;
     }
 
     private static Track track(Integer id, HackathonEvent event) {
@@ -558,6 +573,7 @@ class TeamInviteServiceTest {
         return TeamInvite.builder()
                 .inviteId(id)
                 .team(team)
+                .eventId(1)
                 .invitedUser(invitedUser)
                 .invitedBy(invitedBy)
                 .message("hello")

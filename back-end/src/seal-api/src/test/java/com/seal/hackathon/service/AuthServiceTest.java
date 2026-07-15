@@ -4,9 +4,11 @@ import com.seal.hackathon.dto.request.UpdateProfileRequest;
 import com.seal.hackathon.dto.response.UserResponse;
 import com.seal.hackathon.entity.HackathonEvent;
 import com.seal.hackathon.entity.Team;
+import com.seal.hackathon.entity.TeamEventEntry;
 import com.seal.hackathon.entity.TeamMember;
 import com.seal.hackathon.entity.User;
 import com.seal.hackathon.exception.BadRequestException;
+import com.seal.hackathon.repository.TeamEventEntryRepository;
 import com.seal.hackathon.repository.TeamMemberRepository;
 import com.seal.hackathon.repository.UserRepository;
 import com.seal.hackathon.security.JwtService;
@@ -36,6 +38,9 @@ class AuthServiceTest {
 
     @Mock
     private TeamMemberRepository teamMemberRepository;
+
+    @Mock
+    private TeamEventEntryRepository teamEventEntryRepository;
 
     @Mock
     private PasswordEncoder passwordEncoder;
@@ -152,12 +157,18 @@ class AuthServiceTest {
     }
 
     private Team team(Integer teamId, HackathonEvent event) {
-        return Team.builder()
+        Team team = Team.builder()
                 .teamId(teamId)
-                .event(event)
                 .name("Seal Team")
+                .build();
+        TeamEventEntry entry = TeamEventEntry.builder()
+                .id(teamId)
+                .team(team)
+                .event(event)
                 .status("APPROVED")
                 .build();
+        when(teamEventEntryRepository.findAllByTeam_TeamId(teamId)).thenReturn(List.of(entry));
+        return team;
     }
 
     private TeamMember member(Integer id, Team team, User user, String role) {

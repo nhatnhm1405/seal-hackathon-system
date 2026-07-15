@@ -8,6 +8,7 @@ import com.seal.hackathon.entity.Round;
 import com.seal.hackathon.entity.RoundResult;
 import com.seal.hackathon.entity.Submission;
 import com.seal.hackathon.entity.Team;
+import com.seal.hackathon.entity.TeamEventEntry;
 import com.seal.hackathon.entity.TeamMember;
 import com.seal.hackathon.entity.User;
 import com.seal.hackathon.exception.BadRequestException;
@@ -16,6 +17,7 @@ import com.seal.hackathon.exception.ResourceNotFoundException;
 import com.seal.hackathon.repository.RoundResultRepository;
 import com.seal.hackathon.repository.RoundRepository;
 import com.seal.hackathon.repository.SubmissionRepository;
+import com.seal.hackathon.repository.TeamEventEntryRepository;
 import com.seal.hackathon.repository.TeamMemberRepository;
 import com.seal.hackathon.repository.UserRepository;
 import org.junit.jupiter.api.Test;
@@ -42,6 +44,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -66,6 +69,9 @@ class SubmissionServiceTest {
 
     @Mock
     private RoundTimerService roundTimerService;
+
+    @Mock
+    private TeamEventEntryRepository teamEventEntryRepository;
 
     @InjectMocks
     private SubmissionService submissionService;
@@ -728,12 +734,21 @@ class SubmissionServiceTest {
     private record EligibilityFixture(Round previous, Round current, Team team) {}
 
     private Team team(Integer teamId, HackathonEvent event, String status) {
-        return Team.builder()
+        Team team = Team.builder()
                 .teamId(teamId)
-                .event(event)
                 .name("Team " + teamId)
+                .build();
+        TeamEventEntry entry = TeamEventEntry.builder()
+                .id(teamId)
+                .team(team)
+                .event(event)
                 .status(status)
                 .build();
+        lenient().when(teamEventEntryRepository.existsByTeam_TeamIdAndEvent_EventId(teamId, event.getEventId()))
+                .thenReturn(true);
+        lenient().when(teamEventEntryRepository.findByTeam_TeamIdAndEvent_EventId(teamId, event.getEventId()))
+                .thenReturn(Optional.of(entry));
+        return team;
     }
 
     private TeamMember member(Integer id, Team team, User user, String role) {

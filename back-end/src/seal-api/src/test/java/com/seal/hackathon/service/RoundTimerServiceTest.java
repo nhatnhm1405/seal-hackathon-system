@@ -8,6 +8,7 @@ import com.seal.hackathon.entity.RoundTimer;
 import com.seal.hackathon.entity.ScoringCriteria;
 import com.seal.hackathon.entity.Submission;
 import com.seal.hackathon.entity.Team;
+import com.seal.hackathon.entity.TeamEventEntry;
 import com.seal.hackathon.entity.Track;
 import com.seal.hackathon.exception.BadRequestException;
 import com.seal.hackathon.repository.JudgeAssignmentRepository;
@@ -16,6 +17,7 @@ import com.seal.hackathon.repository.RoundTimerNoticeRepository;
 import com.seal.hackathon.repository.RoundTimerRepository;
 import com.seal.hackathon.repository.ScoringCriteriaRepository;
 import com.seal.hackathon.repository.SubmissionRepository;
+import com.seal.hackathon.repository.TeamEventEntryRepository;
 import com.seal.hackathon.repository.TeamMemberRepository;
 import com.seal.hackathon.repository.TeamRepository;
 import com.seal.hackathon.repository.TrackRepository;
@@ -45,6 +47,7 @@ class RoundTimerServiceTest {
     @Mock RoundRepository roundRepository;
     @Mock TrackRepository trackRepository;
     @Mock TeamRepository teamRepository;
+    @Mock TeamEventEntryRepository teamEventEntryRepository;
     @Mock TeamMemberRepository teamMemberRepository;
     @Mock JudgeAssignmentRepository judgeAssignmentRepository;
     @Mock ScoringCriteriaRepository scoringCriteriaRepository;
@@ -131,8 +134,10 @@ class RoundTimerServiceTest {
     void startJudgingSucceedsWhenStrictPrerequisitesAreSatisfied() {
         Round round = round();
         Track track = Track.builder().trackId(7).event(round.getEvent()).name("Web").build();
-        Team team = Team.builder().teamId(8).event(round.getEvent()).track(track).name("Seal").build();
+        Team team = Team.builder().teamId(8).name("Seal").build();
+        TeamEventEntry entry = TeamEventEntry.builder().id(8).team(team).event(round.getEvent()).track(track).build();
         Submission submission = Submission.builder().submissionId(9).round(round).team(team).build();
+        when(teamEventEntryRepository.findByTeam_TeamIdAndEvent_EventId(8, 1)).thenReturn(Optional.of(entry));
         JudgeAssignment assignment = JudgeAssignment.builder().round(round).track(track).isActive(true).build();
         RoundTimer contest = timer(round, "CONTEST", "EXPIRED", LocalDateTime.now().minusMinutes(1));
 
