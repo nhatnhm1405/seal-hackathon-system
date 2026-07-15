@@ -1038,6 +1038,11 @@ export const teamsApi = {
   leave: (teamId: number) =>
     apiFetch<ApiResponse<void>>(`/api/teams/${teamId}/leave`, { method: 'POST' }),
 
+  // Teamless-only: opt out of the current season entirely (event must be OPEN).
+  // Distinct from `leave` above, which only leaves the team and stays active.
+  leaveEvent: (eventId: number) =>
+    apiFetch<ApiResponse<void>>(`/api/teams/event/${eventId}/leave-event`, { method: 'POST' }),
+
   // SELF_SELECT events: leader picks the team's track during SETUP.
   selectTrack: (teamId: number, trackId: number) =>
     apiFetch<ApiResponse<MyTeam>>(`/api/teams/${teamId}/track`, {

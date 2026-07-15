@@ -1,7 +1,10 @@
 import { useState, useEffect } from "react";
 import { C, PixelBadge, PixelButton } from "@/shared/components/PixelComponents";
-import { tracksApi, roundsApi, HackathonEvent, Track, Round } from "@/shared/apiClient";
+import { tracksApi, roundsApi, teamsApi, ApiError, apiErrorMessage, HackathonEvent, Track, Round } from "@/shared/apiClient";
 import { useTheme } from "@/app/providers/ThemeProvider";
+import { useAuth } from "@/app/providers/AuthProvider";
+import { useNotifications } from "@/app/providers/NotificationProvider";
+import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
 import { EventName } from "@/features/events/eventUtils";
 import { fmtDate, fmtShort } from "../utils/formatters";
 
@@ -23,6 +26,11 @@ export function EventDetailDrawer({
 }) {
     const [tracks, setTracks] = useState<Track[]>([]);
     const [rounds, setRounds] = useState<Round[]>([]);
+    const { patchCurrentUser } = useAuth();
+    const { addToast } = useNotifications();
+    const [confirmingLeave, setConfirmingLeave] = useState(false);
+    const [leaving, setLeaving] = useState(false);
+    const [leaveError, setLeaveError] = useState<string | null>(null);
 
     useEffect(() => {
         tracksApi.getAll(event.eventId).then(r => setTracks(r.data ?? [])).catch(() => setTracks([]));
@@ -30,6 +38,26 @@ export function EventDetailDrawer({
             .then(r => setRounds([...(r.data ?? [])].sort((a, b) => (a.orderNumber ?? a.roundId) - (b.orderNumber ?? b.roundId))))
             .catch(() => setRounds([]));
     }, [event.eventId]);
+
+    // Teamless-only opt-out for the current season — only while registration is
+    // still OPEN (mirrors the backend gate). Distinct from leaving a team: this
+    // deactivates the account instead of just clearing team membership.
+    async function leaveEvent() {
+        setLeaving(true);
+        setLeaveError(null);
+        try {
+            await teamsApi.leaveEvent(event.eventId);
+            patchCurrentUser({ is_active: false });
+            addToast({ type: "info", title: "Left event", message: `You have left "${event.name}" for this season.` });
+            setConfirmingLeave(false);
+            onClose();
+        } catch (err) {
+            setLeaveError(err instanceof ApiError ? err.message : "Failed to leave this event.");
+            addToast({ type: "warning", title: "Leave failed", message: apiErrorMessage(err, "Failed to leave this event.") });
+        } finally {
+            setLeaving(false);
+        }
+    }
 
     const seasonLabel = `${(event.season ?? "").toUpperCase()} ${event.year ?? ""}`.trim();
 
@@ -148,9 +176,43 @@ export function EventDetailDrawer({
                         <PixelButton variant="cyber" fullWidth onClick={() => onCreateTeam(event.eventId)}>
                             REGISTER &amp; CREATE TEAM
                         </PixelButton>
+                        {/* Sensitive, low-key opt-out — only while registration is still open.
+                            Deliberately understated vs. the primary CTA above. */}
+                        {st === "OPEN" && (
+                            <button
+                                type="button"
+                                onClick={() => setConfirmingLeave(true)}
+                                style={{
+                                    background: "none", border: "none", cursor: "pointer",
+                                    color: "rgba(239,68,68,0.75)", fontFamily: "'JetBrains Mono', monospace",
+                                    fontSize: 11, padding: "4px 0", textAlign: "center", letterSpacing: "0.04em",
+                                }}
+                            >
+                                Leave this event
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>
+
+            {confirmingLeave && (
+                <ConfirmDialog
+                    title="Leave this event?"
+                    message={
+                        <>
+                            You'll become inactive for <strong style={{ color: txt }}>{event.name}</strong> and won't be
+                            able to register a team this season. You can request to rejoin later if the event is still
+                            open, or a future season.
+                        </>
+                    }
+                    confirmLabel="LEAVE EVENT"
+                    variant="danger"
+                    working={leaving}
+                    error={leaveError}
+                    onConfirm={leaveEvent}
+                    onClose={() => { if (!leaving) { setConfirmingLeave(false); setLeaveError(null); } }}
+                />
+            )}
         </>
     );
 }
