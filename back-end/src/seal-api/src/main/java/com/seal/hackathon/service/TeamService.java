@@ -23,9 +23,12 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -38,14 +41,14 @@ public class TeamService {
     private final HackathonEventRepository eventRepository;
     private final TrackRepository trackRepository;
     private final UserRepository userRepository;
-    private final SubmissionRepository submissionRepository;
     private final RoundResultRepository roundResultRepository;
-    private final PrizeRepository prizeRepository;
     private final NotificationService notificationService;
     private final AuditLogService auditLogService;
     private final RoundRepository roundRepository;
     private final JoinRequestRepository joinRequestRepository;
     private final TeamInviteRepository teamInviteRepository;
+    private final TeamRejoinRequestRepository teamRejoinRequestRepository;
+    private final ParticipantHistorySnapshotService participantHistorySnapshotService;
 
     // ── Participant: Create team ──────────────────────────────────────
 
@@ -115,22 +118,34 @@ public class TeamService {
 
     // ── Participant: Get my team ──────────────────────────────────────
 
+    /**
+     * Tier 1: any membership with a live-season entry (OPEN/SETUP/IN_PROGRESS) —
+     * the common case, unchanged. Tier 2 (fallback, only when tier 1 is empty):
+     * the user's most recent team membership regardless of season, resolved via
+     * its most recent entry (which may belong to a COMPLETED event) — so a
+     * dormant team's identity/roster still surfaces read-only instead of 404ing,
+     * letting a leader find their way to a rejoin request instead of being
+     * routed into "create a new team" and silently orphaning their old roster row.
+     */
     @Transactional(readOnly = true)
     public MyTeamResponse getMyTeam(Integer userId) {
         List<String> currentStatuses = List.of("OPEN", "SETUP", "IN_PROGRESS");
         List<TeamMember> myMemberships = teamMemberRepository
                 .findByUser_UserIdAndTeam_Event_StatusIn(userId, currentStatuses);
 
-        if (myMemberships.isEmpty()) {
-            throw new ResourceNotFoundException("You are not currently a member of any team.");
+        if (!myMemberships.isEmpty()) {
+            TeamMember membership = myMemberships.stream()
+                    .max(Comparator.comparing(
+                            TeamMember::getId,
+                            Comparator.nullsLast(Comparator.naturalOrder())))
+                    .orElseThrow(() -> new ResourceNotFoundException("You are not currently a member of any team."));
+            return mapToMyTeamResponse(membership);
         }
 
-        TeamMember membership = myMemberships.stream()
-                .max(Comparator.comparing(
-                        TeamMember::getId,
-                        Comparator.nullsLast(Comparator.naturalOrder())))
+        return teamMemberRepository.findByUser_UserIdOrderByIdDesc(userId).stream()
+                .findFirst()
+                .map(this::mapToMyTeamResponse)
                 .orElseThrow(() -> new ResourceNotFoundException("You are not currently a member of any team."));
-        return mapToMyTeamResponse(membership);
     }
 
     @Transactional(readOnly = true)
@@ -140,11 +155,60 @@ public class TeamService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Merges two sources per event id: entries still live on a team (computed
+     * fresh, one row per {@link TeamEventEntry} the member actually competed
+     * during — see {@link #computeLiveHistory}), and frozen snapshots taken at
+     * departure or event completion (see {@link ParticipantHistorySnapshotService}).
+     * Live wins whenever the event isn't currently COMPLETED (covers a
+     * temporarily reopened event so it doesn't show a stale snapshot); a
+     * snapshot wins once the event is COMPLETED (stable, immune to a
+     * departed member's TeamMember row having since been deleted); a live row
+     * is the fallback for a COMPLETED event that predates this feature and
+     * has no snapshot yet (until the admin backfill runs).
+     */
     @Transactional(readOnly = true)
     public List<TeamHistoryResponse> getMyResultHistory(Integer userId) {
-        return teamMemberRepository.findByUser_UserIdOrderByIdDesc(userId).stream()
-                .map(this::mapToTeamHistoryResponse)
-                .collect(Collectors.toList());
+        Map<Integer, TeamHistoryResponse> liveByEvent = new LinkedHashMap<>();
+        for (TeamHistoryResponse row : computeLiveHistory(userId)) {
+            liveByEvent.put(row.getEventId(), row);
+        }
+        Map<Integer, TeamHistoryResponse> snapshotByEvent = participantHistorySnapshotService.getSnapshotsForUser(userId);
+
+        Set<Integer> allEventIds = new LinkedHashSet<>(liveByEvent.keySet());
+        allEventIds.addAll(snapshotByEvent.keySet());
+
+        List<TeamHistoryResponse> merged = new ArrayList<>();
+        for (Integer eventId : allEventIds) {
+            TeamHistoryResponse live = liveByEvent.get(eventId);
+            if (live != null && !"COMPLETED".equalsIgnoreCase(live.getEventStatus())) {
+                merged.add(live);
+            } else if (snapshotByEvent.containsKey(eventId)) {
+                merged.add(snapshotByEvent.get(eventId));
+            } else if (live != null) {
+                merged.add(live);
+            }
+        }
+        merged.sort(Comparator.comparing(TeamHistoryResponse::getEventId, Comparator.nullsLast(Comparator.reverseOrder())));
+        return merged;
+    }
+
+    // One row per TeamEventEntry the member actually competed during, not one
+    // row per team — a rejoined team has multiple entries, and each season's
+    // result data must stay on its own row. Entry resolution/filtering lives
+    // in ParticipantHistorySnapshotService, shared with snapshotDeparture so
+    // a departure snapshot always covers the exact same seasons this live
+    // path would have shown a moment earlier.
+    private List<TeamHistoryResponse> computeLiveHistory(Integer userId) {
+        List<TeamMember> memberships = teamMemberRepository.findByUser_UserIdOrderByIdDesc(userId);
+        List<TeamHistoryResponse> history = new ArrayList<>();
+
+        for (TeamMember membership : memberships) {
+            for (TeamEventEntry entry : participantHistorySnapshotService.resolveEntriesForMembership(membership)) {
+                history.add(participantHistorySnapshotService.buildHistoryView(membership, entry));
+            }
+        }
+        return history;
     }
 
     @Transactional(readOnly = true)
@@ -156,97 +220,6 @@ public class TeamService {
                         .map(entry -> mapToMyTeamResponse(m, entry)))
                 .findFirst()
                 .orElseThrow(() -> new ResourceNotFoundException("You are not part of any team in this event."));
-    }
-
-    // ── Participant: my team history (every event/season I joined) ────
-
-    @Transactional(readOnly = true)
-    public List<TeamHistoryResponse> getMyHistory(Integer userId) {
-        List<TeamMember> memberships = teamMemberRepository.findByUser_UserIdOrderByIdDesc(userId);
-        List<TeamHistoryResponse> history = new ArrayList<>();
-
-        for (TeamMember membership : memberships) {
-            Team team = membership.getTeam();
-            // A team has exactly one TeamEventEntry today (rejoin — which could
-            // create a second one — isn't built yet); once it is, this should
-            // list one history row per entry the member actually competed
-            // during, not just "the" current one.
-            TeamEventEntry entry = requireCurrentEntry(team);
-            HackathonEvent event = entry.getEvent();
-
-            List<TeamHistoryResponse.MemberInfo> members = teamMemberRepository
-                    .findByTeam_TeamId(team.getTeamId()).stream()
-                    .map(m -> TeamHistoryResponse.MemberInfo.builder()
-                            .fullName(m.getUser().getFullName())
-                            .role(m.getMemberRole())
-                            .studentId(m.getUser().getStudentId())
-                            .userType(m.getUser().getUserType())
-                            .university(m.getUser().getUniversity())
-                            .build())
-                    .collect(Collectors.toList());
-
-            // Published per-round standing, in round order. Unpublished rounds stay hidden.
-            List<TeamHistoryResponse.RoundInfo> rounds = new ArrayList<>();
-            for (Round round : roundRepository.findAllByEvent_EventIdOrderByOrderNumber(event.getEventId())) {
-                roundResultRepository.findByTeam_TeamIdAndRound_RoundId(team.getTeamId(), round.getRoundId())
-                        .filter(r -> Boolean.TRUE.equals(r.getIsPublished()))
-                        .ifPresent(r -> {
-                            Integer topN = round.getTopNAdvance();
-                            boolean advanced = topN != null && r.getRankPosition() <= topN;
-                            rounds.add(TeamHistoryResponse.RoundInfo.builder()
-                                    .roundName(round.getName())
-                                    .isFinal(round.getIsFinal())
-                                    .rankPosition(r.getRankPosition())
-                                    .advanced(advanced)
-                                    .totalScore(r.getTotalScore())
-                                    .build());
-                        });
-            }
-
-            List<TeamHistoryResponse.SubmissionInfo> submissions = submissionRepository
-                    .findAllByTeam_TeamId(team.getTeamId()).stream()
-                    .filter(s -> !"DRAFT".equalsIgnoreCase(s.getStatus()))
-                    .sorted(Comparator.comparing(s -> s.getRound().getRoundId()))
-                    .map(s -> TeamHistoryResponse.SubmissionInfo.builder()
-                            .roundName(s.getRound().getName())
-                            .repoUrl(s.getRepoUrl())
-                            .demoUrl(s.getDemoUrl())
-                            .slideUrl(s.getSlideUrl())
-                            .submittedAt(s.getSubmittedAt())
-                            .status(s.getStatus())
-                            .build())
-                    .collect(Collectors.toList());
-
-            // Announced prize won by this team, if any.
-            TeamHistoryResponse.PrizeInfo prize = prizeRepository
-                    .findAllByEvent_EventIdAndAwardedAtIsNotNullOrderByRankPosition(event.getEventId()).stream()
-                    .filter(p -> p.getTeam() != null && p.getTeam().getTeamId().equals(team.getTeamId()))
-                    .findFirst()
-                    .map(p -> TeamHistoryResponse.PrizeInfo.builder()
-                            .name(p.getName())
-                            .rankPosition(p.getRankPosition())
-                            .awardedAt(p.getAwardedAt())
-                            .build())
-                    .orElse(null);
-
-            history.add(TeamHistoryResponse.builder()
-                    .eventId(event.getEventId())
-                    .eventName(event.getName())
-                    .season(event.getSeason())
-                    .year(event.getYear())
-                    .eventStatus(event.getStatus())
-                    .teamId(team.getTeamId())
-                    .teamName(team.getName())
-                    .trackName(entry.getTrack() != null ? entry.getTrack().getName() : null)
-                    .teamStatus(entry.getStatus())
-                    .myRole(membership.getMemberRole())
-                    .members(members)
-                    .rounds(rounds)
-                    .submissions(submissions)
-                    .prize(prize)
-                    .build());
-        }
-        return history;
     }
 
     // ── Participant: team management (leader unless noted) ────────────
@@ -279,7 +252,8 @@ public class TeamService {
     @Transactional
     public MyTeamResponse removeMember(Integer leaderUserId, Integer teamId, Integer targetUserId) {
         Team team = requireLeader(leaderUserId, teamId);
-        ensureTeamManageable(requireCurrentEntry(team));
+        TeamEventEntry entry = requireCurrentEntry(team);
+        ensureTeamManageable(entry);
         if (leaderUserId.equals(targetUserId)) {
             throw new BadRequestException("The leader cannot remove themselves. Transfer leadership or leave the team.");
         }
@@ -290,6 +264,7 @@ public class TeamService {
         if ("LEADER".equalsIgnoreCase(target.getMemberRole())) {
             throw new BadRequestException("Cannot remove the team leader.");
         }
+        participantHistorySnapshotService.snapshotDeparture(target, "REMOVED_BY_LEADER");
         teamMemberRepository.delete(target);
         return getMyTeam(leaderUserId);
     }
@@ -337,11 +312,16 @@ public class TeamService {
             if (members.size() > 1) {
                 throw new BadRequestException("Transfer leadership before leaving the team.");
             }
+            // Snapshot BEFORE deleting the entry — this is the one path where the
+            // TeamEventEntry itself disappears, not just the membership, so this
+            // is the only chance to ever record this season for this user.
+            participantHistorySnapshotService.snapshotDeparture(me, "LEFT_TEAM");
             teamMemberRepository.delete(me);
             deletePendingTeamRequests(team);
             teamEventEntryRepository.delete(entry);
             return;
         }
+        participantHistorySnapshotService.snapshotDeparture(me, "LEFT_TEAM");
         teamMemberRepository.delete(me);
     }
 
@@ -404,6 +384,7 @@ public class TeamService {
                 .orElseThrow(() -> new BadRequestException("That user is not a member of this team."));
         boolean wasLeader = "LEADER".equalsIgnoreCase(target.getMemberRole());
 
+        participantHistorySnapshotService.snapshotDeparture(target, "REMOVED_BY_COORDINATOR");
         teamMemberRepository.delete(target);
         deactivate(target.getUser());
 
@@ -510,10 +491,13 @@ public class TeamService {
 
     /**
      * Resolves the team's current {@link TeamEventEntry} — the most recently
-     * created one. A team is only ever mid-review under one live season at a
-     * time in practice (rejoin, which could create a second concurrent entry,
-     * isn't built yet), so this is unambiguous for every teamId-only
-     * coordinator/leader route.
+     * created one. A team is only ever active in one live season at a time
+     * (rejoin requires the prior entry's team to be dormant first, see
+     * TeamRejoinRequestService), so "most recent" is unambiguous for every
+     * teamId-only coordinator/leader route, live {@code /my} lookups, and the
+     * "which team can I submit to" endpoint. Full cross-season history reads
+     * (getMyResultHistory) intentionally do NOT use this — they walk every
+     * entry a member played, not just the newest one.
      */
     private TeamEventEntry requireCurrentEntry(Team team) {
         return teamEventEntryRepository.findTopByTeam_TeamIdOrderByIdDesc(team.getTeamId())
@@ -876,8 +860,12 @@ public class TeamService {
                         .studentId(m.getUser().getStudentId())
                         .role(m.getMemberRole())
                         .joinedAt(m.getJoinedAt())
+                        .isActive(m.getUser().getIsActive())
                         .build())
                 .collect(Collectors.toList());
+
+        boolean hasPendingRejoinRequest = teamRejoinRequestRepository
+                .findByTeam_TeamIdAndStatus(team.getTeamId(), "PENDING").isPresent();
 
         return MyTeamResponse.builder()
                 .teamId(team.getTeamId())
@@ -893,6 +881,7 @@ public class TeamService {
                 .round(resolveTeamRound(team, entry))
                 .myRole(membership.getMemberRole())
                 .members(memberInfos)
+                .hasPendingRejoinRequest(hasPendingRejoinRequest)
                 .build();
     }
 
@@ -985,81 +974,6 @@ public class TeamService {
                 .build();
     }
 
-    private TeamHistoryResponse mapToTeamHistoryResponse(TeamMember membership) {
-        Team team = membership.getTeam();
-        TeamEventEntry entry = requireCurrentEntry(team);
-        HackathonEvent event = entry.getEvent();
-
-        List<TeamHistoryResponse.MemberInfo> memberInfos = teamMemberRepository.findByTeam_TeamId(team.getTeamId()).stream()
-                .map(m -> TeamHistoryResponse.MemberInfo.builder()
-                        .fullName(m.getUser().getFullName())
-                        .role(m.getMemberRole())
-                        .studentId(m.getUser().getStudentId())
-                        .userType(m.getUser().getUserType())
-                        .university(m.getUser().getUniversity())
-                        .build())
-                .collect(Collectors.toList());
-
-        List<TeamHistoryResponse.RoundInfo> roundInfos = roundResultRepository
-                .findAllByTeamIdOrderByRoundOrder(team.getTeamId()).stream()
-                .map(result -> {
-                    Round round = result.getRound();
-                    Integer topNAdvance = round.getTopNAdvance();
-                    boolean advanced = topNAdvance != null && result.getRankPosition() != null
-                            && result.getRankPosition() <= topNAdvance;
-
-                    return TeamHistoryResponse.RoundInfo.builder()
-                            .roundName(round.getName())
-                            .isFinal(round.getIsFinal())
-                            .rankPosition(result.getRankPosition())
-                            .advanced(advanced)
-                            .totalScore(result.getTotalScore())
-                            .build();
-                })
-                .collect(Collectors.toList());
-
-        List<Submission> submissions = new ArrayList<>(submissionRepository.findAllByTeam_TeamId(team.getTeamId()));
-        submissions.sort((a, b) -> Integer.compare(
-                a.getRound().getOrderNumber() != null ? a.getRound().getOrderNumber() : 0,
-                b.getRound().getOrderNumber() != null ? b.getRound().getOrderNumber() : 0));
-
-        List<TeamHistoryResponse.SubmissionInfo> submissionInfos = submissions.stream()
-                .map(submission -> TeamHistoryResponse.SubmissionInfo.builder()
-                        .roundName(submission.getRound().getName())
-                        .repoUrl(submission.getRepoUrl())
-                        .demoUrl(submission.getDemoUrl())
-                        .slideUrl(submission.getSlideUrl())
-                        .submittedAt(submission.getSubmittedAt())
-                        .status(submission.getStatus())
-                        .build())
-                .collect(Collectors.toList());
-
-        Prize prize = prizeRepository.findFirstByTeam_TeamIdAndAwardedAtIsNotNullOrderByRankPositionAsc(team.getTeamId())
-                .orElse(null);
-        TeamHistoryResponse.PrizeInfo prizeInfo = prize == null ? null : TeamHistoryResponse.PrizeInfo.builder()
-                .name(prize.getName())
-                .rankPosition(prize.getRankPosition())
-                .awardedAt(prize.getAwardedAt())
-                .build();
-
-        return TeamHistoryResponse.builder()
-                .eventId(event.getEventId())
-                .eventName(event.getName())
-                .season(event.getSeason())
-                .year(event.getYear())
-                .eventStatus(event.getStatus())
-                .teamId(team.getTeamId())
-                .teamName(team.getName())
-                .trackName(entry.getTrack() != null ? entry.getTrack().getName() : null)
-                .teamStatus(entry.getStatus())
-                .myRole(membership.getMemberRole())
-                .members(memberInfos)
-                .rounds(roundInfos)
-                .submissions(submissionInfos)
-                .prize(prizeInfo)
-                .build();
-    }
-
     private void notifyTeamMembers(Team team, String title, String content, String type) {
         teamMemberRepository.findByTeam_TeamId(team.getTeamId())
                 .forEach(member -> notificationService.createNotification(
@@ -1082,6 +996,7 @@ public class TeamService {
                         .studentId(m.getUser().getStudentId())
                         .userType(m.getUser().getUserType())
                         .university(m.getUser().getUniversity())
+                        .isActive(m.getUser().getIsActive())
                         .build())
                 .collect(Collectors.toList());
 
