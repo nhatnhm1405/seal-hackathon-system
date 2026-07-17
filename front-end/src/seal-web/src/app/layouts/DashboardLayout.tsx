@@ -34,7 +34,7 @@ interface NavItem {
   badge?: number;
 }
 
-function buildNav(role: string, isLeader: boolean, teamId: number | null, pendingCount: number, pendingTeamsCount: number): NavItem[] {
+function buildNav(role: string, isLeader: boolean, teamId: number | null, pendingCount: number, pendingTeamsCount: number, teamDormant: boolean): NavItem[] {
   if (role === "PARTICIPANT") {
     if (teamId === null) {
       const base: NavItem[] = [{ path: "/dashboard", label: "Dashboard" }, { path: "/leaderboard", label: "Leaderboard" }, { path: "/history", label: "History" }, { path: "/profile", label: "Profile" }];
@@ -45,7 +45,9 @@ function buildNav(role: string, isLeader: boolean, teamId: number | null, pendin
       return [
         { path: "/dashboard", label: "Dashboard" },
         { path: "/team/view", label: "My Team" },
-        { path: "/team/submit", label: "Submit Project" },
+        // A dormant team (past season, no live TeamEventEntry) has nothing to
+        // submit — hide the nav item rather than show a locked form.
+        ...(teamDormant ? [] : [{ path: "/team/submit", label: "Submit Project" }]),
         { path: "/leaderboard", label: "Leaderboard"    },
         { path: "/history",     label: "History"        },
         { path: "/profile",     label: "Profile"        },
@@ -612,7 +614,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
 
   if (!currentUser) return null;
 
-  const nav = buildNav(currentUser.role, currentUser.is_leader, currentUser.team_id, pendingCount, pendingTeamsCount);
+  const nav = buildNav(currentUser.role, currentUser.is_leader, currentUser.team_id, pendingCount, pendingTeamsCount, currentUser.team_dormant);
   const sidebarWidth = collapsed ? 0 : 248;
   const pageTitle = getPageTitle(location.pathname);
 

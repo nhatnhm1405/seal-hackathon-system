@@ -69,9 +69,31 @@ export function ParticipantDashboard() {
         );
     }
 
-    // Participant WITH a team → member / leader console.
+    // Participant WITH a team → member / leader console. A dormant team (past
+    // season, no live TeamEventEntry) still resolves team_id !== null, so the
+    // reactivate-account flow must stay reachable here too, not just below.
     if (currentUser.team_id !== null) {
-        return <ExistingTeamDashboard />;
+        return (
+            <div style={{ position: "relative" }}>
+                <ExistingTeamDashboard
+                    inactive={inactive}
+                    requestingActive={requestingActive}
+                    activeRequested={activeRequested}
+                    onRequestActive={() => setConfirmActive(true)}
+                />
+
+                {confirmActive && (
+                    <ConfirmDialog
+                        title="Request to compete this season?"
+                        message="You finished your last event, so your account is currently inactive. Send a request for a coordinator to add you to the current competition."
+                        confirmLabel="SEND REQUEST"
+                        working={requestingActive}
+                        onConfirm={submitRequestActive}
+                        onClose={() => { if (!requestingActive) setConfirmActive(false); }}
+                    />
+                )}
+            </div>
+        );
     }
 
     // Create-team form.

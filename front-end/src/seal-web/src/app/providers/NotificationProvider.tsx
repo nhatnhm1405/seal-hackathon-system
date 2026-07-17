@@ -323,7 +323,7 @@ function BannerContainer({
 
 // ── Provider ────────────────────────────────────────────────────────
 export function NotificationProvider({ children }: { children: ReactNode }) {
-  const { currentUser, patchCurrentUser, isLoading } = useAuth();
+  const { currentUser, patchCurrentUser, refreshTeamContext, isLoading } = useAuth();
   const [notifications, setNotifications] = useState<UINotification[]>([]);
   // UI action failures are not backend domain notifications, but users still
   // need to revisit them from the bell during the current signed-in session.
@@ -407,7 +407,11 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
           seenIdsRef.current.add(n.notification_id);
           if (n.is_read) return;
           if (n.rawType === "PARTICIPATION_ACCESS_APPROVED") {
-            patchCurrentUser({ is_active: true, team_id: null, is_leader: false });
+            // Re-resolve team context instead of hardcoding "no team" — a
+            // reactivated leader may already have a dormant team waiting
+            // (rejoin), which a blind team_id:null reset would hide.
+            patchCurrentUser({ is_active: true });
+            refreshTeamContext();
           }
           if (n.from) {
             freshAnnouncements.push(n);
