@@ -7,8 +7,8 @@ import {
 } from "@/shared/components/PixelComponents";
 import { PixelMenu, type PixelMenuEntry } from "@/shared/components/PixelMenu";
 import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
-import { teamsApi, invitesApi, joinRequestsApi, supportApi, ApiError, apiErrorMessage, MyTeam, MyTeamMember, UserItem, JoinRequest, MentorContact, SupportRequest, SupportCategory } from "@/shared/apiClient";
-import { isTeamEditable, MIN_TEAM_SIZE, MAX_TEAM_SIZE } from "@/shared/teamPhase";
+import { teamsApi, invitesApi, joinRequestsApi, supportApi, teamRejoinRequestsApi, ApiError, apiErrorMessage, MyTeam, MyTeamMember, UserItem, JoinRequest, MentorContact, SupportRequest, SupportCategory, ActiveEventWithTracks } from "@/shared/apiClient";
+import { isTeamEditable, teamLockReason, MIN_TEAM_SIZE, MAX_TEAM_SIZE } from "@/shared/teamPhase";
 
 // Support-request categories shown to the team leader.
 const SUPPORT_CATEGORIES: { value: SupportCategory; label: string }[] = [
@@ -92,6 +92,15 @@ export function TeamViewPage() {
   const [busyReq, setBusyReq] = useState<number | null>(null);
   const [confirmLeave, setConfirmLeave] = useState(false);
 
+  // Rejoin: a dormant team's leader asking a coordinator to re-attach the
+  // team to a new season (see TeamRejoinRequest on the backend).
+  const [activeEvents, setActiveEvents] = useState<ActiveEventWithTracks[]>([]);
+  const [rejoinEventId, setRejoinEventId] = useState<number | null>(null);
+  const [confirmRejoin, setConfirmRejoin] = useState(false);
+  const [requestingRejoin, setRequestingRejoin] = useState(false);
+  const [rejoinRequested, setRejoinRequested] = useState(false);
+  const [rejoinError, setRejoinError] = useState<string | null>(null);
+
   const loadJoinRequests = useCallback((teamId: number) => {
     joinRequestsApi.getForTeam(teamId).then(r => setJoinRequests(r.data ?? [])).catch(() => setJoinRequests([]));
   }, []);
@@ -135,6 +144,34 @@ export function TeamViewPage() {
   const canEditTeam = isLeader && editable;
   const canManageMembers = canEditTeam;
   const canLeaveTeam = editable;
+  // Dormant = no live season entry — the same condition the backend gates a
+  // rejoin request on (Team.isActive goes false either way).
+  const isDormant = team?.status === 'DISQUALIFIED' || team?.eventStatus === 'COMPLETED';
+  const lockReason = teamLockReason(team?.eventStatus);
+
+  useEffect(() => {
+    if (isLeader && isDormant && !team?.hasPendingRejoinRequest) {
+      teamsApi.getActiveEvents().then(r => setActiveEvents(r.data ?? [])).catch(() => setActiveEvents([]));
+    }
+  }, [isLeader, isDormant, team?.hasPendingRejoinRequest]);
+
+  async function requestRejoin() {
+    if (!team || rejoinEventId == null) return;
+    setRequestingRejoin(true); setRejoinError(null);
+    try {
+      await teamRejoinRequestsApi.request(team.teamId, rejoinEventId);
+      setRejoinRequested(true);
+      setTeam(prev => (prev ? { ...prev, hasPendingRejoinRequest: true } : prev));
+      addToast({ type: "success", title: "Rejoin request sent", message: "The coordinator will review your team's request to rejoin." });
+    } catch (err) {
+      const message = apiErrorMessage(err, "Failed to send rejoin request.");
+      setRejoinError(message);
+      addToast({ type: "warning", title: "Request failed", message });
+    } finally {
+      setRequestingRejoin(false);
+      setConfirmRejoin(false);
+    }
+  }
 
   if (loading) {
     return <div style={{ padding: 24 }}><PixelCard style={{ padding: 32, textAlign: "center" }}>
@@ -379,6 +416,46 @@ export function TeamViewPage() {
         </div>
       )}
 
+      {lockReason && (
+        <div style={{ background: "rgba(107,114,128,0.08)", border: `1px solid ${C.border}`, color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, padding: "12px 16px" }}>
+          {lockReason}
+        </div>
+      )}
+
+      {isDormant && isLeader && (
+        <div style={{ background: "rgba(6,182,212,0.08)", border: "1px solid rgba(6,182,212,0.35)", color: C.cyan, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
+          {team.hasPendingRejoinRequest ? (
+            <span>Your request to rejoin is awaiting coordinator review.</span>
+          ) : rejoinRequested ? (
+            <span>Your request to rejoin has been sent.</span>
+          ) : activeEvents.length === 0 ? (
+            <span style={{ color: C.textMuted }}>Your team can rejoin once a new event opens registration.</span>
+          ) : (
+            <>
+              <span>Your team&apos;s season is over, but its identity and roster are still here. Request to bring it back for a new season.</span>
+              <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                {activeEvents.length > 1 && (
+                  <select
+                    value={rejoinEventId ?? activeEvents[0]?.eventId ?? ""}
+                    onChange={e => setRejoinEventId(Number(e.target.value))}
+                    style={{ background: C.surface2, border: `1px solid ${C.border}`, color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, padding: "8px 10px", borderRadius: 0 }}
+                  >
+                    {activeEvents.map(e => <option key={e.eventId} value={e.eventId}>{e.name}</option>)}
+                  </select>
+                )}
+                <PixelButton
+                  size="sm"
+                  variant="cyber"
+                  onClick={() => { setRejoinEventId(rejoinEventId ?? activeEvents[0]?.eventId ?? null); setConfirmRejoin(true); }}
+                >
+                  {activeEvents.length === 1 ? `REQUEST TO REJOIN ${activeEvents[0].name.toUpperCase()}` : "REQUEST TO REJOIN"}
+                </PixelButton>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
       {canEditTeam && memberRows.length < MIN_TEAM_SIZE && (
         <div style={{ background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.4)", color: "#eab308", fontFamily: "'JetBrains Mono', monospace", fontSize: 12, padding: "12px 16px" }}>
           Your team has {memberRows.length}/{MIN_TEAM_SIZE} minimum members. Teams with fewer than {MIN_TEAM_SIZE} members may be merged by a coordinator.
@@ -497,7 +574,10 @@ export function TeamViewPage() {
                       {isSelf && <span style={{ color: C.textMuted, fontSize: 10, marginLeft: 6 }}>(you)</span>}
                     </td>
                     <td style={{ padding: "11px 14px" }}>
-                      <PixelBadge color={m.role === 'LEADER' ? 'cyan' : 'blue'}>{m.role === 'LEADER' ? "Leader" : "Member"}</PixelBadge>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                        <PixelBadge color={m.role === 'LEADER' ? 'cyan' : 'blue'}>{m.role === 'LEADER' ? "Leader" : "Member"}</PixelBadge>
+                        {m.isActive === false && <PixelBadge color="red">INACTIVE</PixelBadge>}
+                      </div>
                     </td>
                     {canManageMembers && (
                       <td style={{ padding: "11px 14px", position: "relative" }} onClick={(event) => event.stopPropagation()}>
@@ -793,6 +873,27 @@ export function TeamViewPage() {
             </div>
           </PixelCard>
         </div>
+      )}
+
+      {confirmRejoin && rejoinEventId != null && (
+        <ConfirmDialog
+          title="Request to rejoin this season?"
+          message={
+            <>
+              Ask the coordinator to bring <strong style={{ color: C.text }}>{team.name}</strong> back for{" "}
+              <strong style={{ color: C.text }}>
+                {activeEvents.find(e => e.eventId === rejoinEventId)?.name ?? "this event"}
+              </strong>.
+            </>
+          }
+          warning="Each roster member still needs their own account reactivated separately before they can act on the new season."
+          confirmLabel="REQUEST REJOIN"
+          variant="cyber"
+          working={requestingRejoin}
+          error={rejoinError}
+          onConfirm={requestRejoin}
+          onClose={() => { if (!requestingRejoin) { setConfirmRejoin(false); setRejoinError(null); } }}
+        />
       )}
 
       {inviteConfirmTarget && (

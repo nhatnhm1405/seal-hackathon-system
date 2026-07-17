@@ -4,11 +4,12 @@ import {
 } from "@/shared/components/PixelComponents";
 import { PixelMenu } from "@/shared/components/PixelMenu";
 import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
-import { accountApprovalsApi, participationRequestsApi, ApiError, apiErrorMessage, PendingAccount, UserItem } from "@/shared/apiClient";
+import { accountApprovalsApi, participationRequestsApi, teamRejoinRequestsApi, ApiError, apiErrorMessage, PendingAccount, UserItem } from "@/shared/apiClient";
 import { usePendingAccounts } from "@/app/providers/PendingAccountsProvider";
 import { universityLabel } from "@/shared/userDisplay";
 import { useNotifications } from "@/app/providers/NotificationProvider";
 import { ParticipationRequestsPanel } from "./CoordParticipationRequestsPage";
+import { TeamRejoinRequestsPanel } from "./TeamRejoinRequestsPanel";
 
 // After the platform split, full account management (create/edit, global role
 // grants) still belongs to the System Admin under /api/admin. The coordinator
@@ -177,7 +178,7 @@ function ReadOnlyAccountsTable({ rows, loading, error, countLabel, emptyLabel, s
   );
 }
 
-type AccountsTab = "approvals" | "participation" | "participants" | "staff";
+type AccountsTab = "approvals" | "participation" | "rejoin" | "participants" | "staff";
 
 export function CoordAccountsPage() {
   const [tab, setTab] = useState<AccountsTab>("approvals");
@@ -199,6 +200,8 @@ export function CoordAccountsPage() {
   const [bulkWorking, setBulkWorking] = useState(false);
   // Badge on the "Resolve Request" tab, visible without switching to it.
   const [participationPendingCount, setParticipationPendingCount] = useState(0);
+  // Badge on the "Team Rejoin" tab, visible without switching to it.
+  const [rejoinPendingCount, setRejoinPendingCount] = useState(0);
 
   const { setPendingCount } = usePendingAccounts();
   const { addToast } = useNotifications();
@@ -221,6 +224,12 @@ export function CoordAccountsPage() {
   useEffect(() => {
     participationRequestsApi.getPending()
       .then(res => setParticipationPendingCount((res.data ?? []).length))
+      .catch(() => { /* non-blocking — the tab's own panel surfaces load errors */ });
+  }, []);
+
+  useEffect(() => {
+    teamRejoinRequestsApi.getPending()
+      .then(res => setRejoinPendingCount((res.data ?? []).length))
       .catch(() => { /* non-blocking — the tab's own panel surfaces load errors */ });
   }, []);
 
@@ -351,6 +360,7 @@ export function CoordAccountsPage() {
         tabs={[
           { id: "approvals", label: "Approvals", badge: pendingTotal },
           { id: "participation", label: "Resolve Request", badge: participationPendingCount },
+          { id: "rejoin", label: "Team Rejoin", badge: rejoinPendingCount },
           { id: "participants", label: "Participant" },
           { id: "staff", label: "Judge & Mentor" },
         ]}
@@ -360,6 +370,8 @@ export function CoordAccountsPage() {
 
       {tab === "participation" ? (
         <ParticipationRequestsPanel />
+      ) : tab === "rejoin" ? (
+        <TeamRejoinRequestsPanel />
       ) : tab === "participants" ? (
         <ReadOnlyAccountsTable
           rows={participants}

@@ -30,6 +30,7 @@ interface ApiTeamMember {
   studentId?: string | null;
   userType?: string | null;
   university?: string | null;
+  isActive?: boolean | null;
 }
 
 interface ApiTeam {
@@ -55,6 +56,7 @@ interface MemberRow {
   studentId: string | null;
   userType: string | null;
   university: string | null;
+  isActive: boolean | null;
 }
 
 interface TrackRow {
@@ -107,6 +109,7 @@ function normalizeMember(item: ApiTeamMember): MemberRow {
     studentId: item.studentId ?? null,
     userType: item.userType ?? null,
     university: item.university ?? null,
+    isActive: item.isActive ?? null,
   };
 }
 
