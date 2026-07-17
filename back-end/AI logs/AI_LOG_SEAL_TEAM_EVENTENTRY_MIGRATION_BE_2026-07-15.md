@@ -14,7 +14,11 @@
 > Backend** — 0 file frontend bị đụng (đã tự kiểm bằng `git status`), vì
 > thiết kế cố tình giữ nguyên toàn bộ API contract hiện có. **Đã reset DB dev
 > + smoke test end-to-end qua API thật + query DB thật** (mục 10) — không
-> còn là "chưa làm".
+> còn là "chưa làm". Sau đó, **tính năng Rejoin** (leader request mở lại team
+> đã dormant → coordinator duyệt → 1 `TeamEventEntry` mới) — thứ duy nhất
+> migration cố tình để ngỏ — cũng đã được thiết kế + code (BE+FE) + test
+> (380 test BE, tsc sạch FE) + smoke-test cả API/DB thật lẫn UI thật qua
+> Playwright, trong **cùng phiên làm việc này** (xem mục 12–13).
 
 ---
 
@@ -271,9 +275,9 @@ frontend nào**, khớp đúng thiết kế "0 thay đổi API/FE" ở mục 2.
       (mục 2, hàng cuối bảng) — chưa fix, chỉ để comment cảnh báo trong
       code, vì tính năng rejoin (thứ duy nhất kích hoạt được lỗ hổng này)
       chưa tồn tại.
-- [ ] Rejoin (leader request → coordinator approve → 1 `TeamEventEntry` mới
-      cho `Team` đã có sẵn) — vẫn là tính năng riêng, chưa xây, đúng như
-      memory đã nói từ đầu.
+- [x] ~~Rejoin (leader request → coordinator approve → 1 `TeamEventEntry` mới
+      cho `Team` đã có sẵn)~~ — **đã thiết kế + code + test (BE lẫn FE) trong
+      cùng phiên**, xem mục 12.
 - [ ] Chưa smoke-test nhánh `submit`/`MentorSupportRequest`/`Prize` qua API
       thật (chỉ qua unit test) — không nằm trong golden path đã chọn ở mục
       10 vì cần cấu hình `RoundTimer` phức tạp hơn để mở cửa sổ nộp bài;
@@ -446,4 +450,223 @@ test/.../service/SubmissionServiceTest.java
 test/.../service/TrackServiceTest.java
 ```
 
-**Frontend:** không có file nào bị đụng.
+**Frontend:** không có file nào bị đụng (nhánh migration nói riêng — mục 11
+chỉ liệt kê phạm vi migration; tính năng rejoin ở mục 12 có đụng FE).
+
+---
+
+## 12. Tính năng Rejoin (leader request → coordinator approve) — thiết kế + code trong cùng phiên
+
+### 12.1. Bối cảnh phát sinh
+
+Sau khi migration xong, user tự tay test thử 1 luồng e2e thật trên UI:
+hoàn thành 1 event cũ → tạo + mở event mới → đăng nhập lại bằng leader của
+1 team ở event cũ. Phát hiện 2 lỗ hổng UX/data nghiêm trọng, đúng như đã
+cảnh báo trước ("chưa xây") ở mục 7/9 phiên trước:
+
+1. **"My Team" biến mất hoàn toàn (404)** khi season duy nhất của team đã
+   `COMPLETED` — dù `Team` (identity) và `TeamMember` (roster) vẫn còn
+   nguyên trong DB. Root cause: `TeamService.getMyTeam` chỉ chấp nhận
+   membership có entry đang `OPEN/SETUP/IN_PROGRESS`.
+2. **Không có đường quay lại**: dù user tự kích hoạt lại tài khoản qua flow
+   `ParticipationAccessRequest` có sẵn (vốn chỉ đụng `User.isActive`, không
+   biết gì về `Team`/`TeamEventEntry`), họ vẫn rơi vào trạng thái "participant
+   không có team" — có thể vô tình tạo ra 1 team mới hoàn toàn trùng lặp,
+   bỏ rơi team cũ (data-integrity risk phát hiện thêm khi truy vết code, không
+   phải chỉ suy đoán).
+
+User mô tả rõ 4 yêu cầu qua 1 đoạn test-case tự viết (dùng nguyên văn làm
+spec): (a) "My Team" vẫn phải hiện team cũ ở chế độ read-only kể cả khi
+chưa có season nào mở, chỉ chặn action tạo/join mới; (b) cần 1 luồng
+"request mở lại" để leader cũ quay về đúng team cũ, không phải teamless;
+(c) roster phải hiện rõ thành viên nào còn "inactive" (cần tự kích hoạt lại
+riêng); (d) chỉ LEADER được quyền request rejoin, MEMBER thì không.
+
+Được hỏi qua `AskUserQuestion`, user chọn **vào Plan Mode thiết kế + code
+ngay**, không chỉ dừng ở việc ghi nhận yêu cầu.
+
+### 12.2. Thiết kế (chốt qua Plan Mode, đã ExitPlanMode được duyệt)
+
+Mirror đúng pattern `ParticipationAccessRequest` đã có sẵn trong codebase
+(đọc nguyên file làm mẫu) thay vì nghĩ ra cơ chế mới:
+
+- **Entity mới** `TeamRejoinRequest`: `team` (ManyToOne), `eventId` (Integer
+  thường — mùa *đích*, giống pattern `TeamInvite.eventId`), `requestedBy`
+  (ManyToOne User — chính là leader), `status` (String, default `PENDING`),
+  `requestedAt`/`resolvedAt`/`resolvedBy`. Idempotent — chỉ 1 row `PENDING`
+  cho mỗi team tại 1 thời điểm.
+- **Service** `TeamRejoinRequestService`:
+  - `requestRejoin` — validate leader (403 nếu không phải), validate
+    `team.isActive == false` ("đã active rồi" → 400, vì cờ này chính là
+    "đang thi mùa nào đó"), validate event đích đang `OPEN`, validate chưa
+    có `TeamEventEntry` cho cặp (team, event) đó, tái dùng row `PENDING` cũ
+    nếu có (idempotent). **Không** gửi notification lúc tạo request (giống
+    hệt tiền lệ `approveTeam`/`rejectTeam` — chỉ notify lúc *resolve*, không
+    notify lúc *tạo*, vì coordinator đã tự thấy hàng đợi qua dashboard riêng).
+  - `approve` — tạo `TeamEventEntry` mới (status `APPROVED` ngay — vì bước
+    duyệt request rejoin CHÍNH LÀ bước review của coordinator, không cần
+    duyệt lại lần 2), set `team.isActive = true`, notify **toàn bộ roster**,
+    ghi `AuditLogService` (hành động nhắm vào Team, không phải User → dùng
+    đúng service theo tiền lệ đã chốt ở memory `security-role-tokens`/pattern
+    log hiện có).
+  - `reject` — resolve `REJECTED`, chỉ notify người request, **không đụng**
+    `team.isActive`.
+  - Cố tình **không** đụng tới `User.isActive` của bất kỳ ai — giữ ranh giới
+    rõ ràng với `ParticipationAccessRequestService` (2 khái niệm độc lập:
+    "tài khoản tôi có được hoạt động mùa này không" vs "team tôi có đang thi
+    mùa nào không"), đúng tinh thần trong chính test-case của user (họ tự
+    kích hoạt tài khoản **trước**, rồi mới mong được nối lại team).
+- **`TeamService.getMyTeam` — 2 tầng resolve**: tầng 1 giữ nguyên (bất kỳ
+  membership nào có entry `OPEN/SETUP/IN_PROGRESS`); tầng 2 (mới, chỉ chạy
+  khi tầng 1 rỗng) — lấy `TeamMember` **mới nhất** của user, resolve team
+  qua entry mới nhất bất kể status → trả về dù event đã `COMPLETED`. Không
+  đổi chữ ký bất kỳ method nào khác; định nghĩa "entry hiện tại = mới nhất"
+  (dùng xuyên suốt từ migration) vẫn đúng sau khi có rejoin, vì rejoin chỉ
+  được phép filed khi `isActive == false`, tức tại một thời điểm bất kỳ tối
+  đa 1 entry đang sống → entry mới tạo do rejoin luôn là "mới nhất", không
+  bao giờ ambiguous.
+- **DTO thêm** (additive, không breaking): `MyTeamResponse.hasPendingRejoinRequest`;
+  `isActive` trên từng `TeamMemberInfo`/`MemberInfo` (lấy thẳng từ
+  `User.getIsActive()`, giống cách `studentId`/`university` đã làm).
+- **Lỗ hổng biết trước, cố tình KHÔNG fix trong lượt này**: `getMyHistory`/
+  `getMyResultHistory` vốn 1-dòng-mỗi-`TeamMember` (không phải 1-dòng-mỗi-
+  entry), luôn hiển thị entry **mới nhất** của team — lỗ hổng lý thuyết này
+  đã được cảnh báo từ mục 2/7 phiên trước ("chưa thể xảy ra vì rejoin chưa
+  tồn tại"). Giờ rejoin đã tồn tại, lỗ hổng **có thể xảy ra thật**: sau khi
+  rejoin, mùa `COMPLETED` cũ của 1 member sẽ **biến mất khỏi trang
+  History/Certificates** của họ (chỉ còn thấy mùa mới nhất). Ghi nhận rõ ràng
+  ở đây, **không fix** — sửa đúng sẽ cần đổi hẳn cấu trúc history sang
+  1-dòng-mỗi-entry, phạm vi lớn hơn nhiều so với tính năng rejoin.
+
+### 12.3. Code
+
+Backend: entity + repo + 2 DTO (request/response) + service + controller
+(`POST /api/teams/{teamId}/rejoin-requests` PARTICIPANT,
+`GET/POST /api/coordinator/team-rejoin-requests...` EVENT_COORDINATOR) +
+bảng `TeamRejoinRequest` trong `seal_schema.sql` + 13 test mới
+(`TeamRejoinRequestServiceTest`) + cập nhật `TeamServiceTest` (thêm mock
+`teamRejoinRequestRepository` — bắt buộc vì MỌI method trả `MyTeamResponse`
+giờ đều gọi repo này, nếu không stub sẽ NPE toàn bộ; cộng 1 test mới
+`getMyTeam_shouldReturnDormantTeam_whenNoLiveEntryButHistoricalMembershipExists`).
+
+Frontend: `apiClient.ts` (+`TeamRejoinRequest` type, +`teamRejoinRequestsApi`,
++`isActive`/`hasPendingRejoinRequest` trên các type có sẵn); `TeamViewPage.tsx`
+(banner dormant + nút "REQUEST TO REJOIN <tên event>" khi có season đang mở,
+`ConfirmDialog` xác nhận, badge INACTIVE trên từng thành viên); shared
+`TeamDetailModal.tsx` (badge INACTIVE, dùng chung Coordinator/Mentor/Judge);
+`CoordTeamsPage.tsx` (field `isActive` truyền qua); tab mới "Team Rejoin"
+trong `CoordAccountsPage.tsx` (component mới `TeamRejoinRequestsPanel.tsx`,
+mirror y hệt cấu trúc `ParticipationRequestsPanel` đã có sẵn — bảng, ô tìm
+kiếm, nút Reject/Approve, badge đếm pending).
+
+`npx tsc -p tsconfig.app.json --noEmit` — chỉ còn đúng 1 lỗi có sẵn từ trước,
+không liên quan (`CoordJudgesPage.tsx`).
+
+### 12.4. Kết quả kiểm thử
+
+**Backend — `./mvnw -o test`**: `Tests run: 380, Failures: 0, Errors: 0 —
+BUILD SUCCESS` (13 test mới của `TeamRejoinRequestServiceTest` nằm trong
+số đó, cộng 1 test dormant-fallback mới trong `TeamServiceTest`).
+
+**Live smoke test qua API thật + query DB thật** (dùng lại đúng golden path
+resource từ mục 10 — reset DB bằng `run-demo.ps1 -Scenario S1`, dừng process
+`java.exe` cũ trước khi chạy lại để chắc chắn code mới (entity/table
+`TeamRejoinRequest`) được nạp, không dựa vào devtools auto-reload cho một
+entity JPA mới):
+
+| Bước | Gọi | Kết quả |
+|---|---|---|
+| Chuẩn bị: duyệt đội PENDING, OPEN→SETUP→(draw-tracks)→IN_PROGRESS→complete event 1 | các API đã dùng ở mục 10 | Event 1 → `COMPLETED`; mọi team có entry ở event 1 (kể cả Barcelona, teamId=2) → `is_active=false` tự động (mirror hành vi đã verify ở mục 10) |
+| Tạo + mở event 2 ("SEAL Demo Fall 2026") | `POST /api/events` (admin) rồi `PUT /api/events/2 {status:OPEN}` | 200 — event 2 `OPEN`, event 1 vẫn `COMPLETED` |
+| Login leader Barcelona cũ (p4, `isActive=false`) | `POST /api/auth/login` | 200 — **login vẫn thành công dù isActive=false** (xác nhận lại đúng ngữ nghĩa memory `participant-lifecycle-inactive-semantics`: isActive = "đang thi mùa nào", không phải "được phép đăng nhập") |
+| **Verify bug cũ đã hết** | `GET /api/teams/my` (leader p4) | 200, trả về **team Barcelona dormant** (`eventStatus:"COMPLETED"`, `myRole:"LEADER"`, roster đủ 3 người, `isActive:false` từng người) — **không còn 404** như trước khi có tính năng này |
+| Thử request rejoin **trước khi** tự kích hoạt tài khoản | `POST /api/teams/2/rejoin-requests {eventId:2}` | **403 "Your account is inactive for the current season..."** — đúng như thiết kế: filter chung của hệ thống chặn action ở tầng tài khoản trước khi vào tới logic leader-check |
+| Leader tự request kích hoạt + coordinator duyệt | `POST /api/participation-requests` rồi `POST /api/coordinator/participation-requests/1/approve` | 200 cả 2 — `User.isActive` của p4 → `true` |
+| **`GET /api/teams/my` sau khi tự kích hoạt (chưa rejoin)** | | Vẫn trả về đúng team Barcelona dormant (không bị rơi về teamless) — xác nhận yêu cầu (b) của user: kích hoạt tài khoản và rejoin team là 2 việc tách biệt, không cái nào tự kéo theo cái kia |
+| Request rejoin (giờ mới hợp lệ) | `POST /api/teams/2/rejoin-requests {eventId:2}` | 201, `status:PENDING` |
+| **Member (không phải leader) thử request rejoin** | login p5 (đã tự kích hoạt tài khoản, KHÔNG phải leader) → `POST /api/teams/2/rejoin-requests` | **400 "Only the team leader can request to rejoin."** — xác nhận đúng yêu cầu (d) |
+| Coordinator xem hàng đợi + duyệt | `GET /api/coordinator/team-rejoin-requests` → `POST .../1/approve` | 200 — request `APPROVED` |
+| **Verify sau approve** | `GET /api/teams/my` (leader p4) | `eventId:2`, `eventStatus:"OPEN"`, roster: p4+p5 `isActive:true` (đã tự kích hoạt), p6 (Vinícius, chưa kích hoạt) vẫn `isActive:false` — xác nhận yêu cầu (c) |
+| **Verify DB thật** | Query `Team.is_active` + `TeamEventEntry WHERE team_id=2` | `is_active=1`; **2 dòng** `TeamEventEntry` cho team 2: id=2 (event 1, entry gốc, giữ nguyên) + id=16 (event 2, `APPROVED`, entry mới do rejoin tạo) — xác nhận Team identity không bị nhân bản, chỉ thêm entry mới đúng thiết kế |
+
+**Frontend — Playwright (`chromium`, `front-end/src/seal-web:verify` skill,
+driver script tự viết theo mẫu skill)**, lặp lại đúng golden path trên qua
+UI thật (team Arsenal/leader p1, để có 1 lượt "sạch" chưa qua bước nào bằng
+API):
+
+1. Login p1 (leader Arsenal, `isActive=false`) → dashboard vẫn hiện được
+   "Team Leader Console" bình thường (không bị chặn ở tầng dashboard).
+2. Vào `/team/view` → đúng như thiết kế: banner "This event has ended — your
+   team is locked." + banner dormant "Your team's season is over, but its
+   identity and roster are still here..." + nút "REQUEST TO REJOIN SEAL DEMO
+   FALL 2026" + bảng thành viên hiện badge `INACTIVE` cho cả 3 người.
+3. Bấm nút → `ConfirmDialog` hiện đúng cảnh báo phụ đã viết thêm lúc code
+   ("Each roster member still needs their own account reactivated separately
+   before they can act on the new season.") → bấm xác nhận **trong khi vẫn
+   chưa tự kích hoạt tài khoản** → toast lỗi "REQUEST FAILED — Your account
+   is inactive for the current season..." hiện đúng, UI không crash, không
+   rơi vào trạng thái treo.
+4. Coordinator duyệt participation-request của p1 qua tab "RESOLVE REQUEST"
+   có sẵn (UI thật, không qua API) → p1 quay lại `/team/view`, bấm lại nút
+   rejoin → xác nhận → toast "REJOIN REQUEST SENT" + banner đổi thành "Your
+   request to rejoin is awaiting coordinator review." + badge `INACTIVE` của
+   riêng p1 biến mất (2 đồng đội còn lại vẫn còn).
+5. Coordinator vào tab mới "TEAM REJOIN" trong Accounts page → thấy đúng 1
+   dòng "Arsenal / Lionel Messi / SEAL DEMO FALL 2026" → bấm APPROVE → toast
+   "TEAM REJOINED — Arsenal can now compete in SEAL Demo Fall 2026." → danh
+   sách về lại rỗng "No pending team rejoin requests".
+6. p1 vào lại `/team/view` → **CURRENT EVENT đổi thành "SEAL Demo Fall 2026
+   OPEN"**, toàn bộ control chỉnh sửa quay lại bình thường (nút "EDIT NAME",
+   "INVITE MEMBER", "LEAVE TEAM", cột Actions trên bảng thành viên) — team đã
+   thật sự "sống lại" cho mùa mới; 2 đồng đội chưa tự kích hoạt vẫn hiện đúng
+   badge `INACTIVE`.
+
+Không phát hiện lỗi console mới nào liên quan tới tính năng (chỉ còn vài
+401/404 nền vô hại xảy ra cả trước khi có tính năng này, giống các warning đã
+ghi nhận ở mục 6).
+
+**Kết luận:** cả 4 yêu cầu user nêu trong test-case gốc đều được xác nhận
+đúng bằng cả API+DB thật lẫn UI thật qua trình duyệt, không chỉ qua unit
+test/mock.
+
+---
+
+## 13. Danh sách file — tính năng Rejoin
+
+**Backend — mới (6 file):**
+```
+entity/TeamRejoinRequest.java
+repository/TeamRejoinRequestRepository.java
+dto/request/CreateTeamRejoinRequestRequest.java
+dto/response/TeamRejoinRequestResponse.java
+service/TeamRejoinRequestService.java
+controller/TeamRejoinRequestController.java
+```
+
+**Backend — sửa (4 file):**
+```
+service/TeamService.java              (getMyTeam — 2 tầng resolve, dormant fallback)
+dto/response/MyTeamResponse.java      (+hasPendingRejoinRequest, member +isActive)
+dto/response/TeamDetailResponse.java  (member +isActive)
+database scripts/seal_schema.sql      (+bảng TeamRejoinRequest)
+```
+
+**Backend — test (2 file):**
+```
+test/.../service/TeamRejoinRequestServiceTest.java   (mới, 13 test)
+test/.../service/TeamServiceTest.java                (+mock teamRejoinRequestRepository, +1 test dormant-fallback)
+```
+
+**Frontend — mới (1 file):**
+```
+features/users/TeamRejoinRequestsPanel.tsx
+```
+
+**Frontend — sửa (4 file):**
+```
+shared/apiClient.ts
+features/teams/TeamViewPage.tsx
+shared/components/TeamDetailModal.tsx
+features/teams/CoordTeamsPage.tsx
+features/users/CoordAccountsPage.tsx   (+tab "Team Rejoin")
+```
