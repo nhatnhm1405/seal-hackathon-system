@@ -297,22 +297,34 @@ CREATE TABLE MentorAssignment (
 -- TEAM MANAGEMENT
 -- =====================================================
 
+-- Team is a stable identity that persists across seasons (mirrors User) —
+-- season-specific facts (event, track, approval status, disqualification)
+-- live on TeamEventEntry instead, one row per (team, event).
 CREATE TABLE Team (
-  team_id             INT          NOT NULL AUTO_INCREMENT,
+  team_id     INT          NOT NULL AUTO_INCREMENT,
+  name        VARCHAR(255) NOT NULL,
+  description TEXT,
+  is_active   BOOLEAN      NOT NULL DEFAULT TRUE,
+  created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (team_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE TeamEventEntry (
+  id                  INT          NOT NULL AUTO_INCREMENT,
+  team_id             INT          NOT NULL,
   event_id            INT          NOT NULL,
   track_id            INT                   COMMENT 'NULL until assigned (self-selected at registration or drawn during SETUP)',
-  name                VARCHAR(255) NOT NULL,
-  description         TEXT,
   status              VARCHAR(20)  NOT NULL DEFAULT 'PENDING' COMMENT 'PENDING, APPROVED, REJECTED, DISQUALIFIED',
   disqualified_reason TEXT,
   disqualified_at     DATETIME,
   created_at          DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (team_id),
-  UNIQUE KEY uq_team_event_name (event_id, name),
-  KEY idx_team_track (track_id),
-  KEY idx_team_status (status),
-  CONSTRAINT fk_team_event FOREIGN KEY (event_id) REFERENCES HackathonEvent (event_id),
-  CONSTRAINT fk_team_track FOREIGN KEY (track_id) REFERENCES Track (track_id)
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_tee_team_event (team_id, event_id),
+  KEY idx_tee_track (track_id),
+  KEY idx_tee_status (status),
+  CONSTRAINT fk_tee_team  FOREIGN KEY (team_id)  REFERENCES Team (team_id),
+  CONSTRAINT fk_tee_event FOREIGN KEY (event_id) REFERENCES HackathonEvent (event_id),
+  CONSTRAINT fk_tee_track FOREIGN KEY (track_id) REFERENCES Track (track_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE TeamMember (
@@ -462,6 +474,7 @@ CREATE TABLE AccountApproval (
 CREATE TABLE TeamInvite (
   invite_id        INT          NOT NULL AUTO_INCREMENT,
   team_id          INT          NOT NULL,
+  event_id         INT          NOT NULL COMMENT 'Which season this invite is for — Team no longer carries a single event',
   invited_user_id  INT          NOT NULL,
   invited_by       INT          NOT NULL,
   message          TEXT,
@@ -471,7 +484,9 @@ CREATE TABLE TeamInvite (
   PRIMARY KEY (invite_id),
   UNIQUE KEY uq_invite_team_user (team_id, invited_user_id),
   KEY idx_invite_user (invited_user_id),
+  KEY idx_invite_event (event_id),
   CONSTRAINT fk_invite_team    FOREIGN KEY (team_id)         REFERENCES Team (team_id),
+  CONSTRAINT fk_invite_event   FOREIGN KEY (event_id)        REFERENCES HackathonEvent (event_id),
   CONSTRAINT fk_invite_invitee FOREIGN KEY (invited_user_id) REFERENCES `User` (user_id),
   CONSTRAINT fk_invite_inviter FOREIGN KEY (invited_by)      REFERENCES `User` (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -479,6 +494,7 @@ CREATE TABLE TeamInvite (
 CREATE TABLE JoinRequest (
   request_id        INT          NOT NULL AUTO_INCREMENT,
   team_id           INT          NOT NULL,
+  event_id          INT          NOT NULL COMMENT 'Which season this request is for — Team no longer carries a single event',
   requester_user_id INT          NOT NULL,
   message           TEXT,
   status            VARCHAR(20)  NOT NULL DEFAULT 'PENDING' COMMENT 'PENDING, ACCEPTED, DECLINED',
@@ -487,7 +503,9 @@ CREATE TABLE JoinRequest (
   PRIMARY KEY (request_id),
   UNIQUE KEY uq_join_team_user (team_id, requester_user_id),
   KEY idx_join_requester (requester_user_id),
+  KEY idx_join_event (event_id),
   CONSTRAINT fk_join_team      FOREIGN KEY (team_id)           REFERENCES Team (team_id),
+  CONSTRAINT fk_join_event     FOREIGN KEY (event_id)          REFERENCES HackathonEvent (event_id),
   CONSTRAINT fk_join_requester FOREIGN KEY (requester_user_id) REFERENCES `User` (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

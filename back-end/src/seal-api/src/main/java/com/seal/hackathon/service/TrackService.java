@@ -3,7 +3,7 @@ package com.seal.hackathon.service;
 import com.seal.hackathon.dto.request.CreateTrackRequest;
 import com.seal.hackathon.dto.response.TrackResponse;
 import com.seal.hackathon.entity.HackathonEvent;
-import com.seal.hackathon.entity.Team;
+import com.seal.hackathon.entity.TeamEventEntry;
 import com.seal.hackathon.entity.Track;
 import com.seal.hackathon.exception.BadRequestException;
 import com.seal.hackathon.exception.ResourceNotFoundException;
@@ -13,7 +13,7 @@ import com.seal.hackathon.repository.JudgeAssignmentRepository;
 import com.seal.hackathon.repository.MentorAssignmentRepository;
 import com.seal.hackathon.repository.MentorSupportRequestRepository;
 import com.seal.hackathon.repository.PrizeRepository;
-import com.seal.hackathon.repository.TeamRepository;
+import com.seal.hackathon.repository.TeamEventEntryRepository;
 import com.seal.hackathon.repository.TrackRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -45,7 +45,7 @@ public class TrackService {
 
     private final TrackRepository trackRepository;
     private final HackathonEventRepository eventRepository;
-    private final TeamRepository teamRepository;
+    private final TeamEventEntryRepository teamEventEntryRepository;
     private final MentorAssignmentRepository mentorAssignmentRepository;
     private final JudgeAssignmentRepository judgeAssignmentRepository;
     private final AnnouncementRepository announcementRepository;
@@ -168,10 +168,10 @@ public class TrackService {
         // rather than blocking the delete; the coordinator re-assigns them by hand.
         // In DRAFT/OPEN no team has a track yet, so this is a no-op there; during SETUP
         // it powers the manual track cleanup. We never auto-distribute to other tracks.
-        List<Team> teamsOnTrack = teamRepository.findAllByTrack_TrackId(trackId);
-        if (!teamsOnTrack.isEmpty()) {
-            teamsOnTrack.forEach(t -> t.setTrack(null));
-            teamRepository.saveAll(teamsOnTrack);
+        List<TeamEventEntry> entriesOnTrack = teamEventEntryRepository.findAllByTrack_TrackId(trackId);
+        if (!entriesOnTrack.isEmpty()) {
+            entriesOnTrack.forEach(e -> e.setTrack(null));
+            teamEventEntryRepository.saveAll(entriesOnTrack);
         }
         // Assignments are setup configuration, not the source of audit history
         // (assignment actions are already recorded in AuditLog). Bulk-delete every
@@ -193,7 +193,7 @@ public class TrackService {
                 .name(track.getName())
                 .description(track.getDescription())
                 .capacity(track.getCapacity())
-                .teamCount(teamRepository.findAllByTrack_TrackIdAndStatus(track.getTrackId(), "APPROVED").size())
+                .teamCount(teamEventEntryRepository.findAllByTrack_TrackIdAndStatus(track.getTrackId(), "APPROVED").size())
                 .build();
     }
 

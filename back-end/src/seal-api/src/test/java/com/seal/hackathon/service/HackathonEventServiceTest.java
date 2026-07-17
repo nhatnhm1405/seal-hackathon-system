@@ -5,9 +5,11 @@ import com.seal.hackathon.dto.request.UpdateEventRequest;
 import com.seal.hackathon.dto.response.HackathonEventResponse;
 import com.seal.hackathon.entity.HackathonEvent;
 import com.seal.hackathon.entity.Team;
+import com.seal.hackathon.entity.TeamEventEntry;
 import com.seal.hackathon.entity.Track;
 import com.seal.hackathon.exception.BadRequestException;
 import com.seal.hackathon.repository.HackathonEventRepository;
+import com.seal.hackathon.repository.TeamEventEntryRepository;
 import com.seal.hackathon.repository.TeamRepository;
 import com.seal.hackathon.repository.TrackRepository;
 import org.junit.jupiter.api.Test;
@@ -42,6 +44,9 @@ class HackathonEventServiceTest {
 
     @Mock
     private TeamRepository teamRepository;
+
+    @Mock
+    private TeamEventEntryRepository teamEventEntryRepository;
 
     @Mock
     private AuditLogService auditLogService;
@@ -324,7 +329,7 @@ class HackathonEventServiceTest {
 
         when(hackathonEventRepository.findById(1)).thenReturn(Optional.of(event));
         when(trackRepository.findAllByEvent_EventId(1)).thenReturn(List.of(ai, web));
-        when(teamRepository.findAllByEvent_EventIdAndStatus(1, "APPROVED")).thenReturn(List.of(
+        when(teamEventEntryRepository.findAllByEvent_EventIdAndStatus(1, "APPROVED")).thenReturn(List.of(
                 teamOnTrack(100, event, ai), teamOnTrack(101, event, ai),
                 teamOnTrack(102, event, web), teamOnTrack(103, event, web)));
         when(hackathonEventRepository.save(event)).thenReturn(event);
@@ -342,7 +347,7 @@ class HackathonEventServiceTest {
 
         when(hackathonEventRepository.findById(1)).thenReturn(Optional.of(event));
         when(trackRepository.findAllByEvent_EventId(1)).thenReturn(List.of(ai));
-        when(teamRepository.findAllByEvent_EventIdAndStatus(1, "APPROVED"))
+        when(teamEventEntryRepository.findAllByEvent_EventIdAndStatus(1, "APPROVED"))
                 .thenReturn(List.of(teamOnTrack(100, event, ai)));
 
         assertThrows(BadRequestException.class,
@@ -358,7 +363,7 @@ class HackathonEventServiceTest {
 
         when(hackathonEventRepository.findById(1)).thenReturn(Optional.of(event));
         when(trackRepository.findAllByEvent_EventId(1)).thenReturn(List.of(ai));
-        when(teamRepository.findAllByEvent_EventIdAndStatus(1, "APPROVED")).thenReturn(List.of(
+        when(teamEventEntryRepository.findAllByEvent_EventIdAndStatus(1, "APPROVED")).thenReturn(List.of(
                 teamOnTrack(100, event, ai), teamOnTrack(101, event, ai),
                 unassignedTeam(102, event)));
 
@@ -374,7 +379,7 @@ class HackathonEventServiceTest {
 
         when(hackathonEventRepository.findById(1)).thenReturn(Optional.of(event));
         when(trackRepository.findAllByEvent_EventId(1)).thenReturn(List.of());
-        when(teamRepository.findAllByEvent_EventIdAndStatus(1, "APPROVED")).thenReturn(List.of());
+        when(teamEventEntryRepository.findAllByEvent_EventIdAndStatus(1, "APPROVED")).thenReturn(List.of());
 
         assertThrows(BadRequestException.class,
                 () -> eventService.updateEvent(1, statusRequest("IN_PROGRESS")));
@@ -387,7 +392,7 @@ class HackathonEventServiceTest {
         HackathonEvent event = fallEvent(1, "OPEN", futureYear());
 
         when(hackathonEventRepository.findById(1)).thenReturn(Optional.of(event));
-        when(teamRepository.countByEvent_EventIdAndStatus(1, "PENDING")).thenReturn(2L);
+        when(teamEventEntryRepository.countByEvent_EventIdAndStatus(1, "PENDING")).thenReturn(2L);
 
         assertThrows(BadRequestException.class,
                 () -> eventService.updateEvent(1, statusRequest("SETUP")));
@@ -465,13 +470,13 @@ class HackathonEventServiceTest {
         return Track.builder().trackId(trackId).event(event).name("Track " + trackId).build();
     }
 
-    private static Team teamOnTrack(Integer teamId, HackathonEvent event, Track track) {
-        return Team.builder().teamId(teamId).event(event).track(track)
-                .name("Team " + teamId).status("APPROVED").build();
+    private static TeamEventEntry teamOnTrack(Integer teamId, HackathonEvent event, Track track) {
+        Team team = Team.builder().teamId(teamId).name("Team " + teamId).build();
+        return TeamEventEntry.builder().id(teamId).team(team).event(event).track(track).status("APPROVED").build();
     }
 
-    private static Team unassignedTeam(Integer teamId, HackathonEvent event) {
-        return Team.builder().teamId(teamId).event(event).track(null)
-                .name("Team " + teamId).status("APPROVED").build();
+    private static TeamEventEntry unassignedTeam(Integer teamId, HackathonEvent event) {
+        Team team = Team.builder().teamId(teamId).name("Team " + teamId).build();
+        return TeamEventEntry.builder().id(teamId).team(team).event(event).track(null).status("APPROVED").build();
     }
 }

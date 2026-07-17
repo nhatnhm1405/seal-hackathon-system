@@ -20,7 +20,8 @@ public interface SubmissionRepository extends JpaRepository<Submission, Integer>
             FROM Submission s
             JOIN s.round r
             JOIN s.team t
-            LEFT JOIN t.track teamTrack
+            LEFT JOIN TeamEventEntry te ON te.team = t AND te.event = r.event
+            LEFT JOIN te.track teamTrack
             JOIN JudgeAssignment ja ON ja.round = r
             WHERE s.submissionId = :submissionId
               AND ja.judge.userId = :judgeId
@@ -36,7 +37,8 @@ public interface SubmissionRepository extends JpaRepository<Submission, Integer>
             FROM Submission s
             JOIN s.round r
             JOIN s.team t
-            LEFT JOIN t.track teamTrack
+            LEFT JOIN TeamEventEntry te ON te.team = t AND te.event = r.event
+            LEFT JOIN te.track teamTrack
             JOIN JudgeAssignment ja ON ja.round = r
             WHERE r.roundId = :roundId
               AND ja.judge.userId = :judgeId

@@ -10,8 +10,8 @@ import com.seal.hackathon.exception.ForbiddenException;
 import com.seal.hackathon.exception.ResourceNotFoundException;
 import com.seal.hackathon.repository.AnnouncementRepository;
 import com.seal.hackathon.repository.MentorAssignmentRepository;
+import com.seal.hackathon.repository.TeamEventEntryRepository;
 import com.seal.hackathon.repository.TeamMemberRepository;
-import com.seal.hackathon.repository.TeamRepository;
 import com.seal.hackathon.repository.TrackRepository;
 import com.seal.hackathon.repository.UserEventRoleRepository;
 import com.seal.hackathon.repository.UserRepository;
@@ -52,7 +52,7 @@ public class AnnouncementService {
     private final AnnouncementRepository announcementRepository;
     private final MentorAssignmentRepository mentorAssignmentRepository;
     private final UserEventRoleRepository userEventRoleRepository;
-    private final TeamRepository teamRepository;
+    private final TeamEventEntryRepository teamEventEntryRepository;
     private final TeamMemberRepository teamMemberRepository;
     private final TrackRepository trackRepository;
     private final HackathonEventRepository eventRepository;
@@ -87,8 +87,8 @@ public class AnnouncementService {
                 .build());
 
         // Participants = approved & active members of approved teams in this track.
-        Set<Integer> recipients = teamRepository.findAllByTrack_TrackIdAndStatus(trackId, "APPROVED").stream()
-                .flatMap(t -> teamMemberRepository.findByTeam_TeamId(t.getTeamId()).stream())
+        Set<Integer> recipients = teamEventEntryRepository.findAllByTrack_TrackIdAndStatus(trackId, "APPROVED").stream()
+                .flatMap(t -> teamMemberRepository.findByTeam_TeamId(t.getTeam().getTeamId()).stream())
                 .map(m -> m.getUser())
                 .filter(this::isApprovedRecipient)
                 .map(User::getUserId)
@@ -162,8 +162,8 @@ public class AnnouncementService {
         Set<Integer> ids = new LinkedHashSet<>();
         if (audience.equals("PARTICIPANT") || audience.equals("ALL")) {
             // Event-scoped: members of APPROVED teams in this event only.
-            teamRepository.findAllByEvent_EventIdAndStatus(eventId, "APPROVED").stream()
-                    .flatMap(t -> teamMemberRepository.findByTeam_TeamId(t.getTeamId()).stream())
+            teamEventEntryRepository.findAllByEvent_EventIdAndStatus(eventId, "APPROVED").stream()
+                    .flatMap(t -> teamMemberRepository.findByTeam_TeamId(t.getTeam().getTeamId()).stream())
                     .map(m -> m.getUser())
                     .filter(this::isApprovedRecipient)
                     .forEach(u -> ids.add(u.getUserId()));

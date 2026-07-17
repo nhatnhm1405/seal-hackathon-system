@@ -169,7 +169,7 @@ public class DemoScenario {
                 String teamName = CLUBS[slots.size() % CLUBS.length];
                 Team team = fx.team(event, track, teamName, "APPROVED", leader, members(2));
                 int strength = totalTeams - (seed * numTracks + t);
-                slots.add(new Slot(team, leader, strength));
+                slots.add(new Slot(team, track, leader, strength));
             }
         }
         // prelim judges score per track; the final-round judges score everyone
@@ -207,7 +207,7 @@ public class DemoScenario {
         List<Slot> advancing = new ArrayList<>();
         for (Track track : tracks) {
             List<Slot> inTrack = slots.stream()
-                    .filter(s -> track.getTrackId().equals(s.team.getTrack().getTrackId()))
+                    .filter(s -> track.getTrackId().equals(s.track().getTrackId()))
                     .sorted(Comparator.comparingDouble((Slot s) -> total(s, prelimCriteria, prelimJudges.size())).reversed())
                     .toList();
             for (int r = 0; r < inTrack.size(); r++) {
@@ -400,7 +400,7 @@ public class DemoScenario {
                           LocalDateTime start, LocalDateTime end) {
     }
 
-    /** A built team with its leader and a deterministic strength for scoring. */
-    private record Slot(Team team, User leader, int strength) {
+    /** A built team with its track, leader, and a deterministic strength for scoring. */
+    private record Slot(Team team, Track track, User leader, int strength) {
     }
 }

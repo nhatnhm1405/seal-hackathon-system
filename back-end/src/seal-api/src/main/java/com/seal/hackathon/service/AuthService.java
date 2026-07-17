@@ -10,6 +10,7 @@ import com.seal.hackathon.exception.BadRequestException;
 import com.seal.hackathon.exception.ForbiddenException;
 import com.seal.hackathon.exception.ResourceNotFoundException;
 import com.seal.hackathon.exception.UnauthorizedException;
+import com.seal.hackathon.repository.TeamEventEntryRepository;
 import com.seal.hackathon.repository.TeamMemberRepository;
 import com.seal.hackathon.repository.UserRepository;
 import com.seal.hackathon.security.JwtService;
@@ -35,6 +36,7 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final TeamMemberRepository teamMemberRepository;
+    private final TeamEventEntryRepository teamEventEntryRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
 
@@ -375,10 +377,11 @@ public class AuthService {
     }
 
     private boolean isCurrentEventMembership(TeamMember membership) {
-        String status = membership.getTeam().getEvent().getStatus();
-        return "OPEN".equalsIgnoreCase(status)
-                || "SETUP".equalsIgnoreCase(status)
-                || "IN_PROGRESS".equalsIgnoreCase(status);
+        return teamEventEntryRepository.findAllByTeam_TeamId(membership.getTeam().getTeamId()).stream()
+                .map(entry -> entry.getEvent().getStatus())
+                .anyMatch(status -> "OPEN".equalsIgnoreCase(status)
+                        || "SETUP".equalsIgnoreCase(status)
+                        || "IN_PROGRESS".equalsIgnoreCase(status));
     }
 
     private String normalizeTeamRole(TeamMember membership) {

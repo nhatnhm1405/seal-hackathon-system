@@ -33,6 +33,7 @@ import java.util.stream.Collectors;
 public class TeamService {
 
     private final TeamRepository teamRepository;
+    private final TeamEventEntryRepository teamEventEntryRepository;
     private final TeamMemberRepository teamMemberRepository;
     private final HackathonEventRepository eventRepository;
     private final TrackRepository trackRepository;
@@ -70,7 +71,7 @@ public class TeamService {
         // (RANDOM) — once the roster is frozen and per-track slots are computed.
 
         String teamName = request.getName().trim();
-        if (teamRepository.existsByEventIdAndNormalizedName(request.getEventId(), normalizeName(teamName))) {
+        if (teamEventEntryRepository.existsByEventIdAndNormalizedName(request.getEventId(), normalizeName(teamName))) {
             throw new BadRequestException("A team named '" + request.getName() + "' already exists in this event.");
         }
 
@@ -79,13 +80,18 @@ public class TeamService {
         }
 
         Team team = Team.builder()
-                .event(event)
-                .track(null)
                 .name(teamName)
                 .description(request.getDescription())
-                .status("PENDING")
                 .build();
         team = teamRepository.save(team);
+
+        TeamEventEntry entry = TeamEventEntry.builder()
+                .team(team)
+                .event(event)
+                .track(null)
+                .status("PENDING")
+                .build();
+        entry = teamEventEntryRepository.save(entry);
 
         TeamMember member = TeamMember.builder()
                 .team(team)
@@ -94,7 +100,7 @@ public class TeamService {
                 .build();
         teamMemberRepository.save(member);
 
-        return mapToTeamResponse(team);
+        return mapToTeamResponse(team, entry);
     }
 
     // ── Participant: live team-name availability check ────────────────
@@ -104,7 +110,7 @@ public class TeamService {
     @Transactional(readOnly = true)
     public boolean teamNameExists(Integer eventId, String name) {
         if (eventId == null || name == null || name.isBlank()) return false;
-        return teamRepository.existsByEventIdAndNormalizedName(eventId, normalizeName(name));
+        return teamEventEntryRepository.existsByEventIdAndNormalizedName(eventId, normalizeName(name));
     }
 
     // ── Participant: Get my team ──────────────────────────────────────
@@ -144,9 +150,11 @@ public class TeamService {
     @Transactional(readOnly = true)
     public MyTeamResponse getMyTeamByEvent(Integer userId, Integer eventId) {
         return teamMemberRepository.findByUser_UserIdOrderByIdDesc(userId).stream()
-                .filter(m -> m.getTeam().getEvent().getEventId().equals(eventId))
+                .flatMap(m -> teamEventEntryRepository
+                        .findByTeam_TeamIdAndEvent_EventId(m.getTeam().getTeamId(), eventId)
+                        .stream()
+                        .map(entry -> mapToMyTeamResponse(m, entry)))
                 .findFirst()
-                .map(this::mapToMyTeamResponse)
                 .orElseThrow(() -> new ResourceNotFoundException("You are not part of any team in this event."));
     }
 
@@ -159,7 +167,12 @@ public class TeamService {
 
         for (TeamMember membership : memberships) {
             Team team = membership.getTeam();
-            HackathonEvent event = team.getEvent();
+            // A team has exactly one TeamEventEntry today (rejoin — which could
+            // create a second one — isn't built yet); once it is, this should
+            // list one history row per entry the member actually competed
+            // during, not just "the" current one.
+            TeamEventEntry entry = requireCurrentEntry(team);
+            HackathonEvent event = entry.getEvent();
 
             List<TeamHistoryResponse.MemberInfo> members = teamMemberRepository
                     .findByTeam_TeamId(team.getTeamId()).stream()
@@ -224,8 +237,8 @@ public class TeamService {
                     .eventStatus(event.getStatus())
                     .teamId(team.getTeamId())
                     .teamName(team.getName())
-                    .trackName(team.getTrack() != null ? team.getTrack().getName() : null)
-                    .teamStatus(team.getStatus())
+                    .trackName(entry.getTrack() != null ? entry.getTrack().getName() : null)
+                    .teamStatus(entry.getStatus())
                     .myRole(membership.getMemberRole())
                     .members(members)
                     .rounds(rounds)
@@ -242,13 +255,15 @@ public class TeamService {
     @Transactional
     public MyTeamResponse updateTeam(Integer userId, Integer teamId, UpdateTeamRequest request) {
         Team team = requireLeader(userId, teamId);
-        ensureTeamManageable(team);
+        TeamEventEntry entry = requireCurrentEntry(team);
+        ensureTeamManageable(entry);
         if (request.getName() != null && !request.getName().isBlank()) {
             String newName = request.getName().trim();
             String normalizedOldName = normalizeName(team.getName());
             String normalizedNewName = normalizeName(newName);
             if (!normalizedNewName.equals(normalizedOldName)
-                    && teamRepository.existsByEventIdAndNormalizedName(team.getEvent().getEventId(), normalizedNewName)) {
+                    && teamEventEntryRepository.existsByEventIdAndNormalizedName(
+                            entry.getEvent().getEventId(), normalizedNewName)) {
                 throw new BadRequestException("A team named '" + newName + "' already exists in this event.");
             }
             team.setName(newName);
@@ -264,7 +279,7 @@ public class TeamService {
     @Transactional
     public MyTeamResponse removeMember(Integer leaderUserId, Integer teamId, Integer targetUserId) {
         Team team = requireLeader(leaderUserId, teamId);
-        ensureTeamManageable(team);
+        ensureTeamManageable(requireCurrentEntry(team));
         if (leaderUserId.equals(targetUserId)) {
             throw new BadRequestException("The leader cannot remove themselves. Transfer leadership or leave the team.");
         }
@@ -283,7 +298,7 @@ public class TeamService {
     @Transactional
     public MyTeamResponse transferLeadership(Integer leaderUserId, Integer teamId, Integer newLeaderUserId) {
         Team team = requireLeader(leaderUserId, teamId);
-        ensureTeamManageable(team);
+        ensureTeamManageable(requireCurrentEntry(team));
         if (leaderUserId.equals(newLeaderUserId)) {
             throw new BadRequestException("You are already the leader.");
         }
@@ -301,7 +316,9 @@ public class TeamService {
 
     /**
      * A member leaves the team. The leader must transfer leadership first unless
-     * they are the only member, in which case the (empty) team is disbanded.
+     * they are the only member, in which case this season's (empty) participation
+     * is disbanded — only the {@link TeamEventEntry}, never the {@code Team}
+     * identity, which may have competed in earlier seasons.
      * Does NOT touch the season's {@code isActive} — leaving a team just makes you
      * teamless (you stay eligible to join/create another team this season). That is
      * a deliberately separate, distinct action — see {@link #leaveEvent}.
@@ -310,7 +327,8 @@ public class TeamService {
     public void leaveTeam(Integer userId, Integer teamId) {
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new ResourceNotFoundException("Team not found: " + teamId));
-        ensureTeamManageable(team);
+        TeamEventEntry entry = requireCurrentEntry(team);
+        ensureTeamManageable(entry);
         List<TeamMember> members = teamMemberRepository.findByTeam_TeamId(teamId);
         TeamMember me = members.stream().filter(m -> m.getUser().getUserId().equals(userId)).findFirst()
                 .orElseThrow(() -> new BadRequestException("You are not a member of this team."));
@@ -321,7 +339,7 @@ public class TeamService {
             }
             teamMemberRepository.delete(me);
             deletePendingTeamRequests(team);
-            teamRepository.delete(team);
+            teamEventEntryRepository.delete(entry);
             return;
         }
         teamMemberRepository.delete(me);
@@ -371,10 +389,11 @@ public class TeamService {
                                                        Integer targetUserId, String reason) {
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new ResourceNotFoundException("Team not found: " + teamId));
-        if (!"IN_PROGRESS".equalsIgnoreCase(team.getEvent().getStatus())) {
+        TeamEventEntry entry = requireCurrentEntry(team);
+        if (!"IN_PROGRESS".equalsIgnoreCase(entry.getEvent().getStatus())) {
             throw new BadRequestException("Coordinator removal is only available while the event is in progress.");
         }
-        if (!"APPROVED".equalsIgnoreCase(team.getStatus())) {
+        if (!"APPROVED".equalsIgnoreCase(entry.getStatus())) {
             throw new BadRequestException("Only an approved team's members can be removed this way.");
         }
 
@@ -394,9 +413,12 @@ public class TeamService {
 
         Integer promotedLeaderUserId = null;
         if (remaining.isEmpty()) {
-            team.setStatus("DISQUALIFIED");
-            team.setDisqualifiedReason("No remaining members (last member removed by coordinator): " + reason);
-            team.setDisqualifiedAt(LocalDateTime.now());
+            entry.setStatus("DISQUALIFIED");
+            entry.setDisqualifiedReason("No remaining members (last member removed by coordinator): " + reason);
+            entry.setDisqualifiedAt(LocalDateTime.now());
+            teamEventEntryRepository.save(entry);
+            // A disqualified team is no longer "active" regardless of the event's phase.
+            team.setIsActive(false);
             teamRepository.save(team);
         } else if (wasLeader) {
             TeamMember newLeader = remaining.stream()
@@ -418,17 +440,17 @@ public class TeamService {
                 targetUserId,
                 "Removed from the competition",
                 "You have been removed from team '" + team.getName() + "' and are no longer part of "
-                        + team.getEvent().getName() + ". Reason: " + reason
+                        + entry.getEvent().getName() + ". Reason: " + reason
                         + ". If this was a mistake, request to rejoin the competition.",
                 "TEAM_COORDINATOR_REMOVED"
         );
 
         auditLogService.record(coordinatorId, "COORDINATOR_REMOVE_MEMBER", "TEAM", teamId, reason,
                 Map.of("removedUserId", targetUserId,
-                        "resultingStatus", team.getStatus(),
+                        "resultingStatus", entry.getStatus(),
                         "promotedLeaderUserId", promotedLeaderUserId == null ? "NONE" : promotedLeaderUserId));
 
-        return mapToDetailResponse(team);
+        return mapToDetailResponse(team, entry);
     }
 
     private void deactivate(User user) {
@@ -438,8 +460,9 @@ public class TeamService {
 
     /**
      * Deletes pending JoinRequest/TeamInvite rows referencing this team — required
-     * before deleting the Team row itself, since neither FK has ON DELETE CASCADE
-     * (mirrors LeftoverGroupingService#dissolve).
+     * before deleting the team's entry, since neither FK has ON DELETE CASCADE
+     * (mirrors LeftoverGroupingService#dissolve). A team has exactly one
+     * TeamEventEntry today, so scoping by teamId alone is unambiguous.
      */
     private void deletePendingTeamRequests(Team team) {
         List<JoinRequest> requests = joinRequestRepository.findByTeam_TeamId(team.getTeamId());
@@ -485,10 +508,23 @@ public class TeamService {
         return team;
     }
 
+    /**
+     * Resolves the team's current {@link TeamEventEntry} — the most recently
+     * created one. A team is only ever mid-review under one live season at a
+     * time in practice (rejoin, which could create a second concurrent entry,
+     * isn't built yet), so this is unambiguous for every teamId-only
+     * coordinator/leader route.
+     */
+    private TeamEventEntry requireCurrentEntry(Team team) {
+        return teamEventEntryRepository.findTopByTeam_TeamIdOrderByIdDesc(team.getTeamId())
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "No season participation found for team: " + team.getTeamId()));
+    }
+
     // ── Coordinator: Get all teams by event ──────────────────────────
 
-    private void ensureTeamManageable(Team team) {
-        if ("REJECTED".equalsIgnoreCase(team.getStatus()) || "DISQUALIFIED".equalsIgnoreCase(team.getStatus())) {
+    private void ensureTeamManageable(TeamEventEntry entry) {
+        if ("REJECTED".equalsIgnoreCase(entry.getStatus()) || "DISQUALIFIED".equalsIgnoreCase(entry.getStatus())) {
             throw new BadRequestException("This team can no longer be managed.");
         }
     }
@@ -506,8 +542,8 @@ public class TeamService {
     public List<TeamDetailResponse> getTeamsByEvent(Integer eventId) {
         eventRepository.findById(eventId)
                 .orElseThrow(() -> new ResourceNotFoundException("Event not found: " + eventId));
-        return teamRepository.findAllByEvent_EventId(eventId).stream()
-                .map(this::mapToDetailResponse)
+        return teamEventEntryRepository.findAllByEvent_EventId(eventId).stream()
+                .map(entry -> mapToDetailResponse(entry.getTeam(), entry))
                 .collect(Collectors.toList());
     }
 
@@ -515,7 +551,7 @@ public class TeamService {
     // the account-approval badge so both queues surface the same way.
     @Transactional(readOnly = true)
     public long getPendingTeamsCount() {
-        return teamRepository.countByStatus("PENDING");
+        return teamEventEntryRepository.countByStatus("PENDING");
     }
 
     // ── Coordinator: Get single team ─────────────────────────────────
@@ -524,7 +560,7 @@ public class TeamService {
     public TeamDetailResponse getTeamById(Integer teamId) {
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new ResourceNotFoundException("Team not found: " + teamId));
-        return mapToDetailResponse(team);
+        return mapToDetailResponse(team, requireCurrentEntry(team));
     }
 
     // ── Coordinator: Approve team ────────────────────────────────────
@@ -533,19 +569,20 @@ public class TeamService {
     public TeamDetailResponse approveTeam(Integer teamId) {
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new ResourceNotFoundException("Team not found: " + teamId));
-        if (!"PENDING".equalsIgnoreCase(team.getStatus())) {
+        TeamEventEntry entry = requireCurrentEntry(team);
+        if (!"PENDING".equalsIgnoreCase(entry.getStatus())) {
             throw new BadRequestException("Only pending teams can be approved.");
         }
-        team.setStatus("APPROVED");
-        teamRepository.save(team);
+        entry.setStatus("APPROVED");
+        teamEventEntryRepository.save(entry);
         notifyTeamMembers(
                 team,
                 "Team approved",
                 "Your team '" + team.getName() + "' has been approved for " +
-                        team.getEvent().getName() + ".",
+                        entry.getEvent().getName() + ".",
                 "TEAM_APPROVED"
         );
-        return mapToDetailResponse(team);
+        return mapToDetailResponse(team, entry);
     }
 
     // ── Coordinator: Reject team ─────────────────────────────────────
@@ -554,15 +591,16 @@ public class TeamService {
     public TeamDetailResponse rejectTeam(Integer teamId, RejectTeamRequest request) {
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new ResourceNotFoundException("Team not found: " + teamId));
-        if (!"PENDING".equalsIgnoreCase(team.getStatus())) {
+        TeamEventEntry entry = requireCurrentEntry(team);
+        if (!"PENDING".equalsIgnoreCase(entry.getStatus())) {
             throw new BadRequestException("Only pending teams can be rejected.");
         }
-        team.setStatus("REJECTED");
+        entry.setStatus("REJECTED");
         if (request != null && request.getReason() != null) {
-            team.setDisqualifiedReason(normalizeReason(request.getReason()));
+            entry.setDisqualifiedReason(normalizeReason(request.getReason()));
         }
-        teamRepository.save(team);
-        String reason = team.getDisqualifiedReason();
+        teamEventEntryRepository.save(entry);
+        String reason = entry.getDisqualifiedReason();
         notifyTeamMembers(
                 team,
                 "Team rejected",
@@ -570,7 +608,7 @@ public class TeamService {
                         (reason != null && !reason.isBlank() ? " Reason: " + reason : ""),
                 "TEAM_REJECTED"
         );
-        return mapToDetailResponse(team);
+        return mapToDetailResponse(team, entry);
     }
 
     // ── Coordinator: Disqualify team ─────────────────────────────────
@@ -579,16 +617,20 @@ public class TeamService {
     public TeamDetailResponse disqualifyTeam(Integer teamId, RejectTeamRequest request) {
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new ResourceNotFoundException("Team not found: " + teamId));
-        if (!"APPROVED".equalsIgnoreCase(team.getStatus())) {
+        TeamEventEntry entry = requireCurrentEntry(team);
+        if (!"APPROVED".equalsIgnoreCase(entry.getStatus())) {
             throw new BadRequestException("Only approved teams can be disqualified.");
         }
-        team.setStatus("DISQUALIFIED");
+        entry.setStatus("DISQUALIFIED");
         if (request != null && request.getReason() != null) {
-            team.setDisqualifiedReason(normalizeReason(request.getReason()));
+            entry.setDisqualifiedReason(normalizeReason(request.getReason()));
         }
-        team.setDisqualifiedAt(LocalDateTime.now());
+        entry.setDisqualifiedAt(LocalDateTime.now());
+        teamEventEntryRepository.save(entry);
+        // A disqualified team is no longer "active" regardless of the event's phase.
+        team.setIsActive(false);
         teamRepository.save(team);
-        String reason = team.getDisqualifiedReason();
+        String reason = entry.getDisqualifiedReason();
         notifyTeamMembers(
                 team,
                 "Team disqualified",
@@ -596,7 +638,7 @@ public class TeamService {
                         (reason != null && !reason.isBlank() ? " Reason: " + reason : ""),
                 "TEAM_DISQUALIFIED"
         );
-        return mapToDetailResponse(team);
+        return mapToDetailResponse(team, entry);
     }
 
     // ── Coordinator: Random track draw (SETUP phase) ─────────────────
@@ -629,20 +671,20 @@ public class TeamService {
         }
 
         // Only approved teams are placed; track capacities were frozen on SETUP entry.
-        List<Team> approved = teamRepository.findAllByEvent_EventIdAndStatus(eventId, "APPROVED");
+        List<TeamEventEntry> approved = teamEventEntryRepository.findAllByEvent_EventIdAndStatus(eventId, "APPROVED");
 
         Map<Integer, Integer> count = new HashMap<>();
         tracks.forEach(t -> count.put(t.getTrackId(), 0));
 
-        List<Team> toAssign = new ArrayList<>();
-        for (Team team : approved) {
+        List<TeamEventEntry> toAssign = new ArrayList<>();
+        for (TeamEventEntry entry : approved) {
             if (includeAssigned) {
-                team.setTrack(null);
+                entry.setTrack(null);
             }
-            if (team.getTrack() == null) {
-                toAssign.add(team);
+            if (entry.getTrack() == null) {
+                toAssign.add(entry);
             } else {
-                count.merge(team.getTrack().getTrackId(), 1, Integer::sum);
+                count.merge(entry.getTrack().getTrackId(), 1, Integer::sum);
             }
         }
 
@@ -653,7 +695,7 @@ public class TeamService {
         // Greedy balance: each team goes to the track with the most free slots,
         // never exceeding capacity. Equivalent to round-robin when starting empty.
         Collections.shuffle(toAssign);
-        for (Team team : toAssign) {
+        for (TeamEventEntry entry : toAssign) {
             Track best = null;
             int bestFree = Integer.MIN_VALUE;
             for (Track t : tracks) {
@@ -668,10 +710,10 @@ public class TeamService {
                 throw new BadRequestException(
                         "Not enough track capacity to assign all teams. Re-check tracks or approvals.");
             }
-            team.setTrack(best);
+            entry.setTrack(best);
             count.merge(best.getTrackId(), 1, Integer::sum);
         }
-        teamRepository.saveAll(toAssign);
+        teamEventEntryRepository.saveAll(toAssign);
 
         // Audit trail: a REDRAW wipes & reshuffles everyone (fairness-sensitive, so
         // it carries the coordinator's reason); a plain DRAW only fills unassigned.
@@ -682,14 +724,15 @@ public class TeamService {
                         "assigned", toAssign.size(),
                         "include_assigned", includeAssigned));
 
-        return toAssign.stream().map(this::mapToTeamResponse).collect(Collectors.toList());
+        return toAssign.stream().map(entry -> mapToTeamResponse(entry.getTeam(), entry)).collect(Collectors.toList());
     }
 
     /** SELF_SELECT: a team leader picks the team's track during SETUP. */
     @Transactional
     public MyTeamResponse selectTrack(Integer userId, Integer teamId, Integer trackId) {
         Team team = requireLeader(userId, teamId);
-        HackathonEvent event = team.getEvent();
+        TeamEventEntry entry = requireCurrentEntry(team);
+        HackathonEvent event = entry.getEvent();
 
         if (!"SETUP".equalsIgnoreCase(event.getStatus())) {
             throw new BadRequestException("Track selection is only open during the SETUP phase.");
@@ -698,7 +741,7 @@ public class TeamService {
             throw new BadRequestException(
                     "This event assigns tracks by random draw — leaders cannot pick a track.");
         }
-        if (!"APPROVED".equalsIgnoreCase(team.getStatus())) {
+        if (!"APPROVED".equalsIgnoreCase(entry.getStatus())) {
             throw new BadRequestException("Only approved teams can select a track.");
         }
 
@@ -709,16 +752,16 @@ public class TeamService {
         }
 
         if (track.getCapacity() != null) {
-            long current = teamRepository.findAllByTrack_TrackIdAndStatus(trackId, "APPROVED").stream()
-                    .filter(t -> !t.getTeamId().equals(teamId))
+            long current = teamEventEntryRepository.findAllByTrack_TrackIdAndStatus(trackId, "APPROVED").stream()
+                    .filter(e -> !e.getTeam().getTeamId().equals(teamId))
                     .count();
             if (current >= track.getCapacity()) {
                 throw new BadRequestException("This track is full. Please choose another track.");
             }
         }
 
-        team.setTrack(track);
-        teamRepository.save(team);
+        entry.setTrack(track);
+        teamEventEntryRepository.save(entry);
         return getMyTeam(userId);
     }
 
@@ -736,12 +779,13 @@ public class TeamService {
     public TeamDetailResponse assignTeamToTrack(Integer actorUserId, Integer teamId, Integer trackId) {
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new ResourceNotFoundException("Team not found: " + teamId));
-        HackathonEvent event = team.getEvent();
+        TeamEventEntry entry = requireCurrentEntry(team);
+        HackathonEvent event = entry.getEvent();
 
         if (!"SETUP".equalsIgnoreCase(event.getStatus())) {
             throw new BadRequestException("Teams can only be reassigned to tracks during the SETUP phase.");
         }
-        if (!"APPROVED".equalsIgnoreCase(team.getStatus())) {
+        if (!"APPROVED".equalsIgnoreCase(entry.getStatus())) {
             throw new BadRequestException("Only approved teams can be assigned to a track.");
         }
 
@@ -754,13 +798,13 @@ public class TeamService {
             }
         }
 
-        team.setTrack(track);
-        teamRepository.save(team);
+        entry.setTrack(track);
+        teamEventEntryRepository.save(entry);
 
         auditLogService.record(actorUserId, "ASSIGN_TEAM_TRACK", "TEAM", teamId, null,
                 Map.<String, Object>of("trackId", trackId == null ? "UNASSIGNED" : trackId));
 
-        return mapToDetailResponse(team);
+        return mapToDetailResponse(team, entry);
     }
 
     // ── Participant: Get active events with tracks ────────────────────
@@ -801,21 +845,25 @@ public class TeamService {
 
     // ── Helpers ───────────────────────────────────────────────────────
 
-    private TeamResponse mapToTeamResponse(Team team) {
+    private TeamResponse mapToTeamResponse(Team team, TeamEventEntry entry) {
         return TeamResponse.builder()
                 .teamId(team.getTeamId())
-                .eventId(team.getEvent().getEventId())
-                .eventName(team.getEvent().getName())
-                .trackId(team.getTrack() != null ? team.getTrack().getTrackId() : null)
-                .trackName(team.getTrack() != null ? team.getTrack().getName() : null)
+                .eventId(entry.getEvent().getEventId())
+                .eventName(entry.getEvent().getName())
+                .trackId(entry.getTrack() != null ? entry.getTrack().getTrackId() : null)
+                .trackName(entry.getTrack() != null ? entry.getTrack().getName() : null)
                 .name(team.getName())
                 .description(team.getDescription())
-                .status(team.getStatus())
+                .status(entry.getStatus())
                 .createdAt(team.getCreatedAt())
                 .build();
     }
 
     private MyTeamResponse mapToMyTeamResponse(TeamMember membership) {
+        return mapToMyTeamResponse(membership, requireCurrentEntry(membership.getTeam()));
+    }
+
+    private MyTeamResponse mapToMyTeamResponse(TeamMember membership, TeamEventEntry entry) {
         Team team = membership.getTeam();
         List<TeamMember> allMembers = teamMemberRepository.findByTeam_TeamId(team.getTeamId());
 
@@ -833,32 +881,32 @@ public class TeamService {
 
         return MyTeamResponse.builder()
                 .teamId(team.getTeamId())
-                .eventId(team.getEvent().getEventId())
-                .eventName(team.getEvent().getName())
-                .trackId(team.getTrack() != null ? team.getTrack().getTrackId() : null)
-                .trackName(team.getTrack() != null ? team.getTrack().getName() : null)
-                .trackDescription(team.getTrack() != null ? team.getTrack().getDescription() : null)
+                .eventId(entry.getEvent().getEventId())
+                .eventName(entry.getEvent().getName())
+                .trackId(entry.getTrack() != null ? entry.getTrack().getTrackId() : null)
+                .trackName(entry.getTrack() != null ? entry.getTrack().getName() : null)
+                .trackDescription(entry.getTrack() != null ? entry.getTrack().getDescription() : null)
                 .name(team.getName())
-                .eventStatus(team.getEvent().getStatus())
-                .trackSelectionMode(team.getEvent().getTrackSelectionMode())
-                .status(team.getStatus())
-                .round(resolveTeamRound(team))
+                .eventStatus(entry.getEvent().getStatus())
+                .trackSelectionMode(entry.getEvent().getTrackSelectionMode())
+                .status(entry.getStatus())
+                .round(resolveTeamRound(team, entry))
                 .myRole(membership.getMemberRole())
                 .members(memberInfos)
                 .build();
     }
 
-    private MyTeamResponse.RoundInfo resolveTeamRound(Team team) {
-        List<Round> rounds = roundRepository.findAllByEvent_EventIdOrderByOrderNumber(team.getEvent().getEventId());
+    private MyTeamResponse.RoundInfo resolveTeamRound(Team team, TeamEventEntry entry) {
+        List<Round> rounds = roundRepository.findAllByEvent_EventIdOrderByOrderNumber(entry.getEvent().getEventId());
         if (rounds == null || rounds.isEmpty()) {
             return null;
         }
 
-        if ("DISQUALIFIED".equalsIgnoreCase(team.getStatus())) {
-            return resolveDisqualificationRound(team, rounds);
+        if ("DISQUALIFIED".equalsIgnoreCase(entry.getStatus())) {
+            return resolveDisqualificationRound(team, entry, rounds);
         }
 
-        if (!"APPROVED".equalsIgnoreCase(team.getStatus())) {
+        if (!"APPROVED".equalsIgnoreCase(entry.getStatus())) {
             return null;
         }
 
@@ -870,8 +918,8 @@ public class TeamService {
                 .orElse(null);
     }
 
-    private MyTeamResponse.RoundInfo resolveDisqualificationRound(Team team, List<Round> rounds) {
-        LocalDateTime disqualifiedAt = team.getDisqualifiedAt();
+    private MyTeamResponse.RoundInfo resolveDisqualificationRound(Team team, TeamEventEntry entry, List<Round> rounds) {
+        LocalDateTime disqualifiedAt = entry.getDisqualifiedAt();
         if (disqualifiedAt != null) {
             return rounds.stream()
                     .filter(round -> contains(round, disqualifiedAt))
@@ -939,7 +987,8 @@ public class TeamService {
 
     private TeamHistoryResponse mapToTeamHistoryResponse(TeamMember membership) {
         Team team = membership.getTeam();
-        HackathonEvent event = team.getEvent();
+        TeamEventEntry entry = requireCurrentEntry(team);
+        HackathonEvent event = entry.getEvent();
 
         List<TeamHistoryResponse.MemberInfo> memberInfos = teamMemberRepository.findByTeam_TeamId(team.getTeamId()).stream()
                 .map(m -> TeamHistoryResponse.MemberInfo.builder()
@@ -1001,8 +1050,8 @@ public class TeamService {
                 .eventStatus(event.getStatus())
                 .teamId(team.getTeamId())
                 .teamName(team.getName())
-                .trackName(team.getTrack() != null ? team.getTrack().getName() : null)
-                .teamStatus(team.getStatus())
+                .trackName(entry.getTrack() != null ? entry.getTrack().getName() : null)
+                .teamStatus(entry.getStatus())
                 .myRole(membership.getMemberRole())
                 .members(memberInfos)
                 .rounds(roundInfos)
@@ -1021,7 +1070,7 @@ public class TeamService {
                 ));
     }
 
-    private TeamDetailResponse mapToDetailResponse(Team team) {
+    private TeamDetailResponse mapToDetailResponse(Team team, TeamEventEntry entry) {
         List<TeamMember> members = teamMemberRepository.findByTeam_TeamId(team.getTeamId());
         List<TeamDetailResponse.MemberInfo> memberInfos = members.stream()
                 .map(m -> TeamDetailResponse.MemberInfo.builder()
@@ -1038,15 +1087,15 @@ public class TeamService {
 
         return TeamDetailResponse.builder()
                 .teamId(team.getTeamId())
-                .eventId(team.getEvent().getEventId())
-                .eventName(team.getEvent().getName())
-                .trackId(team.getTrack() != null ? team.getTrack().getTrackId() : null)
-                .trackName(team.getTrack() != null ? team.getTrack().getName() : null)
+                .eventId(entry.getEvent().getEventId())
+                .eventName(entry.getEvent().getName())
+                .trackId(entry.getTrack() != null ? entry.getTrack().getTrackId() : null)
+                .trackName(entry.getTrack() != null ? entry.getTrack().getName() : null)
                 .name(team.getName())
                 .description(team.getDescription())
-                .status(team.getStatus())
-                .disqualifiedReason(team.getDisqualifiedReason())
-                .disqualifiedAt(team.getDisqualifiedAt())
+                .status(entry.getStatus())
+                .disqualifiedReason(entry.getDisqualifiedReason())
+                .disqualifiedAt(entry.getDisqualifiedAt())
                 .createdAt(team.getCreatedAt())
                 .members(memberInfos)
                 .build();

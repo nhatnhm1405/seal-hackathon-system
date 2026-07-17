@@ -8,6 +8,7 @@ import com.seal.hackathon.entity.Score;
 import com.seal.hackathon.entity.ScoringCriteria;
 import com.seal.hackathon.entity.Submission;
 import com.seal.hackathon.entity.Team;
+import com.seal.hackathon.entity.TeamEventEntry;
 import com.seal.hackathon.entity.Track;
 import com.seal.hackathon.entity.User;
 import com.seal.hackathon.exception.BadRequestException;
@@ -16,6 +17,7 @@ import com.seal.hackathon.repository.RoundRepository;
 import com.seal.hackathon.repository.ScoreRepository;
 import com.seal.hackathon.repository.ScoringCriteriaRepository;
 import com.seal.hackathon.repository.SubmissionRepository;
+import com.seal.hackathon.repository.TeamEventEntryRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -42,6 +44,7 @@ class JudgeScoringCompletenessServiceTest {
     @Mock private JudgeAssignmentRepository assignmentRepository;
     @Mock private ScoringCriteriaRepository criteriaRepository;
     @Mock private ScoreRepository scoreRepository;
+    @Mock private TeamEventEntryRepository teamEventEntryRepository;
 
     @InjectMocks private JudgeScoringCompletenessService service;
 
@@ -56,8 +59,10 @@ class JudgeScoringCompletenessServiceTest {
         HackathonEvent event = HackathonEvent.builder().eventId(1).name("SEAL").build();
         round = Round.builder().roundId(2).event(event).name("Preliminary").build();
         Track track = Track.builder().trackId(3).event(event).name("AI").build();
-        Team team = Team.builder().teamId(4).event(event).track(track).name("Arsenal").build();
+        Team team = Team.builder().teamId(4).name("Arsenal").build();
+        TeamEventEntry entry = TeamEventEntry.builder().id(4).team(team).event(event).track(track).build();
         submission = Submission.builder().submissionId(5).round(round).team(team).build();
+        when(teamEventEntryRepository.findByTeam_TeamIdAndEvent_EventId(4, 1)).thenReturn(Optional.of(entry));
 
         User a = User.builder().userId(10).fullName("Judge A").build();
         User b = User.builder().userId(11).fullName("Judge B").build();

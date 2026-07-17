@@ -12,6 +12,7 @@ import com.seal.hackathon.entity.HackathonEvent;
 import com.seal.hackathon.entity.Round;
 import com.seal.hackathon.entity.RoundResult;
 import com.seal.hackathon.entity.Team;
+import com.seal.hackathon.entity.TeamEventEntry;
 import com.seal.hackathon.entity.TeamMember;
 import com.seal.hackathon.entity.Track;
 import com.seal.hackathon.entity.User;
@@ -23,6 +24,7 @@ import com.seal.hackathon.repository.PrizeRepository;
 import com.seal.hackathon.repository.RoundRepository;
 import com.seal.hackathon.repository.RoundResultRepository;
 import com.seal.hackathon.repository.SubmissionRepository;
+import com.seal.hackathon.repository.TeamEventEntryRepository;
 import com.seal.hackathon.repository.TeamMemberRepository;
 import com.seal.hackathon.repository.TeamRepository;
 import com.seal.hackathon.repository.TeamInviteRepository;
@@ -36,7 +38,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -49,6 +53,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -58,6 +63,9 @@ class TeamServiceTest {
 
     @Mock
     private TeamRepository teamRepository;
+
+    @Mock
+    private TeamEventEntryRepository teamEventEntryRepository;
 
     @Mock
     private TeamMemberRepository teamMemberRepository;
@@ -98,6 +106,8 @@ class TeamServiceTest {
     @InjectMocks
     private TeamService teamService;
 
+    private final Map<Integer, TeamEventEntry> entriesByTeamId = new HashMap<>();
+
     @Test
     void createTeam_shouldCreatePendingTeamAndLeaderMember_whenRequestIsValid() {
         User user = user(100, "Leader");
@@ -106,13 +116,14 @@ class TeamServiceTest {
 
         when(userRepository.findById(100)).thenReturn(Optional.of(user));
         when(eventRepository.findById(1)).thenReturn(Optional.of(event));
-        when(teamRepository.existsByEventIdAndNormalizedName(1, "SEAL TEAM")).thenReturn(false);
+        when(teamEventEntryRepository.existsByEventIdAndNormalizedName(1, "SEAL TEAM")).thenReturn(false);
         when(teamMemberRepository.existsByUser_UserIdAndTeam_Event_EventId(100, 1)).thenReturn(false);
         when(teamRepository.save(any(Team.class))).thenAnswer(invocation -> {
             Team team = invocation.getArgument(0);
             team.setTeamId(99);
             return team;
         });
+        when(teamEventEntryRepository.save(any(TeamEventEntry.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         TeamResponse response = teamService.createTeam(100, request);
 
@@ -160,7 +171,7 @@ class TeamServiceTest {
 
         when(userRepository.findById(100)).thenReturn(Optional.of(user));
         when(eventRepository.findById(1)).thenReturn(Optional.of(event));
-        when(teamRepository.existsByEventIdAndNormalizedName(1, "SEAL TEAM")).thenReturn(true);
+        when(teamEventEntryRepository.existsByEventIdAndNormalizedName(1, "SEAL TEAM")).thenReturn(true);
 
         assertThrows(BadRequestException.class, () -> teamService.createTeam(100, createTeamRequest(" seal team ")));
 
@@ -186,7 +197,7 @@ class TeamServiceTest {
 
         when(userRepository.findById(100)).thenReturn(Optional.of(user));
         when(eventRepository.findById(1)).thenReturn(Optional.of(event));
-        when(teamRepository.existsByEventIdAndNormalizedName(1, "SEAL TEAM")).thenReturn(false);
+        when(teamEventEntryRepository.existsByEventIdAndNormalizedName(1, "SEAL TEAM")).thenReturn(false);
         when(teamMemberRepository.existsByUser_UserIdAndTeam_Event_EventId(100, 1)).thenReturn(true);
 
         assertThrows(BadRequestException.class, () -> teamService.createTeam(100, createTeamRequest("Seal Team")));
@@ -251,7 +262,7 @@ class TeamServiceTest {
         HackathonEvent event = event(1, "IN_PROGRESS");
         Team team = team(99, event, track(10, event), "Seal Team", "DISQUALIFIED");
         LocalDateTime disqualifiedAt = LocalDateTime.of(2026, 7, 4, 10, 30);
-        team.setDisqualifiedAt(disqualifiedAt);
+        entryOf(99).setDisqualifiedAt(disqualifiedAt);
         TeamMember leader = member(1, team, user(100, "Leader"), "LEADER");
         Round round1 = round(11, event, 1, "Round 1", "FINALIZED");
         round1.setStartTime(LocalDateTime.of(2026, 7, 4, 8, 0));
@@ -291,7 +302,7 @@ class TeamServiceTest {
 
         when(teamRepository.findById(99)).thenReturn(Optional.of(team));
         when(teamMemberRepository.findByTeam_TeamId(99)).thenReturn(List.of(leader));
-        when(teamRepository.existsByEventIdAndNormalizedName(1, "NEW NAME")).thenReturn(false);
+        when(teamEventEntryRepository.existsByEventIdAndNormalizedName(1, "NEW NAME")).thenReturn(false);
         when(teamMemberRepository.findByUser_UserIdAndTeam_Event_StatusIn(eq(100), anyList()))
                 .thenReturn(List.of(leader));
         when(teamRepository.save(team)).thenReturn(team);
@@ -375,7 +386,7 @@ class TeamServiceTest {
 
         when(teamRepository.findById(99)).thenReturn(Optional.of(team));
         when(teamMemberRepository.findByTeam_TeamId(99)).thenReturn(List.of(leader));
-        when(teamRepository.existsByEventIdAndNormalizedName(1, "EXISTING NAME")).thenReturn(true);
+        when(teamEventEntryRepository.existsByEventIdAndNormalizedName(1, "EXISTING NAME")).thenReturn(true);
 
         assertThrows(BadRequestException.class, () -> teamService.updateTeam(100, 99, request));
 
@@ -399,7 +410,7 @@ class TeamServiceTest {
         MyTeamResponse response = teamService.updateTeam(100, 99, request);
 
         assertEquals("seal team", response.getName());
-        verify(teamRepository, never()).existsByEventIdAndNormalizedName(anyInt(), any());
+        verify(teamEventEntryRepository, never()).existsByEventIdAndNormalizedName(anyInt(), any());
         verify(teamRepository).save(team);
     }
 
@@ -422,7 +433,7 @@ class TeamServiceTest {
 
         assertEquals("Seal Team", team.getName());
         assertEquals("New description", team.getDescription());
-        verify(teamRepository, never()).existsByEventIdAndNormalizedName(anyInt(), any());
+        verify(teamEventEntryRepository, never()).existsByEventIdAndNormalizedName(anyInt(), any());
     }
 
     @Test
@@ -639,7 +650,9 @@ class TeamServiceTest {
     }
 
     @Test
-    void leaveTeam_shouldDeleteTeam_whenOnlyLeaderLeaves() {
+    void leaveTeam_shouldDeleteOnlyTheSeasonEntry_whenOnlyLeaderLeaves() {
+        // Team identity persists across seasons — only this season's entry is
+        // removed, never the Team row itself.
         Team team = team(99, event(1, "OPEN"), track(10, event(1, "OPEN")), "Seal Team", "PENDING");
         TeamMember leader = member(1, team, user(100, "Leader"), "LEADER");
 
@@ -649,7 +662,8 @@ class TeamServiceTest {
         teamService.leaveTeam(100, 99);
 
         verify(teamMemberRepository).delete(leader);
-        verify(teamRepository).delete(team);
+        verify(teamEventEntryRepository).delete(entryOf(99));
+        verify(teamRepository, never()).delete(any());
     }
 
     @Test
@@ -749,7 +763,7 @@ class TeamServiceTest {
         TeamMember leader = member(1, team, user(100, "Leader"), "LEADER");
 
         when(eventRepository.findById(1)).thenReturn(Optional.of(event));
-        when(teamRepository.findAllByEvent_EventId(1)).thenReturn(List.of(team));
+        when(teamEventEntryRepository.findAllByEvent_EventId(1)).thenReturn(List.of(entryOf(99)));
         when(teamMemberRepository.findByTeam_TeamId(99)).thenReturn(List.of(leader));
 
         List<TeamDetailResponse> response = teamService.getTeamsByEvent(1);
@@ -765,7 +779,7 @@ class TeamServiceTest {
 
         assertThrows(ResourceNotFoundException.class, () -> teamService.getTeamsByEvent(1));
 
-        verify(teamRepository, never()).findAllByEvent_EventId(anyInt());
+        verify(teamEventEntryRepository, never()).findAllByEvent_EventId(anyInt());
     }
 
     @Test
@@ -773,7 +787,7 @@ class TeamServiceTest {
         HackathonEvent event = event(1, "OPEN");
 
         when(eventRepository.findById(1)).thenReturn(Optional.of(event));
-        when(teamRepository.findAllByEvent_EventId(1)).thenReturn(List.of());
+        when(teamEventEntryRepository.findAllByEvent_EventId(1)).thenReturn(List.of());
 
         List<TeamDetailResponse> response = teamService.getTeamsByEvent(1);
 
@@ -813,7 +827,6 @@ class TeamServiceTest {
         TeamMember member = member(2, team, user(101, "Member"), "MEMBER");
 
         when(teamRepository.findById(99)).thenReturn(Optional.of(team));
-        when(teamRepository.save(team)).thenReturn(team);
         when(teamMemberRepository.findByTeam_TeamId(99)).thenReturn(List.of(leader, member), List.of(leader, member));
 
         TeamDetailResponse response = teamService.approveTeam(99);
@@ -877,7 +890,6 @@ class TeamServiceTest {
         request.setReason(" Invalid information ");
 
         when(teamRepository.findById(99)).thenReturn(Optional.of(team));
-        when(teamRepository.save(team)).thenReturn(team);
         when(teamMemberRepository.findByTeam_TeamId(99)).thenReturn(List.of(leader), List.of(leader));
 
         TeamDetailResponse response = teamService.rejectTeam(99, request);
@@ -893,7 +905,6 @@ class TeamServiceTest {
         Team team = team(99, event, track(10, event), "Seal Team", "PENDING");
 
         when(teamRepository.findById(99)).thenReturn(Optional.of(team));
-        when(teamRepository.save(team)).thenReturn(team);
         when(teamMemberRepository.findByTeam_TeamId(99)).thenReturn(List.of());
 
         TeamDetailResponse response = teamService.rejectTeam(99, null);
@@ -953,7 +964,6 @@ class TeamServiceTest {
         request.setReason("   ");
 
         when(teamRepository.findById(99)).thenReturn(Optional.of(team));
-        when(teamRepository.save(team)).thenReturn(team);
         when(teamMemberRepository.findByTeam_TeamId(99)).thenReturn(List.of());
 
         TeamDetailResponse response = teamService.rejectTeam(99, request);
@@ -1162,9 +1172,9 @@ class TeamServiceTest {
 
         TeamDetailResponse response = teamService.assignTeamToTrack(5, 100, 10);
 
-        assertEquals(track, team.getTrack());
+        assertEquals(track, entryOf(100).getTrack());
         assertEquals(10, response.getTrackId());
-        verify(teamRepository).save(team);
+        verify(teamEventEntryRepository).save(entryOf(100));
     }
 
     @Test
@@ -1178,10 +1188,10 @@ class TeamServiceTest {
 
         TeamDetailResponse response = teamService.assignTeamToTrack(5, 100, null);
 
-        assertNull(team.getTrack());
+        assertNull(entryOf(100).getTrack());
         assertNull(response.getTrackId());
         verify(trackRepository, never()).findById(anyInt());
-        verify(teamRepository).save(team);
+        verify(teamEventEntryRepository).save(entryOf(100));
     }
 
     @Test
@@ -1199,8 +1209,8 @@ class TeamServiceTest {
 
         teamService.assignTeamToTrack(5, 100, 10);
 
-        assertEquals(full, team.getTrack());
-        verify(teamRepository).save(team);
+        assertEquals(full, entryOf(100).getTrack());
+        verify(teamEventEntryRepository).save(entryOf(100));
     }
 
     @Test
@@ -1299,16 +1309,36 @@ class TeamServiceTest {
                 .build();
     }
 
-    private static Team team(Integer teamId, HackathonEvent event, Track track, String name, String status) {
-        return Team.builder()
+    /**
+     * Builds a thin Team plus its (only, in these tests) TeamEventEntry, and
+     * lenient-stubs the "current entry" resolver every non-trivial TeamService
+     * method now goes through — lenient because plenty of tests build a team but
+     * short-circuit before ever resolving its entry (e.g. ResourceNotFound cases).
+     */
+    private Team team(Integer teamId, HackathonEvent event, Track track, String name, String status) {
+        Team team = Team.builder()
                 .teamId(teamId)
-                .event(event)
-                .track(track)
                 .name(name)
                 .description("Team description")
+                .createdAt(LocalDateTime.now())
+                .build();
+        TeamEventEntry entry = TeamEventEntry.builder()
+                .id(teamId)
+                .team(team)
+                .event(event)
+                .track(track)
                 .status(status)
                 .createdAt(LocalDateTime.now())
                 .build();
+        entriesByTeamId.put(teamId, entry);
+        lenient().when(teamEventEntryRepository.findTopByTeam_TeamIdOrderByIdDesc(teamId))
+                .thenReturn(Optional.of(entry));
+        return team;
+    }
+
+    /** The TeamEventEntry built alongside {@link #team} for the given teamId. */
+    private TeamEventEntry entryOf(Integer teamId) {
+        return entriesByTeamId.get(teamId);
     }
 
     private static TeamMember member(Integer id, Team team, User user, String role) {

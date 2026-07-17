@@ -8,6 +8,7 @@ import com.seal.hackathon.entity.TeamMember;
 import com.seal.hackathon.entity.User;
 import com.seal.hackathon.repository.HackathonEventRepository;
 import com.seal.hackathon.repository.JoinRequestRepository;
+import com.seal.hackathon.repository.TeamEventEntryRepository;
 import com.seal.hackathon.repository.TeamInviteRepository;
 import com.seal.hackathon.repository.TeamMemberRepository;
 import com.seal.hackathon.repository.TeamRepository;
@@ -40,6 +41,7 @@ class LeftoverGroupingFreeAgentTest {
     private static final int EVENT_ID = 1;
 
     @Mock private TeamRepository teamRepository;
+    @Mock private TeamEventEntryRepository teamEventEntryRepository;
     @Mock private TeamMemberRepository teamMemberRepository;
     @Mock private HackathonEventRepository eventRepository;
     @Mock private JoinRequestRepository joinRequestRepository;
@@ -60,7 +62,7 @@ class LeftoverGroupingFreeAgentTest {
     void previewCountsTeamlessRegistrantsAsFreeAgents() {
         HackathonEvent event = mockSetupEvent(false);
         when(eventRepository.findById(EVENT_ID)).thenReturn(Optional.of(event));
-        when(teamRepository.findAllByEvent_EventIdAndStatus(EVENT_ID, "APPROVED")).thenReturn(List.of());
+        when(teamEventEntryRepository.findAllByEvent_EventIdAndStatus(EVENT_ID, "APPROVED")).thenReturn(List.of());
         when(userRepository.findGroupableFreeAgents(EVENT_ID))
                 .thenReturn(List.of(student(1, "Messi"), student(2, "Ronaldo"), student(3, "Mbappe")));
 
@@ -76,10 +78,10 @@ class LeftoverGroupingFreeAgentTest {
     void commitCreatesMembershipsForTeamlessFreeAgents() {
         HackathonEvent event = mockSetupEvent(true);
         when(eventRepository.findById(EVENT_ID)).thenReturn(Optional.of(event));
-        when(teamRepository.findAllByEvent_EventIdAndStatus(EVENT_ID, "APPROVED")).thenReturn(List.of());
+        when(teamEventEntryRepository.findAllByEvent_EventIdAndStatus(EVENT_ID, "APPROVED")).thenReturn(List.of());
         when(userRepository.findGroupableFreeAgents(EVENT_ID))
                 .thenReturn(List.of(student(1, "Messi"), student(2, "Ronaldo"), student(3, "Mbappe")));
-        when(teamRepository.existsByEventIdAndNormalizedName(anyInt(), anyString())).thenReturn(false);
+        when(teamEventEntryRepository.existsByEventIdAndNormalizedName(anyInt(), anyString())).thenReturn(false);
         when(teamRepository.save(any(Team.class))).thenAnswer(inv -> inv.getArgument(0));
         when(teamMemberRepository.save(any(TeamMember.class))).thenAnswer(inv -> inv.getArgument(0));
 

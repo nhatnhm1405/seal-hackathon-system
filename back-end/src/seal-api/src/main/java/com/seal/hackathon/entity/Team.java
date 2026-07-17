@@ -19,31 +19,19 @@ public class Team {
     @Column(name = "team_id")
     private Integer teamId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "event_id", nullable = false)
-    private HackathonEvent event;
-
-    // Nullable: a team may register without a track and be assigned one later
-    // via the coordinator's random track draw during the SETUP phase.
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "track_id")
-    private Track track;
-
     @Column(name = "name", nullable = false, length = 255)
     private String name;
 
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
-    @Column(name = "status", nullable = false, length = 20)
+    // Mirrors User.isActive: "currently active in a running competition".
+    // Flips false when the team's current season completes or it is
+    // disqualified; true again if that event reopens (see
+    // HackathonEventService#reactivateEventParticipants).
+    @Column(name = "is_active", nullable = false)
     @Builder.Default
-    private String status = "PENDING";
-
-    @Column(name = "disqualified_reason", columnDefinition = "TEXT")
-    private String disqualifiedReason;
-
-    @Column(name = "disqualified_at")
-    private LocalDateTime disqualifiedAt;
+    private Boolean isActive = true;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -53,8 +41,8 @@ public class Team {
         if (createdAt == null) {
             createdAt = LocalDateTime.now();
         }
-        if (status == null) {
-            status = "PENDING";
+        if (isActive == null) {
+            isActive = true;
         }
     }
 }

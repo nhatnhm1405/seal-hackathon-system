@@ -19,7 +19,7 @@ public interface TeamInviteRepository extends JpaRepository<TeamInvite, Integer>
     Optional<TeamInvite> findByTeam_TeamIdAndInvitedUser_UserId(Integer teamId, Integer userId);
     boolean existsByTeam_TeamIdAndInvitedUser_UserId(Integer teamId, Integer userId);
 
-    List<TeamInvite> findByInvitedUser_UserIdAndStatusAndTeam_Event_EventId(
+    List<TeamInvite> findByInvitedUser_UserIdAndStatusAndEventId(
             Integer userId,
             String status,
             Integer eventId

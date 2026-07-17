@@ -714,9 +714,7 @@ class ScoringServiceTest {
                 .build();
         Team team = Team.builder()
                 .teamId(3)
-                .event(event)
                 .name("Seal Team")
-                .status("APPROVED")
                 .build();
         return Submission.builder()
                 .submissionId(id)

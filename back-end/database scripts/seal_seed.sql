@@ -433,34 +433,55 @@ INSERT INTO MentorAssignment (mentor_user_id, track_id) VALUES
 
 
 -- =====================================================
--- 7. TEAM  (team_id 1-17)
+-- 7. TEAM  (team_id 1-17) + TEAM EVENT ENTRY (one entry per team here, since
+-- no team re-enters a second season in this seed — Team is now a stable
+-- identity, season facts (event/track/status) live on TeamEventEntry).
 -- =====================================================
 -- Event 1 — Spring (team 1-5). track 1=Web, 2=Mobile, 3=AI
-INSERT INTO Team (event_id, track_id, name, description, status) VALUES
-  (1, 1, 'Team Phoenix', 'Web app quan ly ky tuc xa thong minh', 'APPROVED'),  -- team 1
-  (1, 1, 'Team Dragon',  'Nen tang hoc tap truc tuyen',          'APPROVED'),  -- team 2
-  (1, 2, 'Team Tiger',   'App theo doi suc khoe sinh vien',       'APPROVED'),  -- team 3
-  (1, 3, 'Team Eagle',   'AI cham diem bai tap tu dong',          'APPROVED'),  -- team 4
-  (1, 1, 'Team Falcon',  'Web marketplace trao doi sach cu',      'APPROVED');  -- team 5
+INSERT INTO Team (name, description) VALUES
+  ('Team Phoenix', 'Web app quan ly ky tuc xa thong minh'),  -- team 1
+  ('Team Dragon',  'Nen tang hoc tap truc tuyen'),           -- team 2
+  ('Team Tiger',   'App theo doi suc khoe sinh vien'),       -- team 3
+  ('Team Eagle',   'AI cham diem bai tap tu dong'),          -- team 4
+  ('Team Falcon',  'Web marketplace trao doi sach cu');      -- team 5
 
 -- Event 2 — Summer (team 6-17): ALL register WITHOUT a track (track_id = NULL).
 -- Track is assigned during SETUP: leaders self-select (SELF_SELECT mode) or the
 -- coordinator draws (RANDOM mode) via POST /api/teams/event/2/draw-tracks.
 -- Mix of APPROVED/PENDING so the approval step can be demoed — only APPROVED teams
 -- count toward per-track slots and may pick / be drawn. (event tracks: 4-7)
-INSERT INTO Team (event_id, track_id, name, description, status) VALUES
-  (2, NULL, 'Team Horizon',  'Web app ho tro tim viec lam',           'APPROVED'),  -- team 6
-  (2, NULL, 'Team Nexus',    'AI tom tat tai lieu hoc tap',           'APPROVED'),  -- team 7
-  (2, NULL, 'Team Verde',    'App ket noi tinh nguyen vien',          'APPROVED'),  -- team 8
-  (2, NULL, 'Team EcoSmart', 'IoT monitoring chat luong khong khi',   'PENDING'),   -- team 9
-  (2, NULL, 'Team Pixel',    'Platform thiet ke portfolio sinh vien', 'PENDING'),   -- team 10
-  (2, NULL, 'Team Comet',    'Web app cong dong sinh vien',           'APPROVED'),  -- team 11
-  (2, NULL, 'Team Vortex',   'Nen tang AI ho tro hoc tap',            'APPROVED'),  -- team 12
-  (2, NULL, 'Team Lumen',    'Giai phap cong nghe xanh',              'PENDING'),   -- team 13
-  (2, NULL, 'Team Aurora',   'Web app ho tro on tap thi cu',          'APPROVED'),  -- team 14
-  (2, NULL, 'Team Specter',  'AI phat hien dao van bai nop',          'APPROVED'),  -- team 15
-  (2, NULL, 'Team Quantum',  'Nen tang quan ly du an nhom sinh vien', 'PENDING'),   -- team 16
-  (2, NULL, 'Team Zephyr',   'Giai phap IoT tiet kiem nang luong',    'APPROVED');  -- team 17
+INSERT INTO Team (name, description) VALUES
+  ('Team Horizon',  'Web app ho tro tim viec lam'),           -- team 6
+  ('Team Nexus',    'AI tom tat tai lieu hoc tap'),           -- team 7
+  ('Team Verde',    'App ket noi tinh nguyen vien'),          -- team 8
+  ('Team EcoSmart', 'IoT monitoring chat luong khong khi'),   -- team 9
+  ('Team Pixel',    'Platform thiet ke portfolio sinh vien'), -- team 10
+  ('Team Comet',    'Web app cong dong sinh vien'),           -- team 11
+  ('Team Vortex',   'Nen tang AI ho tro hoc tap'),            -- team 12
+  ('Team Lumen',    'Giai phap cong nghe xanh'),               -- team 13
+  ('Team Aurora',   'Web app ho tro on tap thi cu'),          -- team 14
+  ('Team Specter',  'AI phat hien dao van bai nop'),          -- team 15
+  ('Team Quantum',  'Nen tang quan ly du an nhom sinh vien'), -- team 16
+  ('Team Zephyr',   'Giai phap IoT tiet kiem nang luong');    -- team 17
+
+INSERT INTO TeamEventEntry (team_id, event_id, track_id, status) VALUES
+  (1,  1, 1,    'APPROVED'),
+  (2,  1, 1,    'APPROVED'),
+  (3,  1, 2,    'APPROVED'),
+  (4,  1, 3,    'APPROVED'),
+  (5,  1, 1,    'APPROVED'),
+  (6,  2, NULL, 'APPROVED'),
+  (7,  2, NULL, 'APPROVED'),
+  (8,  2, NULL, 'APPROVED'),
+  (9,  2, NULL, 'PENDING'),
+  (10, 2, NULL, 'PENDING'),
+  (11, 2, NULL, 'APPROVED'),
+  (12, 2, NULL, 'APPROVED'),
+  (13, 2, NULL, 'PENDING'),
+  (14, 2, NULL, 'APPROVED'),
+  (15, 2, NULL, 'APPROVED'),
+  (16, 2, NULL, 'PENDING'),
+  (17, 2, NULL, 'APPROVED');
 
 
 -- =====================================================
@@ -787,11 +808,11 @@ INSERT INTO AccountApproval (user_id, reviewed_by, status, note, reviewed_at) VA
 -- =====================================================
 -- 16. TEAM INVITE
 -- =====================================================
-INSERT INTO TeamInvite (team_id, invited_user_id, invited_by, message, status) VALUES
+INSERT INTO TeamInvite (team_id, event_id, invited_user_id, invited_by, message, status) VALUES
   -- Team Horizon (event 2) invites user 24 (external, pending approval)
-  (6, 24, 21, 'Chao ban! Team Horizon muon moi ban tham gia nhe.', 'PENDING'),
+  (6, 2, 24, 21, 'Chao ban! Team Horizon muon moi ban tham gia nhe.', 'PENDING'),
   -- Team Verde (event 2) invites user 13 — accepted (now a member)
-  (8, 13, 12, NULL, 'ACCEPTED');
+  (8, 2, 13, 12, NULL, 'ACCEPTED');
 
 
 -- =====================================================

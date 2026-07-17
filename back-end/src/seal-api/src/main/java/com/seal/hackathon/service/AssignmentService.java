@@ -20,6 +20,7 @@ import com.seal.hackathon.entity.Round;
 import com.seal.hackathon.entity.RoundResult;
 import com.seal.hackathon.entity.Submission;
 import com.seal.hackathon.entity.Team;
+import com.seal.hackathon.entity.TeamEventEntry;
 import com.seal.hackathon.entity.TeamMember;
 import com.seal.hackathon.entity.Track;
 import com.seal.hackathon.entity.User;
@@ -36,6 +37,7 @@ import com.seal.hackathon.repository.RoundRepository;
 import com.seal.hackathon.repository.RoundResultRepository;
 import com.seal.hackathon.repository.ScoreRepository;
 import com.seal.hackathon.repository.SubmissionRepository;
+import com.seal.hackathon.repository.TeamEventEntryRepository;
 import com.seal.hackathon.repository.TeamMemberRepository;
 import com.seal.hackathon.repository.TeamRepository;
 import com.seal.hackathon.repository.TrackRepository;
@@ -76,6 +78,7 @@ public class AssignmentService {
     private final JudgeAssignmentRepository judgeAssignmentRepository;
     private final MentorAssignmentRepository mentorAssignmentRepository;
     private final TeamRepository teamRepository;
+    private final TeamEventEntryRepository teamEventEntryRepository;
     private final TeamMemberRepository teamMemberRepository;
     private final UserRepository userRepository;
     private final RoundRepository roundRepository;
@@ -150,7 +153,8 @@ public class AssignmentService {
                         .build());
             }
 
-            for (Team team : teamRepository.findAllByTrack_TrackIdAndStatus(track.getTrackId(), "APPROVED")) {
+            for (TeamEventEntry teamEntry : teamEventEntryRepository.findAllByTrack_TrackIdAndStatus(track.getTrackId(), "APPROVED")) {
+                Team team = teamEntry.getTeam();
                 // Submissions thực sự đã nộp (bỏ DRAFT) để biết team nộp chưa.
                 List<Submission> submitted = submissionRepository
                         .findAllByTeam_TeamId(team.getTeamId()).stream()
@@ -279,9 +283,10 @@ public class AssignmentService {
 
             List<MentorHistoryResponse.TrackGroup> trackGroups = new ArrayList<>();
             for (Track track : distinctTracks.values()) {
-                List<MentorHistoryResponse.TeamResult> teams = teamRepository
+                List<MentorHistoryResponse.TeamResult> teams = teamEventEntryRepository
                         .findAllByTrack_TrackIdAndStatus(track.getTrackId(), "APPROVED").stream()
-                        .map(team -> {
+                        .map(teamEntry -> {
+                            Team team = teamEntry.getTeam();
                             Integer finalRank = finalRound == null ? null : roundResultRepository
                         .findByTeam_TeamIdAndRound_RoundId(team.getTeamId(), finalRound.getRoundId())
                         .filter(resultRow -> Boolean.TRUE.equals(resultRow.getIsPublished()))
@@ -302,7 +307,7 @@ public class AssignmentService {
                             return MentorHistoryResponse.TeamResult.builder()
                                     .teamId(team.getTeamId())
                                     .teamName(team.getName())
-                                    .teamStatus(team.getStatus())
+                                    .teamStatus(teamEntry.getStatus())
                                     .finalRank(finalRank)
                                     .prizeName(prizeByTeam.get(team.getTeamId()))
                                     .memberCount(teamMembers.size())
@@ -386,10 +391,11 @@ public class AssignmentService {
         List<CoordinatorEventHistoryResponse.TrackGroup> trackGroups = new ArrayList<>();
 
         for (Track track : tracks) {
-            List<Team> approvedTeams = teamRepository.findAllByTrack_TrackIdAndStatus(track.getTrackId(), "APPROVED");
+            List<TeamEventEntry> approvedEntries = teamEventEntryRepository.findAllByTrack_TrackIdAndStatus(track.getTrackId(), "APPROVED");
             List<CoordinatorEventHistoryResponse.TeamResult> teamResults = new ArrayList<>();
 
-            for (Team team : approvedTeams) {
+            for (TeamEventEntry teamEntry : approvedEntries) {
+                Team team = teamEntry.getTeam();
                 totalTeams++;
                 boolean hasSubmission = submissionRepository.findAllByTeam_TeamId(team.getTeamId()).stream()
                         .anyMatch(s -> !"DRAFT".equalsIgnoreCase(s.getStatus()));
@@ -418,7 +424,7 @@ public class AssignmentService {
                 teamResults.add(CoordinatorEventHistoryResponse.TeamResult.builder()
                         .teamId(team.getTeamId())
                         .teamName(team.getName())
-                        .teamStatus(team.getStatus())
+                        .teamStatus(teamEntry.getStatus())
                         .finalRank(finalRank)
                         .prizeName(prizeByTeam.get(team.getTeamId()))
                         .memberCount(teamMembers.size())
@@ -500,17 +506,17 @@ public class AssignmentService {
                             .filter(other -> Objects.equals(assignmentTrackId,
                                     other.getTrack() == null ? null : other.getTrack().getTrackId()))
                             .count();
-                    List<Team> teams = ja.getTrack() != null
-                            ? teamRepository.findAllByTrack_TrackIdAndStatus(ja.getTrack().getTrackId(), "APPROVED")
-                            : teamRepository.findAllByEvent_EventIdAndStatus(round.getEvent().getEventId(), "APPROVED");
-                    return teams.stream()
-                            .map(team -> JudgeAssignmentResponse.AssignedTeamInfo.builder()
-                                    .teamId(team.getTeamId())
-                                    .teamName(team.getName())
-                                    .trackName(team.getTrack().getName())
+                    List<TeamEventEntry> teamEntries = ja.getTrack() != null
+                            ? teamEventEntryRepository.findAllByTrack_TrackIdAndStatus(ja.getTrack().getTrackId(), "APPROVED")
+                            : teamEventEntryRepository.findAllByEvent_EventIdAndStatus(round.getEvent().getEventId(), "APPROVED");
+                    return teamEntries.stream()
+                            .map(teamEntry -> JudgeAssignmentResponse.AssignedTeamInfo.builder()
+                                    .teamId(teamEntry.getTeam().getTeamId())
+                                    .teamName(teamEntry.getTeam().getName())
+                                    .trackName(teamEntry.getTrack() != null ? teamEntry.getTrack().getName() : null)
                                     .roundId(round.getRoundId())
                                     .assignedJudgeCount(panelSize)
-                                    .members(mapJudgeMembers(team))
+                                    .members(mapJudgeMembers(teamEntry.getTeam()))
                                     .build());
                 })
                 .collect(Collectors.toList());
@@ -737,13 +743,22 @@ public class AssignmentService {
 
     private boolean hasFinalScoreInAssignment(JudgeAssignment assignment) {
         Integer trackId = assignment.getTrack() == null ? null : assignment.getTrack().getTrackId();
+        Integer eventId = assignment.getRound().getEvent().getEventId();
         return scoreRepository
                 .findAllByJudge_UserIdAndSubmission_Round_RoundIdAndIsDraftFalse(
                         assignment.getJudge().getUserId(), assignment.getRound().getRoundId())
                 .stream()
-                .anyMatch(score -> trackId == null || (score.getSubmission().getTeam().getTrack() != null
-                        && Objects.equals(trackId,
-                                score.getSubmission().getTeam().getTrack().getTrackId())));
+                .anyMatch(score -> {
+                    if (trackId == null) {
+                        return true;
+                    }
+                    Integer scoreTrackId = teamEventEntryRepository
+                            .findByTeam_TeamIdAndEvent_EventId(score.getSubmission().getTeam().getTeamId(), eventId)
+                            .map(TeamEventEntry::getTrack)
+                            .map(Track::getTrackId)
+                            .orElse(null);
+                    return Objects.equals(trackId, scoreTrackId);
+                });
     }
 
     /**

@@ -13,6 +13,7 @@ import com.seal.hackathon.entity.ScoringCriteria;
 import com.seal.hackathon.entity.Submission;
 import com.seal.hackathon.entity.SystemLog;
 import com.seal.hackathon.entity.Team;
+import com.seal.hackathon.entity.TeamEventEntry;
 import com.seal.hackathon.entity.TeamMember;
 import com.seal.hackathon.entity.Track;
 import com.seal.hackathon.entity.User;
@@ -29,6 +30,7 @@ import com.seal.hackathon.repository.ScoreRepository;
 import com.seal.hackathon.repository.ScoringCriteriaRepository;
 import com.seal.hackathon.repository.SubmissionRepository;
 import com.seal.hackathon.repository.SystemLogRepository;
+import com.seal.hackathon.repository.TeamEventEntryRepository;
 import com.seal.hackathon.repository.TeamMemberRepository;
 import com.seal.hackathon.repository.TeamRepository;
 import com.seal.hackathon.repository.TrackRepository;
@@ -64,6 +66,7 @@ public class DemoFixtures {
     private final RoundRepository roundRepo;
     private final ScoringCriteriaRepository criteriaRepo;
     private final TeamRepository teamRepo;
+    private final TeamEventEntryRepository teamEventEntryRepo;
     private final TeamMemberRepository memberRepo;
     private final JudgeAssignmentRepository judgeAssignRepo;
     private final MentorAssignmentRepository mentorAssignRepo;
@@ -124,8 +127,8 @@ public class DemoFixtures {
      * the event status directly instead of calling completeEvent, so apply it here.
      */
     public void deactivateCompletedEventUsers(HackathonEvent event) {
-        List<User> students = teamRepo.findAllByEvent_EventId(event.getEventId()).stream()
-                .flatMap(t -> memberRepo.findByTeam_TeamId(t.getTeamId()).stream())
+        List<User> students = teamEventEntryRepo.findAllByEvent_EventId(event.getEventId()).stream()
+                .flatMap(t -> memberRepo.findByTeam_TeamId(t.getTeam().getTeamId()).stream())
                 .map(TeamMember::getUser)
                 .filter(u -> "FPT_STUDENT".equalsIgnoreCase(u.getUserType())
                         || "EXTERNAL_STUDENT".equalsIgnoreCase(u.getUserType()))
@@ -209,12 +212,13 @@ public class DemoFixtures {
 
     // ── Teams ────────────────────────────────────────────────────────
 
-    /** Creates a team with a LEADER + the given MEMBERs. */
+    /** Creates a team (+ its one season entry) with a LEADER + the given MEMBERs. */
     public Team team(HackathonEvent event, Track track, String name, String status,
                      User leader, List<User> members) {
         Team team = teamRepo.save(Team.builder()
-                .event(event).track(track).name(name).status(status)
-                .description(name + " — demo team.").build());
+                .name(name).description(name + " — demo team.").build());
+        teamEventEntryRepo.save(TeamEventEntry.builder()
+                .team(team).event(event).track(track).status(status).build());
         memberRepo.save(TeamMember.builder().team(team).user(leader).memberRole("LEADER").build());
         for (User member : members) {
             memberRepo.save(TeamMember.builder().team(team).user(member).memberRole("MEMBER").build());

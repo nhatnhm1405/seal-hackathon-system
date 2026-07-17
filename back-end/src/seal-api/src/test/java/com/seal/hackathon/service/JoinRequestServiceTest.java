@@ -5,10 +5,12 @@ import com.seal.hackathon.dto.response.JoinRequestResponse;
 import com.seal.hackathon.entity.HackathonEvent;
 import com.seal.hackathon.entity.JoinRequest;
 import com.seal.hackathon.entity.Team;
+import com.seal.hackathon.entity.TeamEventEntry;
 import com.seal.hackathon.entity.TeamMember;
 import com.seal.hackathon.entity.User;
 import com.seal.hackathon.exception.BadRequestException;
 import com.seal.hackathon.repository.JoinRequestRepository;
+import com.seal.hackathon.repository.TeamEventEntryRepository;
 import com.seal.hackathon.repository.TeamMemberRepository;
 import com.seal.hackathon.repository.TeamRepository;
 import com.seal.hackathon.repository.UserRepository;
@@ -26,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -39,6 +42,7 @@ class JoinRequestServiceTest {
 
     @Mock private JoinRequestRepository joinRequestRepository;
     @Mock private TeamRepository teamRepository;
+    @Mock private TeamEventEntryRepository teamEventEntryRepository;
     @Mock private TeamMemberRepository teamMemberRepository;
     @Mock private UserRepository userRepository;
     @Mock private NotificationService notificationService;
@@ -100,8 +104,13 @@ class JoinRequestServiceTest {
                 .build();
     }
 
-    private static Team team(Integer id, HackathonEvent event, String status) {
-        return Team.builder().teamId(id).event(event).name("Seal Team").status(status).build();
+    private Team team(Integer id, HackathonEvent event, String status) {
+        Team team = Team.builder().teamId(id).name("Seal Team").build();
+        TeamEventEntry entry = TeamEventEntry.builder()
+                .id(id).team(team).event(event).status(status).build();
+        lenient().when(teamEventEntryRepository.findTopByTeam_TeamIdOrderByIdDesc(id))
+                .thenReturn(Optional.of(entry));
+        return team;
     }
 
     private static User user(Integer id, String name, String userType, Boolean approved, Boolean active) {
