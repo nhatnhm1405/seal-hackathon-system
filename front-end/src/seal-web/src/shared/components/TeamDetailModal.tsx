@@ -14,6 +14,10 @@ export interface TeamDetailMember {
   studentId?: string | null;
   userType?: string | null;   // FPT_STUDENT | EXTERNAL_STUDENT | STAFF
   university?: string | null;
+  /** Whether this member's own account is currently active — a member can be
+   *  on the roster (e.g. after a team rejoin) but still need their own
+   *  separate reactivation. Undefined callers show no indicator at all. */
+  isActive?: boolean | null;
 }
 
 /** A labelled fact shown in the modal's info block (Round / Status / Track / …). */
@@ -89,6 +93,7 @@ function MemberCard({ m, index, action }: { m: TeamDetailMember; index: number; 
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
           <PixelBadge color={isLeader ? "green" : "gray"}>{m.memberRole}</PixelBadge>
+          {m.isActive === false && <PixelBadge color="red">INACTIVE</PixelBadge>}
           {action}
         </div>
       </div>

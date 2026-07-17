@@ -46,6 +46,9 @@ public class MyTeamResponse {
     /** All members of this team, including the current user */
     private List<TeamMemberInfo> members;
 
+    /** True if this team has a PENDING TeamRejoinRequest awaiting coordinator review. */
+    private Boolean hasPendingRejoinRequest;
+
     @Data
     @Builder
     @NoArgsConstructor
@@ -91,5 +94,9 @@ public class MyTeamResponse {
         private String role;
 
         private LocalDateTime joinedAt;
+
+        /** Whether this member's own account is currently active (see User.isActive) —
+         *  a member can be on the roster but still need their own separate reactivation. */
+        private Boolean isActive;
     }
 }

@@ -196,6 +196,12 @@ export function TeamSubmitPage() {
     ? new Date(selectedRound.submissionDeadline).getTime() < Date.now()
     : false;
   const teamApproved = (team?.status ?? "").toUpperCase() === "APPROVED";
+  // No live season entry for the currently-selected team (past event
+  // completed, or disqualified) — same condition TeamViewPage/
+  // ExistingTeamDashboard gate their dormant notices on. Reached directly by
+  // URL since the nav item itself is already hidden for a dormant team.
+  const teamDormant = (team?.status ?? "").toUpperCase() === "DISQUALIFIED"
+    || (team?.eventStatus ?? "").toUpperCase() === "COMPLETED";
   const roundOpen = ["ACTIVE", "OPEN"].includes((selectedRound?.status ?? "").toUpperCase());
   const eventAllowsSubmit = ["OPEN", "IN_PROGRESS"].includes((team?.eventStatus ?? "").toUpperCase());
   const timerAllowsSubmit = !timer.loading && !timer.loadFailed && timer.isRunning;
@@ -316,6 +322,12 @@ export function TeamSubmitPage() {
         </div>
       )}
 
+      {teamDormant ? (
+        <div style={{ background: "rgba(107,114,128,0.08)", border: `1px solid ${C.border}`, color: C.textMuted, fontFamily: mono, fontSize: 12, padding: "14px 16px" }}>
+          This team isn't part of a running season, so there's nothing to submit right now. Visit My Team to request bringing it back for a new season.
+        </div>
+      ) : (
+      <>
       {!isLeader && (
         <div style={{ background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.35)", color: C.yellow, fontFamily: mono, fontSize: 12, padding: "10px 14px" }}>
           Only the team leader can submit. You can view the current submission below.
@@ -506,6 +518,8 @@ export function TeamSubmitPage() {
             </div>
           </PixelCard>
         </>
+      )}
+      </>
       )}
     </div>
   );

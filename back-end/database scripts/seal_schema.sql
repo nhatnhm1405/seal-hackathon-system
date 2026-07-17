@@ -340,6 +340,48 @@ CREATE TABLE TeamMember (
   CONSTRAINT fk_tm_user FOREIGN KEY (user_id) REFERENCES `User` (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- A team leader's request to re-attach the team's persistent identity to a
+-- new season (creates a new TeamEventEntry on approval) — mirrors
+-- ParticipationAccessRequest, scoped to a team instead of a user.
+CREATE TABLE TeamRejoinRequest (
+  request_id   INT          NOT NULL AUTO_INCREMENT,
+  team_id      INT          NOT NULL,
+  event_id     INT          NOT NULL COMMENT 'Target event for the new TeamEventEntry',
+  requested_by INT          NOT NULL COMMENT 'The leader who filed the request',
+  status       VARCHAR(20)  NOT NULL DEFAULT 'PENDING' COMMENT 'PENDING, APPROVED, REJECTED',
+  requested_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  resolved_at  DATETIME              NULL,
+  resolved_by  INT                   NULL,
+  PRIMARY KEY (request_id),
+  KEY idx_team_rejoin_status (status, requested_at),
+  KEY idx_team_rejoin_team_status (team_id, status),
+  CONSTRAINT fk_team_rejoin_team
+    FOREIGN KEY (team_id) REFERENCES Team (team_id)
+    ON DELETE CASCADE,
+  CONSTRAINT fk_team_rejoin_event FOREIGN KEY (event_id) REFERENCES HackathonEvent (event_id),
+  CONSTRAINT fk_team_rejoin_requested_by
+    FOREIGN KEY (requested_by) REFERENCES `User`(user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- A frozen, per-participant snapshot of one event's result — NOT a live
+-- reference (no FK to Team; event_id is plain, used only to compare against
+-- the event's current live status, never for display). Written when a
+-- participant leaves/is removed from their team early (before their
+-- TeamMember row is hard-deleted, otherwise that season's result would be
+-- lost) or when the event completes (for whoever is still on a team then).
+-- One row per (user_id, event_id), upserted on every write.
+CREATE TABLE ParticipantEventHistory (
+  id             INT          NOT NULL AUTO_INCREMENT,
+  user_id        INT          NOT NULL,
+  event_id       INT          NOT NULL COMMENT 'Not a FK — display data lives in result_json',
+  snapshot_reason VARCHAR(30) NOT NULL COMMENT 'COMPLETED, LEFT_TEAM, REMOVED_BY_LEADER, REMOVED_BY_COORDINATOR',
+  snapshot_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  result_json    TEXT         NOT NULL COMMENT 'Serialized TeamHistoryResponse',
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_participant_event_history_user_event (user_id, event_id),
+  CONSTRAINT fk_peh_user FOREIGN KEY (user_id) REFERENCES `User` (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- =====================================================
 -- SUBMISSION
 -- =====================================================

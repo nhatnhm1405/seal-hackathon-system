@@ -13,6 +13,10 @@ export interface AuthUser {
   avatar_url: string | null;
   is_leader: boolean;
   team_id: number | null;
+  // true when team_id resolves to a team with no live season entry (past
+  // event completed, or disqualified) — the team still "exists" for My Team,
+  // but season-scoped screens (Submit Project) should stay hidden.
+  team_dormant: boolean;
   // true for a first-time OAuth account that hasn't picked its userType yet
   profile_incomplete: boolean;
   // false until a coordinator approves the account
@@ -165,6 +169,7 @@ function mapApiUser(profile: ApiUserProfile): AuthUser {
     avatar_url:   profile.avatarUrl ?? profile.avatar_url ?? null,
     is_leader:    profile.isLeader ?? profile.is_leader ?? false,
     team_id:      profile.teamId ?? profile.team_id ?? null,
+    team_dormant: false,
     profile_incomplete: userType === 'PENDING_PROFILE',
     approved:     profile.isApproved ?? profile.is_approved ?? true,
     is_active:    isActive,
@@ -176,18 +181,21 @@ function mapApiUser(profile: ApiUserProfile): AuthUser {
 // which only PARTICIPANTs may call. Until the backend adds member userId / a
 // myRole field to MyTeamResponse, leadership is inferred by matching the full
 // name (temporary — see deferred backend note).
-async function fetchTeamContext(role: AuthUser['role'], fullName: string, userId?: number): Promise<{ teamId: number | null; isLeader: boolean }> {
-  if (role !== 'PARTICIPANT') return { teamId: null, isLeader: false };
+async function fetchTeamContext(role: AuthUser['role'], fullName: string, userId?: number): Promise<{ teamId: number | null; isLeader: boolean; teamDormant: boolean }> {
+  if (role !== 'PARTICIPANT') return { teamId: null, isLeader: false, teamDormant: false };
   try {
     const res = await teamsApi.getMy();
     const t = res.data;
-    if (!t || t.teamId == null) return { teamId: null, isLeader: false };
+    if (!t || t.teamId == null) return { teamId: null, isLeader: false, teamDormant: false };
     const myRole = t.myRole
       ?? t.members?.find(m => userId != null && m.userId === userId)?.role
       ?? t.members?.find(m => m.memberName === fullName)?.role;
-    return { teamId: t.teamId, isLeader: (myRole ?? '').toString().toUpperCase() === 'LEADER' };
+    // Same "dormant" condition TeamViewPage/ExistingTeamDashboard gate their
+    // rejoin banner on — a team with no live season entry.
+    const teamDormant = t.status === 'DISQUALIFIED' || t.eventStatus === 'COMPLETED';
+    return { teamId: t.teamId, isLeader: (myRole ?? '').toString().toUpperCase() === 'LEADER', teamDormant };
   } catch {
-    return { teamId: null, isLeader: false };
+    return { teamId: null, isLeader: false, teamDormant: false };
   }
 }
 
@@ -237,6 +245,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const tc = await fetchTeamContext(authUser.role, authUser.full_name, authUser.user_id);
         authUser.team_id = tc.teamId;
         authUser.is_leader = tc.isLeader;
+        authUser.team_dormant = tc.teamDormant;
         setCurrentUser(authUser);
       })
       .catch(() => {
@@ -288,6 +297,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const tc = await fetchTeamContext(authUser.role, authUser.full_name, authUser.user_id);
       authUser.team_id = tc.teamId;
       authUser.is_leader = tc.isLeader;
+      authUser.team_dormant = tc.teamDormant;
       setCurrentUser(authUser);
       // Signal to the caller that the user must pick a role before entering any dashboard
       return allRoles.length > 1 && resolvedActive === null ? 'ok:select-role' : 'ok';
@@ -319,7 +329,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   function clearTeam() {
-    setCurrentUser(prev => prev ? { ...prev, team_id: null, is_leader: false } : prev);
+    setCurrentUser(prev => prev ? { ...prev, team_id: null, is_leader: false, team_dormant: false } : prev);
   }
 
   // Apply edited profile fields to the in-memory user (after PUT /api/auth/me).
@@ -332,7 +342,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function refreshTeamContext() {
     if (!currentUser) return;
     const tc = await fetchTeamContext(currentUser.role, currentUser.full_name, currentUser.user_id);
-    setCurrentUser(prev => prev ? { ...prev, team_id: tc.teamId, is_leader: tc.isLeader } : prev);
+    setCurrentUser(prev => prev ? { ...prev, team_id: tc.teamId, is_leader: tc.isLeader, team_dormant: tc.teamDormant } : prev);
   }
 
   return (

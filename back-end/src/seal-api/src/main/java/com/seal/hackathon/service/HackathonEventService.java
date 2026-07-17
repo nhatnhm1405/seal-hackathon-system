@@ -43,6 +43,7 @@ public class HackathonEventService {
     private final TeamMemberRepository teamMemberRepository;
     private final UserRepository userRepository;
     private final JudgeAssignmentRepository judgeAssignmentRepository;
+    private final ParticipantHistorySnapshotService participantHistorySnapshotService;
     private final AuditLogService auditLogService;
 
     private static final Set<String> VALID_STATUSES =
@@ -267,6 +268,10 @@ public class HackathonEventService {
         event.setStatus("COMPLETED");
         event = hackathonEventRepository.save(event);
         lockCompletedEventParticipantsReadOnly(event.getEventId());
+        // Freeze every current participant's result for this event — the
+        // "stayed till the end" half of participant history; departures
+        // before this point are snapshotted separately in TeamService.
+        participantHistorySnapshotService.snapshotEventCompletion(event.getEventId());
         return mapToResponse(event);
     }
 

@@ -14,8 +14,19 @@ import { ParticipantJourneyBar } from "@/shared/components/ParticipantJourneyBar
 import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
 import { ParticipantProblemCard } from "./ParticipantProblemCard";
 import { fmtDate, fmtDT, roundStatusColor, teamStatusColor } from "../utils/formatters";
+import { teamLockReason } from "@/shared/teamPhase";
 
-export function ExistingTeamDashboard() {
+interface ExistingTeamDashboardProps {
+    // Own-account reactivation ("request to compete this season") — lifted up
+    // from ParticipantDashboard so it stays reachable even though a dormant
+    // team still resolves team_id !== null and lands here, not on NoTeamDashboard.
+    inactive: boolean;
+    requestingActive: boolean;
+    activeRequested: boolean;
+    onRequestActive: () => void;
+}
+
+export function ExistingTeamDashboard({ inactive, requestingActive, activeRequested, onRequestActive }: ExistingTeamDashboardProps) {
     const navigate = useNavigate();
     const { currentUser, clearTeam } = useAuth();
     const { addToast } = useNotifications();
@@ -161,6 +172,12 @@ export function ExistingTeamDashboard() {
         && team.trackSelectionMode === 'SELF_SELECT'
         && team.status === 'APPROVED'
         && !team.trackName;
+    // Dormant = no live season entry — same condition TeamViewPage gates its
+    // rejoin banner on. The KPI tiles below (submission/rank/deadline) only
+    // make sense for a season that's actually running, so they're swapped
+    // for a plain "season over" notice instead of showing stale round data.
+    const isDormant = team.status === 'DISQUALIFIED' || team.eventStatus === 'COMPLETED';
+    const lockReason = teamLockReason(team.eventStatus);
 
     return (
         <div className={dark ? "cyber-grid-bg" : undefined} style={{ position: "relative", minHeight: "100%", padding: 24 }}>
@@ -184,35 +201,69 @@ export function ExistingTeamDashboard() {
                     </span>
                     <PixelBadge color={teamStatusColor(team.status)}>{team.status ?? "—"}</PixelBadge>
                     <PixelBadge color={isLeader ? 'cyan' : 'blue'}>{isLeader ? 'LEADER' : 'MEMBER'}</PixelBadge>
+                    {isDormant && <PixelBadge color="gray">SEASON ENDED</PixelBadge>}
                 </div>
             </PixelCard>
 
-            {/* Time-sensitive status — glass tiles matching the no-team dashboard. */}
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16 }}>
-                <GlassStat
-                    dark={dark}
-                    rgb={eliminated || eligibilityUnavailable ? "239,68,68" : waitingForResults ? "234,179,8" : "34,197,94"}
-                    valueColor={eliminated || eligibilityUnavailable ? C.red : waitingForResults ? C.yellow : C.green}
-                    label={eliminated || waitingForResults || eligibilityUnavailable ? "Round Status" : subRoundName ? `${subRoundName} Submission` : "Submission"}
-                    value={eligibilityLoading ? "Checking..." : eliminated ? "Eliminated" : waitingForResults ? "Locked" : eligibilityUnavailable ? "Unavailable" : submitted ? "Submitted" : "Pending"}
-                    sublabel={eligibilityUnavailable
-                        ? "Eligibility could not be verified. Submission remains locked."
-                        : eliminated || waitingForResults ? activeEligibility?.reason
-                        : submitted?.at ? `at ${fmtDate(submitted.at)}` : "Not submitted yet"} />
-                <GlassStat dark={dark} rgb="59,130,246" valueColor={C.blueBright}
-                    label="Last Round Rank"
-                    value={rank ? `#${rank.rankPosition}` : "—"}
-                    sublabel={rank
-                        ? `${rank.roundName ?? "Round"} · Score: ${rank.totalScore.toFixed(1)}${rankOutcome ? ` · ${rankOutcome}` : ""}`
-                        : "No published result"} />
-                <GlassStat dark={dark} rgb="6,182,212" valueColor={C.cyan}
-                    label="Next Deadline"
-                    value={eliminated || waitingForResults || eligibilityUnavailable ? "—" : activeRound ? fmtDate(activeRound.submissionDeadline) : "—"}
-                    sublabel={eliminated
-                        ? `Not qualified for ${activeRound?.name ?? "the next round"}`
-                        : waitingForResults ? "Awaiting published results"
-                            : eligibilityUnavailable ? "Eligibility unavailable" : activeRound?.name ?? "No active round"} />
-            </div>
+            {inactive && (
+                <PixelCard glow glowColor={dark ? "blue" : "green"} gradient style={{ padding: 16 }}>
+                    <div style={{ display: "flex", gap: 12, alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" }}>
+                        <p style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, margin: 0, lineHeight: 1.6 }}>
+                            Your account is inactive for the current season. Request to join the competition to continue.
+                        </p>
+                        <PixelButton variant="cyber" disabled={requestingActive || activeRequested} onClick={onRequestActive}>
+                            {activeRequested ? "REQUEST SENT" : requestingActive ? "SENDING..." : "REQUEST TO COMPETE THIS SEASON"}
+                        </PixelButton>
+                    </div>
+                </PixelCard>
+            )}
+
+            {/* Time-sensitive status — glass tiles matching the no-team dashboard.
+                Only meaningful while the team's season is actually running; a
+                dormant team gets a plain notice instead of stale round data. */}
+            {isDormant ? (
+                <div style={{ background: "rgba(107,114,128,0.08)", border: `1px solid ${C.border}`, color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, padding: "14px 16px" }}>
+                    {lockReason ?? "This team is not part of a running season right now."}
+                    {isLeader && (
+                        <> {"— open "}
+                            <button
+                                type="button"
+                                onClick={() => navigate('/team/view')}
+                                style={{ background: "none", border: "none", padding: 0, color: C.cyan, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, textDecoration: "underline", cursor: "pointer" }}
+                            >
+                                My Team
+                            </button>
+                            {" to request bringing it back for a new season."}
+                        </>
+                    )}
+                </div>
+            ) : (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16 }}>
+                    <GlassStat
+                        dark={dark}
+                        rgb={eliminated || eligibilityUnavailable ? "239,68,68" : waitingForResults ? "234,179,8" : "34,197,94"}
+                        valueColor={eliminated || eligibilityUnavailable ? C.red : waitingForResults ? C.yellow : C.green}
+                        label={eliminated || waitingForResults || eligibilityUnavailable ? "Round Status" : subRoundName ? `${subRoundName} Submission` : "Submission"}
+                        value={eligibilityLoading ? "Checking..." : eliminated ? "Eliminated" : waitingForResults ? "Locked" : eligibilityUnavailable ? "Unavailable" : submitted ? "Submitted" : "Pending"}
+                        sublabel={eligibilityUnavailable
+                            ? "Eligibility could not be verified. Submission remains locked."
+                            : eliminated || waitingForResults ? activeEligibility?.reason
+                            : submitted?.at ? `at ${fmtDate(submitted.at)}` : "Not submitted yet"} />
+                    <GlassStat dark={dark} rgb="59,130,246" valueColor={C.blueBright}
+                        label="Last Round Rank"
+                        value={rank ? `#${rank.rankPosition}` : "—"}
+                        sublabel={rank
+                            ? `${rank.roundName ?? "Round"} · Score: ${rank.totalScore.toFixed(1)}${rankOutcome ? ` · ${rankOutcome}` : ""}`
+                            : "No published result"} />
+                    <GlassStat dark={dark} rgb="6,182,212" valueColor={C.cyan}
+                        label="Next Deadline"
+                        value={eliminated || waitingForResults || eligibilityUnavailable ? "—" : activeRound ? fmtDate(activeRound.submissionDeadline) : "—"}
+                        sublabel={eliminated
+                            ? `Not qualified for ${activeRound?.name ?? "the next round"}`
+                            : waitingForResults ? "Awaiting published results"
+                                : eligibilityUnavailable ? "Eligibility unavailable" : activeRound?.name ?? "No active round"} />
+                </div>
+            )}
 
             {error && (
                 <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.35)", color: C.red, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, padding: "10px 14px" }}>ERROR: {error}</div>
@@ -273,53 +324,61 @@ export function ExistingTeamDashboard() {
             {/* Team info */}
             <PixelCard glow glowColor={dark ? "blue" : "green"} gradient style={{ padding: 24 }}>
                 <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 22, fontWeight: 700, marginBottom: 16 }}>Team Info</div>
-                {team.status === 'PENDING' && (
-                    <div style={{ background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.35)", color: "#eab308", fontFamily: "'JetBrains Mono', monospace", fontSize: 11, padding: "8px 12px", marginBottom: 12 }}>
-                        PENDING COORDINATOR APPROVAL — You cannot submit until approved.
+                {isDormant ? (
+                    <div style={{ background: "rgba(107,114,128,0.08)", border: `1px solid ${C.border}`, color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, padding: "14px 16px" }}>
+                        Track, event, and round details are from the last completed season and stay hidden until this team rejoins an active one.
                     </div>
-                )}
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 16 }}>
-                    <InfoRow label="Team" value={team.name} accent="green" />
-                    {needsTrackPick ? (
-                        <InfoRow label="Track" accent="cyan" action={
-                            <button
-                                type="button"
-                                onClick={() => setShowTrackPicker(true)}
-                                style={{
-                                    display: "inline-flex", alignItems: "center", gap: 6,
-                                    background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.45)",
-                                    color: C.yellow, fontFamily: "'JetBrains Mono', monospace", fontSize: 14, fontWeight: 700,
-                                    padding: "7px 12px", cursor: "pointer", letterSpacing: "0.04em", transition: "all 0.15s",
-                                }}
-                                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(234,179,8,0.16)"; }}
-                                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(234,179,8,0.08)"; }}
-                            >
-                                ⚠ Choose track
-                            </button>
-                        } />
-                    ) : (
-                        <InfoRow label="Track" value={team.trackName ?? "—"} accent="cyan" mentorNames={mentorNames} />
-                    )}
-                    <InfoRow label="Event" value={team.eventName ?? "—"} accent="blue" />
-                    <InfoRow
-                        label={eliminated || waitingForResults || eligibilityUnavailable ? "Journey Status" : "Current Round"}
-                        value={eliminated || waitingForResults
-                            ? activeEligibility?.previousRoundName ?? "Previous round"
-                            : eligibilityUnavailable ? "Eligibility unavailable"
-                            : activeRound?.name ?? "—"}
-                        badge={eliminated ? "ELIMINATED" : waitingForResults ? "WAITING" : eligibilityUnavailable ? "LOCKED" : activeRound?.status}
-                        accent="purple" />
-                </div>
+                ) : (
+                    <>
+                        {team.status === 'PENDING' && (
+                            <div style={{ background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.35)", color: "#eab308", fontFamily: "'JetBrains Mono', monospace", fontSize: 11, padding: "8px 12px", marginBottom: 12 }}>
+                                PENDING COORDINATOR APPROVAL — You cannot submit until approved.
+                            </div>
+                        )}
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 16 }}>
+                            <InfoRow label="Team" value={team.name} accent="green" />
+                            {needsTrackPick ? (
+                                <InfoRow label="Track" accent="cyan" action={
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowTrackPicker(true)}
+                                        style={{
+                                            display: "inline-flex", alignItems: "center", gap: 6,
+                                            background: "rgba(234,179,8,0.08)", border: "1px solid rgba(234,179,8,0.45)",
+                                            color: C.yellow, fontFamily: "'JetBrains Mono', monospace", fontSize: 14, fontWeight: 700,
+                                            padding: "7px 12px", cursor: "pointer", letterSpacing: "0.04em", transition: "all 0.15s",
+                                        }}
+                                        onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(234,179,8,0.16)"; }}
+                                        onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(234,179,8,0.08)"; }}
+                                    >
+                                        ⚠ Choose track
+                                    </button>
+                                } />
+                            ) : (
+                                <InfoRow label="Track" value={team.trackName ?? "—"} accent="cyan" mentorNames={mentorNames} />
+                            )}
+                            <InfoRow label="Event" value={team.eventName ?? "—"} accent="blue" />
+                            <InfoRow
+                                label={eliminated || waitingForResults || eligibilityUnavailable ? "Journey Status" : "Current Round"}
+                                value={eliminated || waitingForResults
+                                    ? activeEligibility?.previousRoundName ?? "Previous round"
+                                    : eligibilityUnavailable ? "Eligibility unavailable"
+                                    : activeRound?.name ?? "—"}
+                                badge={eliminated ? "ELIMINATED" : waitingForResults ? "WAITING" : eligibilityUnavailable ? "LOCKED" : activeRound?.status}
+                                accent="purple" />
+                        </div>
 
-                {/* Keep the track resource in the same workspace as the team KPIs. */}
-                {team.status === 'APPROVED' && team.eventId != null && team.trackId != null && (
-                    <ParticipantProblemCard eventId={team.eventId} trackId={team.trackId} />
+                        {/* Keep the track resource in the same workspace as the team KPIs. */}
+                        {team.status === 'APPROVED' && team.eventId != null && team.trackId != null && (
+                            <ParticipantProblemCard eventId={team.eventId} trackId={team.trackId} />
+                        )}
+                    </>
                 )}
 
                 {isLeader && (
                     <div style={{ display: "flex", gap: 12, justifyContent: "flex-end", flexWrap: "wrap", marginTop: 16, paddingTop: 16, borderTop: `1px solid ${C.border}` }}>
                         <PixelButton variant="cyber" onClick={() => navigate('/team/view')}>MANAGE TEAM</PixelButton>
-                        {team.status === 'APPROVED' && eligibleForActiveRound && (
+                        {!isDormant && team.status === 'APPROVED' && eligibleForActiveRound && (
                             <PixelButton variant="secondary" onClick={() => navigate('/team/submit')}>SUBMIT PROJECT</PixelButton>
                         )}
                     </div>

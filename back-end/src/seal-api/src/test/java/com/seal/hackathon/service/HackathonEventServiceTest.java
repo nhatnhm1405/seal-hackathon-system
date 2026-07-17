@@ -9,9 +9,12 @@ import com.seal.hackathon.entity.TeamEventEntry;
 import com.seal.hackathon.entity.Track;
 import com.seal.hackathon.exception.BadRequestException;
 import com.seal.hackathon.repository.HackathonEventRepository;
+import com.seal.hackathon.repository.JudgeAssignmentRepository;
 import com.seal.hackathon.repository.TeamEventEntryRepository;
+import com.seal.hackathon.repository.TeamMemberRepository;
 import com.seal.hackathon.repository.TeamRepository;
 import com.seal.hackathon.repository.TrackRepository;
+import com.seal.hackathon.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -50,6 +53,18 @@ class HackathonEventServiceTest {
 
     @Mock
     private AuditLogService auditLogService;
+
+    @Mock
+    private TeamMemberRepository teamMemberRepository;
+
+    @Mock
+    private UserRepository userRepository;
+
+    @Mock
+    private JudgeAssignmentRepository judgeAssignmentRepository;
+
+    @Mock
+    private ParticipantHistorySnapshotService participantHistorySnapshotService;
 
     @InjectMocks
     private HackathonEventService eventService;
@@ -398,6 +413,31 @@ class HackathonEventServiceTest {
                 () -> eventService.updateEvent(1, statusRequest("SETUP")));
 
         verify(hackathonEventRepository, never()).save(any());
+    }
+
+    @Test
+    void completeEvent_shouldSnapshotParticipantHistory_whenTransitioningFromInProgress() {
+        HackathonEvent event = event(1, "IN_PROGRESS");
+
+        when(hackathonEventRepository.findById(1)).thenReturn(Optional.of(event));
+        when(hackathonEventRepository.save(any(HackathonEvent.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(teamEventEntryRepository.findAllByEvent_EventId(1)).thenReturn(List.of());
+        when(judgeAssignmentRepository.findActiveByEvent(1)).thenReturn(List.of());
+
+        eventService.completeEvent(1);
+
+        assertEquals("COMPLETED", event.getStatus());
+        verify(participantHistorySnapshotService).snapshotEventCompletion(1);
+    }
+
+    @Test
+    void completeEvent_shouldThrowBadRequest_whenEventIsNotInProgress() {
+        HackathonEvent event = event(1, "OPEN");
+        when(hackathonEventRepository.findById(1)).thenReturn(Optional.of(event));
+
+        assertThrows(BadRequestException.class, () -> eventService.completeEvent(1));
+
+        verify(participantHistorySnapshotService, never()).snapshotEventCompletion(any());
     }
 
     // Helpers
