@@ -6,6 +6,7 @@ import com.seal.hackathon.dto.request.UpdateTeamRequest;
 import com.seal.hackathon.dto.response.ActiveEventResponse;
 import com.seal.hackathon.dto.response.MyTeamResponse;
 import com.seal.hackathon.dto.response.TeamDetailResponse;
+import com.seal.hackathon.dto.response.TeamHistoryResponse;
 import com.seal.hackathon.dto.response.TeamResponse;
 import com.seal.hackathon.dto.response.UserResponse;
 import com.seal.hackathon.entity.HackathonEvent;
@@ -20,14 +21,13 @@ import com.seal.hackathon.exception.BadRequestException;
 import com.seal.hackathon.exception.ResourceNotFoundException;
 import com.seal.hackathon.repository.HackathonEventRepository;
 import com.seal.hackathon.repository.JoinRequestRepository;
-import com.seal.hackathon.repository.PrizeRepository;
 import com.seal.hackathon.repository.RoundRepository;
 import com.seal.hackathon.repository.RoundResultRepository;
-import com.seal.hackathon.repository.SubmissionRepository;
 import com.seal.hackathon.repository.TeamEventEntryRepository;
 import com.seal.hackathon.repository.TeamMemberRepository;
 import com.seal.hackathon.repository.TeamRepository;
 import com.seal.hackathon.repository.TeamInviteRepository;
+import com.seal.hackathon.repository.TeamRejoinRequestRepository;
 import com.seal.hackathon.repository.TrackRepository;
 import com.seal.hackathon.repository.UserRepository;
 import org.junit.jupiter.api.Test;
@@ -80,13 +80,7 @@ class TeamServiceTest {
     private UserRepository userRepository;
 
     @Mock
-    private SubmissionRepository submissionRepository;
-
-    @Mock
     private RoundResultRepository roundResultRepository;
-
-    @Mock
-    private PrizeRepository prizeRepository;
 
     @Mock
     private RoundRepository roundRepository;
@@ -102,6 +96,12 @@ class TeamServiceTest {
 
     @Mock
     private TeamInviteRepository teamInviteRepository;
+
+    @Mock
+    private TeamRejoinRequestRepository teamRejoinRequestRepository;
+
+    @Mock
+    private ParticipantHistorySnapshotService participantHistorySnapshotService;
 
     @InjectMocks
     private TeamService teamService;
@@ -292,6 +292,166 @@ class TeamServiceTest {
     }
 
     @Test
+    void getMyTeam_shouldReturnDormantTeam_whenNoLiveEntryButHistoricalMembershipExists() {
+        // Rejoin fallback: the team's only entry belongs to a COMPLETED event —
+        // getMyTeam must still surface the team read-only instead of 404ing.
+        HackathonEvent completedEvent = event(1, "COMPLETED");
+        Team team = team(99, completedEvent, null, "Seal Team", "APPROVED");
+        TeamMember leader = member(1, team, user(100, "Leader"), "LEADER");
+
+        when(teamMemberRepository.findByUser_UserIdAndTeam_Event_StatusIn(eq(100), anyList()))
+                .thenReturn(List.of());
+        when(teamMemberRepository.findByUser_UserIdOrderByIdDesc(100)).thenReturn(List.of(leader));
+        when(teamMemberRepository.findByTeam_TeamId(99)).thenReturn(List.of(leader));
+
+        MyTeamResponse response = teamService.getMyTeam(100);
+
+        assertEquals(99, response.getTeamId());
+        assertEquals("COMPLETED", response.getEventStatus());
+        assertEquals("LEADER", response.getMyRole());
+    }
+
+    @Test
+    void getMyResultHistory_shouldReturnOneRowPerEntry_scopedToItsOwnEvent_whenTeamHasRejoined() {
+        HackathonEvent event1 = event(1, "COMPLETED");
+        HackathonEvent event2 = event(2, "OPEN");
+        Team team = Team.builder().teamId(99).name("Seal Team").description("d").createdAt(LocalDateTime.now()).build();
+        TeamEventEntry entry1 = TeamEventEntry.builder().id(201).team(team).event(event1).status("APPROVED")
+                .createdAt(LocalDateTime.of(2026, 1, 1, 0, 0)).build();
+        TeamEventEntry entry2 = TeamEventEntry.builder().id(202).team(team).event(event2).status("APPROVED")
+                .createdAt(LocalDateTime.of(2026, 7, 1, 0, 0)).build();
+        TeamMember leader = member(1, team, user(100, "Leader"), "LEADER");
+        leader.setJoinedAt(LocalDateTime.of(2025, 12, 1, 0, 0)); // present for both seasons
+
+        // buildHistoryView's own round/submission/prize event-scoping is
+        // ParticipantHistorySnapshotService's responsibility now (tested in
+        // ParticipantHistorySnapshotServiceTest) — here we only verify
+        // computeLiveHistory picks the right (membership, entry) pairs and
+        // getMyResultHistory orders/merges them correctly.
+        TeamHistoryResponse view1 = TeamHistoryResponse.builder().eventId(1).eventStatus("COMPLETED").teamId(99).build();
+        TeamHistoryResponse view2 = TeamHistoryResponse.builder().eventId(2).eventStatus("OPEN").teamId(99).build();
+
+        when(teamMemberRepository.findByUser_UserIdOrderByIdDesc(100)).thenReturn(List.of(leader));
+        when(participantHistorySnapshotService.resolveEntriesForMembership(leader)).thenReturn(List.of(entry2, entry1));
+        when(participantHistorySnapshotService.buildHistoryView(leader, entry1)).thenReturn(view1);
+        when(participantHistorySnapshotService.buildHistoryView(leader, entry2)).thenReturn(view2);
+        when(participantHistorySnapshotService.getSnapshotsForUser(100)).thenReturn(Map.of());
+
+        List<TeamHistoryResponse> history = teamService.getMyResultHistory(100);
+
+        assertEquals(2, history.size());
+        // Newest entry (event 2) first.
+        assertEquals(2, history.get(0).getEventId());
+        assertEquals(1, history.get(1).getEventId());
+    }
+
+    @Test
+    void getMyResultHistory_shouldExcludeEntry_whenMemberJoinedAfterThatEntryWasCreated() {
+        HackathonEvent event1 = event(1, "COMPLETED");
+        HackathonEvent event2 = event(2, "OPEN");
+        Team team = Team.builder().teamId(99).name("Seal Team").description("d").createdAt(LocalDateTime.now()).build();
+        TeamEventEntry entry1 = TeamEventEntry.builder().id(201).team(team).event(event1).status("APPROVED")
+                .createdAt(LocalDateTime.of(2026, 1, 1, 0, 0)).build();
+        TeamEventEntry entry2 = TeamEventEntry.builder().id(202).team(team).event(event2).status("APPROVED")
+                .createdAt(LocalDateTime.of(2026, 7, 1, 0, 0)).build();
+        // Joined after the rejoin (entry2) was created — never part of the entry1 season.
+        TeamMember freshMember = member(2, team, user(101, "Newcomer"), "MEMBER");
+        freshMember.setJoinedAt(LocalDateTime.of(2026, 7, 2, 0, 0));
+
+        TeamHistoryResponse view2 = TeamHistoryResponse.builder().eventId(2).eventStatus("OPEN").teamId(99).build();
+
+        when(teamMemberRepository.findByUser_UserIdOrderByIdDesc(101)).thenReturn(List.of(freshMember));
+        when(participantHistorySnapshotService.resolveEntriesForMembership(freshMember)).thenReturn(List.of(entry2));
+        when(participantHistorySnapshotService.buildHistoryView(freshMember, entry2)).thenReturn(view2);
+        when(participantHistorySnapshotService.getSnapshotsForUser(101)).thenReturn(Map.of());
+
+        List<TeamHistoryResponse> history = teamService.getMyResultHistory(101);
+
+        assertEquals(1, history.size());
+        assertEquals(2, history.get(0).getEventId());
+        verify(participantHistorySnapshotService, never()).buildHistoryView(eq(freshMember), eq(entry1));
+    }
+
+    @Test
+    void getMyResultHistory_shouldReturnSingleRow_whenTeamHasOnlyOneEntry() {
+        HackathonEvent event = event(1, "IN_PROGRESS");
+        Team team = team(99, event, null, "Seal Team", "APPROVED");
+        TeamMember leader = member(1, team, user(100, "Leader"), "LEADER");
+        TeamEventEntry entry = entryOf(99);
+
+        TeamHistoryResponse view = TeamHistoryResponse.builder().eventId(1).eventStatus("IN_PROGRESS").teamId(99).build();
+
+        when(teamMemberRepository.findByUser_UserIdOrderByIdDesc(100)).thenReturn(List.of(leader));
+        when(participantHistorySnapshotService.resolveEntriesForMembership(leader)).thenReturn(List.of(entry));
+        when(participantHistorySnapshotService.buildHistoryView(leader, entry)).thenReturn(view);
+        when(participantHistorySnapshotService.getSnapshotsForUser(100)).thenReturn(Map.of());
+
+        List<TeamHistoryResponse> history = teamService.getMyResultHistory(100);
+
+        assertEquals(1, history.size());
+        assertEquals(1, history.get(0).getEventId());
+        assertEquals(99, history.get(0).getTeamId());
+    }
+
+    @Test
+    void getMyResultHistory_shouldPreferLiveOverSnapshot_whenEventIsNotCompleted() {
+        // Event was reopened after a previous completion — a stale snapshot
+        // exists, but the live, up-to-date view should win while it's running.
+        HackathonEvent event = event(2, "IN_PROGRESS");
+        Team team = team(99, event, null, "Seal Team", "APPROVED");
+        TeamMember leader = member(1, team, user(100, "Leader"), "LEADER");
+        TeamEventEntry entry = entryOf(99);
+
+        TeamHistoryResponse liveView = TeamHistoryResponse.builder().eventId(2).eventStatus("IN_PROGRESS").teamName("LIVE").build();
+        TeamHistoryResponse staleSnapshot = TeamHistoryResponse.builder().eventId(2).eventStatus("COMPLETED").teamName("STALE").build();
+
+        when(teamMemberRepository.findByUser_UserIdOrderByIdDesc(100)).thenReturn(List.of(leader));
+        when(participantHistorySnapshotService.resolveEntriesForMembership(leader)).thenReturn(List.of(entry));
+        when(participantHistorySnapshotService.buildHistoryView(leader, entry)).thenReturn(liveView);
+        when(participantHistorySnapshotService.getSnapshotsForUser(100)).thenReturn(Map.of(2, staleSnapshot));
+
+        List<TeamHistoryResponse> history = teamService.getMyResultHistory(100);
+
+        assertEquals(1, history.size());
+        assertEquals("LIVE", history.get(0).getTeamName());
+    }
+
+    @Test
+    void getMyResultHistory_shouldPreferSnapshot_whenLiveEventIsCompleted() {
+        HackathonEvent event = event(3, "COMPLETED");
+        Team team = team(99, event, null, "Seal Team", "APPROVED");
+        TeamMember leader = member(1, team, user(100, "Leader"), "LEADER");
+        TeamEventEntry entry = entryOf(99);
+
+        TeamHistoryResponse liveView = TeamHistoryResponse.builder().eventId(3).eventStatus("COMPLETED").teamName("LIVE_STALE_ROSTER").build();
+        TeamHistoryResponse snapshot = TeamHistoryResponse.builder().eventId(3).eventStatus("COMPLETED").teamName("FROZEN").build();
+
+        when(teamMemberRepository.findByUser_UserIdOrderByIdDesc(100)).thenReturn(List.of(leader));
+        when(participantHistorySnapshotService.resolveEntriesForMembership(leader)).thenReturn(List.of(entry));
+        when(participantHistorySnapshotService.buildHistoryView(leader, entry)).thenReturn(liveView);
+        when(participantHistorySnapshotService.getSnapshotsForUser(100)).thenReturn(Map.of(3, snapshot));
+
+        List<TeamHistoryResponse> history = teamService.getMyResultHistory(100);
+
+        assertEquals(1, history.size());
+        assertEquals("FROZEN", history.get(0).getTeamName());
+    }
+
+    @Test
+    void getMyResultHistory_shouldUseSnapshot_whenDepartedMemberHasNoLiveEntry() {
+        // Departed member — no TeamMember rows left at all, only a frozen snapshot.
+        TeamHistoryResponse snapshot = TeamHistoryResponse.builder().eventId(5).eventStatus("COMPLETED").teamName("DEPARTED").build();
+
+        when(teamMemberRepository.findByUser_UserIdOrderByIdDesc(100)).thenReturn(List.of());
+        when(participantHistorySnapshotService.getSnapshotsForUser(100)).thenReturn(Map.of(5, snapshot));
+
+        List<TeamHistoryResponse> history = teamService.getMyResultHistory(100);
+
+        assertEquals(1, history.size());
+        assertEquals("DEPARTED", history.get(0).getTeamName());
+    }
+
+    @Test
     void updateTeam_shouldUpdateNameAndDescription_whenUserIsLeader() {
         HackathonEvent event = event(1, "OPEN");
         Team team = team(99, event, track(10, event), "Old Name", "PENDING");
@@ -452,6 +612,7 @@ class TeamServiceTest {
 
         assertEquals(1, response.getMembers().size());
         verify(teamMemberRepository).delete(target);
+        verify(participantHistorySnapshotService).snapshotDeparture(target, "REMOVED_BY_LEADER");
     }
 
     @Test
@@ -647,6 +808,7 @@ class TeamServiceTest {
 
         verify(teamMemberRepository).delete(member);
         verify(teamRepository, never()).delete(any());
+        verify(participantHistorySnapshotService).snapshotDeparture(member, "LEFT_TEAM");
     }
 
     @Test
@@ -664,6 +826,9 @@ class TeamServiceTest {
         verify(teamMemberRepository).delete(leader);
         verify(teamEventEntryRepository).delete(entryOf(99));
         verify(teamRepository, never()).delete(any());
+        // Snapshotted BEFORE the entry itself is deleted — this is the one path
+        // where the season's data would otherwise be unrecoverable, not just hidden.
+        verify(participantHistorySnapshotService).snapshotDeparture(leader, "LEFT_TEAM");
     }
 
     @Test
@@ -715,6 +880,23 @@ class TeamServiceTest {
 
         verify(teamMemberRepository, never()).delete(any());
         verify(teamRepository, never()).delete(any());
+    }
+
+    @Test
+    void coordinatorRemoveMember_shouldSnapshotDeparture_beforeDeletingMember() {
+        HackathonEvent event = event(1, "IN_PROGRESS");
+        Team team = team(99, event, null, "Seal Team", "APPROVED");
+        TeamMember leader = member(1, team, user(100, "Leader"), "LEADER");
+        TeamMember target = member(2, team, user(101, "Member"), "MEMBER");
+
+        when(teamRepository.findById(99)).thenReturn(Optional.of(team));
+        when(teamMemberRepository.findByTeam_TeamId(99))
+                .thenReturn(List.of(leader, target), List.of(leader));
+
+        teamService.coordinatorRemoveMember(500, 99, 101, "No-show");
+
+        verify(participantHistorySnapshotService).snapshotDeparture(target, "REMOVED_BY_COORDINATOR");
+        verify(teamMemberRepository).delete(target);
     }
 
     @Test
