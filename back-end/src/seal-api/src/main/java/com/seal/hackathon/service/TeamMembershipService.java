@@ -41,6 +41,7 @@ public class TeamMembershipService {
     private final TeamAccessGuard teamAccessGuard;
     private final TeamResponseMapper teamResponseMapper;
     private final TeamQueryService teamQueryService;
+    private final NotificationService notificationService;
 
     // ── Participant: Create team ──────────────────────────────────────
 
@@ -142,6 +143,13 @@ public class TeamMembershipService {
         }
         participantHistorySnapshotService.snapshotDeparture(target, "REMOVED_BY_LEADER");
         teamMemberRepository.delete(target);
+        notificationService.createNotification(
+                targetUserId,
+                "Removed from the team",
+                "You were removed from team '" + team.getName() + "' in "
+                        + entry.getEvent().getName() + " by the team leader.",
+                "TEAM_MEMBER_REMOVED"
+        );
         return teamQueryService.getMyTeam(leaderUserId);
     }
 

@@ -89,6 +89,9 @@ class TeamMembershipServiceTest {
     @Mock
     private ParticipantHistorySnapshotService participantHistorySnapshotService;
 
+    @Mock
+    private NotificationService notificationService;
+
     private TeamMembershipService teamService;
 
     private final Map<Integer, TeamEventEntry> entriesByTeamId = new HashMap<>();
@@ -104,7 +107,7 @@ class TeamMembershipServiceTest {
         teamService = new TeamMembershipService(
                 teamRepository, teamEventEntryRepository, teamMemberRepository, eventRepository, userRepository,
                 joinRequestRepository, teamInviteRepository, participantHistorySnapshotService, teamAccessGuard,
-                teamResponseMapper, teamQueryService);
+                teamResponseMapper, teamQueryService, notificationService);
     }
 
     @Test
@@ -396,6 +399,8 @@ class TeamMembershipServiceTest {
         assertEquals(1, response.getMembers().size());
         verify(teamMemberRepository).delete(target);
         verify(participantHistorySnapshotService).snapshotDeparture(target, "REMOVED_BY_LEADER");
+        verify(notificationService).createNotification(
+                eq(101), eq("Removed from the team"), any(), eq("TEAM_MEMBER_REMOVED"));
     }
 
     @Test
