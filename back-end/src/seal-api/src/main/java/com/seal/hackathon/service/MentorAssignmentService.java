@@ -295,6 +295,12 @@ public class MentorAssignmentService {
         Track track = trackRepository.findById(request.getTrackId())
                 .orElseThrow(() -> new ResourceNotFoundException("Track not found: " + request.getTrackId()));
 
+        // Guest judges are one-off external scorers, not embedded staff — they
+        // can't take on a mentor's ongoing track responsibility.
+        if ("GUEST".equalsIgnoreCase(mentor.getJudgeType())) {
+            throw new BadRequestException("Guest judges cannot be assigned as mentors.");
+        }
+
         if (mentorAssignmentRepository.existsByMentor_UserIdAndTrack_TrackId(mentor.getUserId(), track.getTrackId())) {
             throw new BadRequestException("This mentor is already assigned to this track.");
         }
