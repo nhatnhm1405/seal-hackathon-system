@@ -1,9 +1,13 @@
 package com.seal.hackathon.config;
 
 import com.seal.hackathon.entity.Role;
+import com.seal.hackathon.entity.ScoringCriteria;
+import com.seal.hackathon.entity.ScoringCriteriaTemplate;
 import com.seal.hackathon.entity.User;
 import com.seal.hackathon.entity.UserEventRole;
 import com.seal.hackathon.repository.RoleRepository;
+import com.seal.hackathon.repository.ScoringCriteriaRepository;
+import com.seal.hackathon.repository.ScoringCriteriaTemplateRepository;
 import com.seal.hackathon.repository.UserEventRoleRepository;
 import com.seal.hackathon.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +19,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 /**
@@ -44,12 +49,15 @@ public class DataSeeder implements CommandLineRunner {
     private final UserRepository userRepository;
     private final UserEventRoleRepository userEventRoleRepository;
     private final PasswordEncoder passwordEncoder;
+    private final ScoringCriteriaTemplateRepository templateRepository;
+    private final ScoringCriteriaRepository criteriaRepository;
 
     @Override
     @Transactional
     public void run(String... args) {
         seedRoles();
         seedBootstrapAdmin();
+        seedDefaultCriteriaTemplate();
     }
 
     private void seedRoles() {
@@ -97,6 +105,44 @@ public class DataSeeder implements CommandLineRunner {
         log.info("[seed] created bootstrap SYSTEM_ADMIN account: {}", ADMIN_EMAIL);
     }
 
+    // A ready-to-apply rubric so coordinators aren't stuck with an empty
+    // TEMPLATE dropdown on the Criteria tab. Idempotent: skipped once any
+    // default template already exists (isDefault=true).
+    private void seedDefaultCriteriaTemplate() {
+        if (templateRepository.findFirstByIsDefaultTrue().isPresent()) {
+            return;
+        }
+
+        ScoringCriteriaTemplate template = templateRepository.save(ScoringCriteriaTemplate.builder()
+                .name("Standard Rubric")
+                .description("Default 5-criteria rubric: idea, technical, UI/UX, completeness, presentation.")
+                .isDefault(true)
+                .build());
+
+        List<CriteriaDef> criteria = List.of(
+                new CriteriaDef("Idea", "Originality and creativity of the solution.", "1.0", 1),
+                new CriteriaDef("Technical", "Code quality, architecture, and technical execution.", "1.5", 2),
+                new CriteriaDef("UI/UX", "Usability and visual design of the interface.", "1.0", 3),
+                new CriteriaDef("Completeness", "How fully the solution is implemented and working end-to-end.", "1.0", 4),
+                new CriteriaDef("Presentation", "Clarity and quality of the pitch/demo.", "0.5", 5));
+
+        for (CriteriaDef def : criteria) {
+            criteriaRepository.save(ScoringCriteria.builder()
+                    .template(template) // template-only item: no event / round
+                    .name(def.name())
+                    .description(def.description())
+                    .weight(new BigDecimal(def.weight()))
+                    .maxScore(BigDecimal.TEN)
+                    .orderNumber(def.orderNumber())
+                    .build());
+        }
+
+        log.info("[seed] created default criteria template '{}' with {} items", template.getName(), criteria.size());
+    }
+
     private record RoleDef(String name, String description) {
+    }
+
+    private record CriteriaDef(String name, String description, String weight, int orderNumber) {
     }
 }
