@@ -6,6 +6,7 @@ import {
 } from "@/shared/components/PixelComponents";
 import { SealFooter } from "@/shared/components/SealFooter";
 import { SocialAuthButtons } from "@/features/auth/SocialAuthButtons";
+import { UniversitySelect } from "@/shared/components/UniversitySelect";
 import sealLogo from "@/imports/image.png";
 import { apiFetch, ApiError, apiErrorMessage } from "@/shared/apiClient";
 import { useNotifications } from "@/app/providers/NotificationProvider";
@@ -25,6 +26,18 @@ export function RegisterPage() {
   const [university, setUniversity] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  async function checkStudentIdExists(id: string) {
+    if (!id.trim()) return;
+    try {
+      const res = await apiFetch<{ data: boolean }>(`/api/auth/check-student-id?id=${encodeURIComponent(id.trim())}`);
+      if (res.data) {
+        addAuthToast({ type: 'warning', title: 'STUDENT ID TAKEN', message: `Student ID "${id.trim()}" is already registered. If this is you, use the login page.` });
+      }
+    } catch {
+      // silently ignore — backend will enforce on submit
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -99,13 +112,13 @@ export function RegisterPage() {
         </div>
 
         <PixelCard glow gradient style={{ padding: 28 }}>
-          <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-            <PixelInput label="Full Name" placeholder="Your full name" value={fullName} onChange={(e) => setFullName(e.target.value)} />
-            <PixelInput label="Email" type="email" placeholder="you@seal.edu" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <form onSubmit={handleSubmit} autoComplete="off" style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+            <PixelInput label="Full Name" placeholder="Your full name" value={fullName} onChange={(e) => setFullName(e.target.value)} autoComplete="off" />
+            <PixelInput label="Email" type="email" placeholder="you@seal.edu" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="off" />
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-              <PixelInput label="Password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} showToggle />
-              <PixelInput label="Confirm Password" type="password" placeholder="••••••••" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} showToggle />
+              <PixelInput label="Password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} showToggle autoComplete="new-password" />
+              <PixelInput label="Confirm Password" type="password" placeholder="••••••••" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} showToggle autoComplete="new-password" />
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -140,11 +153,11 @@ export function RegisterPage() {
             </div>
 
             {studentType === 'FPT' ? (
-              <PixelInput label="FPT Student ID" placeholder="SE000000" value={studentId} onChange={(e) => setStudentId(e.target.value)} />
+              <PixelInput label="FPT Student ID" placeholder="SE000000" value={studentId} onChange={(e) => setStudentId(e.target.value)} onBlur={(e) => checkStudentIdExists(e.target.value)} autoComplete="off" />
             ) : (
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                <PixelInput label="Student ID" placeholder="Your student ID" value={studentId} onChange={(e) => setStudentId(e.target.value)} />
-                <PixelInput label="University Name" placeholder="e.g. Hanoi University" value={university} onChange={(e) => setUniversity(e.target.value)} />
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start" }}>
+                <PixelInput label="Student ID" placeholder="Your student ID" value={studentId} onChange={(e) => setStudentId(e.target.value)} onBlur={(e) => checkStudentIdExists(e.target.value)} autoComplete="off" />
+                <UniversitySelect label="University" value={university} onChange={setUniversity} />
               </div>
             )}
 

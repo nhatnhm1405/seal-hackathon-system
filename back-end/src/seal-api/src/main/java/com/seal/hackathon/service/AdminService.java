@@ -30,7 +30,7 @@ import java.util.stream.Collectors;
  * Platform administration — SYSTEM_ADMIN only.
  *
  * The System Admin runs the PLATFORM: global user accounts, role grants
- * (notably granting EVENT_COORDINATOR), account activation, and the system log.
+ * (notably granting EVENT_COORDINATOR), account administration, and the system log.
  * Event-scoped work (approving participants, assigning judges/mentors, scoring)
  * belongs to EVENT_COORDINATOR, not here.
  */
@@ -47,8 +47,8 @@ public class AdminService {
     private final HackathonEventRepository hackathonEventRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuthService authService;
-    private final AccountService accountService;
     private final SystemLogService systemLogService;
+    private final NotificationService notificationService;
 
     // ── Users ─────────────────────────────────────────────────────────
 
@@ -108,7 +108,7 @@ public class AdminService {
     /**
      * Edits an existing account's profile fields (patch semantics — null fields are
      * left unchanged). Login identity (email), account category (userType) and the
-     * approval/active flags are intentionally not editable here.
+     * approval/read-only flags are intentionally not editable here.
      */
     @Transactional
     public UserResponse updateUser(Integer userId, UpdateUserRequest request, Integer adminId) {
@@ -136,18 +136,28 @@ public class AdminService {
         return authService.mapToUserResponse(refreshed);
     }
 
+    /**
+     * Directly toggles an account's active flag. The admin uses this to reactivate
+     * a guest judge for a new season — guest judges have no self-service "request to
+     * compete" flow (unlike student participants), so the admin flips them back on.
+     */
     @Transactional
-    public UserResponse activateUser(Integer userId, Integer adminId) {
-        UserResponse result = accountService.activateUser(userId);
-        systemLogService.record(adminId, "ACTIVATE_USER", "activated user#" + userId);
-        return result;
-    }
-
-    @Transactional
-    public UserResponse deactivateUser(Integer userId, Integer adminId) {
-        UserResponse result = accountService.deactivateUser(userId);
-        systemLogService.record(adminId, "DEACTIVATE_USER", "deactivated user#" + userId);
-        return result;
+    public UserResponse setUserActive(Integer userId, boolean active, Integer adminId) {
+        User user = userRepository.findByIdWithRoles(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
+        user.setIsActive(active);
+        userRepository.save(user);
+        systemLogService.record(adminId, active ? "ACTIVATE_USER" : "DEACTIVATE_USER",
+                (active ? "activated" : "deactivated") + " user#" + userId);
+        if (active) {
+            notificationService.createNotification(userId,
+                    "Account activated",
+                    "A System Admin reactivated your account. You can take part in the current season again.",
+                    "ACCOUNT_ACTIVATED");
+        }
+        User refreshed = userRepository.findByIdWithRoles(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
+        return authService.mapToUserResponse(refreshed);
     }
 
     // ── Role grants ───────────────────────────────────────────────────

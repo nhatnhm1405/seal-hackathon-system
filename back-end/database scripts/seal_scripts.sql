@@ -20,6 +20,7 @@ USE seal_hackathon;
 -- 1. User & Role
 SELECT 'Role' AS tbl;                    SELECT * FROM Role;
 SELECT 'User' AS tbl;                    SELECT * FROM `User`;
+SELECT 'PasswordResetOtp' AS tbl;        SELECT * FROM PasswordResetOtp;
 
 -- 2. Event structure
 SELECT 'HackathonEvent' AS tbl;          SELECT * FROM HackathonEvent;
@@ -47,6 +48,7 @@ SELECT 'Prize' AS tbl;                    SELECT * FROM Prize;
 
 -- 7. Approval & invite
 SELECT 'AccountApproval' AS tbl;         SELECT * FROM AccountApproval;
+SELECT 'ParticipationAccessRequest' AS tbl; SELECT * FROM ParticipationAccessRequest;
 SELECT 'TeamInvite' AS tbl;              SELECT * FROM TeamInvite;
 SELECT 'JoinRequest' AS tbl;             SELECT * FROM JoinRequest;
 SELECT 'ReopenRequest' AS tbl;           SELECT * FROM ReopenRequest;
@@ -87,7 +89,7 @@ HAVING role_count > 1;
 -- B1.3 — User chưa được duyệt (pending approval)
 SELECT u.user_id, u.full_name, u.email, u.user_type, u.university
 FROM `User` u
-WHERE u.is_approved = FALSE AND u.is_active = TRUE;
+WHERE u.is_approved = FALSE;
 
 
 -- -----------------------------------------------------

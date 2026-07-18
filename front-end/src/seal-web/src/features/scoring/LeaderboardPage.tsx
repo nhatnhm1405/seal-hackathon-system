@@ -4,7 +4,7 @@ import {
   C, GradientText, PixelCard, PixelBadge,
 } from "@/shared/components/PixelComponents";
 import {
-  teamsApi, eventsApi, roundsApi, resultsApi, ApiError, Round, RoundResult, HackathonEvent,
+  teamsApi, eventsApi, roundsApi, resultsApi, prizesApi, Prize, ApiError, Round, RoundResult, HackathonEvent,
 } from "@/shared/apiClient";
 
 const selectStyle: React.CSSProperties = {
@@ -12,62 +12,110 @@ const selectStyle: React.CSSProperties = {
   color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, borderRadius: 0, outline: "none", width: "100%",
 };
 
-// Podium metals for the final round's top 3 — gold / silver / bronze.
-const MEDAL: Record<number, { name: string; metal: string; soft: string; glow: string; icon: string }> = {
-  1: { name: "Champion",  metal: "#FFD24A", soft: "rgba(255,210,74,0.16)",  glow: "rgba(255,210,74,0.45)",  icon: "👑" },
-  2: { name: "Runner-up", metal: "#CBD5E1", soft: "rgba(203,213,225,0.13)", glow: "rgba(203,213,225,0.35)", icon: "🥈" },
-  3: { name: "3rd Place", metal: "#E0915A", soft: "rgba(224,145,90,0.13)",  glow: "rgba(224,145,90,0.35)",  icon: "🥉" },
+// Visual styling only — names come from the Prize API (see getPrizeName below).
+const MEDAL: Record<number, { metal: string; soft: string; glow: string; icon: string }> = {
+  1: { metal: "#FFD24A", soft: "rgba(255,210,74,0.16)",  glow: "rgba(255,210,74,0.45)",  icon: "👑" },
+  2: { metal: "#CBD5E1", soft: "rgba(203,213,225,0.13)", glow: "rgba(203,213,225,0.35)", icon: "🥈" },
+  3: { metal: "#E0915A", soft: "rgba(224,145,90,0.13)",  glow: "rgba(224,145,90,0.35)",  icon: "🥉" },
+};
+
+// Fallback names shown before prizes are announced.
+const DEFAULT_PRIZE_NAME: Record<number, string> = {
+  1: "Champion",
+  2: "Runner-up",
+  3: "3rd Place",
 };
 
 export function LeaderboardPage() {
   const { currentUser } = useAuth();
+  const canSeeInternalEvents = currentUser?.role === "COORDINATOR" || currentUser?.role === "ADMIN";
 
   const [events, setEvents] = useState<HackathonEvent[]>([]);
   const [eventId, setEventId] = useState<number | null>(null);
   const [rounds, setRounds] = useState<Round[]>([]);
   const [selectedRoundId, setSelectedRoundId] = useState<number | null>(null);
   const [results, setResults] = useState<RoundResult[]>([]);
+  const [prizes, setPrizes] = useState<Prize[]>([]);
+  const [publishedRoundIdsByEvent, setPublishedRoundIdsByEvent] = useState<Record<number, Set<number>>>({});
   const [trackFilter, setTrackFilter] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Load the event list and pick a sensible default: the participant's team
-  // event, else the active one, else the most recent completed season (so the
-  // previous season's champions are visible even before the running event has
-  // any published results).
+  // Load only events visible to this role. Public users see completed seasons
+  // with published results, plus their own participated events once results are
+  // published. Coordinators/admins keep the full event list, including drafts.
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      setLoading(true);
+      setError(null);
       const evs = await eventsApi.getAll().then(r => r.data ?? []).catch(() => []);
-      let teamEventId: number | null = null;
+      let joinedEventIds = new Set<number>();
       try {
-        const my = await teamsApi.getMy().then(r => r.data).catch(() => null);
-        if (my?.eventId != null) teamEventId = my.eventId;
+        const history = await teamsApi.getMyResultHistory().then(r => r.data ?? []).catch(() => []);
+        joinedEventIds = new Set(history.map(h => h.eventId));
       } catch { /* not in a team */ }
       if (cancelled) return;
-      // Newest first (by year then season order) for the dropdown.
+
       const ordered = [...evs].sort((a, b) => b.year - a.year || b.eventId - a.eventId);
-      setEvents(ordered);
+      if (canSeeInternalEvents) {
+        setPublishedRoundIdsByEvent({});
+        setEvents(ordered);
+        const defaultEv =
+          ordered.find(e => e.status === 'IN_PROGRESS' || e.status === 'OPEN') ||
+          ordered.find(e => e.status === 'COMPLETED') ||
+          ordered[0];
+        setEventId(defaultEv?.eventId ?? null);
+        if (defaultEv == null) setLoading(false);
+        return;
+      }
+
+      const visible: HackathonEvent[] = [];
+      const publishedByEvent: Record<number, Set<number>> = {};
+      for (const ev of ordered) {
+        if (ev.status === "DRAFT") continue;
+        const joined = joinedEventIds.has(ev.eventId);
+        const publicCompleted = ev.status === "COMPLETED";
+        if (!joined && !publicCompleted) continue;
+
+        const eventRounds = await roundsApi.getAll(ev.eventId).then(r => r.data ?? []).catch(() => []);
+        const publishedRoundIds = new Set<number>();
+        for (const round of eventRounds) {
+          const published = await resultsApi.getPublished(ev.eventId, round.roundId).then(r => r.data ?? []).catch(() => []);
+          if (published.length > 0) publishedRoundIds.add(round.roundId);
+        }
+        if (publishedRoundIds.size === 0) continue;
+        publishedByEvent[ev.eventId] = publishedRoundIds;
+        visible.push(ev);
+      }
+
+      if (cancelled) return;
+      setPublishedRoundIdsByEvent(publishedByEvent);
+      setEvents(visible);
       const defaultEv =
-        (teamEventId != null && ordered.find(e => e.eventId === teamEventId)) ||
-        ordered.find(e => e.status === 'IN_PROGRESS' || e.status === 'OPEN') ||
-        ordered.find(e => e.status === 'COMPLETED') ||
-        ordered[0];
+        visible.find(e => joinedEventIds.has(e.eventId)) ||
+        visible.find(e => e.status === 'COMPLETED') ||
+        visible[0];
       setEventId(defaultEv?.eventId ?? null);
       if (defaultEv == null) setLoading(false);
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [canSeeInternalEvents]);
 
-  // Load rounds whenever the selected event changes.
+  // Load rounds and prizes whenever the selected event changes.
   useEffect(() => {
-    if (eventId == null) { setRounds([]); setSelectedRoundId(null); return; }
+    if (eventId == null) { setRounds([]); setSelectedRoundId(null); setPrizes([]); return; }
     let cancelled = false;
     setLoading(true);
+    prizesApi.getAll(eventId).then(r => { if (!cancelled) setPrizes(r.data ?? []); }).catch(() => {});
     roundsApi.getAll(eventId).then(r => r.data ?? []).catch(() => [])
       .then(rs => {
         if (cancelled) return;
-        const sorted = [...rs].sort((a, b) => (a.orderNumber ?? a.roundId) - (b.orderNumber ?? b.roundId));
+        const publishedRoundIds = publishedRoundIdsByEvent[eventId];
+        const visibleRounds = canSeeInternalEvents || !publishedRoundIds
+          ? rs
+          : rs.filter(r => publishedRoundIds.has(r.roundId));
+        const sorted = [...visibleRounds].sort((a, b) => (a.orderNumber ?? a.roundId) - (b.orderNumber ?? b.roundId));
         setRounds(sorted);
         // Prefer the final round so champions show first; else the first round.
         setSelectedRoundId((sorted.find(r => r.isFinal) ?? sorted[0])?.roundId ?? null);
@@ -75,7 +123,7 @@ export function LeaderboardPage() {
         setLoading(false);
       });
     return () => { cancelled = true; };
-  }, [eventId]);
+  }, [eventId, canSeeInternalEvents, publishedRoundIdsByEvent]);
 
   // Load published results for the selected round.
   useEffect(() => {
@@ -89,6 +137,13 @@ export function LeaderboardPage() {
   const selectedRound = rounds.find(r => r.roundId === selectedRoundId);
   const isFinalRound = selectedRound?.isFinal ?? false;
   const topN = selectedRound?.topNAdvance ?? null;
+
+  // Build rank → name map from announced prizes; fall back to DEFAULT_PRIZE_NAME.
+  const prizeNameByRank: Record<number, string> = {};
+  for (const p of prizes) {
+    if (p.announced) prizeNameByRank[p.rankPosition] = p.name;
+  }
+  const getPrizeName = (rank: number) => prizeNameByRank[rank] ?? DEFAULT_PRIZE_NAME[rank] ?? `#${rank}`;
 
   const trackNames = [...new Set(results.map(r => r.trackName).filter(Boolean) as string[])];
   // The final round is global (not per-track), so the track filter doesn't apply there.
@@ -174,7 +229,7 @@ export function LeaderboardPage() {
                 {[2, 1, 3].map(place => {
                   const row = rows.find(r => r.rankPosition === place);
                   if (!row) return null;
-                  const m = MEDAL[place];
+                  const m = MEDAL[place] ?? MEDAL[3];
                   const first = place === 1;
                   const mine = currentUser?.team_id === row.teamId;
                   return (
@@ -200,7 +255,7 @@ export function LeaderboardPage() {
                         {row.teamName}{mine && <span style={{ color: C.green }}> ★</span>}
                       </div>
                       <div style={{ color: m.metal, fontWeight: 800, fontSize: first ? 24 : 19, marginTop: 4 }}>{Number(row.totalScore).toFixed(1)}</div>
-                      <div style={{ color: C.textMuted, fontSize: 9, letterSpacing: "0.14em", textTransform: "uppercase", marginTop: 6 }}>{m.name}</div>
+                      <div style={{ color: C.textMuted, fontSize: 9, letterSpacing: "0.14em", textTransform: "uppercase", marginTop: 6 }}>{getPrizeName(place)}</div>
                     </div>
                   );
                 })}
@@ -272,7 +327,11 @@ export function LeaderboardPage() {
                             {!isFinalRound && <td style={{ color: C.textMuted, fontSize: 12, padding: "14px 16px" }}>{r.trackName ?? "—"}</td>}
                             <td style={{ color: medal ? medal.metal : C.green, fontSize: 14, fontWeight: 700, padding: "14px 16px" }}>{Number(r.totalScore).toFixed(1)}</td>
                             <td style={{ padding: "14px 16px" }}>
-                              <PixelBadge color={r.rankPosition === 1 && isFinalRound ? "yellow" : highlighted ? "green" : "gray"}>{isFinalRound ? (isWinner ? "Winner" : "Finalist") : r.advanced ? "Advanced" : eliminated ? "Eliminated" : "—"}</PixelBadge>
+                              <PixelBadge color={r.rankPosition === 1 && isFinalRound ? "yellow" : highlighted ? "green" : "gray"}>
+                              {isFinalRound
+                                ? (isWinner ? (prizeNameByRank[r.rankPosition] ?? "Winner") : "Finalist")
+                                : r.advanced ? "Advanced" : eliminated ? "Eliminated" : "—"}
+                            </PixelBadge>
                             </td>
                           </tr>
                         );

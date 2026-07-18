@@ -4,11 +4,17 @@ import com.seal.hackathon.dto.request.CreateTrackRequest;
 import com.seal.hackathon.dto.response.TrackResponse;
 import com.seal.hackathon.entity.HackathonEvent;
 import com.seal.hackathon.entity.Team;
+import com.seal.hackathon.entity.TeamEventEntry;
 import com.seal.hackathon.entity.Track;
 import com.seal.hackathon.exception.BadRequestException;
 import com.seal.hackathon.exception.ResourceNotFoundException;
+import com.seal.hackathon.repository.AnnouncementRepository;
 import com.seal.hackathon.repository.HackathonEventRepository;
-import com.seal.hackathon.repository.TeamRepository;
+import com.seal.hackathon.repository.JudgeAssignmentRepository;
+import com.seal.hackathon.repository.MentorAssignmentRepository;
+import com.seal.hackathon.repository.MentorSupportRequestRepository;
+import com.seal.hackathon.repository.PrizeRepository;
+import com.seal.hackathon.repository.TeamEventEntryRepository;
 import com.seal.hackathon.repository.TrackRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -41,7 +47,22 @@ class TrackServiceTest {
     private HackathonEventRepository eventRepository;
 
     @Mock
-    private TeamRepository teamRepository;
+    private TeamEventEntryRepository teamEventEntryRepository;
+
+    @Mock
+    private MentorAssignmentRepository mentorAssignmentRepository;
+
+    @Mock
+    private JudgeAssignmentRepository judgeAssignmentRepository;
+
+    @Mock
+    private AnnouncementRepository announcementRepository;
+
+    @Mock
+    private MentorSupportRequestRepository supportRequestRepository;
+
+    @Mock
+    private PrizeRepository prizeRepository;
 
     @InjectMocks
     private TrackService trackService;
@@ -583,7 +604,7 @@ class TrackServiceTest {
 
         when(eventRepository.findById(1)).thenReturn(Optional.of(event));
         when(trackRepository.findById(10)).thenReturn(Optional.of(track));
-        when(teamRepository.findAllByTrack_TrackId(10)).thenReturn(List.of());
+        when(teamEventEntryRepository.findAllByTrack_TrackId(10)).thenReturn(List.of());
 
         trackService.deleteTrack(1, 10);
 
@@ -597,7 +618,7 @@ class TrackServiceTest {
 
         when(eventRepository.findById(1)).thenReturn(Optional.of(event));
         when(trackRepository.findById(10)).thenReturn(Optional.of(track));
-        when(teamRepository.findAllByTrack_TrackId(10)).thenReturn(List.of());
+        when(teamEventEntryRepository.findAllByTrack_TrackId(10)).thenReturn(List.of());
 
         trackService.deleteTrack(1, 10);
 
@@ -674,7 +695,7 @@ class TrackServiceTest {
 
         assertThrows(ResourceNotFoundException.class, () -> trackService.deleteTrack(1, 10));
 
-        verify(teamRepository, never()).findAllByTrack_TrackId(anyInt());
+        verify(teamEventEntryRepository, never()).findAllByTrack_TrackId(anyInt());
         verify(trackRepository, never()).delete(any());
     }
 
@@ -689,7 +710,7 @@ class TrackServiceTest {
 
         assertThrows(BadRequestException.class, () -> trackService.deleteTrack(1, 10));
 
-        verify(teamRepository, never()).findAllByTrack_TrackId(anyInt());
+        verify(teamEventEntryRepository, never()).findAllByTrack_TrackId(anyInt());
         verify(trackRepository, never()).delete(any());
     }
 
@@ -699,19 +720,76 @@ class TrackServiceTest {
         // unassigned pool (track = null) instead of blocking the delete.
         HackathonEvent event = event(1, "SET UP");
         Track track = track(10, event, "AI");
-        Team teamA = teamOnTrack(100, event, track);
-        Team teamB = teamOnTrack(101, event, track);
+        TeamEventEntry entryA = teamOnTrack(100, event, track);
+        TeamEventEntry entryB = teamOnTrack(101, event, track);
 
         when(eventRepository.findById(1)).thenReturn(Optional.of(event));
         when(trackRepository.findById(10)).thenReturn(Optional.of(track));
-        when(teamRepository.findAllByTrack_TrackId(10)).thenReturn(List.of(teamA, teamB));
+        when(teamEventEntryRepository.findAllByTrack_TrackId(10)).thenReturn(List.of(entryA, entryB));
 
         trackService.deleteTrack(1, 10);
 
-        assertNull(teamA.getTrack());
-        assertNull(teamB.getTrack());
-        verify(teamRepository).saveAll(List.of(teamA, teamB));
+        assertNull(entryA.getTrack());
+        assertNull(entryB.getTrack());
+        verify(teamEventEntryRepository).saveAll(List.of(entryA, entryB));
+        verify(mentorAssignmentRepository).deleteAllByTrackId(10);
+        verify(judgeAssignmentRepository).deleteAllByTrackId(10);
         verify(trackRepository).delete(track);
+    }
+
+    @Test
+    void deleteTrack_shouldRejectDelete_whenTrackHasAnnouncementHistory() {
+        HackathonEvent event = event(1, "SETUP");
+        Track track = track(10, event, "AI");
+
+        when(eventRepository.findById(1)).thenReturn(Optional.of(event));
+        when(trackRepository.findById(10)).thenReturn(Optional.of(track));
+        when(announcementRepository.existsByTrack_TrackId(10)).thenReturn(true);
+
+        BadRequestException error = assertThrows(
+                BadRequestException.class,
+                () -> trackService.deleteTrack(1, 10));
+
+        assertEquals("Cannot delete this track because it has announcement history.", error.getMessage());
+        verify(teamEventEntryRepository, never()).findAllByTrack_TrackId(anyInt());
+        verify(mentorAssignmentRepository, never()).deleteAllByTrackId(anyInt());
+        verify(trackRepository, never()).delete(any());
+    }
+
+    @Test
+    void deleteTrack_shouldRejectDelete_whenTrackHasSupportRequestHistory() {
+        HackathonEvent event = event(1, "SETUP");
+        Track track = track(10, event, "AI");
+
+        when(eventRepository.findById(1)).thenReturn(Optional.of(event));
+        when(trackRepository.findById(10)).thenReturn(Optional.of(track));
+        when(supportRequestRepository.existsByTrack_TrackId(10)).thenReturn(true);
+
+        BadRequestException error = assertThrows(
+                BadRequestException.class,
+                () -> trackService.deleteTrack(1, 10));
+
+        assertEquals("Cannot delete this track because it has mentor support request history.", error.getMessage());
+        verify(mentorAssignmentRepository, never()).deleteAllByTrackId(anyInt());
+        verify(trackRepository, never()).delete(any());
+    }
+
+    @Test
+    void deleteTrack_shouldRejectDelete_whenLegacyPrizeReferencesTrack() {
+        HackathonEvent event = event(1, "SETUP");
+        Track track = track(10, event, "AI");
+
+        when(eventRepository.findById(1)).thenReturn(Optional.of(event));
+        when(trackRepository.findById(10)).thenReturn(Optional.of(track));
+        when(prizeRepository.existsByTrack_TrackId(10)).thenReturn(true);
+
+        BadRequestException error = assertThrows(
+                BadRequestException.class,
+                () -> trackService.deleteTrack(1, 10));
+
+        assertEquals("Cannot delete this track because it is referenced by a prize.", error.getMessage());
+        verify(mentorAssignmentRepository, never()).deleteAllByTrackId(anyInt());
+        verify(trackRepository, never()).delete(any());
     }
 
     private static CreateTrackRequest request(String name, String description) {
@@ -743,13 +821,8 @@ class TrackServiceTest {
                 .build();
     }
 
-    private static Team teamOnTrack(Integer teamId, HackathonEvent event, Track track) {
-        return Team.builder()
-                .teamId(teamId)
-                .event(event)
-                .track(track)
-                .name("Team " + teamId)
-                .status("APPROVED")
-                .build();
+    private static TeamEventEntry teamOnTrack(Integer teamId, HackathonEvent event, Track track) {
+        Team team = Team.builder().teamId(teamId).name("Team " + teamId).build();
+        return TeamEventEntry.builder().id(teamId).team(team).event(event).track(track).status("APPROVED").build();
     }
 }

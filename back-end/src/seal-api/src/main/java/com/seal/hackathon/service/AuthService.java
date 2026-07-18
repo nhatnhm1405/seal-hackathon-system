@@ -10,6 +10,7 @@ import com.seal.hackathon.exception.BadRequestException;
 import com.seal.hackathon.exception.ForbiddenException;
 import com.seal.hackathon.exception.ResourceNotFoundException;
 import com.seal.hackathon.exception.UnauthorizedException;
+import com.seal.hackathon.repository.TeamEventEntryRepository;
 import com.seal.hackathon.repository.TeamMemberRepository;
 import com.seal.hackathon.repository.UserRepository;
 import com.seal.hackathon.security.JwtService;
@@ -26,6 +27,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
@@ -34,6 +36,7 @@ public class AuthService {
 
     private final UserRepository userRepository;
     private final TeamMemberRepository teamMemberRepository;
+    private final TeamEventEntryRepository teamEventEntryRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
 
@@ -49,6 +52,12 @@ public class AuthService {
         // 1. Email uniqueness
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new BadRequestException("An account with this email already exists.");
+        }
+
+        // 1b. Student ID uniqueness
+        if (request.getStudentId() != null && !request.getStudentId().isBlank()
+                && userRepository.existsByStudentId(request.getStudentId())) {
+            throw new BadRequestException("An account with this student ID already exists.");
         }
 
         // 2. UserType-specific field validation
@@ -80,6 +89,11 @@ public class AuthService {
                 .build();
     }
 
+    public boolean checkStudentId(String studentId) {
+        if (studentId == null || studentId.isBlank()) return false;
+        return userRepository.existsByStudentId(studentId.trim());
+    }
+
     // ---------------------------------------------------------------
     // Login
     // ---------------------------------------------------------------
@@ -95,18 +109,22 @@ public class AuthService {
             throw new UnauthorizedException("Invalid email or password.");
         }
 
-        // 3. Check is_active
-        if (!Boolean.TRUE.equals(user.getIsActive())) {
-            throw new ForbiddenException("Your account has been deactivated. Please contact an administrator.");
-        }
-
-        // 4. Check is_approved
+        // 3. Check is_approved
         if (!Boolean.TRUE.equals(user.getIsApproved())) {
             throw new ForbiddenException(
                     "Your account is pending approval. Please wait for an Event Coordinator to review your registration.");
         }
 
-        // 5. Generate JWT
+        // 3b. Inactive accounts. Students stay able to log in — they need to send a
+        // "request to compete" from the dashboard to be reactivated. Everyone else
+        // (e.g. a guest judge whose event has ended) has no self-service path, so an
+        // inactive account is barred until a System Admin reactivates it.
+        if (!Boolean.TRUE.equals(user.getIsActive()) && !isStudent(user)) {
+            throw new ForbiddenException(
+                    "Your account is inactive. Please contact a System Admin to be reactivated.");
+        }
+
+        // 4. Generate JWT
         UserPrincipal principal = new UserPrincipal(user);
         List<String> roles = principal.getAuthorities().stream()
                 .map(a -> a.getAuthority().replace("ROLE_", ""))
@@ -123,6 +141,11 @@ public class AuthService {
                 .roles(roles)
                 .message("Login successful.")
                 .build();
+    }
+
+    private boolean isStudent(User user) {
+        String t = user.getUserType();
+        return "FPT_STUDENT".equalsIgnoreCase(t) || "EXTERNAL_STUDENT".equalsIgnoreCase(t);
     }
 
     // ---------------------------------------------------------------
@@ -161,6 +184,9 @@ public class AuthService {
         if (request.getStudentId() == null || request.getStudentId().isBlank()) {
             throw new BadRequestException("Student ID is required.");
         }
+        if (userRepository.existsByStudentId(request.getStudentId())) {
+            throw new BadRequestException("An account with this student ID already exists.");
+        }
         if (type.equals("EXTERNAL_STUDENT") && (request.getUniversity() == null || request.getUniversity().isBlank())) {
             throw new BadRequestException("University is required for external students.");
         }
@@ -171,22 +197,44 @@ public class AuthService {
         return mapToUserResponse(user);
     }
 
-    /** A user patches their own profile (fullName / studentId / university). */
+    /** A user patches their own profile (fullName / university). */
     @Transactional
     public UserResponse updateOwnProfile(String email, com.seal.hackathon.dto.request.UpdateProfileRequest request) {
         User user = userRepository.findByEmailWithRoles(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found."));
+        if (request.getStudentId() != null
+                && !Objects.equals(normalizeOptionalText(request.getStudentId()), normalizeOptionalText(user.getStudentId()))) {
+            throw new BadRequestException("Student ID cannot be changed from profile settings.");
+        }
         if (request.getFullName() != null && !request.getFullName().isBlank()) {
             user.setFullName(request.getFullName().trim());
-        }
-        if (request.getStudentId() != null) {
-            user.setStudentId(request.getStudentId().isBlank() ? null : request.getStudentId().trim());
         }
         if (request.getUniversity() != null) {
             user.setUniversity(request.getUniversity().isBlank() ? null : request.getUniversity().trim());
         }
         userRepository.save(user);
         return mapToUserResponse(user);
+    }
+
+    /** A signed-in user changes their own password by proving the current one. */
+    @Transactional
+    public void changePassword(String email, com.seal.hackathon.dto.request.ChangePasswordRequest request) {
+        User user = userRepository.findByEmailWithRoles(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found."));
+
+        // OAuth-only accounts have no local password to change.
+        if (!"LOCAL".equalsIgnoreCase(user.getProvider()) || user.getPasswordHash() == null) {
+            throw new BadRequestException("This account signs in with Google/GitHub and has no password to change.");
+        }
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())) {
+            throw new BadRequestException("Current password is incorrect.");
+        }
+        if (passwordEncoder.matches(request.getNewPassword(), user.getPasswordHash())) {
+            throw new BadRequestException("New password must be different from the current password.");
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
     }
 
     /** A user replaces their own profile picture. Stores the file on disk and
@@ -254,6 +302,10 @@ public class AuthService {
         };
     }
 
+    private String normalizeOptionalText(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
+    }
+
     // ---------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------
@@ -315,20 +367,21 @@ public class AuthService {
             return;
         }
 
-        TeamMember membership = memberships.stream()
-                .filter(this::isActiveEventMembership)
+        memberships.stream()
+                .filter(this::isCurrentEventMembership)
                 .findFirst()
-                .orElse(memberships.get(0));
-
-        response.setTeamId(membership.getTeam().getTeamId());
-        response.setIsLeader(normalizeTeamRole(membership));
+                .ifPresent(membership -> {
+                    response.setTeamId(membership.getTeam().getTeamId());
+                    response.setIsLeader(normalizeTeamRole(membership));
+                });
     }
 
-    private boolean isActiveEventMembership(TeamMember membership) {
-        String status = membership.getTeam().getEvent().getStatus();
-        return "OPEN".equalsIgnoreCase(status)
-                || "SETUP".equalsIgnoreCase(status)
-                || "IN_PROGRESS".equalsIgnoreCase(status);
+    private boolean isCurrentEventMembership(TeamMember membership) {
+        return teamEventEntryRepository.findAllByTeam_TeamId(membership.getTeam().getTeamId()).stream()
+                .map(entry -> entry.getEvent().getStatus())
+                .anyMatch(status -> "OPEN".equalsIgnoreCase(status)
+                        || "SETUP".equalsIgnoreCase(status)
+                        || "IN_PROGRESS".equalsIgnoreCase(status));
     }
 
     private String normalizeTeamRole(TeamMember membership) {

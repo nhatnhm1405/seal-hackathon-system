@@ -1,12 +1,13 @@
 import { useEffect, useRef } from "react";
 import { C } from "@/shared/components/PixelComponents";
 
-// iOS-style drum picker for hours / minutes / seconds (the reference design),
-// PLUS a compact type-in row so users can enter values fast without scrolling.
+// iOS-style drum picker for hours / minutes, PLUS a compact type-in row so
+// users can enter values fast without scrolling. Seconds were dropped — nobody
+// schedules a contest window to the second (backend still receives seconds=0).
 // Emits the total as seconds so callers stay unit-agnostic.
 const MONO = "'JetBrains Mono', monospace";
 const ITEM_H = 40;
-const VISIBLE = 5;               // odd → one centered row
+const VISIBLE = 3;               // odd → one centered row; 3 keeps the drum compact
 const PAD = ((VISIBLE - 1) / 2) * ITEM_H;
 
 function range(maxInclusive: number): number[] {
@@ -149,9 +150,8 @@ export function WheelTimePicker({
   const total = Math.max(0, Math.floor(valueSeconds));
   const h = Math.floor(total / 3600);
   const m = Math.floor((total % 3600) / 60);
-  const s = total % 60;
-  const set = (nh: number, nm: number, ns: number) =>
-    onChange(clamp(nh, 0, maxHours) * 3600 + clamp(nm, 0, 59) * 60 + clamp(ns, 0, 59));
+  const set = (nh: number, nm: number) =>
+    onChange(clamp(nh, 0, maxHours) * 3600 + clamp(nm, 0, 59) * 60);
 
   return (
     <div
@@ -170,16 +170,14 @@ export function WheelTimePicker({
 
       {/* Scroll wheels */}
       <div style={{ display: "flex", gap: 4 }}>
-        <WheelColumn values={range(maxHours)} value={h} unit="hours" disabled={disabled} onChange={(v) => set(v, m, s)} />
-        <WheelColumn values={range(59)} value={m} unit="min" disabled={disabled} onChange={(v) => set(h, v, s)} />
-        <WheelColumn values={range(59)} value={s} unit="sec" disabled={disabled} onChange={(v) => set(h, m, v)} />
+        <WheelColumn values={range(maxHours)} value={h} unit="hours" disabled={disabled} onChange={(v) => set(v, m)} />
+        <WheelColumn values={range(59)} value={m} unit="min" disabled={disabled} onChange={(v) => set(h, v)} />
       </div>
 
       {/* Fast type-in row */}
       <div style={{ display: "flex", gap: 8, paddingTop: 6, borderTop: `1px solid ${C.border}` }}>
-        <NumberField label="H" value={h} max={maxHours} disabled={disabled} onChange={(v) => set(v, m, s)} />
-        <NumberField label="M" value={m} max={59} disabled={disabled} onChange={(v) => set(h, v, s)} />
-        <NumberField label="S" value={s} max={59} disabled={disabled} onChange={(v) => set(h, m, v)} />
+        <NumberField label="H" value={h} max={maxHours} disabled={disabled} onChange={(v) => set(v, m)} />
+        <NumberField label="M" value={m} max={59} disabled={disabled} onChange={(v) => set(h, v)} />
       </div>
     </div>
   );

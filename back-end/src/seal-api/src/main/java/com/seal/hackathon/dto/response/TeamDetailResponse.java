@@ -36,5 +36,12 @@ public class TeamDetailResponse {
         private String email;
         private String memberRole;
         private LocalDateTime joinedAt;
+        private String studentId;
+        private String userType;
+        private String university;
+
+        /** Whether this member's own account is currently active (see User.isActive) —
+         *  a member can be on the roster but still need their own separate reactivation. */
+        private Boolean isActive;
     }
 }

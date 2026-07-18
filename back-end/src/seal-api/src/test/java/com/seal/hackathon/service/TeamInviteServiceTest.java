@@ -4,6 +4,7 @@ import com.seal.hackathon.dto.request.CreateInviteRequest;
 import com.seal.hackathon.dto.response.TeamInviteResponse;
 import com.seal.hackathon.entity.HackathonEvent;
 import com.seal.hackathon.entity.Team;
+import com.seal.hackathon.entity.TeamEventEntry;
 import com.seal.hackathon.entity.TeamInvite;
 import com.seal.hackathon.entity.TeamMember;
 import com.seal.hackathon.entity.Track;
@@ -11,13 +12,14 @@ import com.seal.hackathon.entity.User;
 import com.seal.hackathon.exception.BadRequestException;
 import com.seal.hackathon.exception.ForbiddenException;
 import com.seal.hackathon.exception.ResourceNotFoundException;
+import com.seal.hackathon.repository.TeamEventEntryRepository;
 import com.seal.hackathon.repository.TeamInviteRepository;
 import com.seal.hackathon.repository.TeamMemberRepository;
 import com.seal.hackathon.repository.TeamRepository;
 import com.seal.hackathon.repository.UserRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -31,6 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -46,6 +49,9 @@ class TeamInviteServiceTest {
     private TeamRepository teamRepository;
 
     @Mock
+    private TeamEventEntryRepository teamEventEntryRepository;
+
+    @Mock
     private TeamMemberRepository teamMemberRepository;
 
     @Mock
@@ -54,8 +60,15 @@ class TeamInviteServiceTest {
     @Mock
     private NotificationService notificationService;
 
-    @InjectMocks
     private TeamInviteService teamInviteService;
+
+    @BeforeEach
+    void setUp() {
+        TeamAccessGuard teamAccessGuard = new TeamAccessGuard(teamRepository, teamMemberRepository, teamEventEntryRepository);
+        teamInviteService = new TeamInviteService(
+                inviteRepository, teamRepository, teamEventEntryRepository, teamMemberRepository,
+                userRepository, notificationService, teamAccessGuard);
+    }
 
     @Test
     void createInvite_shouldCreatePendingInviteWithTrimmedMessage_whenRequestIsValid() {
@@ -113,6 +126,33 @@ class TeamInviteServiceTest {
     }
 
     @Test
+    void createInvite_shouldCreatePendingInvite_whenEventIsSetup() {
+        HackathonEvent event = event(1, "SETUP");
+        Team team = team(99, event, "APPROVED");
+        User inviter = user(100, "Leader", "FPT_STUDENT", true, true);
+        User invited = user(101, "Member", "FPT_STUDENT", true, true);
+
+        when(teamRepository.findById(99)).thenReturn(Optional.of(team));
+        when(userRepository.findById(100)).thenReturn(Optional.of(inviter));
+        when(teamMemberRepository.findByTeam_TeamId(99)).thenReturn(List.of(member(1, team, inviter, "LEADER")));
+        when(teamMemberRepository.countByTeam_TeamId(99)).thenReturn(1L);
+        when(userRepository.findById(101)).thenReturn(Optional.of(invited));
+        when(teamMemberRepository.existsByUser_UserIdAndTeam_Event_EventId(101, 1)).thenReturn(false);
+        when(inviteRepository.findByTeamIdAndInvitedUserIdForUpdate(99, 101)).thenReturn(Optional.empty());
+        when(inviteRepository.saveAndFlush(any(TeamInvite.class))).thenAnswer(invocation -> {
+            TeamInvite invite = invocation.getArgument(0);
+            invite.setInviteId(500);
+            return invite;
+        });
+
+        TeamInviteResponse response = teamInviteService.createInvite(100, 99, inviteRequest(101, null));
+
+        assertEquals(500, response.getInviteId());
+        assertEquals("PENDING", response.getStatus());
+        verify(notificationService).createNotification(eq(101), eq("Team invitation"), any(), eq("TEAM_INVITE"));
+    }
+
+    @Test
     void createInvite_shouldThrowBadRequest_whenInputIsNull() {
         assertThrows(BadRequestException.class, () -> teamInviteService.createInvite(null, 99, inviteRequest(101, null)));
         assertThrows(BadRequestException.class, () -> teamInviteService.createInvite(100, null, inviteRequest(101, null)));
@@ -144,12 +184,12 @@ class TeamInviteServiceTest {
     }
 
     @Test
-    void createInvite_shouldThrowBadRequest_whenInviterIsNotApprovedOrActive() {
+    void createInvite_shouldThrowBadRequest_whenInviterIsNotApprovedOrWritable() {
         Team team = team(99, event(1, "OPEN"), "APPROVED");
-        User inactiveInviter = user(100, "Leader", "FPT_STUDENT", true, false);
+        User readOnlyInviter = user(100, "Leader", "FPT_STUDENT", true, false);
 
         when(teamRepository.findById(99)).thenReturn(Optional.of(team));
-        when(userRepository.findById(100)).thenReturn(Optional.of(inactiveInviter));
+        when(userRepository.findById(100)).thenReturn(Optional.of(readOnlyInviter));
 
         assertThrows(BadRequestException.class,
                 () -> teamInviteService.createInvite(100, 99, inviteRequest(101, null)));
@@ -174,9 +214,36 @@ class TeamInviteServiceTest {
     }
 
     @Test
-    void createInvite_shouldThrowBadRequest_whenTeamIsNotApproved() {
+    void createInvite_shouldCreatePendingInvite_whenTeamIsPendingApproval() {
+        // A not-yet-approved team may still build its roster (approval only gates track select).
         HackathonEvent event = event(1, "OPEN");
         Team team = team(99, event, "PENDING");
+        User inviter = user(100, "Leader", "FPT_STUDENT", true, true);
+        User invited = user(101, "Member", "FPT_STUDENT", true, true);
+
+        when(teamRepository.findById(99)).thenReturn(Optional.of(team));
+        when(userRepository.findById(100)).thenReturn(Optional.of(inviter));
+        when(teamMemberRepository.findByTeam_TeamId(99)).thenReturn(List.of(member(1, team, inviter, "LEADER")));
+        when(teamMemberRepository.countByTeam_TeamId(99)).thenReturn(1L);
+        when(userRepository.findById(101)).thenReturn(Optional.of(invited));
+        when(teamMemberRepository.existsByUser_UserIdAndTeam_Event_EventId(101, 1)).thenReturn(false);
+        when(inviteRepository.findByTeamIdAndInvitedUserIdForUpdate(99, 101)).thenReturn(Optional.empty());
+        when(inviteRepository.saveAndFlush(any(TeamInvite.class))).thenAnswer(invocation -> {
+            TeamInvite invite = invocation.getArgument(0);
+            invite.setInviteId(500);
+            return invite;
+        });
+
+        TeamInviteResponse response = teamInviteService.createInvite(100, 99, inviteRequest(101, null));
+
+        assertEquals("PENDING", response.getStatus());
+        verify(inviteRepository).saveAndFlush(any(TeamInvite.class));
+    }
+
+    @Test
+    void createInvite_shouldThrowBadRequest_whenTeamIsRejected() {
+        HackathonEvent event = event(1, "OPEN");
+        Team team = team(99, event, "REJECTED");
         User inviter = user(100, "Leader", "FPT_STUDENT", true, true);
 
         when(teamRepository.findById(99)).thenReturn(Optional.of(team));
@@ -335,7 +402,7 @@ class TeamInviteServiceTest {
         when(teamMemberRepository.existsByUser_UserIdAndTeam_Event_EventId(101, 1)).thenReturn(false);
         when(inviteRepository.saveAndFlush(any(TeamInvite.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(teamMemberRepository.findByTeam_TeamId(99)).thenReturn(List.of(member(1, team, leader, "LEADER")));
-        when(inviteRepository.findByInvitedUser_UserIdAndStatusAndTeam_Event_EventId(101, "PENDING", 1))
+        when(inviteRepository.findByInvitedUser_UserIdAndStatusAndEventId(101, "PENDING", 1))
                 .thenReturn(List.of(invite, other));
 
         TeamInviteResponse response = teamInviteService.acceptInvite(101, 500);
@@ -462,14 +529,23 @@ class TeamInviteServiceTest {
                 .build();
     }
 
-    private static Team team(Integer id, HackathonEvent event, String status) {
-        return Team.builder()
+    private Team team(Integer id, HackathonEvent event, String status) {
+        Team team = Team.builder()
                 .teamId(id)
+                .name("Seal Team")
+                .build();
+        TeamEventEntry entry = TeamEventEntry.builder()
+                .id(id)
+                .team(team)
                 .event(event)
                 .track(track(10, event))
-                .name("Seal Team")
                 .status(status)
                 .build();
+        lenient().when(teamEventEntryRepository.findTopByTeam_TeamIdOrderByIdDesc(id))
+                .thenReturn(Optional.of(entry));
+        lenient().when(teamEventEntryRepository.findByTeam_TeamIdAndEvent_EventId(id, event.getEventId()))
+                .thenReturn(Optional.of(entry));
+        return team;
     }
 
     private static Track track(Integer id, HackathonEvent event) {
@@ -504,6 +580,7 @@ class TeamInviteServiceTest {
         return TeamInvite.builder()
                 .inviteId(id)
                 .team(team)
+                .eventId(1)
                 .invitedUser(invitedUser)
                 .invitedBy(invitedBy)
                 .message("hello")

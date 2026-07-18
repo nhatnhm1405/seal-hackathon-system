@@ -6,10 +6,20 @@ import {
   C, GradientText, PixelCard, PixelButton, PixelBadge, CyberStatCard, PixelProgress,
 } from "@/shared/components/PixelComponents";
 import { AnnouncementComposerModal } from "@/shared/components/AnnouncementComposerModal";
+import { EventName } from "@/features/events/eventUtils";
 import {
-  eventsApi, roundsApi, teamsApi, submissionsApi, announcementsApi, ApiError,
-  HackathonEvent, Team, AnnouncementItem,
+  eventsApi, roundsApi, teamsApi, submissionsApi, announcementsApi, accountApprovalsApi, ApiError,
+  HackathonEvent, Team, AnnouncementItem, PendingAccount,
 } from "@/shared/apiClient";
+
+const MONO = "'JetBrains Mono', monospace";
+
+function fmtDT(iso?: string | null): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
 
 function audienceLabel(a?: string | null): string {
   if (a === "JUDGE") return "Judges";
@@ -19,11 +29,25 @@ function audienceLabel(a?: string | null): string {
   return a ?? "—";
 }
 
+// Event Overview shows only an on-going event. Prefer a running one (IN_PROGRESS),
+// then an active one (OPEN / SETUP). DRAFT, COMPLETED and CANCELLED events are
+// never surfaced here — return null so the overview stays hidden instead.
 function pickDefaultEvent(events: HackathonEvent[]): HackathonEvent | null {
-  if (events.length === 0) return null;
   return events.find(e => e.status === 'IN_PROGRESS')
-    ?? events.find(e => e.status === 'OPEN')
-    ?? events[events.length - 1];
+    ?? events.find(e => e.status === 'OPEN' || e.status === 'SETUP')
+    ?? null;
+}
+
+// Distinct, vivid badge colour per status so SETUP stands out (not muted grey).
+function statusBadgeColor(status: string): "green" | "cyan" | "blue" | "gray" | "purple" | "red" {
+  switch (status) {
+    case 'IN_PROGRESS': return 'green';
+    case 'OPEN':        return 'cyan';
+    case 'SETUP':       return 'blue';
+    case 'DRAFT':       return 'gray';
+    case 'COMPLETED':   return 'purple';
+    default:            return 'red';   // CANCELLED
+  }
 }
 
 export function CoordinatorDashboard() {
@@ -39,8 +63,14 @@ export function CoordinatorDashboard() {
   const [totalSubs, setTotalSubs] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
+  // Pending queue preview (Needs Attention) — display-only; actions live on the
+  // dedicated Accounts / Teams pages (this dashboard just links there).
+  const [pendingAccounts, setPendingAccounts] = useState<PendingAccount[]>([]);
+
   const [composerOpen, setComposerOpen] = useState(false);
   const [annHistory, setAnnHistory] = useState<AnnouncementItem[]>([]);
+  // Sent-announcement history is collapsed by default to reduce clutter.
+  const [annHistoryOpen, setAnnHistoryOpen] = useState(false);
   const [audience, setAudience] = useState("PARTICIPANT");
   // Which event the announcement targets (coordinator can change it in the composer).
   const [announceEventId, setAnnounceEventId] = useState<number | null>(null);
@@ -49,6 +79,12 @@ export function CoordinatorDashboard() {
     announcementsApi.listCoordinator()
       .then(res => setAnnHistory(res.data ?? []))
       .catch(() => { /* non-blocking */ });
+  }, []);
+
+  const loadPendingAccounts = useCallback(() => {
+    accountApprovalsApi.getPending()
+      .then(res => setPendingAccounts(res.data ?? []))
+      .catch(() => setPendingAccounts([]));
   }, []);
 
   useEffect(() => {
@@ -60,7 +96,8 @@ export function CoordinatorDashboard() {
       })
       .catch(err => setError(err instanceof ApiError ? err.message : "Failed to load events."));
     loadAnnHistory();
-  }, [loadAnnHistory]);
+    loadPendingAccounts();
+  }, [loadAnnHistory, loadPendingAccounts]);
 
   useEffect(() => {
     if (!event) { setTeams([]); setRoundCount(0); setClosedRounds(0); setTotalSubs(0); return; }
@@ -83,9 +120,17 @@ export function CoordinatorDashboard() {
 
   if (!currentUser) return null;
 
-  const activeEvents = events.filter(e => e.status === 'OPEN' || e.status === 'IN_PROGRESS').length;
-  const approvedTeams = teams.filter(t => t.status === 'APPROVED').length;
+  const approvedTeamList = teams.filter(t => t.status === 'APPROVED');
+  const approvedTeams = approvedTeamList.length;
+  const participants = approvedTeamList.reduce((n, t) => n + (t.members?.length ?? 0), 0);
   const pendingTeams = teams.filter(t => t.status === 'PENDING');
+  const attentionCount = pendingCount + pendingTeams.length;
+  // Announcements can only target a live event (SETUP / OPEN / IN_PROGRESS) — the
+  // composer's event picker is limited to these.
+  const announceableEvents = events.filter(e =>
+    e.status === 'SETUP' || e.status === 'OPEN' || e.status === 'IN_PROGRESS');
+  // Sent history is scoped to the event currently shown in the overview.
+  const eventAnnHistory = event ? annHistory.filter(a => a.eventId === event.eventId) : [];
   // Event the announce composer targets — the dropdown choice, falling back to the
   // overview event when the coordinator hasn't picked one yet.
   const announceEvent = events.find(e => e.eventId === announceEventId) ?? event;
@@ -107,71 +152,39 @@ export function CoordinatorDashboard() {
         </div>
       )}
 
+      {/* KPI strip — event-scoped, flat (glow off) */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16 }}>
-        <CyberStatCard value={activeEvents} label="Active Events" accent="green" />
-        <CyberStatCard value={approvedTeams} label="Approved Teams" accent="blue" />
-        <CyberStatCard value={totalSubs} label="Submissions" accent="cyan" />
-        <CyberStatCard value={pendingCount} label="Pending Approvals" accent="purple" />
+        <CyberStatCard glow={false} value={approvedTeams} label="Teams" accent="blue" />
+        <CyberStatCard glow={false} value={participants} label="Participants" accent="green" />
+        <CyberStatCard glow={false} value={totalSubs} label="Submissions" accent="cyan" />
+        <CyberStatCard glow={false} value={roundCount} label="Rounds" accent="purple" />
       </div>
 
-      {/* Pending items */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
-        <PixelCard glow glowColor="purple" style={{ padding: 20 }}>
-          <div style={{ color: C.purple, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.15em", marginBottom: 10 }}>
-            PENDING ACCOUNT APPROVALS
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-            <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 22, fontWeight: 800 }}>
-              {pendingCount}
-            </div>
-            <PixelBadge color="yellow">PENDING</PixelBadge>
-          </div>
-          <PixelButton variant="secondary" onClick={() => navigate('/coordinator/accounts')}>
-            REVIEW ACCOUNTS
-          </PixelButton>
-        </PixelCard>
-
-        <PixelCard glow glowColor="cyan" style={{ padding: 20 }}>
-          <div style={{ color: C.cyan, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.15em", marginBottom: 10 }}>
-            PENDING TEAM APPROVALS
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-            <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 22, fontWeight: 800 }}>
-              {pendingTeams.length}
-            </div>
-            <PixelBadge color="yellow">PENDING</PixelBadge>
-          </div>
-          <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginBottom: 12 }}>
-            {pendingTeams.map(t => t.name).join(", ") || "—"}
-          </div>
-          <PixelButton variant="secondary" onClick={() => navigate('/coordinator/teams')}>
-            REVIEW TEAMS
-          </PixelButton>
-        </PixelCard>
-      </div>
-
-      {/* Event overview */}
+      {/* Event overview — below the KPI strip */}
       {event && (
         <PixelCard style={{ padding: 20 }}>
-          <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.15em", marginBottom: 12 }}>
-            EVENT OVERVIEW
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-            <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 16, fontWeight: 700 }}>
-              {event.name}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 12, flexWrap: "wrap" }}>
+            <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.15em" }}>
+              EVENT OVERVIEW
             </div>
-            <PixelBadge color={event.status === 'OPEN' || event.status === 'IN_PROGRESS' ? 'green' : event.status === 'DRAFT' ? 'gray' : 'red'}>
+            <PixelButton variant="secondary" size="sm" onClick={() => navigate('/coordinator/events')}>
+              MANAGE →
+            </PixelButton>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+            <EventName size={20}>{event.name}</EventName>
+            <PixelBadge color={statusBadgeColor(event.status)}>
               {event.status}
             </PixelBadge>
           </div>
-          <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, marginBottom: 12 }}>
-            {roundCount} rounds · {closedRounds} closed
-          </div>
+          {event.topic && (
+            <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, marginBottom: 12 }}>{event.topic}</div>
+          )}
           <PixelProgress value={closedRounds} max={roundCount || 1} label="Round progress" gradient />
         </PixelCard>
       )}
 
-      {/* Announcements */}
+      {/* Announcements — moved up for quick access */}
       <PixelCard style={{ padding: 20 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 12, flexWrap: "wrap" }}>
           <div style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.15em" }}>
@@ -187,18 +200,32 @@ export function CoordinatorDashboard() {
         </div>
         {!event ? (
           <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>Select an event first.</div>
-        ) : annHistory.length === 0 ? (
+        ) : eventAnnHistory.length === 0 ? (
           <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>
-            No announcements sent yet. Broadcast updates to all participants of <span style={{ color: C.text }}>{event.name}</span>.
+            No announcements sent yet.
           </div>
         ) : (
+          <>
+            <button
+              type="button"
+              onClick={() => setAnnHistoryOpen(o => !o)}
+              style={{
+                display: "flex", alignItems: "center", gap: 8, width: "100%",
+                background: "none", border: "none", cursor: "pointer", padding: 0, marginBottom: annHistoryOpen ? 10 : 0,
+                color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.08em", textAlign: "left",
+              }}
+            >
+              <span style={{ fontSize: 12 }}>{annHistoryOpen ? "▾" : "▸"}</span>
+              <span>SENT HISTORY · {eventAnnHistory.length}</span>
+            </button>
+            {annHistoryOpen && (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {annHistory.map(a => (
+            {eventAnnHistory.map(a => (
               <div key={a.announcementId} style={{ padding: "10px 12px", background: C.surface2, border: `1px solid ${C.border}` }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10 }}>
                   <span style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, fontWeight: 700 }}>{a.title}</span>
                   <span style={{ color: C.textDim, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, whiteSpace: "nowrap" }}>
-                    {new Date(a.createdAt).toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                    {fmtDT(a.createdAt)}
                   </span>
                 </div>
                 <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, lineHeight: 1.6, marginTop: 4, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>{a.content}</div>
@@ -208,6 +235,76 @@ export function CoordinatorDashboard() {
               </div>
             ))}
           </div>
+            )}
+          </>
+        )}
+      </PixelCard>
+
+      {/* Needs Attention — radar + entry point; actions on dedicated pages */}
+      <PixelCard glowColor="amber" style={{ padding: 20 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <div style={{ color: C.yellow, fontFamily: MONO, fontSize: 11, letterSpacing: "0.15em" }}>
+            NEEDS ATTENTION
+          </div>
+          {attentionCount > 0 && <PixelBadge color="yellow">{attentionCount} PENDING</PixelBadge>}
+        </div>
+
+        {attentionCount === 0 ? (
+          <div style={{ color: C.textMuted, fontFamily: MONO, fontSize: 13, display: "flex", alignItems: "center", gap: 8, padding: "6px 0" }}>
+            <span style={{ color: C.green, fontSize: 16 }}></span>All caught up — no pending accounts or teams.
+          </div>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 20 }}>
+            {/* Accounts */}
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                <span style={{ color: C.purple, fontFamily: MONO, fontSize: 11, letterSpacing: "0.1em" }}>ACCOUNTS</span>
+                {pendingCount > 0 && (
+                  <PixelButton variant="secondary" size="sm" onClick={() => navigate('/coordinator/accounts')}>Review →</PixelButton>
+                )}
+              </div>
+              {pendingAccounts.length === 0 ? (
+                <div style={emptyRow}>No pending accounts.</div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {pendingAccounts.slice(0, 4).map(a => (
+                    <div key={a.userId} style={queueRow}>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ color: C.text, fontFamily: MONO, fontSize: 12, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.fullName}</div>
+                        <div style={{ color: C.textDim, fontFamily: MONO, fontSize: 10, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.email} · {a.userType.replace('_', ' ')}</div>
+                      </div>
+                    </div>
+                  ))}
+                  {pendingCount > 4 && <div style={{ color: C.textDim, fontFamily: MONO, fontSize: 10 }}>+{pendingCount - 4} more</div>}
+                </div>
+              )}
+            </div>
+
+            {/* Teams */}
+            <div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                <span style={{ color: C.cyan, fontFamily: MONO, fontSize: 11, letterSpacing: "0.1em" }}>TEAMS</span>
+                {pendingTeams.length > 0 && (
+                  <PixelButton variant="secondary" size="sm" onClick={() => navigate('/coordinator/teams')}>Review →</PixelButton>
+                )}
+              </div>
+              {pendingTeams.length === 0 ? (
+                <div style={emptyRow}>{event ? "No pending teams." : "Select an active event."}</div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {pendingTeams.slice(0, 4).map(t => (
+                    <div key={t.teamId} style={queueRow}>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ color: C.text, fontFamily: MONO, fontSize: 12, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.name}</div>
+                        <div style={{ color: C.textDim, fontFamily: MONO, fontSize: 10 }}>{t.trackName ?? "—"} · {t.members?.length ?? 0} members</div>
+                      </div>
+                    </div>
+                  ))}
+                  {pendingTeams.length > 4 && <div style={{ color: C.textDim, fontFamily: MONO, fontSize: 10 }}>+{pendingTeams.length - 4} more</div>}
+                </div>
+              )}
+            </div>
+          </div>
         )}
       </PixelCard>
 
@@ -215,8 +312,7 @@ export function CoordinatorDashboard() {
         <AnnouncementComposerModal
           open={composerOpen}
           scopeLabel={announceEvent.name}
-          audienceHint="approved & active members of this event"
-          events={events.map(e => ({ value: e.eventId, label: `${e.name} (${e.status})` }))}
+          events={announceableEvents.map(e => ({ value: e.eventId, label: `${e.name} (${e.status})` }))}
           eventId={announceEvent.eventId}
           onEventChange={setAnnounceEventId}
           audiences={[
@@ -234,50 +330,13 @@ export function CoordinatorDashboard() {
           onClose={() => setComposerOpen(false)}
         />
       )}
-
-      {/* Quick nav */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
-        <QuickNav label="Events" onClick={() => navigate('/coordinator/events')} />
-        <QuickNav label="Account Approvals" badge={pendingCount} onClick={() => navigate('/coordinator/accounts')} />
-        <QuickNav label="Teams" onClick={() => navigate('/coordinator/teams')} />
-        <QuickNav label="Scoring & Results" onClick={() => navigate('/coordinator/scoring')} />
-      </div>
     </div>
   );
 }
 
-function QuickNav({ label, badge, onClick }: { label: string; badge?: number; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        padding: "16px 14px",
-        background: C.surface,
-        border: `1px solid ${C.border}`,
-        textAlign: "left",
-        cursor: "pointer",
-        borderRadius: 0,
-        fontFamily: "'JetBrains Mono', monospace",
-        color: C.text,
-        display: "flex",
-        flexDirection: "column",
-        gap: 8,
-        transition: "all 0.15s ease",
-      }}
-      onMouseEnter={(e) => {
-        (e.currentTarget as HTMLElement).style.borderColor = C.green;
-        (e.currentTarget as HTMLElement).style.boxShadow = `0 0 12px rgba(34,197,94,0.15)`;
-      }}
-      onMouseLeave={(e) => {
-        (e.currentTarget as HTMLElement).style.borderColor = C.border;
-        (e.currentTarget as HTMLElement).style.boxShadow = "none";
-      }}
-    >
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span style={{ fontSize: 13, fontWeight: 600 }}>{label}</span>
-        {badge !== undefined && badge > 0 && <PixelBadge color="yellow">{badge}</PixelBadge>}
-      </div>
-      <span style={{ color: C.green, fontSize: 10, letterSpacing: "0.1em" }}>OPEN</span>
-    </button>
-  );
-}
+// ── Needs Attention: shared read-only row styles ──
+const queueRow: React.CSSProperties = {
+  display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10,
+  padding: "8px 10px", background: C.surface2, border: `1px solid ${C.border}`,
+};
+const emptyRow: React.CSSProperties = { color: C.textDim, fontFamily: MONO, fontSize: 11, padding: "8px 0" };

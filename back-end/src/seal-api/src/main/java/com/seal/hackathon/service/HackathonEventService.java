@@ -4,13 +4,21 @@ import com.seal.hackathon.dto.request.CreateEventRequest;
 import com.seal.hackathon.dto.request.UpdateEventRequest;
 import com.seal.hackathon.dto.response.HackathonEventResponse;
 import com.seal.hackathon.entity.HackathonEvent;
+import com.seal.hackathon.entity.JudgeAssignment;
 import com.seal.hackathon.entity.Team;
+import com.seal.hackathon.entity.TeamEventEntry;
+import com.seal.hackathon.entity.TeamMember;
 import com.seal.hackathon.entity.Track;
+import com.seal.hackathon.entity.User;
 import com.seal.hackathon.exception.BadRequestException;
 import com.seal.hackathon.exception.ResourceNotFoundException;
 import com.seal.hackathon.repository.HackathonEventRepository;
+import com.seal.hackathon.repository.JudgeAssignmentRepository;
+import com.seal.hackathon.repository.TeamEventEntryRepository;
+import com.seal.hackathon.repository.TeamMemberRepository;
 import com.seal.hackathon.repository.TeamRepository;
 import com.seal.hackathon.repository.TrackRepository;
+import com.seal.hackathon.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -31,6 +39,11 @@ public class HackathonEventService {
     private final HackathonEventRepository hackathonEventRepository;
     private final TrackRepository trackRepository;
     private final TeamRepository teamRepository;
+    private final TeamEventEntryRepository teamEventEntryRepository;
+    private final TeamMemberRepository teamMemberRepository;
+    private final UserRepository userRepository;
+    private final JudgeAssignmentRepository judgeAssignmentRepository;
+    private final ParticipantHistorySnapshotService participantHistorySnapshotService;
     private final AuditLogService auditLogService;
 
     private static final Set<String> VALID_STATUSES =
@@ -115,6 +128,7 @@ public class HackathonEventService {
                 .season(season)
                 .year(year)
                 .description(request.getDescription())
+                .topic(request.getTopic())
                 .registrationStart(request.getRegistrationStart())
                 .registrationEnd(request.getRegistrationEnd())
                 .startDate(request.getStartDate())
@@ -156,6 +170,9 @@ public class HackathonEventService {
         if (request.getDescription() != null) {
             event.setDescription(request.getDescription());
         }
+        if (request.getTopic() != null) {
+            event.setTopic(request.getTopic());
+        }
         if (request.getRegistrationStart() != null) {
             effectiveRegistrationStart = request.getRegistrationStart();
         }
@@ -195,6 +212,7 @@ public class HackathonEventService {
             effectiveStatus = newStatus;
             // Closing registration freezes the team count and computes per-track slots.
             if (enteringSetup) {
+                requireAllTeamsResolved(event);
                 computeTrackCapacities(event);
             }
         }
@@ -253,6 +271,11 @@ public class HackathonEventService {
         }
         event.setStatus("COMPLETED");
         event = hackathonEventRepository.save(event);
+        lockCompletedEventParticipantsReadOnly(event.getEventId());
+        // Freeze every current participant's result for this event — the
+        // "stayed till the end" half of participant history; departures
+        // before this point are snapshotted separately in TeamMembershipService.
+        participantHistorySnapshotService.snapshotEventCompletion(event.getEventId());
         return mapToResponse(event);
     }
 
@@ -272,6 +295,10 @@ public class HackathonEventService {
         }
         event.setStatus("IN_PROGRESS");
         event = hackathonEventRepository.save(event);
+        // Completing the event flipped its participants to inactive; reopening must
+        // flip them back so the event's leaders/members can act again (otherwise the
+        // team console shows but every write is blocked as inactive).
+        reactivateEventParticipants(event.getEventId());
         return mapToResponse(event);
     }
 
@@ -282,6 +309,117 @@ public class HackathonEventService {
             throw new BadRequestException("Invalid status '" + status
                     + "'. Must be DRAFT, OPEN, SETUP, IN_PROGRESS, COMPLETED or CANCELLED.");
         }
+    }
+
+    /**
+     * Registration must be fully triaged before entering SETUP: every team is resolved
+     * (APPROVED or REJECTED/DISQUALIFIED), none left PENDING. Otherwise the frozen roster
+     * and track draw would run on a set the coordinator has not finished reviewing.
+     */
+    private void requireAllTeamsResolved(HackathonEvent event) {
+        long pending = teamEventEntryRepository.countByEvent_EventIdAndStatus(event.getEventId(), "PENDING");
+        if (pending > 0) {
+            throw new BadRequestException("Cannot move to SETUP while " + pending
+                    + " team(s) are still pending approval — approve or reject them first.");
+        }
+    }
+
+    private void lockCompletedEventParticipantsReadOnly(Integer completedEventId) {
+        List<TeamEventEntry> entries = teamEventEntryRepository.findAllByEvent_EventId(completedEventId);
+
+        List<User> students = entries.stream()
+                .flatMap(entry -> teamMemberRepository.findByTeam_TeamId(entry.getTeam().getTeamId()).stream())
+                .map(TeamMember::getUser)
+                .filter(this::isStudent)
+                .filter(user -> !hasNonCompletedMembership(user, completedEventId))
+                .distinct()
+                .collect(Collectors.toList());
+        students.forEach(user -> user.setIsActive(false));
+        userRepository.saveAll(students);
+
+        // Teams mirror User's isActive: no longer "in a running competition" once
+        // the event completes. A DISQUALIFIED entry already flipped this earlier —
+        // leave it false either way, it's a no-op to re-set it. Same guard as the
+        // student loop above: a team with a live entry in another non-completed
+        // event (e.g. next season already opened before this one was marked
+        // Complete) must stay active.
+        List<Team> teams = entries.stream()
+                .map(TeamEventEntry::getTeam)
+                .distinct()
+                .filter(team -> !hasNonCompletedEntryElsewhere(team, completedEventId))
+                .collect(Collectors.toList());
+        teams.forEach(team -> team.setIsActive(false));
+        teamRepository.saveAll(teams);
+
+        // Guest judges are per-event temporary accounts — they too leave the
+        // "in a running competition" state when the event ends. (Internal judges
+        // are permanent staff and stay active.)
+        List<User> guestJudges = guestJudgesOf(completedEventId);
+        guestJudges.forEach(user -> user.setIsActive(false));
+        userRepository.saveAll(guestJudges);
+    }
+
+    // Reverse of the completion lock: reactivate every student, guest judge, and
+    // team tied to this (reopened) event so they resume as active participants.
+    private void reactivateEventParticipants(Integer eventId) {
+        List<TeamEventEntry> entries = teamEventEntryRepository.findAllByEvent_EventId(eventId);
+
+        List<User> students = entries.stream()
+                .flatMap(entry -> teamMemberRepository.findByTeam_TeamId(entry.getTeam().getTeamId()).stream())
+                .map(TeamMember::getUser)
+                .filter(this::isStudent)
+                .distinct()
+                .collect(Collectors.toList());
+        students.forEach(user -> user.setIsActive(true));
+        userRepository.saveAll(students);
+
+        // A disqualified team must not be resurrected just because the event
+        // reopened — DISQUALIFIED is a standalone, permanent-for-the-season state.
+        List<Team> teams = entries.stream()
+                .filter(entry -> !"DISQUALIFIED".equalsIgnoreCase(entry.getStatus()))
+                .map(TeamEventEntry::getTeam)
+                .distinct()
+                .collect(Collectors.toList());
+        teams.forEach(team -> team.setIsActive(true));
+        teamRepository.saveAll(teams);
+
+        List<User> guestJudges = guestJudgesOf(eventId);
+        guestJudges.forEach(user -> user.setIsActive(true));
+        userRepository.saveAll(guestJudges);
+    }
+
+    // Guest (not internal) judges assigned to any round of the event.
+    private List<User> guestJudgesOf(Integer eventId) {
+        return judgeAssignmentRepository.findActiveByEvent(eventId).stream()
+                .map(JudgeAssignment::getJudge)
+                .filter(u -> "GUEST".equalsIgnoreCase(u.getJudgeType()))
+                .distinct()
+                .collect(Collectors.toList());
+    }
+
+    private boolean isStudent(User user) {
+        return "FPT_STUDENT".equalsIgnoreCase(user.getUserType())
+                || "EXTERNAL_STUDENT".equalsIgnoreCase(user.getUserType());
+    }
+
+    private boolean hasNonCompletedMembership(User user, Integer completedEventId) {
+        return teamMemberRepository.findByUser_UserIdOrderByIdDesc(user.getUserId()).stream()
+                .flatMap(member -> teamEventEntryRepository
+                        .findAllByTeam_TeamId(member.getTeam().getTeamId()).stream())
+                .map(TeamEventEntry::getEvent)
+                .filter(event -> !event.getEventId().equals(completedEventId))
+                .anyMatch(event -> !"COMPLETED".equalsIgnoreCase(event.getStatus()));
+    }
+
+    // Team-level counterpart of hasNonCompletedMembership: true if this team has a
+    // season entry in some other event that isn't COMPLETED yet (status transitions
+    // are manual, so a new season can already be open before the old one is marked
+    // Complete), meaning the team must not be deactivated by that other event.
+    private boolean hasNonCompletedEntryElsewhere(Team team, Integer completedEventId) {
+        return teamEventEntryRepository.findAllByTeam_TeamId(team.getTeamId()).stream()
+                .map(TeamEventEntry::getEvent)
+                .filter(event -> !event.getEventId().equals(completedEventId))
+                .anyMatch(event -> !"COMPLETED".equalsIgnoreCase(event.getStatus()));
     }
 
     private void requireValidTrackMode(String mode) {
@@ -303,7 +441,7 @@ public class HackathonEventService {
             throw new BadRequestException(
                     "Add at least one track before closing registration (moving to SETUP).");
         }
-        int approved = teamRepository
+        int approved = teamEventEntryRepository
                 .findAllByEvent_EventIdAndStatus(event.getEventId(), "APPROVED").size();
         int n = tracks.size();
         int floor = approved / n;
@@ -315,6 +453,25 @@ public class HackathonEventService {
     }
 
     /**
+     * Recompute per-track SETUP capacities after the roster changed mid-SETUP — e.g.
+     * leftover grouping created/merged teams, so the count frozen on SETUP entry is
+     * stale. Must run before the track draw so slots reflect the final team count.
+     * No-op when the event has no tracks yet. SETUP-only.
+     */
+    @Transactional
+    public void recomputeSetupTrackCapacities(Integer eventId) {
+        HackathonEvent event = hackathonEventRepository.findById(eventId)
+                .orElseThrow(() -> new ResourceNotFoundException("Event not found: " + eventId));
+        if (!"SETUP".equalsIgnoreCase(event.getStatus())) {
+            throw new BadRequestException("Track capacities are only recomputed during SETUP.");
+        }
+        if (trackRepository.findAllByEvent_EventId(eventId).isEmpty()) {
+            return;
+        }
+        computeTrackCapacities(event);
+    }
+
+    /**
      * Gate for leaving SETUP (SETUP -> IN_PROGRESS). The event can only start when
      * every track has at least {@link #MIN_TEAMS_PER_TRACK} approved teams and no
      * approved team is left unassigned. Throws a BadRequest listing every problem so
@@ -322,7 +479,7 @@ public class HackathonEventService {
      */
     private void requireSetupComplete(HackathonEvent event) {
         List<Track> tracks = trackRepository.findAllByEvent_EventId(event.getEventId());
-        List<Team> approved = teamRepository
+        List<TeamEventEntry> approved = teamEventEntryRepository
                 .findAllByEvent_EventIdAndStatus(event.getEventId(), "APPROVED");
 
         Map<Integer, Long> perTrack = approved.stream()
@@ -499,6 +656,7 @@ public class HackathonEventService {
                 .season(event.getSeason())
                 .year(event.getYear())
                 .description(event.getDescription())
+                .topic(event.getTopic())
                 .registrationStart(event.getRegistrationStart())
                 .registrationEnd(event.getRegistrationEnd())
                 .startDate(event.getStartDate())

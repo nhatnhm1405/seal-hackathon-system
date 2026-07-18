@@ -89,6 +89,30 @@ public class NotificationService {
         notificationRepository.save(notification);
     }
 
+    /**
+     * Variant with a direct sender (no Announcement) — e.g. a mentor support
+     * request. The sender/role/scope let the UI show a "From" line and pop the
+     * same email-style detail as announcements do.
+     */
+    @Transactional
+    public void createNotification(Integer recipientUserId, String title, String content,
+                                   String type, User sender, String senderRole, String scopeLabel) {
+        User recipient = userRepository.findById(recipientUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + recipientUserId));
+
+        Notification notification = Notification.builder()
+                .recipient(recipient)
+                .title(title)
+                .content(content)
+                .type(type)
+                .isRead(false)
+                .sender(sender)
+                .senderRole(senderRole)
+                .scopeLabel(scopeLabel)
+                .build();
+        notificationRepository.save(notification);
+    }
+
     // ── Helper ────────────────────────────────────────────────────────
 
     private NotificationResponse mapToResponse(Notification n) {
@@ -101,6 +125,11 @@ public class NotificationService {
                     ? ann.getTrack().getName()
                     : (ann.getEvent() != null ? ann.getEvent().getName() : null);
             linkUrl = ann.getLinkUrl();
+        } else if (n.getSender() != null) {
+            // Direct-sender notification (e.g. mentor support request).
+            senderName = n.getSender().getFullName();
+            senderRole = n.getSenderRole();
+            scopeLabel = n.getScopeLabel();
         }
         return NotificationResponse.builder()
                 .notificationId(n.getNotificationId())

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router";
 import { useForceDark } from "@/app/providers/ThemeProvider";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { C, GradientText, PixelButton, PixelInput, FloatingParticles } from "@/shared/components/PixelComponents";
+import { UniversitySelect } from "@/shared/components/UniversitySelect";
 import { SealFooter } from "@/shared/components/SealFooter";
 import { authApi, ApiError, apiErrorMessage, CompleteProfilePayload } from "@/shared/apiClient";
 import { useNotifications } from "@/app/providers/NotificationProvider";
@@ -95,7 +96,7 @@ export function CompleteProfilePage() {
 
               <PixelInput label="Student ID" value={studentId} onChange={(e) => setStudentId(e.target.value)} placeholder="e.g. SE150000" />
               {isExternal && (
-                <PixelInput label="University" value={university} onChange={(e) => setUniversity(e.target.value)} placeholder="Your university name" />
+                <UniversitySelect label="University" value={university} onChange={setUniversity} />
               )}
 
               {error && (

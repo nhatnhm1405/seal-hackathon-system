@@ -66,18 +66,20 @@ public class AdminController {
                 adminService.updateUser(id, request, currentUserId(authentication))));
     }
 
-    @PutMapping("/users/{id}/activate")
+    // Directly (re)activate or deactivate an account — used to bring a guest judge
+    // (or any inactive account) back for a new season.
+    @PostMapping("/users/{id}/activate")
     public ResponseEntity<ApiResponse<UserResponse>> activateUser(
             @PathVariable Integer id, Authentication authentication) {
         return ResponseEntity.ok(ApiResponse.success("User activated.",
-                adminService.activateUser(id, currentUserId(authentication))));
+                adminService.setUserActive(id, true, currentUserId(authentication))));
     }
 
-    @PutMapping("/users/{id}/deactivate")
+    @PostMapping("/users/{id}/deactivate")
     public ResponseEntity<ApiResponse<UserResponse>> deactivateUser(
             @PathVariable Integer id, Authentication authentication) {
         return ResponseEntity.ok(ApiResponse.success("User deactivated.",
-                adminService.deactivateUser(id, currentUserId(authentication))));
+                adminService.setUserActive(id, false, currentUserId(authentication))));
     }
 
     // ── Role grants ───────────────────────────────────────────────────

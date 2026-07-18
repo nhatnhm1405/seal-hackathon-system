@@ -1,7 +1,7 @@
 -- =====================================================
 -- SEAL Hackathon Management System
 -- MySQL DDL Script  (idempotent — safe to re-run)
--- 26 tables
+-- 28 tables
 --
 -- CHANGELOG (assignment redesign):
 --   - Removed TeamAssignment (duplicate + wrong business unit).
@@ -80,13 +80,49 @@ CREATE TABLE `User` (
   university    VARCHAR(255)          COMMENT 'For external students only',
   judge_type    VARCHAR(20)           COMMENT 'INTERNAL or GUEST — only set for users who act as judges; NULL otherwise',
   is_approved   BOOLEAN      NOT NULL DEFAULT FALSE,
-  is_active     BOOLEAN      NOT NULL DEFAULT TRUE,
+  is_active     BOOLEAN      NOT NULL DEFAULT TRUE COMMENT 'FALSE = participant read-only, TRUE = writable/active',
   created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
   expired_at    DATETIME              COMMENT 'Account expiry (set manually), e.g. guest judge valid until event end. NULL = never expires',
   PRIMARY KEY (user_id),
   UNIQUE KEY uq_email (email),
   KEY idx_user_type (user_type),
   KEY idx_user_provider (provider, provider_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE ParticipationAccessRequest (
+  request_id    INT          NOT NULL AUTO_INCREMENT,
+  user_id       INT          NOT NULL,
+  email         VARCHAR(255) NOT NULL,
+  status        VARCHAR(20)  NOT NULL DEFAULT 'PENDING' COMMENT 'PENDING, APPROVED, REJECTED',
+  requested_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  resolved_at   DATETIME              NULL,
+  resolved_by   INT                   NULL,
+  PRIMARY KEY (request_id),
+  KEY idx_participation_access_status (status, requested_at),
+  KEY idx_participation_access_user_status (user_id, status),
+  CONSTRAINT fk_participation_access_user
+    FOREIGN KEY (user_id) REFERENCES `User`(user_id)
+    ON DELETE CASCADE,
+  CONSTRAINT fk_participation_access_resolved_by
+    FOREIGN KEY (resolved_by) REFERENCES `User`(user_id)
+    ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE PasswordResetOtp (
+  id               BIGINT       NOT NULL AUTO_INCREMENT,
+  user_id          INT          NOT NULL,
+  otp_hash         VARCHAR(255) NOT NULL COMMENT 'PasswordEncoder hash of the 6-digit OTP',
+  reset_token_hash VARCHAR(255)          COMMENT 'SHA-256 hash of the temporary token issued after OTP verification',
+  expires_at       DATETIME     NOT NULL,
+  verified_at      DATETIME,
+  used_at          DATETIME,
+  attempt_count    INT          NOT NULL DEFAULT 0,
+  created_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_password_reset_token_hash (reset_token_hash),
+  KEY idx_password_reset_user_active (user_id, used_at, created_at),
+  KEY idx_password_reset_expires_at (expires_at),
+  CONSTRAINT fk_password_reset_otp_user FOREIGN KEY (user_id) REFERENCES `User` (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- =====================================================
@@ -261,22 +297,34 @@ CREATE TABLE MentorAssignment (
 -- TEAM MANAGEMENT
 -- =====================================================
 
+-- Team is a stable identity that persists across seasons (mirrors User) —
+-- season-specific facts (event, track, approval status, disqualification)
+-- live on TeamEventEntry instead, one row per (team, event).
 CREATE TABLE Team (
-  team_id             INT          NOT NULL AUTO_INCREMENT,
+  team_id     INT          NOT NULL AUTO_INCREMENT,
+  name        VARCHAR(255) NOT NULL,
+  description TEXT,
+  is_active   BOOLEAN      NOT NULL DEFAULT TRUE,
+  created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (team_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE TeamEventEntry (
+  id                  INT          NOT NULL AUTO_INCREMENT,
+  team_id             INT          NOT NULL,
   event_id            INT          NOT NULL,
   track_id            INT                   COMMENT 'NULL until assigned (self-selected at registration or drawn during SETUP)',
-  name                VARCHAR(255) NOT NULL,
-  description         TEXT,
   status              VARCHAR(20)  NOT NULL DEFAULT 'PENDING' COMMENT 'PENDING, APPROVED, REJECTED, DISQUALIFIED',
   disqualified_reason TEXT,
   disqualified_at     DATETIME,
   created_at          DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (team_id),
-  UNIQUE KEY uq_team_event_name (event_id, name),
-  KEY idx_team_track (track_id),
-  KEY idx_team_status (status),
-  CONSTRAINT fk_team_event FOREIGN KEY (event_id) REFERENCES HackathonEvent (event_id),
-  CONSTRAINT fk_team_track FOREIGN KEY (track_id) REFERENCES Track (track_id)
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_tee_team_event (team_id, event_id),
+  KEY idx_tee_track (track_id),
+  KEY idx_tee_status (status),
+  CONSTRAINT fk_tee_team  FOREIGN KEY (team_id)  REFERENCES Team (team_id),
+  CONSTRAINT fk_tee_event FOREIGN KEY (event_id) REFERENCES HackathonEvent (event_id),
+  CONSTRAINT fk_tee_track FOREIGN KEY (track_id) REFERENCES Track (track_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE TeamMember (
@@ -290,6 +338,48 @@ CREATE TABLE TeamMember (
   KEY idx_team_member_user (user_id),
   CONSTRAINT fk_tm_team FOREIGN KEY (team_id) REFERENCES Team (team_id),
   CONSTRAINT fk_tm_user FOREIGN KEY (user_id) REFERENCES `User` (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- A team leader's request to re-attach the team's persistent identity to a
+-- new season (creates a new TeamEventEntry on approval) — mirrors
+-- ParticipationAccessRequest, scoped to a team instead of a user.
+CREATE TABLE TeamRejoinRequest (
+  request_id   INT          NOT NULL AUTO_INCREMENT,
+  team_id      INT          NOT NULL,
+  event_id     INT          NOT NULL COMMENT 'Target event for the new TeamEventEntry',
+  requested_by INT          NOT NULL COMMENT 'The leader who filed the request',
+  status       VARCHAR(20)  NOT NULL DEFAULT 'PENDING' COMMENT 'PENDING, APPROVED, REJECTED',
+  requested_at DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  resolved_at  DATETIME              NULL,
+  resolved_by  INT                   NULL,
+  PRIMARY KEY (request_id),
+  KEY idx_team_rejoin_status (status, requested_at),
+  KEY idx_team_rejoin_team_status (team_id, status),
+  CONSTRAINT fk_team_rejoin_team
+    FOREIGN KEY (team_id) REFERENCES Team (team_id)
+    ON DELETE CASCADE,
+  CONSTRAINT fk_team_rejoin_event FOREIGN KEY (event_id) REFERENCES HackathonEvent (event_id),
+  CONSTRAINT fk_team_rejoin_requested_by
+    FOREIGN KEY (requested_by) REFERENCES `User`(user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- A frozen, per-participant snapshot of one event's result — NOT a live
+-- reference (no FK to Team; event_id is plain, used only to compare against
+-- the event's current live status, never for display). Written when a
+-- participant leaves/is removed from their team early (before their
+-- TeamMember row is hard-deleted, otherwise that season's result would be
+-- lost) or when the event completes (for whoever is still on a team then).
+-- One row per (user_id, event_id), upserted on every write.
+CREATE TABLE ParticipantEventHistory (
+  id             INT          NOT NULL AUTO_INCREMENT,
+  user_id        INT          NOT NULL,
+  event_id       INT          NOT NULL COMMENT 'Not a FK — display data lives in result_json',
+  snapshot_reason VARCHAR(30) NOT NULL COMMENT 'COMPLETED, LEFT_TEAM, REMOVED_BY_LEADER, REMOVED_BY_COORDINATOR',
+  snapshot_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  result_json    TEXT         NOT NULL COMMENT 'Serialized TeamHistoryResponse',
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_participant_event_history_user_event (user_id, event_id),
+  CONSTRAINT fk_peh_user FOREIGN KEY (user_id) REFERENCES `User` (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- =====================================================
@@ -426,6 +516,7 @@ CREATE TABLE AccountApproval (
 CREATE TABLE TeamInvite (
   invite_id        INT          NOT NULL AUTO_INCREMENT,
   team_id          INT          NOT NULL,
+  event_id         INT          NOT NULL COMMENT 'Which season this invite is for — Team no longer carries a single event',
   invited_user_id  INT          NOT NULL,
   invited_by       INT          NOT NULL,
   message          TEXT,
@@ -435,7 +526,9 @@ CREATE TABLE TeamInvite (
   PRIMARY KEY (invite_id),
   UNIQUE KEY uq_invite_team_user (team_id, invited_user_id),
   KEY idx_invite_user (invited_user_id),
+  KEY idx_invite_event (event_id),
   CONSTRAINT fk_invite_team    FOREIGN KEY (team_id)         REFERENCES Team (team_id),
+  CONSTRAINT fk_invite_event   FOREIGN KEY (event_id)        REFERENCES HackathonEvent (event_id),
   CONSTRAINT fk_invite_invitee FOREIGN KEY (invited_user_id) REFERENCES `User` (user_id),
   CONSTRAINT fk_invite_inviter FOREIGN KEY (invited_by)      REFERENCES `User` (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -443,6 +536,7 @@ CREATE TABLE TeamInvite (
 CREATE TABLE JoinRequest (
   request_id        INT          NOT NULL AUTO_INCREMENT,
   team_id           INT          NOT NULL,
+  event_id          INT          NOT NULL COMMENT 'Which season this request is for — Team no longer carries a single event',
   requester_user_id INT          NOT NULL,
   message           TEXT,
   status            VARCHAR(20)  NOT NULL DEFAULT 'PENDING' COMMENT 'PENDING, ACCEPTED, DECLINED',
@@ -451,7 +545,9 @@ CREATE TABLE JoinRequest (
   PRIMARY KEY (request_id),
   UNIQUE KEY uq_join_team_user (team_id, requester_user_id),
   KEY idx_join_requester (requester_user_id),
+  KEY idx_join_event (event_id),
   CONSTRAINT fk_join_team      FOREIGN KEY (team_id)           REFERENCES Team (team_id),
+  CONSTRAINT fk_join_event     FOREIGN KEY (event_id)          REFERENCES HackathonEvent (event_id),
   CONSTRAINT fk_join_requester FOREIGN KEY (requester_user_id) REFERENCES `User` (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

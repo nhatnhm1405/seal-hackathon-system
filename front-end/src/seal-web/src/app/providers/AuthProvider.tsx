@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { apiFetch, getToken, setToken, clearToken, ApiError, teamsApi } from "@/shared/apiClient";
+import { apiFetch, ApiError, teamsApi } from "@/shared/apiClient";
 
 // ── Public AuthUser shape ────────────────────────────────────────────
 export interface AuthUser {
@@ -13,10 +13,16 @@ export interface AuthUser {
   avatar_url: string | null;
   is_leader: boolean;
   team_id: number | null;
+  // true when team_id resolves to a team with no live season entry (past
+  // event completed, or disqualified) — the team still "exists" for My Team,
+  // but season-scoped screens (Submit Project) should stay hidden.
+  team_dormant: boolean;
   // true for a first-time OAuth account that hasn't picked its userType yet
   profile_incomplete: boolean;
   // false until a coordinator approves the account
   approved: boolean;
+  // true means a participant can only read existing data
+  is_active: boolean;
 }
 
 // ── Context type ─────────────────────────────────────────────────────
@@ -27,7 +33,7 @@ interface AuthContextType {
   availableRoles: string[];
   activeRole: string | null;
   setActiveRole: (role: string | null) => void;
-  login: (email: string, password: string, rememberMe?: boolean) => Promise<'ok' | 'ok:select-role' | 'invalid_credentials' | 'pending_approval' | 'inactive'>;
+  login: (email: string, password: string, rememberMe?: boolean) => Promise<'ok' | 'ok:select-role' | 'invalid_credentials' | 'pending_approval'>;
   logout: () => void;
   updateLeaderStatus: (isLeader: boolean) => void;
   clearTeam: () => void;
@@ -37,10 +43,25 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-const ACTIVE_ROLE_KEY = 'activeRole';
+// Non-sensitive UI preference (which role tab is active) — always localStorage.
+// A stale value from a different account is safely discarded elsewhere by the
+// allRoles.includes(saved) check, so there's no need to mirror "remember me".
+export const ACTIVE_ROLE_KEY = 'activeRole';
+
+function getStoredActiveRole(): string | null {
+  return localStorage.getItem(ACTIVE_ROLE_KEY);
+}
+
+function setStoredActiveRole(role: string | null) {
+  if (role) {
+    localStorage.setItem(ACTIVE_ROLE_KEY, role);
+  } else {
+    localStorage.removeItem(ACTIVE_ROLE_KEY);
+  }
+}
 
 // ── API response shape (defensive — backend may vary) ─────────────────
-interface ApiUserProfile {
+export interface ApiUserProfile {
   userId?: number;
   user_id?: number;
   email: string;
@@ -65,12 +86,14 @@ interface ApiUserProfile {
   is_leader?: boolean;
   isApproved?: boolean;
   is_approved?: boolean;
+  isActive?: boolean;
+  is_active?: boolean;
 }
 
 // ── Collects all raw role strings from backend profile ────────────────
 const STAFF_ROLE_KEYWORDS = ['ADMIN', 'JUDGE', 'MENTOR', 'COORDINATOR'];
 
-function resolveAllRoles(profile: ApiUserProfile): string[] {
+export function resolveAllRoles(profile: ApiUserProfile): string[] {
   const raw: string[] = [];
   const collect = (v: unknown) => {
     if (!v) return;
@@ -91,7 +114,7 @@ function resolveAllRoles(profile: ApiUserProfile): string[] {
 }
 
 // ── Maps a raw backend role string to frontend AuthUser role ──────────
-function mapBackendRole(backendRole: string): AuthUser['role'] {
+export function mapBackendRole(backendRole: string): AuthUser['role'] {
   const r = backendRole.toUpperCase();
   if (r.includes('ADMIN'))       return 'ADMIN';
   if (r.includes('COORDINATOR')) return 'COORDINATOR';
@@ -103,7 +126,7 @@ function mapBackendRole(backendRole: string): AuthUser['role'] {
 // ── CRITICAL: role resolver ───────────────────────────────────────────
 // Handles: string, string[], nested object, snake_case, camelCase
 // Priority: ADMIN > COORDINATOR > JUDGE > MENTOR > PARTICIPANT
-function resolveRole(profile: ApiUserProfile): AuthUser['role'] {
+export function resolveRole(profile: ApiUserProfile): AuthUser['role'] {
   const raw: string[] = [];
 
   const collect = (v: unknown) => {
@@ -130,8 +153,9 @@ function resolveRole(profile: ApiUserProfile): AuthUser['role'] {
   return 'PARTICIPANT';
 }
 
-function mapApiUser(profile: ApiUserProfile): AuthUser {
+export function mapApiUser(profile: ApiUserProfile): AuthUser {
   const userType = profile.userType ?? profile.user_type ?? '';
+  const isActive = profile.isActive ?? profile.is_active ?? true;
   return {
     user_id:      profile.userId ?? profile.user_id ?? 0,
     full_name:    profile.fullName ?? profile.full_name ?? '',
@@ -145,8 +169,10 @@ function mapApiUser(profile: ApiUserProfile): AuthUser {
     avatar_url:   profile.avatarUrl ?? profile.avatar_url ?? null,
     is_leader:    profile.isLeader ?? profile.is_leader ?? false,
     team_id:      profile.teamId ?? profile.team_id ?? null,
+    team_dormant: false,
     profile_incomplete: userType === 'PENDING_PROFILE',
     approved:     profile.isApproved ?? profile.is_approved ?? true,
+    is_active:    isActive,
   };
 }
 
@@ -155,16 +181,21 @@ function mapApiUser(profile: ApiUserProfile): AuthUser {
 // which only PARTICIPANTs may call. Until the backend adds member userId / a
 // myRole field to MyTeamResponse, leadership is inferred by matching the full
 // name (temporary — see deferred backend note).
-async function fetchTeamContext(role: AuthUser['role'], fullName: string): Promise<{ teamId: number | null; isLeader: boolean }> {
-  if (role !== 'PARTICIPANT') return { teamId: null, isLeader: false };
+async function fetchTeamContext(role: AuthUser['role'], fullName: string, userId?: number): Promise<{ teamId: number | null; isLeader: boolean; teamDormant: boolean }> {
+  if (role !== 'PARTICIPANT') return { teamId: null, isLeader: false, teamDormant: false };
   try {
     const res = await teamsApi.getMy();
     const t = res.data;
-    if (!t || t.teamId == null) return { teamId: null, isLeader: false };
-    const myRole = t.myRole ?? t.members?.find(m => m.memberName === fullName)?.role;
-    return { teamId: t.teamId, isLeader: (myRole ?? '').toString().toUpperCase() === 'LEADER' };
+    if (!t || t.teamId == null) return { teamId: null, isLeader: false, teamDormant: false };
+    const myRole = t.myRole
+      ?? t.members?.find(m => userId != null && m.userId === userId)?.role
+      ?? t.members?.find(m => m.memberName === fullName)?.role;
+    // Same "dormant" condition TeamViewPage/ExistingTeamDashboard gate their
+    // rejoin banner on — a team with no live season entry.
+    const teamDormant = t.status === 'DISQUALIFIED' || t.eventStatus === 'COMPLETED';
+    return { teamId: t.teamId, isLeader: (myRole ?? '').toString().toUpperCase() === 'LEADER', teamDormant };
   } catch {
-    return { teamId: null, isLeader: false };
+    return { teamId: null, isLeader: false, teamDormant: false };
   }
 }
 
@@ -174,26 +205,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [availableRoles, setAvailableRoles] = useState<string[]>([]);
   const [activeRole, setActiveRoleState] = useState<string | null>(
-    () => localStorage.getItem(ACTIVE_ROLE_KEY),
+    () => getStoredActiveRole(),
   );
 
   // ── Active role setter (persists to localStorage) ───────────────────
   function setActiveRole(role: string | null) {
     setActiveRoleState(role);
     if (role) {
-      localStorage.setItem(ACTIVE_ROLE_KEY, role);
+      setStoredActiveRole(role);
       setCurrentUser(prev => prev ? { ...prev, role: mapBackendRole(role) } : prev);
     } else {
-      localStorage.removeItem(ACTIVE_ROLE_KEY);
+      setStoredActiveRole(null);
       setCurrentUser(prev => prev ? { ...prev, role: 'PARTICIPANT' } : prev);
     }
   }
 
-  // ── Restore session from stored token on mount ───────────────────────
+  // ── Restore session from the auth cookie on mount ─────────────────────
+  // The cookie is HttpOnly — JS can't check for its presence, so just ask the
+  // backend; a 401 means "not logged in".
   useEffect(() => {
-    const token = getToken();
-    if (!token) { setIsLoading(false); return; }
-
     apiFetch<{ data: ApiUserProfile }>('/api/auth/me')
       .then(async res => {
         const allRoles = resolveAllRoles(res.data);
@@ -202,24 +232,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         let resolvedActive: string | null = null;
         if (allRoles.length === 1) {
           resolvedActive = allRoles[0];
-          localStorage.setItem(ACTIVE_ROLE_KEY, resolvedActive);
+          setStoredActiveRole(resolvedActive);
         } else if (allRoles.length > 1) {
-          const saved = localStorage.getItem(ACTIVE_ROLE_KEY);
+          const saved = getStoredActiveRole();
           resolvedActive = (saved && allRoles.includes(saved)) ? saved : null;
-          if (!resolvedActive) localStorage.removeItem(ACTIVE_ROLE_KEY);
+          if (!resolvedActive) setStoredActiveRole(null);
         }
 
         setActiveRoleState(resolvedActive);
         const authUser = mapApiUser(res.data);
         if (resolvedActive) authUser.role = mapBackendRole(resolvedActive);
-        const tc = await fetchTeamContext(authUser.role, authUser.full_name);
+        const tc = await fetchTeamContext(authUser.role, authUser.full_name, authUser.user_id);
         authUser.team_id = tc.teamId;
         authUser.is_leader = tc.isLeader;
+        authUser.team_dormant = tc.teamDormant;
         setCurrentUser(authUser);
       })
       .catch(() => {
-        clearToken();
-        localStorage.removeItem(ACTIVE_ROLE_KEY);
+        setStoredActiveRole(null);
       })
       .finally(() => setIsLoading(false));
   }, []);
@@ -229,23 +259,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     email: string,
     password: string,
     rememberMe = false,
-  ): Promise<'ok' | 'ok:select-role' | 'invalid_credentials' | 'pending_approval' | 'inactive'> {
+  ): Promise<'ok' | 'ok:select-role' | 'invalid_credentials' | 'pending_approval'> {
     try {
       // Wipe any prior session before authenticating a new one — otherwise a
-      // leftover token / activeRole / user from the previous account can bleed
-      // into the new login and make subsequent requests carry the wrong identity.
-      clearToken();
-      localStorage.removeItem(ACTIVE_ROLE_KEY);
+      // leftover activeRole / user from the previous account can bleed into
+      // the new login and make subsequent requests carry the wrong identity.
+      setStoredActiveRole(null);
       setCurrentUser(null);
       setAvailableRoles([]);
       setActiveRoleState(null);
 
-      // Step 1: authenticate and receive token
-      const loginRes = await apiFetch<{ data: { token: string; userId?: number } }>(
-        '/api/auth/login',
-        { method: 'POST', body: JSON.stringify({ email, password }) },
-      );
-      setToken(loginRes.data.token, rememberMe);
+      // Step 1: authenticate — backend sets the JWT as an HttpOnly cookie.
+      await apiFetch('/api/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password, rememberMe }),
+      });
 
       // Step 2: fetch full profile (roles live here, not in the login response)
       const meRes = await apiFetch<{ data: ApiUserProfile }>('/api/auth/me');
@@ -255,32 +283,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       let resolvedActive: string | null = null;
       if (allRoles.length === 1) {
         resolvedActive = allRoles[0];
-        localStorage.setItem(ACTIVE_ROLE_KEY, resolvedActive);
+        setStoredActiveRole(resolvedActive);
       } else if (allRoles.length > 1) {
         // Check if there is a previously saved valid role
-        const saved = localStorage.getItem(ACTIVE_ROLE_KEY);
+        const saved = getStoredActiveRole();
         resolvedActive = (saved && allRoles.includes(saved)) ? saved : null;
-        if (!resolvedActive) localStorage.removeItem(ACTIVE_ROLE_KEY);
+        if (!resolvedActive) setStoredActiveRole(null);
       }
 
       setActiveRoleState(resolvedActive);
       const authUser = mapApiUser(meRes.data);
       if (resolvedActive) authUser.role = mapBackendRole(resolvedActive);
-      const tc = await fetchTeamContext(authUser.role, authUser.full_name);
+      const tc = await fetchTeamContext(authUser.role, authUser.full_name, authUser.user_id);
       authUser.team_id = tc.teamId;
       authUser.is_leader = tc.isLeader;
+      authUser.team_dormant = tc.teamDormant;
       setCurrentUser(authUser);
       // Signal to the caller that the user must pick a role before entering any dashboard
       return allRoles.length > 1 && resolvedActive === null ? 'ok:select-role' : 'ok';
     } catch (err) {
-      clearToken();
-      localStorage.removeItem(ACTIVE_ROLE_KEY);
+      setStoredActiveRole(null);
       if (err instanceof ApiError) {
         if (err.status === 403) {
-          const msg = err.message.toLowerCase();
-          if (msg.includes('inactive') || msg.includes('deactivated') || msg.includes('disabled')) {
-            return 'inactive';
-          }
           return 'pending_approval';
         }
         if (err.status === 401) return 'invalid_credentials';
@@ -291,13 +315,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // ── Logout ──────────────────────────────────────────────────────────
   function logout() {
-    // Fire-and-forget — clear local state immediately for snappy UX
-    const token = getToken();
-    if (token) {
-      apiFetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
-    }
-    clearToken();
-    localStorage.removeItem(ACTIVE_ROLE_KEY);
+    // Fire-and-forget — clear local state immediately for snappy UX.
+    // Can't check for a cookie from JS, so always call; the backend clears it.
+    apiFetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+    setStoredActiveRole(null);
     setCurrentUser(null);
     setAvailableRoles([]);
     setActiveRoleState(null);
@@ -308,7 +329,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   function clearTeam() {
-    setCurrentUser(prev => prev ? { ...prev, team_id: null, is_leader: false } : prev);
+    setCurrentUser(prev => prev ? { ...prev, team_id: null, is_leader: false, team_dormant: false } : prev);
   }
 
   // Apply edited profile fields to the in-memory user (after PUT /api/auth/me).
@@ -320,8 +341,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // joins, or leaves a team — keeps routing and the sidebar in sync.
   async function refreshTeamContext() {
     if (!currentUser) return;
-    const tc = await fetchTeamContext(currentUser.role, currentUser.full_name);
-    setCurrentUser(prev => prev ? { ...prev, team_id: tc.teamId, is_leader: tc.isLeader } : prev);
+    const tc = await fetchTeamContext(currentUser.role, currentUser.full_name, currentUser.user_id);
+    setCurrentUser(prev => prev ? { ...prev, team_id: tc.teamId, is_leader: tc.isLeader, team_dormant: tc.teamDormant } : prev);
   }
 
   return (

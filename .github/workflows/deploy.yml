@@ -8,20 +8,59 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    env:
+      DEPLOY_HOST: ${{ secrets.HOST || secrets.SSH_HOST || secrets.EC2_HOST }}
+      DEPLOY_USER: ${{ secrets.USERNAME || secrets.SSH_USERNAME || secrets.EC2_USER }}
+      DEPLOY_KEY: ${{ secrets.SSH_KEY || secrets.SSH_PRIVATE_KEY || secrets.EC2_SSH_KEY }}
+      DEPLOY_PORT: ${{ secrets.SSH_PORT || '22' }}
+      APP_DIR: ${{ secrets.APP_DIR }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Validate SSH configuration
+        run: |
+          missing=0
+          for name in DEPLOY_HOST DEPLOY_USER DEPLOY_KEY; do
+            if [ -z "${!name}" ]; then
+              echo "::error::$name is missing. Configure HOST/USERNAME/SSH_KEY or SSH_HOST/SSH_USERNAME/SSH_PRIVATE_KEY secrets."
+              missing=1
+            fi
+          done
+          if [ -n "$DEPLOY_KEY" ] && ! grep -q "PRIVATE KEY" <<< "$DEPLOY_KEY"; then
+            echo "::error::DEPLOY_KEY does not look like a PEM private key. Store the private key content, not the .pub key."
+            missing=1
+          fi
+          exit "$missing"
+
       - name: Deploy to Server via SSH
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          APP_DIR: ${{ env.APP_DIR }}
         with:
-          host: ${{ secrets.HOST }}
-          username: ${{ secrets.USERNAME }}
-          key: ${{ secrets.SSH_KEY }}
+          host: ${{ env.DEPLOY_HOST }}
+          username: ${{ env.DEPLOY_USER }}
+          key: ${{ env.DEPLOY_KEY }}
+          port: ${{ env.DEPLOY_PORT }}
+          envs: APP_DIR
+          script_stop: true
           script: |
-            # Go to the project directory on the server
-            cd seal-hackathon-system
-            # Pull latest code from Github develop branch
-            git pull origin develop
-            # Rebuild and restart the stack with Docker Compose
-            sudo docker compose up -d --build
+            set -eu
+
+            APP_DIR="${APP_DIR:-$HOME/seal-hackathon-system}"
+            if [ ! -d "$APP_DIR/.git" ]; then
+              echo "Deploy directory is not a git repository: $APP_DIR"
+              echo "Set the APP_DIR repository secret if the project lives elsewhere on the server."
+              exit 1
+            fi
+
+            cd "$APP_DIR"
+            git fetch origin develop
+            if git show-ref --verify --quiet refs/heads/develop; then
+              git checkout develop
+            else
+              git checkout -b develop origin/develop
+            fi
+            git pull --ff-only origin develop
+            sudo docker compose up -d --build --remove-orphans
+            sudo docker compose ps

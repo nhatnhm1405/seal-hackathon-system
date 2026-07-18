@@ -2,10 +2,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { timersApi, type RoundTimerState, type TimerPhase, type TimerStatus } from "@/shared/apiClient";
 import { useNotifications } from "@/app/providers/NotificationProvider";
 
-// Re-sync with the server occasionally; in between, the countdown ticks locally
-// from endsAt (corrected for clock skew). 20s keeps drift invisible without
-// hammering the API.
-const RESYNC_MS = 20_000;
+// Keep coordinator actions (especially PAUSE/STOP) visible quickly. The backend
+// remains authoritative for writes, so even this short UI delay cannot bypass it.
+const RESYNC_MS = 5_000;
 const DEFAULT_MILESTONES = [30, 15, 5, 1];
 
 export interface RoundTimerView {
@@ -13,32 +12,24 @@ export interface RoundTimerView {
   remainingSeconds: number;
   durationSeconds: number;
   endsAt: string | null;
-  isConfigured: boolean; // a timer exists for this round phase (status !== IDLE)
-  isRunning: boolean;    // RUNNING with time left → writes allowed
+  isConfigured: boolean;
+  isRunning: boolean;
   isPaused: boolean;
   isExpired: boolean;
   loading: boolean;
+  loadFailed: boolean;
   refetch: () => void;
 }
 
 interface UseRoundTimerOptions {
-  // Fire ephemeral milestone banners (30/15/5/1 min, 50%, time-up) for the
-  // viewer. The persistent bell entry is handled server-side for participants/
-  // judges; mentors use banners only.
   fireBanners?: boolean;
   enabled?: boolean;
 }
 
-// "what closes" wording for the banner copy.
 function phaseWord(phase: TimerPhase): string {
   return phase === "JUDGING" ? "scoring" : "submission";
 }
 
-/**
- * Live, server-authoritative countdown for one round phase. Returns a view the
- * UI can render + gate on, and (optionally) fires precise milestone banners the
- * instant a mark is crossed while the page is open.
- */
 export function useRoundTimer(
   eventId: number | null | undefined,
   roundId: number | null | undefined,
@@ -51,122 +42,220 @@ export function useRoundTimer(
 
   const [state, setState] = useState<RoundTimerState | null>(null);
   const [loading, setLoading] = useState<boolean>(enabled);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [remaining, setRemaining] = useState<number>(0);
 
-  const skewRef = useRef(0);                       // serverNow - clientNow (ms)
+  const skewRef = useRef(0);
   const stateRef = useRef<RoundTimerState | null>(null);
-  const firedRef = useRef<Set<string>>(new Set()); // milestone keys fired this run
-  const runKeyRef = useRef<string>("");            // detects a fresh run (startedAt change)
+  const firedRef = useRef<Set<string>>(new Set());
+  const runKeyRef = useRef<string>("");
   const prevRemainingRef = useRef<number | null>(null);
 
-  const applyState = useCallback((s: RoundTimerState) => {
-    skewRef.current = (s.serverNow ? Date.parse(s.serverNow) : Date.now()) - Date.now();
-    const runKey = `${s.status}|${s.startedAt ?? ""}`;
+  const applyState = useCallback((nextState: RoundTimerState) => {
+    skewRef.current = (nextState.serverNow ? Date.parse(nextState.serverNow) : Date.now()) - Date.now();
+
+    const runKey = `${nextState.status}|${nextState.startedAt ?? ""}`;
     if (runKey !== runKeyRef.current) {
       runKeyRef.current = runKey;
       firedRef.current = new Set();
-      prevRemainingRef.current = null; // don't fire marks already passed on (re)load
+      prevRemainingRef.current = null;
     }
-    stateRef.current = s;
-    setState(s);
+
+    stateRef.current = nextState;
+    setState(nextState);
+    setLoadFailed(false);
+  }, []);
+
+  const clearState = useCallback(() => {
+    stateRef.current = null;
+    setState(null);
+    setRemaining(0);
+    firedRef.current = new Set();
+    prevRemainingRef.current = null;
   }, []);
 
   const refetch = useCallback(() => {
     if (!enabled) return;
-    timersApi.get(eventId as number, roundId as number, phase)
-      .then(res => applyState(res.data))
-      .catch(() => { /* keep last known state */ });
-  }, [enabled, eventId, roundId, phase, applyState]);
 
-  // Initial fetch + periodic re-sync.
+    timersApi.get(eventId as number, roundId as number, phase)
+      .then((response) => applyState(response.data))
+      .catch(() => {
+        clearState();
+        setLoadFailed(true);
+      });
+  }, [enabled, eventId, roundId, phase, applyState, clearState]);
+
   useEffect(() => {
     if (!enabled) {
-      stateRef.current = null;
-      setState(null);
-      setRemaining(0);
+      clearState();
+      setLoadFailed(false);
       setLoading(false);
       return;
     }
-    let active = true;
-    setLoading(true);
-    timersApi.get(eventId as number, roundId as number, phase)
-      .then(res => { if (active) applyState(res.data); })
-      .catch(() => { /* ignore */ })
-      .finally(() => { if (active) setLoading(false); });
 
-    const id = window.setInterval(() => {
+    let active = true;
+    clearState();
+    setLoadFailed(false);
+    setLoading(true);
+
+    timersApi.get(eventId as number, roundId as number, phase)
+      .then((response) => {
+        if (active) applyState(response.data);
+      })
+      .catch(() => {
+        if (active) {
+          clearState();
+          setLoadFailed(true);
+        }
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+
+    const intervalId = window.setInterval(() => {
       timersApi.get(eventId as number, roundId as number, phase)
-        .then(res => { if (active) applyState(res.data); })
-        .catch(() => { /* ignore */ });
+        .then((response) => {
+          if (active) applyState(response.data);
+        })
+        .catch(() => {
+          if (active) {
+            clearState();
+            setLoadFailed(true);
+          }
+        });
     }, RESYNC_MS);
 
-    return () => { active = false; window.clearInterval(id); };
-  }, [enabled, eventId, roundId, phase, applyState]);
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+    };
+  }, [enabled, eventId, roundId, phase, applyState, clearState]);
 
-  // 1s tick: recompute remaining from endsAt, and detect milestone crossings.
   useEffect(() => {
     if (!enabled) return;
 
     const tick = () => {
-      const s = stateRef.current;
-      if (!s) { setRemaining(0); return; }
+      const currentState = stateRef.current;
 
-      let rem: number;
-      if (s.status === "RUNNING" && s.endsAt) {
-        rem = Math.max(0, Math.round((Date.parse(s.endsAt) - (Date.now() + skewRef.current)) / 1000));
-      } else if (s.status === "PAUSED") {
-        rem = Math.max(0, s.remainingSeconds ?? 0);
-      } else {
-        rem = 0;
+      if (!currentState) {
+        setRemaining(0);
+        return;
       }
-      setRemaining(rem);
 
-      if (fireBanners && s.status === "RUNNING") {
-        const prev = prevRemainingRef.current;
-        if (prev != null) {
-          const duration = s.durationSeconds ?? 0;
-          const minutes = s.milestoneMinutes && s.milestoneMinutes.length ? s.milestoneMinutes : DEFAULT_MILESTONES;
+      let nextRemaining: number;
+
+      if (currentState.status === "RUNNING" && currentState.endsAt) {
+        nextRemaining = Math.max(
+          0,
+          Math.round((Date.parse(currentState.endsAt) - (Date.now() + skewRef.current)) / 1000),
+        );
+      } else if (currentState.status === "PAUSED") {
+        nextRemaining = Math.max(0, currentState.remainingSeconds ?? 0);
+      } else {
+        nextRemaining = 0;
+      }
+
+      setRemaining(nextRemaining);
+
+      if (fireBanners && currentState.status === "RUNNING") {
+        const previousRemaining = prevRemainingRef.current;
+
+        if (previousRemaining != null) {
+          const duration = currentState.durationSeconds ?? 0;
+          const minutes = currentState.milestoneMinutes?.length
+            ? currentState.milestoneMinutes
+            : DEFAULT_MILESTONES;
           const word = phaseWord(phase);
-          const marks: { key: string; t: number; title: string; msg: string; type: "info" | "warning" }[] = [];
-          for (const m of minutes) {
-            const t = m * 60;
-            if (t < duration) {
-              marks.push({ key: `REM_${m}`, t, title: `${m} min left`, msg: `${m} minutes left in the ${word} window.`, type: m <= 5 ? "warning" : "info" });
+
+          const marks: Array<{
+            key: string;
+            seconds: number;
+            title: string;
+            message: string;
+            type: "info" | "warning";
+          }> = [];
+
+          for (const minute of minutes) {
+            const seconds = minute * 60;
+            if (seconds < duration) {
+              marks.push({
+                key: `REM_${minute}`,
+                seconds,
+                title: `${minute} min left`,
+                message: `${minute} minutes left in the ${word} window.`,
+                type: minute <= 5 ? "warning" : "info",
+              });
             }
           }
-          if ((s.notifyAtHalf ?? true) && duration > 0) {
-            marks.push({ key: "HALF", t: Math.floor(duration / 2), title: "Halfway point", msg: `Half of the ${word} time has elapsed.`, type: "info" });
-          }
-          marks.push({ key: "EXPIRED", t: 0, title: "Time's up", msg: `The ${word} window has closed.`, type: "warning" });
 
-          for (const mk of marks) {
-            if (prev > mk.t && rem <= mk.t && !firedRef.current.has(mk.key)) {
-              firedRef.current.add(mk.key);
-              addToast({ type: mk.type, title: mk.title, message: mk.msg });
+          if ((currentState.notifyAtHalf ?? true) && duration > 0) {
+            marks.push({
+              key: "HALF",
+              seconds: Math.floor(duration / 2),
+              title: "Halfway point",
+              message: `Half of the ${word} time has elapsed.`,
+              type: "info",
+            });
+          }
+
+          marks.push({
+            key: "EXPIRED",
+            seconds: 0,
+            title: "Time's up",
+            message: `The ${word} window has closed.`,
+            type: "warning",
+          });
+
+          for (const mark of marks) {
+            if (
+              previousRemaining > mark.seconds
+              && nextRemaining <= mark.seconds
+              && !firedRef.current.has(mark.key)
+            ) {
+              firedRef.current.add(mark.key);
+              addToast({ type: mark.type, title: mark.title, message: mark.message });
             }
           }
         }
       }
-      prevRemainingRef.current = rem;
+
+      prevRemainingRef.current = nextRemaining;
     };
 
     tick();
-    const id = window.setInterval(tick, 1000);
-    return () => window.clearInterval(id);
+    const intervalId = window.setInterval(tick, 1000);
+    return () => window.clearInterval(intervalId);
   }, [enabled, state, fireBanners, phase, addToast]);
 
-  const status: TimerStatus = state?.status ?? "IDLE";
+  useEffect(() => {
+    if (!enabled) return;
+    const syncWhenVisible = () => {
+      if (document.visibilityState === "visible") refetch();
+    };
+    window.addEventListener("focus", syncWhenVisible);
+    document.addEventListener("visibilitychange", syncWhenVisible);
+    return () => {
+      window.removeEventListener("focus", syncWhenVisible);
+      document.removeEventListener("visibilitychange", syncWhenVisible);
+    };
+  }, [enabled, refetch]);
+
+  const stateMatchesSelection = state?.roundId === roundId && state?.phase === phase;
+  const visibleState = stateMatchesSelection ? state : null;
+  const status: TimerStatus = visibleState?.status ?? "IDLE";
   const isRunning = status === "RUNNING" && remaining > 0;
+
   return {
     status,
     remainingSeconds: remaining,
-    durationSeconds: state?.durationSeconds ?? 0,
-    endsAt: state?.endsAt ?? null,
+    durationSeconds: visibleState?.durationSeconds ?? 0,
+    endsAt: visibleState?.endsAt ?? null,
     isConfigured: status !== "IDLE",
     isRunning,
     isPaused: status === "PAUSED",
     isExpired: status === "EXPIRED" || (status === "RUNNING" && remaining <= 0),
-    loading,
+    loading: loading || (enabled && !stateMatchesSelection && !loadFailed),
+    loadFailed,
     refetch,
   };
 }

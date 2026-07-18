@@ -11,10 +11,9 @@ function kindAccent(type: UINotification["type"]): string {
 }
 
 function fmtFull(iso: string): string {
-  return new Date(iso).toLocaleString("en-US", {
-    weekday: "short", year: "numeric", month: "short", day: "numeric",
-    hour: "2-digit", minute: "2-digit",
-  });
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
 function roleLabel(role?: string | null): string {

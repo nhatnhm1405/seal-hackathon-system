@@ -5,11 +5,16 @@ import com.seal.hackathon.dto.request.UpdateEventRequest;
 import com.seal.hackathon.dto.response.HackathonEventResponse;
 import com.seal.hackathon.entity.HackathonEvent;
 import com.seal.hackathon.entity.Team;
+import com.seal.hackathon.entity.TeamEventEntry;
 import com.seal.hackathon.entity.Track;
 import com.seal.hackathon.exception.BadRequestException;
 import com.seal.hackathon.repository.HackathonEventRepository;
+import com.seal.hackathon.repository.JudgeAssignmentRepository;
+import com.seal.hackathon.repository.TeamEventEntryRepository;
+import com.seal.hackathon.repository.TeamMemberRepository;
 import com.seal.hackathon.repository.TeamRepository;
 import com.seal.hackathon.repository.TrackRepository;
+import com.seal.hackathon.repository.UserRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -22,7 +27,9 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -44,7 +51,22 @@ class HackathonEventServiceTest {
     private TeamRepository teamRepository;
 
     @Mock
+    private TeamEventEntryRepository teamEventEntryRepository;
+
+    @Mock
     private AuditLogService auditLogService;
+
+    @Mock
+    private TeamMemberRepository teamMemberRepository;
+
+    @Mock
+    private UserRepository userRepository;
+
+    @Mock
+    private JudgeAssignmentRepository judgeAssignmentRepository;
+
+    @Mock
+    private ParticipantHistorySnapshotService participantHistorySnapshotService;
 
     @InjectMocks
     private HackathonEventService eventService;
@@ -324,7 +346,7 @@ class HackathonEventServiceTest {
 
         when(hackathonEventRepository.findById(1)).thenReturn(Optional.of(event));
         when(trackRepository.findAllByEvent_EventId(1)).thenReturn(List.of(ai, web));
-        when(teamRepository.findAllByEvent_EventIdAndStatus(1, "APPROVED")).thenReturn(List.of(
+        when(teamEventEntryRepository.findAllByEvent_EventIdAndStatus(1, "APPROVED")).thenReturn(List.of(
                 teamOnTrack(100, event, ai), teamOnTrack(101, event, ai),
                 teamOnTrack(102, event, web), teamOnTrack(103, event, web)));
         when(hackathonEventRepository.save(event)).thenReturn(event);
@@ -342,7 +364,7 @@ class HackathonEventServiceTest {
 
         when(hackathonEventRepository.findById(1)).thenReturn(Optional.of(event));
         when(trackRepository.findAllByEvent_EventId(1)).thenReturn(List.of(ai));
-        when(teamRepository.findAllByEvent_EventIdAndStatus(1, "APPROVED"))
+        when(teamEventEntryRepository.findAllByEvent_EventIdAndStatus(1, "APPROVED"))
                 .thenReturn(List.of(teamOnTrack(100, event, ai)));
 
         assertThrows(BadRequestException.class,
@@ -358,7 +380,7 @@ class HackathonEventServiceTest {
 
         when(hackathonEventRepository.findById(1)).thenReturn(Optional.of(event));
         when(trackRepository.findAllByEvent_EventId(1)).thenReturn(List.of(ai));
-        when(teamRepository.findAllByEvent_EventIdAndStatus(1, "APPROVED")).thenReturn(List.of(
+        when(teamEventEntryRepository.findAllByEvent_EventIdAndStatus(1, "APPROVED")).thenReturn(List.of(
                 teamOnTrack(100, event, ai), teamOnTrack(101, event, ai),
                 unassignedTeam(102, event)));
 
@@ -374,12 +396,94 @@ class HackathonEventServiceTest {
 
         when(hackathonEventRepository.findById(1)).thenReturn(Optional.of(event));
         when(trackRepository.findAllByEvent_EventId(1)).thenReturn(List.of());
-        when(teamRepository.findAllByEvent_EventIdAndStatus(1, "APPROVED")).thenReturn(List.of());
+        when(teamEventEntryRepository.findAllByEvent_EventIdAndStatus(1, "APPROVED")).thenReturn(List.of());
 
         assertThrows(BadRequestException.class,
                 () -> eventService.updateEvent(1, statusRequest("IN_PROGRESS")));
 
         verify(hackathonEventRepository, never()).save(any());
+    }
+
+    @Test
+    void moveToSetup_shouldThrow_whenTeamsAreStillPendingApproval() {
+        HackathonEvent event = fallEvent(1, "OPEN", futureYear());
+
+        when(hackathonEventRepository.findById(1)).thenReturn(Optional.of(event));
+        when(teamEventEntryRepository.countByEvent_EventIdAndStatus(1, "PENDING")).thenReturn(2L);
+
+        assertThrows(BadRequestException.class,
+                () -> eventService.updateEvent(1, statusRequest("SETUP")));
+
+        verify(hackathonEventRepository, never()).save(any());
+    }
+
+    @Test
+    void completeEvent_shouldSnapshotParticipantHistory_whenTransitioningFromInProgress() {
+        HackathonEvent event = event(1, "IN_PROGRESS");
+
+        when(hackathonEventRepository.findById(1)).thenReturn(Optional.of(event));
+        when(hackathonEventRepository.save(any(HackathonEvent.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(teamEventEntryRepository.findAllByEvent_EventId(1)).thenReturn(List.of());
+        when(judgeAssignmentRepository.findActiveByEvent(1)).thenReturn(List.of());
+
+        eventService.completeEvent(1);
+
+        assertEquals("COMPLETED", event.getStatus());
+        verify(participantHistorySnapshotService).snapshotEventCompletion(1);
+    }
+
+    @Test
+    void completeEvent_shouldThrowBadRequest_whenEventIsNotInProgress() {
+        HackathonEvent event = event(1, "OPEN");
+        when(hackathonEventRepository.findById(1)).thenReturn(Optional.of(event));
+
+        assertThrows(BadRequestException.class, () -> eventService.completeEvent(1));
+
+        verify(participantHistorySnapshotService, never()).snapshotEventCompletion(any());
+    }
+
+    @Test
+    void completeEvent_shouldDeactivateTeam_whenTeamHasNoEntryInAnotherNonCompletedEvent() {
+        HackathonEvent completingEvent = event(1, "IN_PROGRESS");
+        Team team = Team.builder().teamId(500).name("Team 500").isActive(true).build();
+        TeamEventEntry entry = TeamEventEntry.builder().id(1).team(team).event(completingEvent).status("APPROVED").build();
+
+        when(hackathonEventRepository.findById(1)).thenReturn(Optional.of(completingEvent));
+        when(hackathonEventRepository.save(any(HackathonEvent.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(teamEventEntryRepository.findAllByEvent_EventId(1)).thenReturn(List.of(entry));
+        when(teamMemberRepository.findByTeam_TeamId(500)).thenReturn(List.of());
+        when(teamEventEntryRepository.findAllByTeam_TeamId(500)).thenReturn(List.of(entry));
+        when(judgeAssignmentRepository.findActiveByEvent(1)).thenReturn(List.of());
+
+        eventService.completeEvent(1);
+
+        assertFalse(team.getIsActive());
+        verify(teamRepository).saveAll(List.of(team));
+    }
+
+    @Test
+    void completeEvent_shouldKeepTeamActive_whenTeamHasEntryInAnotherNonCompletedEvent() {
+        // Multi-season scenario: a next-season event was already opened (non-COMPLETED
+        // status) before this admin got around to completing the older one — event date
+        // ranges can't overlap, but status transitions are manual, so this gap is real.
+        HackathonEvent completingEvent = event(1, "IN_PROGRESS");
+        HackathonEvent nextSeasonEvent = fallEvent(2, "OPEN", futureYear() + 1);
+        Team team = Team.builder().teamId(500).name("Team 500").isActive(true).build();
+        TeamEventEntry completingEntry = TeamEventEntry.builder().id(1).team(team).event(completingEvent).status("APPROVED").build();
+        TeamEventEntry nextSeasonEntry = TeamEventEntry.builder().id(2).team(team).event(nextSeasonEvent).status("APPROVED").build();
+
+        when(hackathonEventRepository.findById(1)).thenReturn(Optional.of(completingEvent));
+        when(hackathonEventRepository.save(any(HackathonEvent.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(teamEventEntryRepository.findAllByEvent_EventId(1)).thenReturn(List.of(completingEntry));
+        when(teamMemberRepository.findByTeam_TeamId(500)).thenReturn(List.of());
+        when(teamEventEntryRepository.findAllByTeam_TeamId(500))
+                .thenReturn(List.of(completingEntry, nextSeasonEntry));
+        when(judgeAssignmentRepository.findActiveByEvent(1)).thenReturn(List.of());
+
+        eventService.completeEvent(1);
+
+        assertTrue(team.getIsActive());
+        verify(teamRepository).saveAll(List.of());
     }
 
     // Helpers
@@ -452,13 +556,13 @@ class HackathonEventServiceTest {
         return Track.builder().trackId(trackId).event(event).name("Track " + trackId).build();
     }
 
-    private static Team teamOnTrack(Integer teamId, HackathonEvent event, Track track) {
-        return Team.builder().teamId(teamId).event(event).track(track)
-                .name("Team " + teamId).status("APPROVED").build();
+    private static TeamEventEntry teamOnTrack(Integer teamId, HackathonEvent event, Track track) {
+        Team team = Team.builder().teamId(teamId).name("Team " + teamId).build();
+        return TeamEventEntry.builder().id(teamId).team(team).event(event).track(track).status("APPROVED").build();
     }
 
-    private static Team unassignedTeam(Integer teamId, HackathonEvent event) {
-        return Team.builder().teamId(teamId).event(event).track(null)
-                .name("Team " + teamId).status("APPROVED").build();
+    private static TeamEventEntry unassignedTeam(Integer teamId, HackathonEvent event) {
+        Team team = Team.builder().teamId(teamId).name("Team " + teamId).build();
+        return TeamEventEntry.builder().id(teamId).team(team).event(event).track(null).status("APPROVED").build();
     }
 }

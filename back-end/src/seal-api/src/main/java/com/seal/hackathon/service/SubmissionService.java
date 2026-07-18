@@ -1,6 +1,7 @@
 package com.seal.hackathon.service;
 
 import com.seal.hackathon.dto.request.SubmitRequest;
+import com.seal.hackathon.dto.response.SubmissionEligibilityResponse;
 import com.seal.hackathon.dto.response.SubmissionResponse;
 import com.seal.hackathon.entity.*;
 import com.seal.hackathon.exception.BadRequestException;
@@ -14,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -31,6 +33,7 @@ public class SubmissionService {
 
     private final SubmissionRepository submissionRepository;
     private final TeamMemberRepository teamMemberRepository;
+    private final TeamEventEntryRepository teamEventEntryRepository;
     private final RoundRepository roundRepository;
     private final RoundResultRepository resultRepository;
     private final UserRepository userRepository;
@@ -55,9 +58,7 @@ public class SubmissionService {
             throw new BadRequestException("Submissions are only accepted for ACTIVE or OPEN rounds.");
         }
 
-        // Hard gate: if a CONTEST countdown is configured for this round, it must be
-        // running (not paused/stopped/expired). Rounds without a timer keep the
-        // legacy behavior (late = allowed but flagged LATE below).
+        // Server-authoritative hard gate: a configured, running CONTEST timer is required.
         roundTimerService.assertContestOpen(round.getRoundId());
 
         // Find the user's team in this event
@@ -65,39 +66,25 @@ public class SubmissionService {
                 .findByUser_UserIdAndTeam_Event_StatusIn(userId,
                         List.of("OPEN", "IN_PROGRESS"));
         TeamMember membership = memberships.stream()
-                .filter(m -> m.getTeam().getEvent().getEventId()
-                        .equals(round.getEvent().getEventId()))
+                .filter(m -> teamEventEntryRepository.existsByTeam_TeamIdAndEvent_EventId(
+                        m.getTeam().getTeamId(), round.getEvent().getEventId()))
                 .findFirst()
                 .orElseThrow(() -> new BadRequestException(
                         "You are not a member of any approved team in this event."));
 
         Team team = membership.getTeam();
-        if (!"APPROVED".equalsIgnoreCase(team.getStatus())) {
+        TeamEventEntry entry = teamEventEntryRepository
+                .findByTeam_TeamIdAndEvent_EventId(team.getTeamId(), round.getEvent().getEventId())
+                .orElseThrow(() -> new BadRequestException(
+                        "You are not a member of any approved team in this event."));
+        if (!"APPROVED".equalsIgnoreCase(entry.getStatus())) {
             throw new BadRequestException("Your team must be approved before submitting.");
         }
         if (!"LEADER".equalsIgnoreCase(membership.getMemberRole())) {
             throw new ForbiddenException("Only the team leader can submit or update a submission.");
         }
 
-        // Advancement gate: a team eliminated in the preceding round (outside its
-        // track's Top N) cannot submit to this one. Only enforced once the previous
-        // round is FINALIZED and has a cut-off; no cut-off (null) means no elimination.
-        roundRepository.findAllByEvent_EventIdOrderByOrderNumber(round.getEvent().getEventId()).stream()
-                .filter(r -> r.getOrderNumber() < round.getOrderNumber())
-                .max(Comparator.comparingInt(Round::getOrderNumber))
-                .ifPresent(prev -> {
-                    Integer cutoff = prev.getTopNAdvance();
-                    if ("FINALIZED".equalsIgnoreCase(prev.getStatus()) && cutoff != null) {
-                        boolean advanced = resultRepository
-                                .findByTeam_TeamIdAndRound_RoundId(team.getTeamId(), prev.getRoundId())
-                                .map(rr -> rr.getRankPosition() <= cutoff)
-                                .orElse(false);
-                        if (!advanced) {
-                            throw new BadRequestException("Your team did not advance from \""
-                                    + prev.getName() + "\" and cannot submit to this round.");
-                        }
-                    }
-                });
+        assertEligibleForRound(team, round);
 
         LocalDateTime now = LocalDateTime.now();
         if (round.getSubmissionDeadline() != null && now.isAfter(round.getSubmissionDeadline())) {
@@ -127,6 +114,18 @@ public class SubmissionService {
         return mapToResponse(submission);
     }
 
+    // ── Participant: server-authoritative eligibility for one round ────────
+
+    @Transactional(readOnly = true)
+    public SubmissionEligibilityResponse getMyEligibility(Integer userId, Integer roundId) {
+        Round round = roundRepository.findById(roundId)
+                .orElseThrow(() -> new ResourceNotFoundException("Round not found: " + roundId));
+        TeamMember membership = findMembershipForRound(userId, round)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "You are not part of any team in this event."));
+        return evaluateEligibility(membership.getTeam(), round);
+    }
+
     // ── Participant: get my team's submission for a round ─────────────
 
     @Transactional(readOnly = true)
@@ -138,11 +137,18 @@ public class SubmissionService {
                 .findByUser_UserIdAndTeam_Event_StatusIn(userId,
                         List.of("OPEN", "IN_PROGRESS"));
         TeamMember membership = memberships.stream()
-                .filter(m -> m.getTeam().getEvent().getEventId()
-                        .equals(round.getEvent().getEventId()))
+                .filter(m -> teamEventEntryRepository.existsByTeam_TeamIdAndEvent_EventId(
+                        m.getTeam().getTeamId(), round.getEvent().getEventId()))
                 .findFirst()
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "You are not part of any team in this event."));
+                .orElse(null);
+        if (membership == null) {
+            membership = teamMemberRepository.findByUser_UserIdOrderByIdDesc(userId).stream()
+                    .filter(m -> teamEventEntryRepository.existsByTeam_TeamIdAndEvent_EventId(
+                            m.getTeam().getTeamId(), round.getEvent().getEventId()))
+                    .findFirst()
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "You are not part of any team in this event."));
+        }
 
         Submission submission = submissionRepository
                 .findByTeam_TeamIdAndRound_RoundId(membership.getTeam().getTeamId(), roundId)
@@ -163,6 +169,7 @@ public class SubmissionService {
         if (hasAuthority(authorities, ROLE_EVENT_COORDINATOR)) {
             submissions = submissionRepository.findAllByRound_RoundId(roundId);
         } else if (hasAuthority(authorities, ROLE_JUDGE)) {
+            roundTimerService.assertJudgingStarted(roundId);
             submissions = submissionRepository.findAllByRoundIdAndJudgeId(roundId, requesterId);
         } else {
             throw new ForbiddenException("You do not have permission to view submissions for this round.");
@@ -196,6 +203,7 @@ public class SubmissionService {
             submission = submissionRepository.findBySubmissionIdAndJudgeId(submissionId, requesterId)
                     .orElseThrow(() -> new ResourceNotFoundException(
                             "Submission not found or not assigned to this judge."));
+            roundTimerService.assertJudgingStarted(submission.getRound().getRoundId());
         } else {
             throw new ForbiddenException("You do not have permission to view this submission.");
         }
@@ -225,6 +233,93 @@ public class SubmissionService {
 
     private boolean isOpenRound(String status) {
         return "ACTIVE".equalsIgnoreCase(status) || "OPEN".equalsIgnoreCase(status);
+    }
+
+    private void assertEligibleForRound(Team team, Round round) {
+        SubmissionEligibilityResponse eligibility = evaluateEligibility(team, round);
+        if (!Boolean.TRUE.equals(eligibility.getEligible())) {
+            throw new BadRequestException(eligibility.getReason());
+        }
+    }
+
+    private SubmissionEligibilityResponse evaluateEligibility(Team team, Round round) {
+        List<Round> rounds = roundRepository
+                .findAllByEvent_EventIdOrderByOrderNumber(round.getEvent().getEventId());
+        Integer targetOrder = round.getOrderNumber();
+        Round previous = targetOrder == null ? null : rounds.stream()
+                .filter(candidate -> candidate.getOrderNumber() != null
+                        && candidate.getOrderNumber() < targetOrder)
+                .max(Comparator.comparingInt(Round::getOrderNumber))
+                .orElse(null);
+
+        if (previous == null || previous.getTopNAdvance() == null) {
+            return eligibility(round, true, "ELIGIBLE",
+                    "Your team is eligible for this round.", previous, null);
+        }
+
+        Integer cutoff = previous.getTopNAdvance();
+        RoundResult result = resultRepository
+                .findByTeam_TeamIdAndRound_RoundId(team.getTeamId(), previous.getRoundId())
+                .orElse(null);
+        boolean resultsPublished = result != null
+                ? Boolean.TRUE.equals(result.getIsPublished())
+                : !resultRepository
+                        .findAllByRound_RoundIdAndIsPublishedTrueOrderByRankPosition(previous.getRoundId())
+                        .isEmpty();
+
+        if (!"FINALIZED".equalsIgnoreCase(previous.getStatus()) || !resultsPublished) {
+            return eligibility(round, false, "WAITING_FOR_RESULTS",
+                    "Results for \"" + previous.getName()
+                            + "\" have not been published yet. Submission remains locked.",
+                    previous, null);
+        }
+
+        if (result != null && result.getRankPosition() != null
+                && result.getRankPosition() <= cutoff) {
+            return eligibility(round, true, "ADVANCED",
+                    "Your team advanced from \"" + previous.getName() + "\".",
+                    previous, result.getRankPosition());
+        }
+
+        String rankText = result != null && result.getRankPosition() != null
+                ? " ranked #" + result.getRankPosition()
+                : " did not receive an advancing rank";
+        return eligibility(round, false, "ELIMINATED",
+                "Your team" + rankText + " in \"" + previous.getName()
+                        + "\"; only the top " + cutoff + " advanced.",
+                previous, result != null ? result.getRankPosition() : null);
+    }
+
+    private SubmissionEligibilityResponse eligibility(
+            Round round, boolean eligible, String status, String reason,
+            Round previous, Integer rankPosition) {
+        return SubmissionEligibilityResponse.builder()
+                .roundId(round.getRoundId())
+                .roundName(round.getName())
+                .eligible(eligible)
+                .status(status)
+                .reason(reason)
+                .previousRoundId(previous != null ? previous.getRoundId() : null)
+                .previousRoundName(previous != null ? previous.getName() : null)
+                .rankPosition(rankPosition)
+                .topNAdvance(previous != null ? previous.getTopNAdvance() : null)
+                .build();
+    }
+
+    private Optional<TeamMember> findMembershipForRound(Integer userId, Round round) {
+        Optional<TeamMember> current = teamMemberRepository
+                .findByUser_UserIdAndTeam_Event_StatusIn(userId, List.of("OPEN", "IN_PROGRESS"))
+                .stream()
+                .filter(member -> teamEventEntryRepository.existsByTeam_TeamIdAndEvent_EventId(
+                        member.getTeam().getTeamId(), round.getEvent().getEventId()))
+                .findFirst();
+        if (current.isPresent()) {
+            return current;
+        }
+        return teamMemberRepository.findByUser_UserIdOrderByIdDesc(userId).stream()
+                .filter(member -> teamEventEntryRepository.existsByTeam_TeamIdAndEvent_EventId(
+                        member.getTeam().getTeamId(), round.getEvent().getEventId()))
+                .findFirst();
     }
 
     private boolean isStudent(User user) {

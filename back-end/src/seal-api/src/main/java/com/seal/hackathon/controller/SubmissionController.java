@@ -2,6 +2,7 @@ package com.seal.hackathon.controller;
 
 import com.seal.hackathon.dto.request.SubmitRequest;
 import com.seal.hackathon.dto.response.ApiResponse;
+import com.seal.hackathon.dto.response.SubmissionEligibilityResponse;
 import com.seal.hackathon.dto.response.SubmissionResponse;
 import com.seal.hackathon.security.UserPrincipal;
 import com.seal.hackathon.service.SubmissionService;
@@ -42,6 +43,16 @@ public class SubmissionController {
         UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
         return ResponseEntity.ok(ApiResponse.success("Submission retrieved successfully.",
                 submissionService.getMySubmission(principal.getUserId(), roundId)));
+    }
+
+    @GetMapping("/my/round/{roundId}/eligibility")
+    @PreAuthorize("hasRole('PARTICIPANT')")
+    public ResponseEntity<ApiResponse<SubmissionEligibilityResponse>> getMyEligibility(
+            @PathVariable Integer roundId,
+            Authentication authentication) {
+        UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
+        return ResponseEntity.ok(ApiResponse.success("Round eligibility retrieved successfully.",
+                submissionService.getMyEligibility(principal.getUserId(), roundId)));
     }
 
     @GetMapping("/round/{roundId}")

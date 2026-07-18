@@ -2,13 +2,15 @@ package com.seal.hackathon.controller;
 
 import com.seal.hackathon.dto.request.AssignJudgeRequest;
 import com.seal.hackathon.dto.request.AssignMentorRequest;
+import com.seal.hackathon.dto.request.ReplaceJudgeRequest;
 import com.seal.hackathon.dto.response.ApiResponse;
 import com.seal.hackathon.dto.response.JudgeAssignmentResponse;
 import com.seal.hackathon.dto.response.JudgeRosterItemResponse;
 import com.seal.hackathon.dto.response.MentorAssignmentResponse;
 import com.seal.hackathon.dto.response.MentorRosterItemResponse;
 import com.seal.hackathon.security.UserPrincipal;
-import com.seal.hackathon.service.AssignmentService;
+import com.seal.hackathon.service.JudgeAssignmentService;
+import com.seal.hackathon.service.MentorAssignmentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -32,14 +34,15 @@ import java.util.List;
 @PreAuthorize("hasRole('EVENT_COORDINATOR')")
 public class CoordinatorAssignmentController {
 
-    private final AssignmentService assignmentService;
+    private final MentorAssignmentService mentorAssignmentService;
+    private final JudgeAssignmentService judgeAssignmentService;
 
     @PostMapping("/mentors")
     public ResponseEntity<ApiResponse<MentorAssignmentResponse>> assignMentor(
             @Valid @RequestBody AssignMentorRequest request,
             Authentication authentication) {
         UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
-        MentorAssignmentResponse response = assignmentService.assignMentor(request, principal.getUserId());
+        MentorAssignmentResponse response = mentorAssignmentService.assignMentor(request, principal.getUserId());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Mentor assigned successfully.", response));
     }
@@ -49,12 +52,12 @@ public class CoordinatorAssignmentController {
     public ResponseEntity<ApiResponse<List<MentorRosterItemResponse>>> listMentorAssignments(
             @RequestParam Integer eventId) {
         return ResponseEntity.ok(ApiResponse.success("Mentor assignments retrieved.",
-                assignmentService.listMentorAssignmentsByEvent(eventId)));
+                mentorAssignmentService.listMentorAssignmentsByEvent(eventId)));
     }
 
     @DeleteMapping("/mentors/{id}")
     public ResponseEntity<ApiResponse<Void>> removeMentorAssignment(@PathVariable Integer id) {
-        assignmentService.removeMentorAssignment(id);
+        mentorAssignmentService.removeMentorAssignment(id);
         return ResponseEntity.ok(ApiResponse.success("Mentor assignment removed.", null));
     }
 
@@ -63,7 +66,7 @@ public class CoordinatorAssignmentController {
             @Valid @RequestBody AssignJudgeRequest request,
             Authentication authentication) {
         UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
-        JudgeAssignmentResponse response = assignmentService.assignJudge(request, principal.getUserId());
+        JudgeAssignmentResponse response = judgeAssignmentService.assignJudge(request, principal.getUserId());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Judge assigned successfully.", response));
     }
@@ -73,12 +76,22 @@ public class CoordinatorAssignmentController {
     public ResponseEntity<ApiResponse<List<JudgeRosterItemResponse>>> listJudgeAssignments(
             @RequestParam Integer eventId) {
         return ResponseEntity.ok(ApiResponse.success("Judge assignments retrieved.",
-                assignmentService.listJudgeAssignmentsByEvent(eventId)));
+                judgeAssignmentService.listJudgeAssignmentsByEvent(eventId)));
     }
 
     @DeleteMapping("/judges/{id}")
     public ResponseEntity<ApiResponse<Void>> removeJudgeAssignment(@PathVariable Integer id) {
-        assignmentService.removeJudgeAssignment(id);
+        judgeAssignmentService.removeJudgeAssignment(id);
         return ResponseEntity.ok(ApiResponse.success("Judge assignment removed.", null));
+    }
+
+    @PutMapping("/judges/{id}/replace")
+    public ResponseEntity<ApiResponse<JudgeAssignmentResponse>> replaceJudgeAssignment(
+            @PathVariable Integer id,
+            @Valid @RequestBody ReplaceJudgeRequest request,
+            Authentication authentication) {
+        UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
+        return ResponseEntity.ok(ApiResponse.success("Judge replaced successfully.",
+                judgeAssignmentService.replaceJudgeAssignment(id, request, principal.getUserId())));
     }
 }

@@ -7,6 +7,7 @@ import { useAuth } from "@/app/providers/AuthProvider";
 import { notificationsApi, Notification as ApiNotification } from "@/shared/apiClient";
 import { C } from "@/shared/components/PixelComponents";
 import { AnnouncementSplash } from "@/shared/components/AnnouncementSplash";
+import { NotificationDetailModal } from "@/shared/components/NotificationDetailModal";
 
 // ── UI notification (mapped from the API NotificationResponse) ───────
 export type NotifKind = "info" | "success" | "warning";
@@ -30,14 +31,14 @@ export interface UINotification {
 
 // Backend `type` is a free-form string (e.g. TEAM_APPROVED, ACCOUNT_REJECTED);
 // fold it into the three visual kinds the bell/banner styling understands.
-function toKind(type?: string): NotifKind {
+export function toKind(type?: string): NotifKind {
   const t = (type ?? "").toUpperCase();
   if (/SUCCESS|APPROV|ACCEPT|PUBLISH|WIN|ADVANCE/.test(t)) return "success";
   if (/WARN|REJECT|DISQUALIF|FAIL|REMOV|DECLINE/.test(t)) return "warning";
   return "info";
 }
 
-function mapNotification(n: ApiNotification): UINotification {
+export function mapNotification(n: ApiNotification): UINotification {
   return {
     notification_id: n.notificationId,
     title: n.title,
@@ -80,6 +81,8 @@ interface NotificationContextType {
   markRead: (id: number) => void;
   refresh: () => void;
   addToast: (t: Omit<Toast, "id">) => void;
+  /** Banner + session-local bell history for actionable UI failures. */
+  addActionNotification: (t: Omit<Toast, "id" | "notificationId">) => void;
   addAuthToast: (t: Omit<AuthToast, "id">) => void;
   // Cross-component signal: bumped when a banner asks to open the bell dropdown.
   bellOpenSignal: number;
@@ -98,6 +101,26 @@ export function useNotifications() {
 const BANNER_DURATION = 4500;
 // Poll cadence for surfacing brand-new persistent notifications (ms).
 const POLL_INTERVAL = 25000;
+// Once-per-login-session flag: since the system is polling-only (no live push),
+// unread announcements that arrived before this page load are surfaced ONCE as a
+// splash on the first fetch of the session — mirroring how the role guide auto-
+// shows once per session. Cleared on logout so the next login shows them again.
+const BASELINE_SPLASH_KEY = "sealAnnounceSplashSeen";
+
+// Human "from" summary for a batch of announcement notifications.
+export function summariseSenders(senders: string[]): string {
+  if (senders.length <= 1) return senders[0] ?? "a coordinator";
+  if (senders.length === 2) return `${senders[0]} and ${senders[1]}`;
+  return `${senders[0]} and ${senders.length - 1} others`;
+}
+
+// Build the splash payload from a list of announcement notifications (null = none).
+// Keeps the actual items so "View" can open the message detail directly.
+export function announceSplashFor(items: UINotification[]): { items: UINotification[]; from: string } | null {
+  if (items.length === 0) return null;
+  const senders = [...new Set(items.map(a => a.from).filter(Boolean))] as string[];
+  return { items, from: summariseSenders(senders) };
+}
 
 // ── Per-type visual tokens ──────────────────────────────────────────
 // Internationally-recognised line icons (lucide) keyed by kind. Note: CRUD
@@ -300,13 +323,19 @@ function BannerContainer({
 
 // ── Provider ────────────────────────────────────────────────────────
 export function NotificationProvider({ children }: { children: ReactNode }) {
-  const { currentUser } = useAuth();
+  const { currentUser, patchCurrentUser, refreshTeamContext, isLoading } = useAuth();
   const [notifications, setNotifications] = useState<UINotification[]>([]);
+  // UI action failures are not backend domain notifications, but users still
+  // need to revisit them from the bell during the current signed-in session.
+  const [localNotifications, setLocalNotifications] = useState<UINotification[]>([]);
   const [banners, setBanners] = useState<Banner[]>([]);
   // Welcome-style splash for freshly-arrived announcement messages.
-  const [announceSplash, setAnnounceSplash] = useState<{ count: number; from: string } | null>(null);
+  const [announceSplash, setAnnounceSplash] = useState<{ items: UINotification[]; from: string } | null>(null);
+  // Email-style detail popup opened from the splash's "View message" button.
+  const [detailNotif, setDetailNotif] = useState<UINotification | null>(null);
   const [bellOpenSignal, setBellOpenSignal] = useState(0);
   const counterRef = useRef(0);
+  const localNotificationIdRef = useRef(-1);
   // IDs already accounted for, so polling only banners genuinely new arrivals.
   const seenIdsRef = useRef<Set<number>>(new Set());
   // First fetch just establishes a baseline — it must NOT banner the backlog.
@@ -324,6 +353,12 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   const requestOpenBell = useCallback(() => setBellOpenSignal(s => s + 1), []);
 
   const markOneRead = useCallback((notificationId: number) => {
+    if (notificationId < 0) {
+      setLocalNotifications(prev => prev.map(n =>
+        n.notification_id === notificationId ? { ...n, is_read: true } : n,
+      ));
+      return;
+    }
     setNotifications(prev => prev.map(n =>
       n.notification_id === notificationId ? { ...n, is_read: true } : n,
     ));
@@ -353,6 +388,13 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         if (!baselineSetRef.current) {
           seenIdsRef.current = new Set(list.map(n => n.notification_id));
           baselineSetRef.current = true;
+          // Polling-only: surface pre-existing UNREAD announcements as a splash
+          // ONCE per login session (so a reload doesn't nag; a new login does).
+          if (!sessionStorage.getItem(BASELINE_SPLASH_KEY)) {
+            sessionStorage.setItem(BASELINE_SPLASH_KEY, "1");
+            const splash = announceSplashFor(list.filter(n => !n.is_read && n.from));
+            if (splash) setAnnounceSplash(splash);
+          }
           return;
         }
 
@@ -364,6 +406,13 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
         [...fresh].reverse().forEach(n => {
           seenIdsRef.current.add(n.notification_id);
           if (n.is_read) return;
+          if (n.rawType === "PARTICIPATION_ACCESS_APPROVED") {
+            // Re-resolve team context instead of hardcoding "no team" — a
+            // reactivated leader may already have a dormant team waiting
+            // (rejoin), which a blind team_id:null reset would hide.
+            patchCurrentUser({ is_active: true });
+            refreshTeamContext();
+          }
           if (n.from) {
             freshAnnouncements.push(n);
           } else if (n.rawType === "TIMER") {
@@ -376,15 +425,8 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
             });
           }
         });
-        if (freshAnnouncements.length > 0) {
-          const senders = [...new Set(freshAnnouncements.map(a => a.from).filter(Boolean))] as string[];
-          const from = senders.length <= 1
-            ? (senders[0] ?? "a coordinator")
-            : senders.length === 2
-              ? `${senders[0]} and ${senders[1]}`
-              : `${senders[0]} and ${senders.length - 1} others`;
-          setAnnounceSplash({ count: freshAnnouncements.length, from });
-        }
+        const liveSplash = announceSplashFor(freshAnnouncements);
+        if (liveSplash) setAnnounceSplash(liveSplash);
       })
       .catch(() => { /* keep last known list on failure */ });
   }, [pushBanner]);
@@ -393,13 +435,18 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!currentUser) {
       setNotifications([]);
+      setLocalNotifications([]);
       setBanners([]);
       seenIdsRef.current = new Set();
       baselineSetRef.current = false;
+      // Only a genuine logout resets the once-per-session splash flag. A page
+      // reload transiently nulls currentUser while auth restores (isLoading) —
+      // resetting then would re-fire the splash on every reload.
+      if (!isLoading) sessionStorage.removeItem(BASELINE_SPLASH_KEY);
       return;
     }
     refresh();
-  }, [currentUser, refresh]);
+  }, [currentUser, isLoading, refresh]);
 
   // Poll for brand-new notifications while signed in.
   useEffect(() => {
@@ -408,15 +455,23 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     return () => window.clearInterval(id);
   }, [currentUser, refresh]);
 
-  const userNotifications = notifications;
-  const unreadCount = notifications.filter(n => !n.is_read).length;
+  const userNotifications = [...localNotifications, ...notifications]
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  const unreadCount = userNotifications.filter(n => !n.is_read).length;
 
   const markAllRead = useCallback(() => {
     notificationsApi.markAllAsRead().catch(() => {});
     setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+    setLocalNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
   }, []);
 
   const markRead = useCallback((id: number) => {
+    if (id < 0) {
+      setLocalNotifications(prev => prev.map(n =>
+        n.notification_id === id ? { ...n, is_read: true } : n,
+      ));
+      return;
+    }
     setNotifications(prev => {
       const target = prev.find(n => n.notification_id === id);
       if (!target || target.is_read) return prev; // already read → no API call
@@ -427,23 +482,48 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
 
   // Both legacy entry points now feed the single unified banner stack.
   const addToast = useCallback((t: Omit<Toast, "id">) => pushBanner(t), [pushBanner]);
+  const addActionNotification = useCallback((t: Omit<Toast, "id" | "notificationId">) => {
+    const notificationId = localNotificationIdRef.current--;
+    setLocalNotifications(prev => [{
+      notification_id: notificationId,
+      title: t.title,
+      message: t.message,
+      is_read: false,
+      type: t.type,
+      rawType: "UI_ACTION",
+      created_at: new Date().toISOString(),
+    }, ...prev].slice(0, 30));
+    pushBanner({ ...t, notificationId });
+  }, [pushBanner]);
   const addAuthToast = useCallback((t: Omit<AuthToast, "id">) => pushBanner(t), [pushBanner]);
 
   return (
     <NotificationContext.Provider value={{
       userNotifications, unreadCount, markAllRead, markRead, refresh,
-      addToast, addAuthToast, bellOpenSignal, requestOpenBell,
+      addToast, addActionNotification, addAuthToast, bellOpenSignal, requestOpenBell,
     }}>
 
       {children}
       <BannerContainer banners={banners} onDismiss={dismissBanner} onActivate={activateBanner} />
       <AnnouncementSplash
         open={announceSplash != null}
-        count={announceSplash?.count ?? 0}
+        count={announceSplash?.items.length ?? 0}
         from={announceSplash?.from ?? ""}
-        onView={() => { requestOpenBell(); setAnnounceSplash(null); }}
+        onView={() => {
+          const items = announceSplash?.items ?? [];
+          // One message → open it directly (email-style detail). Several → open
+          // the bell list so the user can pick which one to read.
+          if (items.length === 1) {
+            markOneRead(items[0].notification_id);
+            setDetailNotif(items[0]);
+          } else {
+            requestOpenBell();
+          }
+          setAnnounceSplash(null);
+        }}
         onClose={() => setAnnounceSplash(null)}
       />
+      <NotificationDetailModal notification={detailNotif} onClose={() => setDetailNotif(null)} />
     </NotificationContext.Provider>
   );
 }

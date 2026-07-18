@@ -25,6 +25,12 @@ public class TeamInvite {
     @JoinColumn(name = "team_id", nullable = false)
     private Team team;
 
+    // Which season this invite is for — Team no longer carries a single
+    // event, so this pins the invite to the TeamEventEntry that was current
+    // when it was created.
+    @Column(name = "event_id", nullable = false)
+    private Integer eventId;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "invited_user_id", nullable = false)
     private User invitedUser;

@@ -90,17 +90,22 @@ export function GradientText({ children, from = C.green, to = C.blue, style, cla
 interface PixelButtonProps {
   children: React.ReactNode;
   onClick?: () => void;
-  variant?: "primary" | "secondary" | "ghost" | "danger" | "cyber";
+  variant?: "primary" | "secondary" | "ghost" | "danger" | "cyber" | "warning";
   size?: "sm" | "md" | "lg";
   className?: string;
   disabled?: boolean;
   type?: "button" | "submit" | "reset";
   fullWidth?: boolean;
+  // Accessibility passthroughs (used by menu triggers such as PixelMenu).
+  ariaLabel?: string;
+  ariaHasPopup?: React.AriaAttributes["aria-haspopup"];
+  ariaExpanded?: boolean;
 }
 
 export function PixelButton({
   children, onClick, variant = "primary", size = "md",
   className = "", disabled = false, type = "button", fullWidth = false,
+  ariaLabel, ariaHasPopup, ariaExpanded,
 }: PixelButtonProps) {
   const sizeClasses = { sm: "px-3 py-1.5 text-xs", md: "px-5 py-2.5 text-sm", lg: "px-8 py-3.5 text-base" };
 
@@ -149,6 +154,12 @@ export function PixelButton({
       border: `1px solid rgba(239,68,68,0.35)`,
       boxShadow: "none",
     },
+    warning: {
+      background: "rgba(234,179,8,0.08)",
+      color: "#facc15",
+      border: `1px solid rgba(234,179,8,0.4)`,
+      boxShadow: "inset 0 0 20px rgba(234,179,8,0.04)",
+    },
   };
 
   const hoverStyles: Record<string, React.CSSProperties> = {
@@ -157,6 +168,7 @@ export function PixelButton({
     secondary: { background: "rgba(34,197,94,0.12)", borderColor: C.green, boxShadow: `0 0 16px ${C.greenGlow}` },
     ghost:   { borderColor: C.green, color: C.green, background: "rgba(34,197,94,0.04)" },
     danger:  { background: "rgba(239,68,68,0.12)", boxShadow: "0 0 12px rgba(239,68,68,0.3)" },
+    warning: { background: "rgba(234,179,8,0.16)", borderColor: C.yellow, boxShadow: "0 0 14px rgba(234,179,8,0.35)" },
   };
 
   return (
@@ -164,6 +176,9 @@ export function PixelButton({
       type={type}
       onClick={onClick}
       disabled={disabled}
+      aria-label={ariaLabel}
+      aria-haspopup={ariaHasPopup}
+      aria-expanded={ariaExpanded}
       style={{ ...baseStyle, ...variantStyles[variant], ...(fullWidth ? { width: "100%", display: "flex", justifyContent: "center" } : {}) }}
       className={`inline-flex items-center justify-center gap-2 font-mono ${sizeClasses[size]} ${className}`}
       onMouseEnter={(e) => { if (!disabled) Object.assign((e.currentTarget as HTMLElement).style, hoverStyles[variant]); }}
@@ -177,7 +192,7 @@ interface PixelCardProps {
   children: React.ReactNode;
   className?: string;
   glow?: boolean;
-  glowColor?: "green" | "blue" | "cyan" | "purple";
+  glowColor?: "green" | "blue" | "cyan" | "purple" | "amber";
   gradient?: boolean;
   style?: React.CSSProperties;
   onClick?: () => void;
@@ -189,8 +204,9 @@ export function PixelCard({ children, className = "", glow = false, glowColor = 
     blue:   `0 0 0 1px rgba(59,130,246,0.15), 0 0 24px rgba(59,130,246,0.12), inset 0 0 40px rgba(59,130,246,0.03)`,
     cyan:   `0 0 0 1px rgba(6,182,212,0.15), 0 0 20px rgba(6,182,212,0.14)`,
     purple: `0 0 0 1px rgba(139,92,246,0.15), 0 0 20px rgba(139,92,246,0.14)`,
+    amber:  `0 0 0 1px rgba(234,179,8,0.18), 0 0 24px rgba(234,179,8,0.14), inset 0 0 40px rgba(234,179,8,0.03)`,
   };
-  const accentMap = { green: C.green, blue: C.blue, cyan: C.cyan, purple: C.purple };
+  const accentMap = { green: C.green, blue: C.blue, cyan: C.cyan, purple: C.purple, amber: C.yellow };
 
   return (
     <div
@@ -229,9 +245,11 @@ interface CyberStatCardProps {
   trend?: string;
   accent?: "green" | "blue" | "cyan" | "purple";
   sublabel?: string;
+  /** Glow halo around the card + number. Off for a calmer, flatter tile. */
+  glow?: boolean;
 }
 
-export function CyberStatCard({ value, label, icon, trend, accent = "green", sublabel }: CyberStatCardProps) {
+export function CyberStatCard({ value, label, icon, trend, accent = "green", sublabel, glow = true }: CyberStatCardProps) {
   const accentColors = {
     green:  { main: C.green, glow: C.greenGlow, dim: "rgba(34,197,94,0.08)" },
     blue:   { main: C.blue, glow: C.blueGlow, dim: "rgba(59,130,246,0.08)" },
@@ -249,13 +267,11 @@ export function CyberStatCard({ value, label, icon, trend, accent = "green", sub
         padding: "20px",
         position: "relative",
         overflow: "hidden",
-        boxShadow: `0 0 20px ${a.dim}, inset 0 0 30px ${a.dim}`,
+        boxShadow: glow ? `0 0 20px ${a.dim}, inset 0 0 30px ${a.dim}` : "var(--c-card-shadow)",
       }}
     >
       {/* Gradient fill bottom accent */}
       <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${a.main}, transparent)`, opacity: 0.6 }} />
-      {/* BG radial blob */}
-      <div style={{ position: "absolute", bottom: -20, right: -20, width: 80, height: 80, borderRadius: "50%", background: `radial-gradient(circle, ${a.glow} 0%, transparent 70%)`, pointerEvents: "none" }} />
 
       <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", gap: 4 }}>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
@@ -266,7 +282,7 @@ export function CyberStatCard({ value, label, icon, trend, accent = "green", sub
             </span>
           )}
         </div>
-        <div style={{ color: a.main, fontFamily: "'JetBrains Mono', monospace", fontSize: 30, fontWeight: 800, textShadow: `0 0 20px ${a.glow}`, lineHeight: 1.1, marginTop: 6 }}>
+        <div style={{ color: a.main, fontFamily: "'JetBrains Mono', monospace", fontSize: 30, fontWeight: 800, textShadow: glow ? `0 0 20px ${a.glow}` : "none", lineHeight: 1.1, marginTop: 6 }}>
           {value}
         </div>
         <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, fontWeight: 500 }}>
@@ -291,10 +307,17 @@ interface PixelInputProps {
   type?: string;
   value?: string;
   onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+  onBlur?: (e: React.FocusEvent<HTMLInputElement>) => void;
+  min?: string;
+  max?: string;
   prefix?: string;
   className?: string;
   disabled?: boolean;
   showToggle?: boolean;
+  lang?: string;
+  name?: string;
+  autoComplete?: string;
 }
 
 function EyeOpen() {
@@ -316,7 +339,7 @@ function EyeClosed() {
   );
 }
 
-export function PixelInput({ label, placeholder, type = "text", value, onChange, prefix, className = "", disabled = false, showToggle = false }: PixelInputProps) {
+export function PixelInput({ label, placeholder, type = "text", value, onChange, onKeyDown, onBlur, min, max, prefix, className = "", disabled = false, showToggle = false, lang, name, autoComplete }: PixelInputProps) {
   const [focused, setFocused] = useState(false);
   const [visible, setVisible] = useState(false);
   const [hoverEye, setHoverEye] = useState(false);
@@ -342,8 +365,8 @@ export function PixelInput({ label, placeholder, type = "text", value, onChange,
         }}
       >
         <input
-          type={resolvedType} value={value} onChange={onChange} placeholder={placeholder} disabled={disabled}
-          onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
+          type={resolvedType} value={value} onChange={onChange} onKeyDown={onKeyDown} placeholder={placeholder} disabled={disabled} min={min} max={max} lang={lang} name={name} autoComplete={autoComplete}
+          onFocus={() => setFocused(true)} onBlur={(e) => { setFocused(false); onBlur?.(e); }}
           style={{
             background: "transparent", border: "none", outline: "none",
             color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 14,
@@ -377,18 +400,21 @@ export function PixelInput({ label, placeholder, type = "text", value, onChange,
 interface PixelBadgeProps {
   children: React.ReactNode;
   color?: "green" | "yellow" | "red" | "blue" | "orange" | "gray" | "cyan" | "purple";
+  /** Adds a colored glow halo around the badge, for content that should stand
+   * out from surrounding plain text rather than read as a routine status tag. */
+  glow?: boolean;
 }
 
-export function PixelBadge({ children, color = "green" }: PixelBadgeProps) {
+export function PixelBadge({ children, color = "green", glow = false }: PixelBadgeProps) {
   const colors = {
-    green:  { bg: "rgba(34,197,94,0.1)",   border: "rgba(34,197,94,0.35)",  text: "#4ade80" },
-    yellow: { bg: "rgba(234,179,8,0.1)",   border: "rgba(234,179,8,0.35)",  text: "#facc15" },
-    red:    { bg: "rgba(239,68,68,0.1)",   border: "rgba(239,68,68,0.35)",  text: "#f87171" },
-    blue:   { bg: "rgba(59,130,246,0.1)",  border: "rgba(59,130,246,0.35)", text: "#60a5fa" },
-    orange: { bg: "rgba(249,115,22,0.1)",  border: "rgba(249,115,22,0.35)", text: "#fb923c" },
-    gray:   { bg: "rgba(107,114,128,0.1)", border: "rgba(107,114,128,0.3)", text: "#9ca3af" },
-    cyan:   { bg: "rgba(6,182,212,0.1)",   border: "rgba(6,182,212,0.35)",  text: "#22d3ee" },
-    purple: { bg: "rgba(139,92,246,0.1)",  border: "rgba(139,92,246,0.35)", text: "#a78bfa" },
+    green:  { bg: "rgba(34,197,94,0.1)",   border: "rgba(34,197,94,0.35)",  text: "#4ade80", glow: "rgba(34,197,94,0.45)" },
+    yellow: { bg: "rgba(234,179,8,0.1)",   border: "rgba(234,179,8,0.35)",  text: "#facc15", glow: "rgba(234,179,8,0.45)" },
+    red:    { bg: "rgba(239,68,68,0.1)",   border: "rgba(239,68,68,0.35)",  text: "#f87171", glow: "rgba(239,68,68,0.45)" },
+    blue:   { bg: "rgba(59,130,246,0.1)",  border: "rgba(59,130,246,0.35)", text: "#60a5fa", glow: "rgba(59,130,246,0.45)" },
+    orange: { bg: "rgba(249,115,22,0.1)",  border: "rgba(249,115,22,0.35)", text: "#fb923c", glow: "rgba(249,115,22,0.45)" },
+    gray:   { bg: "rgba(107,114,128,0.1)", border: "rgba(107,114,128,0.3)", text: "#9ca3af", glow: "rgba(107,114,128,0.35)" },
+    cyan:   { bg: "rgba(6,182,212,0.1)",   border: "rgba(6,182,212,0.35)",  text: "#22d3ee", glow: "rgba(6,182,212,0.5)" },
+    purple: { bg: "rgba(139,92,246,0.1)",  border: "rgba(139,92,246,0.35)", text: "#a78bfa", glow: "rgba(139,92,246,0.45)" },
   };
   const c = colors[color];
   return (
@@ -397,6 +423,7 @@ export function PixelBadge({ children, color = "green" }: PixelBadgeProps) {
         background: c.bg, border: `1px solid ${c.border}`, color: c.text,
         fontFamily: "'JetBrains Mono', monospace", fontSize: 11,
         padding: "3px 9px", letterSpacing: "0.06em", borderRadius: 0,
+        boxShadow: glow ? `0 0 10px ${c.glow}, inset 0 0 14px ${c.bg}` : undefined,
       }}
       className={`pixel-badge pixel-badge--${color} uppercase inline-flex items-center gap-1`}
     >
@@ -578,7 +605,7 @@ export function PixelTable<T extends Record<string, unknown>>({ columns, data, c
 }
 
 // ── PixelTabs ────────────────────────────────────────────────────
-interface Tab { id: string; label: string; icon?: string; }
+interface Tab { id: string; label: string; icon?: string; badge?: number; }
 interface PixelTabsProps { tabs: Tab[]; active: string; onChange: (id: string) => void; className?: string; }
 
 export function PixelTabs({ tabs, active, onChange, className = "" }: PixelTabsProps) {
@@ -603,10 +630,23 @@ export function PixelTabs({ tabs, active, onChange, className = "" }: PixelTabsP
             textTransform: "uppercase",
             transition: "all 0.15s ease",
             boxShadow: active === tab.id ? `inset 0 -2px 0 ${C.green}` : "none",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 7,
           }}
         >
           {tab.icon && <span className="mr-1">{tab.icon}</span>}
           {tab.label}
+          {!!tab.badge && (
+            <span style={{
+              display: "inline-flex", alignItems: "center", justifyContent: "center",
+              minWidth: 16, height: 16, padding: "0 5px", borderRadius: 8,
+              background: "#eab308", color: "#1a1a1a", fontSize: 10, fontWeight: 800,
+              lineHeight: 1, fontFamily: "'JetBrains Mono', monospace",
+            }}>
+              {tab.badge}
+            </span>
+          )}
         </button>
       ))}
     </div>

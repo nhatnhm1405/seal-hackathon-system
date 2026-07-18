@@ -35,6 +35,27 @@ public class AccountApprovalController {
     }
 
     /**
+     * GET /api/account-approvals/participants
+     * Lists every active, approved participant (FPT_STUDENT / EXTERNAL_STUDENT).
+     */
+    @GetMapping("/participants")
+    @PreAuthorize("hasRole('EVENT_COORDINATOR')")
+    public ResponseEntity<ApiResponse<List<UserResponse>>> getActiveParticipants() {
+        return ResponseEntity.ok(ApiResponse.success("Active participants retrieved.", approvalService.getActiveParticipants()));
+    }
+
+    /**
+     * GET /api/account-approvals/staff
+     * Lists every active, approved staff account eligible to serve as judge/mentor
+     * (excludes SYSTEM_ADMIN/EVENT_COORDINATOR).
+     */
+    @GetMapping("/staff")
+    @PreAuthorize("hasRole('EVENT_COORDINATOR')")
+    public ResponseEntity<ApiResponse<List<UserResponse>>> getActiveJudgeMentorStaff() {
+        return ResponseEntity.ok(ApiResponse.success("Active judge/mentor staff retrieved.", approvalService.getActiveJudgeMentorStaff()));
+    }
+
+    /**
      * PUT /api/account-approvals/{userId}/approve
      * Sets is_approved = true so the user can log in.
      */
@@ -49,8 +70,7 @@ public class AccountApprovalController {
 
     /**
      * PUT /api/account-approvals/{userId}/reject
-     * Sets is_approved = false and is_active = false.
-     * The user cannot log in and will not appear in pending list again.
+     * Sets is_approved = false. The user cannot log in until approved.
      */
     @PutMapping("/{userId}/reject")
     @PreAuthorize("hasRole('EVENT_COORDINATOR')")
@@ -60,6 +80,6 @@ public class AccountApprovalController {
             Authentication authentication) {
         UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
         UserResponse user = approvalService.rejectUser(userId, principal.getUserId(), reason);
-        return ResponseEntity.ok(ApiResponse.success("User rejected and account deactivated.", user));
+        return ResponseEntity.ok(ApiResponse.success("User rejected.", user));
     }
 }

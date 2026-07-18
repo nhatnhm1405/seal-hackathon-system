@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import { C, PixelCard, PixelButton, PixelBadge } from "@/shared/components/PixelComponents";
+import { C, PixelButton, PixelBadge } from "@/shared/components/PixelComponents";
 import { problemsApi, apiErrorMessage, type TrackProblem } from "@/shared/apiClient";
 import { useNotifications } from "@/app/providers/NotificationProvider";
 
-// Participant-facing "đề thi" card: shows the released problem of the team's track
-// with a download button. Rendered only when the team is APPROVED and has a track;
+// Participant-facing problem resource: shows the released problem of the team's track
+// with a download button. Embedded in Team Info when the team is APPROVED and has a track;
 // while the problem is unreleased the backend reports hasProblem = false, so we show
 // a muted "not released yet" note instead of a download.
 const MONO = "'JetBrains Mono', monospace";
@@ -54,7 +54,13 @@ export function ParticipantProblemCard({ eventId, trackId }: { eventId: number; 
   const released = problem?.hasProblem && problem?.released;
 
   return (
-    <PixelCard style={{ padding: 20 }}>
+    <div style={{
+      marginTop: 18,
+      padding: "16px 18px",
+      background: "rgba(6,182,212,0.045)",
+      border: `1px solid ${C.border}`,
+      borderLeft: `3px solid ${C.cyan}`,
+    }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <div style={{ minWidth: 0 }}>
           <div style={{ color: C.green, fontFamily: MONO, fontSize: 15, fontWeight: 700, marginBottom: 6 }}>Problem Statement</div>
@@ -91,6 +97,6 @@ export function ParticipantProblemCard({ eventId, trackId }: { eventId: number; 
           </PixelButton>
         )}
       </div>
-    </PixelCard>
+    </div>
   );
 }

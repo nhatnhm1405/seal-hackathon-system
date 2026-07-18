@@ -24,19 +24,39 @@ public class MentorHistoryResponse {
     private String eventStatus;
     private List<TrackGroup> tracks;
 
-    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class TrackGroup {
         private Integer trackId;
         private String trackName;
         private List<TeamResult> teams;
     }
 
-    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
     public static class TeamResult {
         private Integer teamId;
         private String teamName;
         private String teamStatus;
         private Integer finalRank;   // rank in the final round if published, else null
         private String prizeName;    // announced prize for this team, else null
+        private Integer memberCount;
+        private List<MemberInfo> members;
+    }
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class MemberInfo {
+        private String fullName;
+        private String memberRole;   // LEADER | MEMBER
+        private String studentId;    // MSSV
+        private String userType;     // FPT_STUDENT | EXTERNAL_STUDENT | STAFF
+        private String university;
     }
 }

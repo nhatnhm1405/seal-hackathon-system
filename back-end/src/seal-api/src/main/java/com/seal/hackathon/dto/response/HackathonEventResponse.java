@@ -28,6 +28,8 @@ public class HackathonEventResponse {
 
     private String description;
 
+    private String topic;
+
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private LocalDateTime registrationStart;
 

@@ -16,6 +16,8 @@ public class UpdateEventRequest {
     @Max(value = 3000, message = "Year must not exceed 3000")
     private Integer year;
     private String description;
+    @Size(max = 500, message = "Topic must not exceed 500 characters")
+    private String topic;
     private LocalDateTime registrationStart;
     private LocalDateTime registrationEnd;
     private LocalDateTime startDate;

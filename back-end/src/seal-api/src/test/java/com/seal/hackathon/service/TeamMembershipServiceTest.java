@@ -1,33 +1,38 @@
 package com.seal.hackathon.service;
 
 import com.seal.hackathon.dto.request.CreateTeamRequest;
-import com.seal.hackathon.dto.request.RejectTeamRequest;
 import com.seal.hackathon.dto.request.UpdateTeamRequest;
-import com.seal.hackathon.dto.response.ActiveEventResponse;
 import com.seal.hackathon.dto.response.MyTeamResponse;
-import com.seal.hackathon.dto.response.TeamDetailResponse;
 import com.seal.hackathon.dto.response.TeamResponse;
-import com.seal.hackathon.dto.response.UserResponse;
 import com.seal.hackathon.entity.HackathonEvent;
 import com.seal.hackathon.entity.Team;
+import com.seal.hackathon.entity.TeamEventEntry;
 import com.seal.hackathon.entity.TeamMember;
 import com.seal.hackathon.entity.Track;
 import com.seal.hackathon.entity.User;
 import com.seal.hackathon.exception.BadRequestException;
 import com.seal.hackathon.exception.ResourceNotFoundException;
 import com.seal.hackathon.repository.HackathonEventRepository;
+import com.seal.hackathon.repository.JoinRequestRepository;
+import com.seal.hackathon.repository.RoundRepository;
+import com.seal.hackathon.repository.RoundResultRepository;
+import com.seal.hackathon.repository.TeamEventEntryRepository;
+import com.seal.hackathon.repository.TeamInviteRepository;
 import com.seal.hackathon.repository.TeamMemberRepository;
+import com.seal.hackathon.repository.TeamRejoinRequestRepository;
 import com.seal.hackathon.repository.TeamRepository;
 import com.seal.hackathon.repository.TrackRepository;
 import com.seal.hackathon.repository.UserRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -40,15 +45,19 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class TeamServiceTest {
+class TeamMembershipServiceTest {
 
     @Mock
     private TeamRepository teamRepository;
+
+    @Mock
+    private TeamEventEntryRepository teamEventEntryRepository;
 
     @Mock
     private TeamMemberRepository teamMemberRepository;
@@ -63,13 +72,43 @@ class TeamServiceTest {
     private UserRepository userRepository;
 
     @Mock
-    private NotificationService notificationService;
+    private RoundResultRepository roundResultRepository;
 
     @Mock
-    private AuditLogService auditLogService;
+    private RoundRepository roundRepository;
 
-    @InjectMocks
-    private TeamService teamService;
+    @Mock
+    private JoinRequestRepository joinRequestRepository;
+
+    @Mock
+    private TeamInviteRepository teamInviteRepository;
+
+    @Mock
+    private TeamRejoinRequestRepository teamRejoinRequestRepository;
+
+    @Mock
+    private ParticipantHistorySnapshotService participantHistorySnapshotService;
+
+    @Mock
+    private NotificationService notificationService;
+
+    private TeamMembershipService teamService;
+
+    private final Map<Integer, TeamEventEntry> entriesByTeamId = new HashMap<>();
+
+    @BeforeEach
+    void setUp() {
+        TeamAccessGuard teamAccessGuard = new TeamAccessGuard(teamRepository, teamMemberRepository, teamEventEntryRepository);
+        TeamResponseMapper teamResponseMapper = new TeamResponseMapper(
+                teamMemberRepository, roundRepository, roundResultRepository, teamRejoinRequestRepository, teamAccessGuard);
+        TeamQueryService teamQueryService = new TeamQueryService(
+                teamRepository, teamEventEntryRepository, teamMemberRepository, eventRepository, trackRepository,
+                userRepository, participantHistorySnapshotService, teamAccessGuard, teamResponseMapper);
+        teamService = new TeamMembershipService(
+                teamRepository, teamEventEntryRepository, teamMemberRepository, eventRepository, userRepository,
+                joinRequestRepository, teamInviteRepository, participantHistorySnapshotService, teamAccessGuard,
+                teamResponseMapper, teamQueryService, notificationService);
+    }
 
     @Test
     void createTeam_shouldCreatePendingTeamAndLeaderMember_whenRequestIsValid() {
@@ -79,13 +118,14 @@ class TeamServiceTest {
 
         when(userRepository.findById(100)).thenReturn(Optional.of(user));
         when(eventRepository.findById(1)).thenReturn(Optional.of(event));
-        when(teamRepository.existsByEventIdAndNormalizedName(1, "SEAL TEAM")).thenReturn(false);
+        when(teamEventEntryRepository.existsByEventIdAndNormalizedName(1, "SEAL TEAM")).thenReturn(false);
         when(teamMemberRepository.existsByUser_UserIdAndTeam_Event_EventId(100, 1)).thenReturn(false);
         when(teamRepository.save(any(Team.class))).thenAnswer(invocation -> {
             Team team = invocation.getArgument(0);
             team.setTeamId(99);
             return team;
         });
+        when(teamEventEntryRepository.save(any(TeamEventEntry.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         TeamResponse response = teamService.createTeam(100, request);
 
@@ -112,13 +152,28 @@ class TeamServiceTest {
     }
 
     @Test
+    void createTeam_shouldThrowBadRequest_whenUserIsReadOnly() {
+        CreateTeamRequest request = createTeamRequest("Seal Team");
+        User user = user(100, "Leader");
+        user.setIsActive(false);
+
+        when(userRepository.findById(100)).thenReturn(Optional.of(user));
+
+        assertThrows(BadRequestException.class, () -> teamService.createTeam(100, request));
+
+        verify(eventRepository, never()).findById(anyInt());
+        verify(teamRepository, never()).save(any());
+        verify(teamMemberRepository, never()).save(any());
+    }
+
+    @Test
     void createTeam_shouldThrowBadRequest_whenNormalizedTeamNameAlreadyExists() {
         User user = user(100, "Leader");
         HackathonEvent event = event(1, "OPEN");
 
         when(userRepository.findById(100)).thenReturn(Optional.of(user));
         when(eventRepository.findById(1)).thenReturn(Optional.of(event));
-        when(teamRepository.existsByEventIdAndNormalizedName(1, "SEAL TEAM")).thenReturn(true);
+        when(teamEventEntryRepository.existsByEventIdAndNormalizedName(1, "SEAL TEAM")).thenReturn(true);
 
         assertThrows(BadRequestException.class, () -> teamService.createTeam(100, createTeamRequest(" seal team ")));
 
@@ -144,7 +199,7 @@ class TeamServiceTest {
 
         when(userRepository.findById(100)).thenReturn(Optional.of(user));
         when(eventRepository.findById(1)).thenReturn(Optional.of(event));
-        when(teamRepository.existsByEventIdAndNormalizedName(1, "SEAL TEAM")).thenReturn(false);
+        when(teamEventEntryRepository.existsByEventIdAndNormalizedName(1, "SEAL TEAM")).thenReturn(false);
         when(teamMemberRepository.existsByUser_UserIdAndTeam_Event_EventId(100, 1)).thenReturn(true);
 
         assertThrows(BadRequestException.class, () -> teamService.createTeam(100, createTeamRequest("Seal Team")));
@@ -164,32 +219,6 @@ class TeamServiceTest {
     }
 
     @Test
-    void getMyTeam_shouldReturnCurrentTeamWithMembers() {
-        Team team = team(99, event(1, "OPEN"), track(10, event(1, "OPEN")), "Seal Team", "APPROVED");
-        TeamMember leader = member(1, team, user(100, "Leader"), "LEADER");
-        TeamMember member = member(2, team, user(101, "Member"), "MEMBER");
-
-        when(teamMemberRepository.findByUser_UserIdAndTeam_Event_StatusIn(eq(100), anyList()))
-                .thenReturn(List.of(leader));
-        when(teamMemberRepository.findByTeam_TeamId(99)).thenReturn(List.of(leader, member));
-
-        MyTeamResponse response = teamService.getMyTeam(100);
-
-        assertEquals(99, response.getTeamId());
-        assertEquals("Seal Team", response.getName());
-        assertEquals("LEADER", response.getMyRole());
-        assertEquals(2, response.getMembers().size());
-    }
-
-    @Test
-    void getMyTeam_shouldThrowResourceNotFound_whenUserHasNoActiveTeam() {
-        when(teamMemberRepository.findByUser_UserIdAndTeam_Event_StatusIn(eq(100), anyList()))
-                .thenReturn(List.of());
-
-        assertThrows(ResourceNotFoundException.class, () -> teamService.getMyTeam(100));
-    }
-
-    @Test
     void updateTeam_shouldUpdateNameAndDescription_whenUserIsLeader() {
         HackathonEvent event = event(1, "OPEN");
         Team team = team(99, event, track(10, event), "Old Name", "PENDING");
@@ -200,7 +229,7 @@ class TeamServiceTest {
 
         when(teamRepository.findById(99)).thenReturn(Optional.of(team));
         when(teamMemberRepository.findByTeam_TeamId(99)).thenReturn(List.of(leader));
-        when(teamRepository.existsByEventIdAndNormalizedName(1, "NEW NAME")).thenReturn(false);
+        when(teamEventEntryRepository.existsByEventIdAndNormalizedName(1, "NEW NAME")).thenReturn(false);
         when(teamMemberRepository.findByUser_UserIdAndTeam_Event_StatusIn(eq(100), anyList()))
                 .thenReturn(List.of(leader));
         when(teamRepository.save(team)).thenReturn(team);
@@ -284,7 +313,7 @@ class TeamServiceTest {
 
         when(teamRepository.findById(99)).thenReturn(Optional.of(team));
         when(teamMemberRepository.findByTeam_TeamId(99)).thenReturn(List.of(leader));
-        when(teamRepository.existsByEventIdAndNormalizedName(1, "EXISTING NAME")).thenReturn(true);
+        when(teamEventEntryRepository.existsByEventIdAndNormalizedName(1, "EXISTING NAME")).thenReturn(true);
 
         assertThrows(BadRequestException.class, () -> teamService.updateTeam(100, 99, request));
 
@@ -308,7 +337,7 @@ class TeamServiceTest {
         MyTeamResponse response = teamService.updateTeam(100, 99, request);
 
         assertEquals("seal team", response.getName());
-        verify(teamRepository, never()).existsByEventIdAndNormalizedName(anyInt(), any());
+        verify(teamEventEntryRepository, never()).existsByEventIdAndNormalizedName(anyInt(), any());
         verify(teamRepository).save(team);
     }
 
@@ -331,7 +360,26 @@ class TeamServiceTest {
 
         assertEquals("Seal Team", team.getName());
         assertEquals("New description", team.getDescription());
-        verify(teamRepository, never()).existsByEventIdAndNormalizedName(anyInt(), any());
+        verify(teamEventEntryRepository, never()).existsByEventIdAndNormalizedName(anyInt(), any());
+    }
+
+    @Test
+    void updateTeam_shouldClearDescription_whenDescriptionIsBlank() {
+        HackathonEvent event = event(1, "OPEN");
+        Team team = team(99, event, track(10, event), "Seal Team", "PENDING");
+        TeamMember leader = member(1, team, user(100, "Leader"), "LEADER");
+        UpdateTeamRequest request = new UpdateTeamRequest();
+        request.setDescription("   ");
+
+        when(teamRepository.findById(99)).thenReturn(Optional.of(team));
+        when(teamMemberRepository.findByTeam_TeamId(99)).thenReturn(List.of(leader));
+        when(teamMemberRepository.findByUser_UserIdAndTeam_Event_StatusIn(eq(100), anyList()))
+                .thenReturn(List.of(leader));
+        when(teamRepository.save(team)).thenReturn(team);
+
+        teamService.updateTeam(100, 99, request);
+
+        assertNull(team.getDescription());
     }
 
     @Test
@@ -350,6 +398,9 @@ class TeamServiceTest {
 
         assertEquals(1, response.getMembers().size());
         verify(teamMemberRepository).delete(target);
+        verify(participantHistorySnapshotService).snapshotDeparture(target, "REMOVED_BY_LEADER");
+        verify(notificationService).createNotification(
+                eq(101), eq("Removed from the team"), any(), eq("TEAM_MEMBER_REMOVED"));
     }
 
     @Test
@@ -545,10 +596,13 @@ class TeamServiceTest {
 
         verify(teamMemberRepository).delete(member);
         verify(teamRepository, never()).delete(any());
+        verify(participantHistorySnapshotService).snapshotDeparture(member, "LEFT_TEAM");
     }
 
     @Test
-    void leaveTeam_shouldDeleteTeam_whenOnlyLeaderLeaves() {
+    void leaveTeam_shouldDeleteOnlyTheSeasonEntry_whenOnlyLeaderLeaves() {
+        // Team identity persists across seasons — only this season's entry is
+        // removed, never the Team row itself.
         Team team = team(99, event(1, "OPEN"), track(10, event(1, "OPEN")), "Seal Team", "PENDING");
         TeamMember leader = member(1, team, user(100, "Leader"), "LEADER");
 
@@ -558,7 +612,11 @@ class TeamServiceTest {
         teamService.leaveTeam(100, 99);
 
         verify(teamMemberRepository).delete(leader);
-        verify(teamRepository).delete(team);
+        verify(teamEventEntryRepository).delete(entryOf(99));
+        verify(teamRepository, never()).delete(any());
+        // Snapshotted BEFORE the entry itself is deleted — this is the one path
+        // where the season's data would otherwise be unrecoverable, not just hidden.
+        verify(participantHistorySnapshotService).snapshotDeparture(leader, "LEFT_TEAM");
     }
 
     @Test
@@ -612,552 +670,12 @@ class TeamServiceTest {
         verify(teamRepository, never()).delete(any());
     }
 
-    @Test
-    void searchInvitableUsers_shouldReturnEmptyList_whenQueryIsTooShort() {
-        List<UserResponse> response = teamService.searchInvitableUsers(" a ");
-
-        assertTrue(response.isEmpty());
-        verify(userRepository, never()).searchInvitableStudents(any());
-    }
-
-    @Test
-    void searchInvitableUsers_shouldReturnEmptyList_whenQueryIsNull() {
-        List<UserResponse> response = teamService.searchInvitableUsers(null);
-
-        assertTrue(response.isEmpty());
-        verify(userRepository, never()).searchInvitableStudents(any());
-    }
-
-    @Test
-    void searchInvitableUsers_shouldReturnAtMostTenUsers() {
-        List<User> users = java.util.stream.IntStream.rangeClosed(1, 12)
-                .mapToObj(i -> user(i, "Student " + i))
-                .toList();
-        when(userRepository.searchInvitableStudents("student")).thenReturn(users);
-
-        List<UserResponse> response = teamService.searchInvitableUsers(" Student ");
-
-        assertEquals(10, response.size());
-        assertEquals("Student 1", response.get(0).getFullName());
-    }
-
-    @Test
-    void searchInvitableUsers_shouldReturnEmptyList_whenRepositoryFindsNoUsers() {
-        when(userRepository.searchInvitableStudents("student")).thenReturn(List.of());
-
-        List<UserResponse> response = teamService.searchInvitableUsers(" Student ");
-
-        assertTrue(response.isEmpty());
-        verify(userRepository).searchInvitableStudents("student");
-    }
-
-    @Test
-    void getTeamsByEvent_shouldReturnAllTeamsForEvent() {
-        HackathonEvent event = event(1, "OPEN");
-        Team team = team(99, event, track(10, event), "Seal Team", "APPROVED");
-        TeamMember leader = member(1, team, user(100, "Leader"), "LEADER");
-
-        when(eventRepository.findById(1)).thenReturn(Optional.of(event));
-        when(teamRepository.findAllByEvent_EventId(1)).thenReturn(List.of(team));
-        when(teamMemberRepository.findByTeam_TeamId(99)).thenReturn(List.of(leader));
-
-        List<TeamDetailResponse> response = teamService.getTeamsByEvent(1);
-
-        assertEquals(1, response.size());
-        assertEquals("Seal Team", response.get(0).getName());
-        assertEquals(1, response.get(0).getMembers().size());
-    }
-
-    @Test
-    void getTeamsByEvent_shouldThrowResourceNotFound_whenEventDoesNotExist() {
-        when(eventRepository.findById(1)).thenReturn(Optional.empty());
-
-        assertThrows(ResourceNotFoundException.class, () -> teamService.getTeamsByEvent(1));
-
-        verify(teamRepository, never()).findAllByEvent_EventId(anyInt());
-    }
-
-    @Test
-    void getTeamsByEvent_shouldReturnEmptyList_whenEventHasNoTeams() {
-        HackathonEvent event = event(1, "OPEN");
-
-        when(eventRepository.findById(1)).thenReturn(Optional.of(event));
-        when(teamRepository.findAllByEvent_EventId(1)).thenReturn(List.of());
-
-        List<TeamDetailResponse> response = teamService.getTeamsByEvent(1);
-
-        assertTrue(response.isEmpty());
-    }
-
-    @Test
-    void getTeamById_shouldReturnTeamDetail() {
-        HackathonEvent event = event(1, "OPEN");
-        Team team = team(99, event, track(10, event), "Seal Team", "APPROVED");
-        TeamMember leader = member(1, team, user(100, "Leader"), "LEADER");
-
-        when(teamRepository.findById(99)).thenReturn(Optional.of(team));
-        when(teamMemberRepository.findByTeam_TeamId(99)).thenReturn(List.of(leader));
-
-        TeamDetailResponse response = teamService.getTeamById(99);
-
-        assertEquals(99, response.getTeamId());
-        assertEquals("Seal Team", response.getName());
-        assertEquals("APPROVED", response.getStatus());
-    }
-
-    @Test
-    void getTeamById_shouldThrowResourceNotFound_whenTeamDoesNotExist() {
-        when(teamRepository.findById(99)).thenReturn(Optional.empty());
-
-        assertThrows(ResourceNotFoundException.class, () -> teamService.getTeamById(99));
-
-        verify(teamMemberRepository, never()).findByTeam_TeamId(anyInt());
-    }
-
-    @Test
-    void approveTeam_shouldApproveTeamAndNotifyMembers() {
-        HackathonEvent event = event(1, "OPEN");
-        Team team = team(99, event, track(10, event), "Seal Team", "PENDING");
-        TeamMember leader = member(1, team, user(100, "Leader"), "LEADER");
-        TeamMember member = member(2, team, user(101, "Member"), "MEMBER");
-
-        when(teamRepository.findById(99)).thenReturn(Optional.of(team));
-        when(teamRepository.save(team)).thenReturn(team);
-        when(teamMemberRepository.findByTeam_TeamId(99)).thenReturn(List.of(leader, member), List.of(leader, member));
-
-        TeamDetailResponse response = teamService.approveTeam(99);
-
-        assertEquals("APPROVED", response.getStatus());
-        verify(notificationService).createNotification(eq(100), eq("Team approved"), any(), eq("TEAM_APPROVED"));
-        verify(notificationService).createNotification(eq(101), eq("Team approved"), any(), eq("TEAM_APPROVED"));
-    }
-
-    @Test
-    void approveTeam_shouldThrowBadRequest_whenTeamAlreadyApproved() {
-        Team team = team(99, event(1, "OPEN"), track(10, event(1, "OPEN")), "Seal Team", "APPROVED");
-
-        when(teamRepository.findById(99)).thenReturn(Optional.of(team));
-
-        assertThrows(BadRequestException.class, () -> teamService.approveTeam(99));
-
-        verify(teamRepository, never()).save(any());
-        verify(notificationService, never()).createNotification(anyInt(), any(), any(), any());
-    }
-
-    @Test
-    void approveTeam_shouldThrowResourceNotFound_whenTeamDoesNotExist() {
-        when(teamRepository.findById(99)).thenReturn(Optional.empty());
-
-        assertThrows(ResourceNotFoundException.class, () -> teamService.approveTeam(99));
-
-        verify(teamRepository, never()).save(any());
-        verify(notificationService, never()).createNotification(anyInt(), any(), any(), any());
-    }
-
-    @Test
-    void approveTeam_shouldThrowBadRequest_whenTeamIsRejected() {
-        Team team = team(99, event(1, "OPEN"), track(10, event(1, "OPEN")), "Seal Team", "REJECTED");
-
-        when(teamRepository.findById(99)).thenReturn(Optional.of(team));
-
-        assertThrows(BadRequestException.class, () -> teamService.approveTeam(99));
-
-        verify(teamRepository, never()).save(any());
-    }
-
-    @Test
-    void approveTeam_shouldThrowBadRequest_whenTeamIsDisqualified() {
-        Team team = team(99, event(1, "OPEN"), track(10, event(1, "OPEN")), "Seal Team", "DISQUALIFIED");
-
-        when(teamRepository.findById(99)).thenReturn(Optional.of(team));
-
-        assertThrows(BadRequestException.class, () -> teamService.approveTeam(99));
-
-        verify(teamRepository, never()).save(any());
-        verify(notificationService, never()).createNotification(anyInt(), any(), any(), any());
-    }
-
-    @Test
-    void rejectTeam_shouldRejectTeamStoreReasonAndNotifyMembers() {
-        HackathonEvent event = event(1, "OPEN");
-        Team team = team(99, event, track(10, event), "Seal Team", "PENDING");
-        TeamMember leader = member(1, team, user(100, "Leader"), "LEADER");
-        RejectTeamRequest request = new RejectTeamRequest();
-        request.setReason(" Invalid information ");
-
-        when(teamRepository.findById(99)).thenReturn(Optional.of(team));
-        when(teamRepository.save(team)).thenReturn(team);
-        when(teamMemberRepository.findByTeam_TeamId(99)).thenReturn(List.of(leader), List.of(leader));
-
-        TeamDetailResponse response = teamService.rejectTeam(99, request);
-
-        assertEquals("REJECTED", response.getStatus());
-        assertEquals("Invalid information", response.getDisqualifiedReason());
-        verify(notificationService).createNotification(eq(100), eq("Team rejected"), any(), eq("TEAM_REJECTED"));
-    }
-
-    @Test
-    void rejectTeam_shouldRejectTeamWithNullReason_whenRequestIsNull() {
-        HackathonEvent event = event(1, "OPEN");
-        Team team = team(99, event, track(10, event), "Seal Team", "PENDING");
-
-        when(teamRepository.findById(99)).thenReturn(Optional.of(team));
-        when(teamRepository.save(team)).thenReturn(team);
-        when(teamMemberRepository.findByTeam_TeamId(99)).thenReturn(List.of());
-
-        TeamDetailResponse response = teamService.rejectTeam(99, null);
-
-        assertEquals("REJECTED", response.getStatus());
-        assertNull(response.getDisqualifiedReason());
-    }
-
-    @Test
-    void rejectTeam_shouldThrowResourceNotFound_whenTeamDoesNotExist() {
-        when(teamRepository.findById(99)).thenReturn(Optional.empty());
-
-        assertThrows(ResourceNotFoundException.class, () -> teamService.rejectTeam(99, new RejectTeamRequest()));
-
-        verify(teamRepository, never()).save(any());
-        verify(notificationService, never()).createNotification(anyInt(), any(), any(), any());
-    }
-
-    @Test
-    void rejectTeam_shouldThrowBadRequest_whenTeamIsApproved() {
-        Team team = team(99, event(1, "OPEN"), track(10, event(1, "OPEN")), "Seal Team", "APPROVED");
-
-        when(teamRepository.findById(99)).thenReturn(Optional.of(team));
-
-        assertThrows(BadRequestException.class, () -> teamService.rejectTeam(99, new RejectTeamRequest()));
-
-        verify(teamRepository, never()).save(any());
-    }
-
-    @Test
-    void rejectTeam_shouldThrowBadRequest_whenTeamIsRejected() {
-        Team team = team(99, event(1, "OPEN"), track(10, event(1, "OPEN")), "Seal Team", "REJECTED");
-
-        when(teamRepository.findById(99)).thenReturn(Optional.of(team));
-
-        assertThrows(BadRequestException.class, () -> teamService.rejectTeam(99, new RejectTeamRequest()));
-
-        verify(teamRepository, never()).save(any());
-    }
-
-    @Test
-    void rejectTeam_shouldThrowBadRequest_whenTeamIsDisqualified() {
-        Team team = team(99, event(1, "OPEN"), track(10, event(1, "OPEN")), "Seal Team", "DISQUALIFIED");
-
-        when(teamRepository.findById(99)).thenReturn(Optional.of(team));
-
-        assertThrows(BadRequestException.class, () -> teamService.rejectTeam(99, new RejectTeamRequest()));
-
-        verify(teamRepository, never()).save(any());
-    }
-
-    @Test
-    void rejectTeam_shouldSetReasonNull_whenReasonIsBlank() {
-        HackathonEvent event = event(1, "OPEN");
-        Team team = team(99, event, track(10, event), "Seal Team", "PENDING");
-        RejectTeamRequest request = new RejectTeamRequest();
-        request.setReason("   ");
-
-        when(teamRepository.findById(99)).thenReturn(Optional.of(team));
-        when(teamRepository.save(team)).thenReturn(team);
-        when(teamMemberRepository.findByTeam_TeamId(99)).thenReturn(List.of());
-
-        TeamDetailResponse response = teamService.rejectTeam(99, request);
-
-        assertNull(response.getDisqualifiedReason());
-    }
-
-    @Test
-    void disqualifyTeam_shouldDisqualifyTeamStoreReasonAndTimestamp() {
-        HackathonEvent event = event(1, "OPEN");
-        Team team = team(99, event, track(10, event), "Seal Team", "APPROVED");
-        TeamMember leader = member(1, team, user(100, "Leader"), "LEADER");
-        RejectTeamRequest request = new RejectTeamRequest();
-        request.setReason(" Rule violation ");
-
-        when(teamRepository.findById(99)).thenReturn(Optional.of(team));
-        when(teamRepository.save(team)).thenReturn(team);
-        when(teamMemberRepository.findByTeam_TeamId(99)).thenReturn(List.of(leader), List.of(leader));
-
-        TeamDetailResponse response = teamService.disqualifyTeam(99, request);
-
-        assertEquals("DISQUALIFIED", response.getStatus());
-        assertEquals("Rule violation", response.getDisqualifiedReason());
-        assertNotNull(response.getDisqualifiedAt());
-        verify(notificationService).createNotification(eq(100), eq("Team disqualified"), any(), eq("TEAM_DISQUALIFIED"));
-    }
-
-    @Test
-    void disqualifyTeam_shouldDisqualifyTeamWithNullReason_whenRequestIsNull() {
-        HackathonEvent event = event(1, "OPEN");
-        Team team = team(99, event, track(10, event), "Seal Team", "APPROVED");
-
-        when(teamRepository.findById(99)).thenReturn(Optional.of(team));
-        when(teamRepository.save(team)).thenReturn(team);
-        when(teamMemberRepository.findByTeam_TeamId(99)).thenReturn(List.of());
-
-        TeamDetailResponse response = teamService.disqualifyTeam(99, null);
-
-        assertEquals("DISQUALIFIED", response.getStatus());
-        assertNull(response.getDisqualifiedReason());
-        assertNotNull(response.getDisqualifiedAt());
-    }
-
-    @Test
-    void disqualifyTeam_shouldThrowResourceNotFound_whenTeamDoesNotExist() {
-        when(teamRepository.findById(99)).thenReturn(Optional.empty());
-
-        assertThrows(ResourceNotFoundException.class, () -> teamService.disqualifyTeam(99, new RejectTeamRequest()));
-
-        verify(teamRepository, never()).save(any());
-        verify(notificationService, never()).createNotification(anyInt(), any(), any(), any());
-    }
-
-    @Test
-    void disqualifyTeam_shouldThrowBadRequest_whenTeamIsPending() {
-        Team team = team(99, event(1, "OPEN"), track(10, event(1, "OPEN")), "Seal Team", "PENDING");
-
-        when(teamRepository.findById(99)).thenReturn(Optional.of(team));
-
-        assertThrows(BadRequestException.class, () -> teamService.disqualifyTeam(99, new RejectTeamRequest()));
-
-        verify(teamRepository, never()).save(any());
-    }
-
-    @Test
-    void disqualifyTeam_shouldThrowBadRequest_whenTeamIsRejected() {
-        Team team = team(99, event(1, "OPEN"), track(10, event(1, "OPEN")), "Seal Team", "REJECTED");
-
-        when(teamRepository.findById(99)).thenReturn(Optional.of(team));
-
-        assertThrows(BadRequestException.class, () -> teamService.disqualifyTeam(99, new RejectTeamRequest()));
-
-        verify(teamRepository, never()).save(any());
-    }
-
-    @Test
-    void disqualifyTeam_shouldThrowBadRequest_whenTeamIsAlreadyDisqualified() {
-        Team team = team(99, event(1, "OPEN"), track(10, event(1, "OPEN")), "Seal Team", "DISQUALIFIED");
-
-        when(teamRepository.findById(99)).thenReturn(Optional.of(team));
-
-        assertThrows(BadRequestException.class, () -> teamService.disqualifyTeam(99, new RejectTeamRequest()));
-
-        verify(teamRepository, never()).save(any());
-    }
-
-    @Test
-    void disqualifyTeam_shouldSetReasonNull_whenReasonIsBlank() {
-        HackathonEvent event = event(1, "OPEN");
-        Team team = team(99, event, track(10, event), "Seal Team", "APPROVED");
-        RejectTeamRequest request = new RejectTeamRequest();
-        request.setReason("   ");
-
-        when(teamRepository.findById(99)).thenReturn(Optional.of(team));
-        when(teamRepository.save(team)).thenReturn(team);
-        when(teamMemberRepository.findByTeam_TeamId(99)).thenReturn(List.of());
-
-        TeamDetailResponse response = teamService.disqualifyTeam(99, request);
-
-        assertNull(response.getDisqualifiedReason());
-        assertEquals("DISQUALIFIED", response.getStatus());
-    }
-
-    @Test
-    void getActiveEventsWithTracks_shouldReturnAllOpenEventsRegardlessRegistrationWindow() {
-        LocalDateTime now = LocalDateTime.now();
-        HackathonEvent activeEvent = event(1, "OPEN");
-        activeEvent.setRegistrationStart(now.minusDays(1));
-        activeEvent.setRegistrationEnd(now.plusDays(1));
-        HackathonEvent futureEvent = event(2, "OPEN");
-        futureEvent.setRegistrationStart(now.plusDays(1));
-
-        when(eventRepository.findAllByStatus("OPEN")).thenReturn(List.of(activeEvent, futureEvent));
-        when(trackRepository.findAllByEvent_EventId(1)).thenReturn(List.of(track(10, activeEvent)));
-        when(trackRepository.findAllByEvent_EventId(2)).thenReturn(List.of(track(20, futureEvent)));
-
-        List<ActiveEventResponse> response = teamService.getActiveEventsWithTracks();
-
-        assertEquals(2, response.size());
-        assertEquals(1, response.get(0).getEventId());
-        assertFalse(response.get(0).getTracks().isEmpty());
-        assertEquals(2, response.get(1).getEventId());
-        assertFalse(response.get(1).getTracks().isEmpty());
-    }
-
-    @Test
-    void getActiveEventsWithTracks_shouldReturnOpenEvent_whenRegistrationWindowIsNull() {
-        HackathonEvent event = event(1, "OPEN");
-        event.setRegistrationStart(null);
-        event.setRegistrationEnd(null);
-
-        when(eventRepository.findAllByStatus("OPEN")).thenReturn(List.of(event));
-        when(trackRepository.findAllByEvent_EventId(1)).thenReturn(List.of(track(10, event)));
-
-        List<ActiveEventResponse> response = teamService.getActiveEventsWithTracks();
-
-        assertEquals(1, response.size());
-        assertEquals(1, response.get(0).getEventId());
-        assertEquals(1, response.get(0).getTracks().size());
-    }
-
-    @Test
-    void getActiveEventsWithTracks_shouldReturnEmptyList_whenThereAreNoOpenEvents() {
-        when(eventRepository.findAllByStatus("OPEN")).thenReturn(List.of());
-
-        List<ActiveEventResponse> response = teamService.getActiveEventsWithTracks();
-
-        assertTrue(response.isEmpty());
-        verify(trackRepository, never()).findAllByEvent_EventId(anyInt());
-    }
-
-    @Test
-    void getActiveEventsWithTracks_shouldReturnExpiredOpenEventBecauseStatusIsSourceOfTruth() {
-        LocalDateTime now = LocalDateTime.now();
-        HackathonEvent expiredEvent = event(1, "OPEN");
-        expiredEvent.setRegistrationEnd(now.minusDays(1));
-
-        when(eventRepository.findAllByStatus("OPEN")).thenReturn(List.of(expiredEvent));
-        when(trackRepository.findAllByEvent_EventId(1)).thenReturn(List.of(track(10, expiredEvent)));
-
-        List<ActiveEventResponse> response = teamService.getActiveEventsWithTracks();
-
-        assertEquals(1, response.size());
-        assertEquals(1, response.get(0).getEventId());
-        assertFalse(response.get(0).getTracks().isEmpty());
-    }
-
-    @Test
-    void updateTeam_shouldClearDescription_whenDescriptionIsBlank() {
-        HackathonEvent event = event(1, "OPEN");
-        Team team = team(99, event, track(10, event), "Seal Team", "PENDING");
-        TeamMember leader = member(1, team, user(100, "Leader"), "LEADER");
-        UpdateTeamRequest request = new UpdateTeamRequest();
-        request.setDescription("   ");
-
-        when(teamRepository.findById(99)).thenReturn(Optional.of(team));
-        when(teamMemberRepository.findByTeam_TeamId(99)).thenReturn(List.of(leader));
-        when(teamMemberRepository.findByUser_UserIdAndTeam_Event_StatusIn(eq(100), anyList()))
-                .thenReturn(List.of(leader));
-        when(teamRepository.save(team)).thenReturn(team);
-
-        teamService.updateTeam(100, 99, request);
-
-        assertNull(team.getDescription());
-    }
-
     private static CreateTeamRequest createTeamRequest(String name) {
         CreateTeamRequest request = new CreateTeamRequest();
         request.setEventId(1);
         request.setName(name);
         request.setDescription("Demo team");
         return request;
-    }
-
-    // ── Coordinator: assignTeamToTrack (drag-and-drop) ───────────────
-
-    @Test
-    void assignTeamToTrack_shouldPlaceTeam_whenSetupAndApproved() {
-        HackathonEvent event = event(1, "SETUP");
-        Team team = team(100, event, null, "Alpha", "APPROVED");
-        Track track = track(10, event);
-
-        when(teamRepository.findById(100)).thenReturn(Optional.of(team));
-        when(trackRepository.findById(10)).thenReturn(Optional.of(track));
-        when(teamMemberRepository.findByTeam_TeamId(100)).thenReturn(List.of());
-
-        TeamDetailResponse response = teamService.assignTeamToTrack(5, 100, 10);
-
-        assertEquals(track, team.getTrack());
-        assertEquals(10, response.getTrackId());
-        verify(teamRepository).save(team);
-    }
-
-    @Test
-    void assignTeamToTrack_shouldUnassign_whenTrackIdIsNull() {
-        HackathonEvent event = event(1, "SETUP");
-        Track current = track(10, event);
-        Team team = team(100, event, current, "Alpha", "APPROVED");
-
-        when(teamRepository.findById(100)).thenReturn(Optional.of(team));
-        when(teamMemberRepository.findByTeam_TeamId(100)).thenReturn(List.of());
-
-        TeamDetailResponse response = teamService.assignTeamToTrack(5, 100, null);
-
-        assertNull(team.getTrack());
-        assertNull(response.getTrackId());
-        verify(trackRepository, never()).findById(anyInt());
-        verify(teamRepository).save(team);
-    }
-
-    @Test
-    void assignTeamToTrack_shouldAllowExceedingCapacity() {
-        // Coordinator placement deliberately ignores capacity (soft cap on the UI),
-        // unlike participant selectTrack which hard-caps.
-        HackathonEvent event = event(1, "SETUP");
-        Team team = team(100, event, null, "Alpha", "APPROVED");
-        Track full = track(10, event);
-        full.setCapacity(1); // already "full" — must still accept the placement
-
-        when(teamRepository.findById(100)).thenReturn(Optional.of(team));
-        when(trackRepository.findById(10)).thenReturn(Optional.of(full));
-        when(teamMemberRepository.findByTeam_TeamId(100)).thenReturn(List.of());
-
-        teamService.assignTeamToTrack(5, 100, 10);
-
-        assertEquals(full, team.getTrack());
-        verify(teamRepository).save(team);
-    }
-
-    @Test
-    void assignTeamToTrack_shouldThrow_whenEventNotInSetup() {
-        HackathonEvent event = event(1, "OPEN");
-        Team team = team(100, event, null, "Alpha", "APPROVED");
-
-        when(teamRepository.findById(100)).thenReturn(Optional.of(team));
-
-        assertThrows(BadRequestException.class, () -> teamService.assignTeamToTrack(5, 100, 10));
-
-        verify(teamRepository, never()).save(any());
-    }
-
-    @Test
-    void assignTeamToTrack_shouldThrow_whenTeamNotApproved() {
-        HackathonEvent event = event(1, "SETUP");
-        Team team = team(100, event, null, "Alpha", "PENDING");
-
-        when(teamRepository.findById(100)).thenReturn(Optional.of(team));
-
-        assertThrows(BadRequestException.class, () -> teamService.assignTeamToTrack(5, 100, 10));
-
-        verify(teamRepository, never()).save(any());
-    }
-
-    @Test
-    void assignTeamToTrack_shouldThrow_whenTrackBelongsToAnotherEvent() {
-        HackathonEvent event = event(1, "SETUP");
-        HackathonEvent otherEvent = event(2, "SETUP");
-        Team team = team(100, event, null, "Alpha", "APPROVED");
-        Track foreignTrack = track(10, otherEvent);
-
-        when(teamRepository.findById(100)).thenReturn(Optional.of(team));
-        when(trackRepository.findById(10)).thenReturn(Optional.of(foreignTrack));
-
-        assertThrows(BadRequestException.class, () -> teamService.assignTeamToTrack(5, 100, 10));
-
-        verify(teamRepository, never()).save(any());
-    }
-
-    @Test
-    void assignTeamToTrack_shouldThrowResourceNotFound_whenTeamMissing() {
-        when(teamRepository.findById(100)).thenReturn(Optional.empty());
-
-        assertThrows(ResourceNotFoundException.class, () -> teamService.assignTeamToTrack(5, 100, 10));
-
-        verify(teamRepository, never()).save(any());
     }
 
     private static HackathonEvent event(Integer eventId, String status) {
@@ -1182,16 +700,36 @@ class TeamServiceTest {
                 .build();
     }
 
-    private static Team team(Integer teamId, HackathonEvent event, Track track, String name, String status) {
-        return Team.builder()
+    /**
+     * Builds a thin Team plus its (only, in these tests) TeamEventEntry, and
+     * lenient-stubs the "current entry" resolver every non-trivial service
+     * method now goes through — lenient because plenty of tests build a team but
+     * short-circuit before ever resolving its entry (e.g. ResourceNotFound cases).
+     */
+    private Team team(Integer teamId, HackathonEvent event, Track track, String name, String status) {
+        Team team = Team.builder()
                 .teamId(teamId)
-                .event(event)
-                .track(track)
                 .name(name)
                 .description("Team description")
+                .createdAt(LocalDateTime.now())
+                .build();
+        TeamEventEntry entry = TeamEventEntry.builder()
+                .id(teamId)
+                .team(team)
+                .event(event)
+                .track(track)
                 .status(status)
                 .createdAt(LocalDateTime.now())
                 .build();
+        entriesByTeamId.put(teamId, entry);
+        lenient().when(teamEventEntryRepository.findTopByTeam_TeamIdOrderByIdDesc(teamId))
+                .thenReturn(Optional.of(entry));
+        return team;
+    }
+
+    /** The TeamEventEntry built alongside {@link #team} for the given teamId. */
+    private TeamEventEntry entryOf(Integer teamId) {
+        return entriesByTeamId.get(teamId);
     }
 
     private static TeamMember member(Integer id, Team team, User user, String role) {

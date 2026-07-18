@@ -1,27 +1,53 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
-import { Bot, RefreshCw } from "lucide-react";
+import { useState, useEffect, useMemo, useCallback, type ReactNode, type MouseEvent as ReactMouseEvent } from "react";
+import { Bot, RefreshCw, Users, Github, Play, FileText } from "lucide-react";
 import {
   C, GradientText, PixelCard, PixelButton, PixelBadge,
 } from "@/shared/components/PixelComponents";
 import {
-  assignmentsApi, eventsApi, roundsApi, submissionsApi, scoringApi, aiApi, ApiError, apiErrorMessage,
-  Round, Submission, ScoringCriteria, ScoreRecord, AiInsight,
+  assignmentsApi, roundsApi, submissionsApi, scoringApi, aiApi, ApiError, apiErrorMessage,
+  Round, Submission, ScoringCriteria, ScoreRecord, AiInsight, JudgeAssignedTeam,
 } from "@/shared/apiClient";
 import { useNotifications } from "@/app/providers/NotificationProvider";
 import { useRoundTimer } from "@/shared/hooks/useRoundTimer";
 import { CountdownDisplay } from "@/shared/components/CountdownDisplay";
-import { buildTeamCodeMap } from "./anon";
+import { TeamDetailModal } from "@/shared/components/TeamDetailModal";
 
 type SubStatus = "not_scored" | "draft" | "scored";
 type FilterType = "all" | SubStatus;
 
 function fmtDateTime(iso?: string) {
-  return iso ? new Date(iso).toLocaleString("en-US") : "—";
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
 }
 
 function roundIsOpen(status?: string): boolean {
   const s = (status ?? "").toUpperCase();
   return s === "ACTIVE" || s === "OPEN";
+}
+
+function normalizeScoreInput(rawValue: string): string {
+  return rawValue.replace(/^0+(?=\d)/, "");
+}
+
+/** Compact 32px square icon action — a link (href) or a button (onClick). */
+function ActionIcon({ title, href, onClick, children }: { title: string; href?: string; onClick?: () => void; children: ReactNode }) {
+  const base = {
+    display: "inline-flex", alignItems: "center", justifyContent: "center",
+    width: 34, height: 34, border: `1px solid ${C.border}`, background: C.surface2,
+    color: C.textMuted, cursor: "pointer", textDecoration: "none", transition: "all 0.12s",
+  } as const;
+  const hover = (e: ReactMouseEvent<HTMLElement>, on: boolean) => {
+    e.currentTarget.style.borderColor = on ? C.green : C.border;
+    e.currentTarget.style.color = on ? C.green : C.textMuted;
+  };
+  if (href) {
+    return <a href={href} target="_blank" rel="noreferrer" title={title} style={base}
+      onMouseEnter={e => hover(e, true)} onMouseLeave={e => hover(e, false)}>{children}</a>;
+  }
+  return <button type="button" title={title} onClick={onClick} style={base}
+    onMouseEnter={e => hover(e, true)} onMouseLeave={e => hover(e, false)}>{children}</button>;
 }
 
 export function JudgeScoringPage() {
@@ -30,8 +56,10 @@ export function JudgeScoringPage() {
   const [eventId, setEventId] = useState<number | null>(null);
   const [rounds, setRounds] = useState<Round[]>([]);
   const [teamsByRound, setTeamsByRound] = useState<Record<number, Set<number>>>({});
-  // Anonymised team codes (e.g. WEB-1) — judging stays impartial, names hidden.
-  const [teamCodes, setTeamCodes] = useState<Map<number, string>>(new Map());
+  // Full team profiles keyed by teamId — real team names + members (de-anonymized:
+  // judges now see which team they are scoring and can open the member details).
+  const [teamsById, setTeamsById] = useState<Map<number, JudgeAssignedTeam>>(new Map());
+  const [showTeamDetail, setShowTeamDetail] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loadingCtx, setLoadingCtx] = useState(true);
 
@@ -68,18 +96,18 @@ export function JudgeScoringPage() {
         const teams = assignment?.teams ?? [];
         const map: Record<number, Set<number>> = {};
         teams.forEach(t => { (map[t.roundId] ??= new Set()).add(t.teamId); });
-        const codes = buildTeamCodeMap(teams);
+        const byTeam = new Map<number, JudgeAssignedTeam>();
+        teams.forEach(t => { if (!byTeam.has(t.teamId)) byTeam.set(t.teamId, t); });
 
-        const events = await eventsApi.getAll().then(r => r.data ?? []).catch(() => []);
-        const event = events.find(e => e.name === assignment?.eventName)
-          ?? events.find(e => e.status === 'IN_PROGRESS' || e.status === 'OPEN')
-          ?? events[events.length - 1];
-        const rs = event ? await roundsApi.getAll(event.eventId).then(r => r.data ?? []).catch(() => []) : [];
+        const assignedEventId = assignment?.eventId ?? null;
+        const rs = assignedEventId != null
+          ? await roundsApi.getAll(assignedEventId).then(r => r.data ?? []).catch(() => [])
+          : [];
 
         if (cancelled) return;
         setTeamsByRound(map);
-        setTeamCodes(codes);
-        setEventId(event?.eventId ?? null);
+        setTeamsById(byTeam);
+        setEventId(assignedEventId);
         // Only rounds the judge is actually assigned to.
         const assignedRounds = rs.filter(r => map[r.roundId])
           .sort((a, b) => (a.orderNumber ?? a.roundId) - (b.orderNumber ?? b.roundId));
@@ -110,15 +138,6 @@ export function JudgeScoringPage() {
     }).finally(() => setLoadingRound(false));
   }, [teamsByRound]);
 
-  useEffect(() => {
-    if (eventId == null || selectedRoundId == null) return;
-    setSelectedSubId(null);
-    setScoreInputs({});
-    setActionError(null);
-    setNotice(null);
-    loadRound(eventId, selectedRoundId);
-  }, [eventId, selectedRoundId, loadRound]);
-
   // ── Derived ─────────────────────────────────────────────────────────
   const statusOf = useCallback((subId: number): SubStatus => {
     const s = myScores.filter(x => x.submissionId === subId);
@@ -127,17 +146,42 @@ export function JudgeScoringPage() {
     return "draft";
   }, [myScores]);
 
-  const codeOf = useCallback(
-    (sub: Submission) => teamCodes.get(sub.teamId) ?? `#${sub.submissionId}`,
-    [teamCodes],
+  // Real team name for a submission (de-anonymized). Falls back to #id if the
+  // team isn't in the judge's roster for some reason.
+  const teamNameOf = useCallback(
+    (sub: Submission) => teamsById.get(sub.teamId)?.teamName ?? `#${sub.submissionId}`,
+    [teamsById],
   );
 
   const selectedRound = rounds.find(r => r.roundId === selectedRoundId) ?? null;
   const selectedSub = submissions.find(s => s.submissionId === selectedSubId) ?? null;
   const isReadOnly = selectedSub ? statusOf(selectedSub.submissionId) === "scored" : false;
-  // Live JUDGING countdown; a configured-but-not-running timer hard-blocks scoring.
+  // Live JUDGING countdown. Only a verified RUNNING timer opens score writes.
   const judgingTimer = useRoundTimer(eventId, selectedRoundId, "JUDGING", { fireBanners: true });
-  const open = roundIsOpen(selectedRound?.status) && (!judgingTimer.isConfigured || judgingTimer.isRunning);
+  const open = !judgingTimer.loading
+    && !judgingTimer.loadFailed
+    && roundIsOpen(selectedRound?.status)
+    && judgingTimer.isRunning;
+  const workspaceAvailable = !judgingTimer.loading
+    && !judgingTimer.loadFailed
+    && judgingTimer.isConfigured;
+
+  // Submission details are not requested before judging starts. Once started,
+  // paused/closed windows remain visible but become read-only through `open`.
+  useEffect(() => {
+    setSelectedSubId(null);
+    setScoreInputs({});
+    setActionError(null);
+    setNotice(null);
+
+    if (eventId == null || selectedRoundId == null || !workspaceAvailable) {
+      setSubmissions([]);
+      setCriteria([]);
+      setMyScores([]);
+      return;
+    }
+    loadRound(eventId, selectedRoundId);
+  }, [eventId, selectedRoundId, workspaceAvailable, loadRound]);
 
   const filteredSubs = submissions.filter(s => filter === "all" || statusOf(s.submissionId) === filter);
 
@@ -150,6 +194,7 @@ export function JudgeScoringPage() {
     setScoreInputs(map);
     setNotice(null);
     setActionError(null);
+    setShowTeamDetail(false);
     // AI insight is per-submission — drop it when switching submissions.
     setAiInsight(null);
     setAiError(null);
@@ -157,7 +202,7 @@ export function JudgeScoringPage() {
   }, [selectedSubId, selectedSub, myScores]);
 
   async function askAi() {
-    if (!selectedSub) return;
+    if (!selectedSub || !open) return;
     setAiError(null);
     setAiLoading(true);
     try {
@@ -175,8 +220,12 @@ export function JudgeScoringPage() {
     return scoreInputs[critId]?.value ?? 0;
   }
 
+  // Overall score on a common 0–100 scale: weighted points earned ÷ weighted max,
+  // so per-criterion weights matter but the headline number is always out of 100.
   const weightedTotal = useMemo(() => {
-    return criteria.reduce((acc, c) => acc + getVal(c.criteriaId) * Number(c.weight), 0);
+    const earned = criteria.reduce((acc, c) => acc + getVal(c.criteriaId) * Number(c.weight), 0);
+    const max = criteria.reduce((acc, c) => acc + Number(c.maxScore) * Number(c.weight), 0);
+    return max > 0 ? (earned / max) * 100 : 0;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [criteria, scoreInputs]);
 
@@ -188,7 +237,7 @@ export function JudgeScoringPage() {
   }
 
   async function save(draft: boolean) {
-    if (!selectedSub) return;
+    if (!selectedSub || !open || isReadOnly) return;
     setActionError(null);
     // Client-side validation against maxScore.
     for (const c of criteria) {
@@ -228,6 +277,17 @@ export function JudgeScoringPage() {
 
   const statusBadge = (st: SubStatus) =>
     <PixelBadge color={st === "scored" ? "green" : st === "draft" ? "yellow" : "gray"}>{st.replace("_", " ")}</PixelBadge>;
+
+  const lockedTitle = judgingTimer.loadFailed
+    ? "KHÔNG THỂ XÁC MINH THỜI GIAN CHẤM"
+    : judgingTimer.loading
+      ? "ĐANG KIỂM TRA THỜI GIAN CHẤM…"
+      : "CHƯA TỚI GIỜ CHẤM BÀI";
+  const lockedMessage = judgingTimer.loadFailed
+    ? "Khu vực chấm đang được khóa an toàn. Vui lòng thử lại sau."
+    : judgingTimer.loading
+      ? "Đang đồng bộ trạng thái timer với hệ thống."
+      : "Event Coordinator chưa bắt đầu thời gian chấm cho vòng này.";
 
   return (
     <div style={{ padding: 24 }}>
@@ -273,7 +333,7 @@ export function JudgeScoringPage() {
               </div>
             </PixelCard>
 
-            {selectedRoundId && (
+            {selectedRoundId && workspaceAvailable && (
               <PixelCard style={{ padding: 14 }}>
                 <div style={{ display: "flex", gap: 4, marginBottom: 10, flexWrap: "wrap" }}>
                   {(["all", "not_scored", "draft", "scored"] as FilterType[]).map(f => (
@@ -305,7 +365,7 @@ export function JudgeScoringPage() {
                           textAlign: "left", cursor: "pointer", borderRadius: 0,
                           display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6,
                         }}>
-                        <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{codeOf(sub)}</span>
+                        <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{teamNameOf(sub)}</span>
                         {statusBadge(st)}
                       </button>
                     );
@@ -313,11 +373,30 @@ export function JudgeScoringPage() {
                 </div>
               </PixelCard>
             )}
+            {selectedRoundId && !workspaceAvailable && (
+              <PixelCard style={{ padding: 14 }}>
+                <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, marginBottom: 8, letterSpacing: "0.08em" }}>
+                  JUDGING STATUS
+                </div>
+                {!judgingTimer.loading && !judgingTimer.loadFailed && (
+                  <CountdownDisplay remainingSeconds={0} status="IDLE" size="sm" icon />
+                )}
+              </PixelCard>
+            )}
           </div>
 
           {/* Right panel */}
           <div style={{ flex: 1, minWidth: 320 }}>
-            {!selectedSub ? (
+            {!workspaceAvailable ? (
+              <PixelCard glow glowColor="cyan" style={{ padding: "64px 28px", textAlign: "center" }}>
+                <div style={{ color: judgingTimer.loadFailed ? C.red : C.cyanBright, fontFamily: "'JetBrains Mono', monospace", fontSize: 18, fontWeight: 800, letterSpacing: "0.06em", marginBottom: 12 }}>
+                  {lockedTitle}
+                </div>
+                <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, lineHeight: 1.7 }}>
+                  {lockedMessage}
+                </div>
+              </PixelCard>
+            ) : !selectedSub ? (
               <PixelCard style={{ padding: 40, textAlign: "center" }}>
                 <p style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 13 }}>Select a submission to score.</p>
               </PixelCard>
@@ -326,21 +405,30 @@ export function JudgeScoringPage() {
                 <PixelCard glow gradient style={{ padding: 20 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
                     <div>
-                      <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 20, fontWeight: 700 }}>{codeOf(selectedSub)}</div>
-                      <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginTop: 4 }}>
-                        {selectedRound?.name} · Submitted {fmtDateTime(selectedSub.submittedAt)}
-                      </div>
+                      <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 20, fontWeight: 700 }}>{teamNameOf(selectedSub)}</div>
+              <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginTop: 4 }}>
+                {selectedRound?.name} · Submitted {fmtDateTime(selectedSub.submittedAt)}
+              </div>
+              <div style={{ marginTop: 8 }}>
+                {(() => {
+                  const panelSize = teamsById.get(selectedSub.teamId)?.assignedJudgeCount ?? 1;
+                  return <PixelBadge color="cyan">PANEL · {panelSize} JUDGE{panelSize === 1 ? "" : "S"}</PixelBadge>;
+                })()}
+              </div>
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
                       {judgingTimer.isConfigured && <CountdownDisplay remainingSeconds={judgingTimer.remainingSeconds} status={judgingTimer.status} size="sm" icon />}
                       {isReadOnly && <PixelBadge color="green">SCORES SUBMITTED</PixelBadge>}
                     </div>
                   </div>
-                  <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap" }}>
-                    {selectedSub.repoUrl && <a href={selectedSub.repoUrl} target="_blank" rel="noreferrer"><PixelButton variant="secondary" size="sm">OPEN REPO</PixelButton></a>}
-                    {selectedSub.demoUrl && <a href={selectedSub.demoUrl} target="_blank" rel="noreferrer"><PixelButton variant="secondary" size="sm">OPEN DEMO</PixelButton></a>}
-                    {selectedSub.slideUrl && <a href={selectedSub.slideUrl} target="_blank" rel="noreferrer"><PixelButton variant="secondary" size="sm">OPEN SLIDES</PixelButton></a>}
-                    <PixelButton variant="cyber" size="sm" disabled={aiLoading} onClick={askAi}>
+                  <div style={{ display: "flex", gap: 8, marginTop: 12, flexWrap: "wrap", alignItems: "center" }}>
+                    {teamsById.has(selectedSub.teamId) && (
+                      <ActionIcon title="View team & members" onClick={() => setShowTeamDetail(true)}><Users size={15} strokeWidth={2.25} /></ActionIcon>
+                    )}
+                    {selectedSub.repoUrl && <ActionIcon title="Open repository" href={selectedSub.repoUrl}><Github size={15} strokeWidth={2.25} /></ActionIcon>}
+                    {selectedSub.demoUrl && <ActionIcon title="Open demo" href={selectedSub.demoUrl}><Play size={15} strokeWidth={2.25} /></ActionIcon>}
+                    {selectedSub.slideUrl && <ActionIcon title="Open slides" href={selectedSub.slideUrl}><FileText size={15} strokeWidth={2.25} /></ActionIcon>}
+                    <PixelButton variant="cyber" size="sm" disabled={aiLoading || !open} onClick={askAi}>
                       {aiLoading
                         ? "AI THINKING…"
                         : aiInsight
@@ -385,7 +473,7 @@ export function JudgeScoringPage() {
 
                             {!aiInsight.repo.analyzed && (
                               <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, lineHeight: 1.5 }}>
-                                {aiInsight.repo.note || "Không phân tích được mã nguồn."}
+                                {aiInsight.repo.note || "Could not analyze the source code."}
                               </div>
                             )}
 
@@ -487,12 +575,16 @@ export function JudgeScoringPage() {
                             <input
                               type="number" min={0} max={Number(c.maxScore)} step={0.1}
                               value={scoreInputs[c.criteriaId]?.value ?? ""}
-                              disabled={isReadOnly}
-                              onChange={(e) => setVal(c.criteriaId, e.target.value === "" ? 0 : Number(e.target.value))}
+                              disabled={isReadOnly || !open}
+                              onChange={(e) => {
+                                const normalizedValue = normalizeScoreInput(e.currentTarget.value);
+                                e.currentTarget.value = normalizedValue;
+                                setVal(c.criteriaId, normalizedValue === "" ? 0 : Number(normalizedValue));
+                              }}
                               style={{ width: 80, padding: "8px 10px", background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 14, borderRadius: 0, outline: "none" }}
                             />
                             <textarea
-                              placeholder="Comment..." disabled={isReadOnly}
+                              placeholder="Comment..." disabled={isReadOnly || !open}
                               value={scoreInputs[c.criteriaId]?.comment ?? ""}
                               onChange={(e) => setComment(c.criteriaId, e.target.value)}
                               style={{ flex: 1, padding: "8px 10px", background: C.surface, border: `1px solid ${C.border}`, color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, borderRadius: 0, outline: "none", minHeight: 38, resize: "vertical" }}
@@ -505,10 +597,12 @@ export function JudgeScoringPage() {
                 </PixelCard>
 
                 <PixelCard glow glowColor="cyan" style={{ padding: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div style={{ color: C.cyanBright, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em" }}>
-                    WEIGHTED TOTAL (Σ value × weight)
+                  <div style={{ color: C.cyanBright, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 800, letterSpacing: "0.08em" }}>
+                    OVERALL SCORE
                   </div>
-                  <div style={{ color: C.cyan, fontFamily: "'JetBrains Mono', monospace", fontSize: 24, fontWeight: 800 }}>{weightedTotal.toFixed(2)}</div>
+                  <div style={{ color: C.cyan, fontFamily: "'JetBrains Mono', monospace", fontSize: 24, fontWeight: 800 }}>
+                    {weightedTotal.toFixed(2)}<span style={{ fontSize: 24, color: C.textMuted }}> /100</span>
+                  </div>
                 </PixelCard>
 
                 {actionError && (
@@ -522,11 +616,7 @@ export function JudgeScoringPage() {
                   </div>
                 )}
 
-                {isReadOnly ? (
-                  <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11 }}>
-                    Final scores submitted — editing is locked. Ask a coordinator to reopen if a correction is needed.
-                  </div>
-                ) : (
+                {!isReadOnly && (
                   <div style={{ display: "flex", gap: 12 }}>
                     <PixelButton variant="secondary" disabled={busy || !open || criteria.length === 0} onClick={() => save(true)}>
                       SAVE DRAFT
@@ -540,6 +630,20 @@ export function JudgeScoringPage() {
             )}
           </div>
         </div>
+      )}
+
+      {showTeamDetail && selectedSub && teamsById.has(selectedSub.teamId) && (
+        <TeamDetailModal
+          open
+          teamName={teamsById.get(selectedSub.teamId)!.teamName}
+          infoRows={[
+            { label: "Round", value: selectedRound?.name ?? "—" },
+            { label: "Track", value: teamsById.get(selectedSub.teamId)!.trackName },
+            { label: "Members", value: teamsById.get(selectedSub.teamId)!.members.length },
+          ]}
+          members={teamsById.get(selectedSub.teamId)!.members}
+          onClose={() => setShowTeamDetail(false)}
+        />
       )}
     </div>
   );

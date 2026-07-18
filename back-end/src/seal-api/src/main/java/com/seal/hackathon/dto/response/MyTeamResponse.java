@@ -22,8 +22,10 @@ public class MyTeamResponse {
     private Integer teamId;
     private Integer eventId;
     private String eventName;
+    private String eventTopic;
     private Integer trackId;
     private String trackName;
+    private String trackDescription;
     private String name;
 
     /** Event lifecycle status (DRAFT/OPEN/SETUP/IN_PROGRESS/...) — drives the
@@ -36,11 +38,40 @@ public class MyTeamResponse {
     /** PENDING | APPROVED | REJECTED | DISQUALIFIED */
     private String status;
 
+    /** Current participating round, or the round where the team was disqualified. */
+    private RoundInfo round;
+
     /** The CURRENT user's role in this team: LEADER or MEMBER */
     private String myRole;
 
     /** All members of this team, including the current user */
     private List<TeamMemberInfo> members;
+
+    /** True if this team has a PENDING TeamRejoinRequest awaiting coordinator review. */
+    private Boolean hasPendingRejoinRequest;
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class RoundInfo {
+
+        private Integer roundId;
+
+        private String name;
+
+        private Integer orderNumber;
+
+        private String status;
+
+        private Boolean isFinal;
+
+        private LocalDateTime startTime;
+
+        private LocalDateTime endTime;
+
+        private LocalDateTime submissionDeadline;
+    }
 
     @Data
     @Builder
@@ -64,5 +95,9 @@ public class MyTeamResponse {
         private String role;
 
         private LocalDateTime joinedAt;
+
+        /** Whether this member's own account is currently active (see User.isActive) —
+         *  a member can be on the roster but still need their own separate reactivation. */
+        private Boolean isActive;
     }
 }

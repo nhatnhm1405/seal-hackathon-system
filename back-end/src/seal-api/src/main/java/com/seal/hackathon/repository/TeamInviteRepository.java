@@ -14,10 +14,12 @@ import java.util.Optional;
 @Repository
 public interface TeamInviteRepository extends JpaRepository<TeamInvite, Integer> {
     List<TeamInvite> findByInvitedUser_UserIdAndStatus(Integer userId, String status);
+    /** All invites belonging to a team — used to clean up before a team is dissolved. */
+    List<TeamInvite> findByTeam_TeamId(Integer teamId);
     Optional<TeamInvite> findByTeam_TeamIdAndInvitedUser_UserId(Integer teamId, Integer userId);
     boolean existsByTeam_TeamIdAndInvitedUser_UserId(Integer teamId, Integer userId);
 
-    List<TeamInvite> findByInvitedUser_UserIdAndStatusAndTeam_Event_EventId(
+    List<TeamInvite> findByInvitedUser_UserIdAndStatusAndEventId(
             Integer userId,
             String status,
             Integer eventId
