@@ -14,9 +14,9 @@ import com.seal.hackathon.repository.TeamEventEntryRepository;
 import com.seal.hackathon.repository.TeamMemberRepository;
 import com.seal.hackathon.repository.TeamRepository;
 import com.seal.hackathon.repository.UserRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -47,7 +47,15 @@ class JoinRequestServiceTest {
     @Mock private UserRepository userRepository;
     @Mock private NotificationService notificationService;
 
-    @InjectMocks private JoinRequestService joinRequestService;
+    private JoinRequestService joinRequestService;
+
+    @BeforeEach
+    void setUp() {
+        TeamAccessGuard teamAccessGuard = new TeamAccessGuard(teamRepository, teamMemberRepository, teamEventEntryRepository);
+        joinRequestService = new JoinRequestService(
+                joinRequestRepository, teamRepository, teamEventEntryRepository, teamMemberRepository,
+                userRepository, notificationService, teamAccessGuard);
+    }
 
     @Test
     void createJoinRequest_shouldSucceed_whenTeamIsPendingApproval() {

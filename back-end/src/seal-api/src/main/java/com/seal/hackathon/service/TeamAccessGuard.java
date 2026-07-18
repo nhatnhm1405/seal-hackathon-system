@@ -60,4 +60,12 @@ public class TeamAccessGuard {
     public String normalizeName(String name) {
         return name == null ? "" : name.trim().toUpperCase(Locale.ROOT);
     }
+
+    /** The team's current LEADER — every team is expected to have exactly one. */
+    public TeamMember findLeader(Team team) {
+        return teamMemberRepository.findByTeam_TeamId(team.getTeamId()).stream()
+                .filter(member -> "LEADER".equalsIgnoreCase(member.getMemberRole()))
+                .findFirst()
+                .orElseThrow(() -> new BadRequestException("This team does not have a leader."));
+    }
 }

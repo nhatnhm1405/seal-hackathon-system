@@ -1,44 +1,23 @@
-import { useEffect, useState, ReactNode } from "react";
+import { useEffect, useState } from "react";
 import {
   C, GradientText, PixelCard, PixelButton, PixelInput,
 } from "@/shared/components/PixelComponents";
 import { apiFetch, ApiError, apiErrorMessage, eventsApi, reopenRequestsApi, type ReopenRequest } from "@/shared/apiClient";
-import { ConfirmDialog, type ConfirmVariant } from "@/shared/components/ConfirmDialog";
+import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
 import { PixelMenu, type PixelMenuEntry } from "@/shared/components/PixelMenu";
 import { usePermissions } from "@/shared/permissions";
 import { useNotifications } from "@/app/providers/NotificationProvider";
 import {
-  TrackMode, EventRow, ApiEvent,
+  TrackMode, EventRow, ApiEvent, PendingAction,
   normalizeEvent, eventStatusBadge, EventDateBadge, EventName, pickDefaultEvent, EventsListCard,
-  parseDDMM, toDDMM,
+  parseDDMM, toDDMM, fmtDT,
 } from "@/features/events/eventUtils";
 
 // System Admin's event console. The Admin is the only role that can CREATE an
 // event, COMPLETE a running one, and REOPEN a completed one — and reviews the
 // reopen requests filed by Coordinators. Every state change is confirmed first.
 
-interface PendingAction {
-  title: string;
-  message: ReactNode;
-  warning?: ReactNode;
-  confirmLabel: string;
-  variant: ConfirmVariant;
-  requireTypedText?: string;
-  run: () => Promise<void>;
-}
-
 type EventSeason = 'SPRING' | 'SUMMER' | 'FALL';
-
-function fmtDateTime(iso?: string) {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return "—";
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const hh = String(d.getHours()).padStart(2, "0");
-  const min = String(d.getMinutes()).padStart(2, "0");
-  return `${dd}/${mm} ${hh}:${min}`;
-}
 
 function dateToLocalDateTime(date: string, time = "08:00:00") {
   if (!date) return undefined;
@@ -437,7 +416,7 @@ export function AdminEventsPage() {
                 <div style={{ minWidth: 0 }}>
                   <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 700 }}>{req.eventName}</div>
                   <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginTop: 3 }}>
-                    {req.requesterName ?? 'Coordinator'} · {fmtDateTime(req.createdAt)}
+                    {req.requesterName ?? 'Coordinator'} · {fmtDT(req.createdAt)}
                   </div>
                   {req.reason && (
                     <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginTop: 4, fontStyle: "italic" }}>"{req.reason}"</div>

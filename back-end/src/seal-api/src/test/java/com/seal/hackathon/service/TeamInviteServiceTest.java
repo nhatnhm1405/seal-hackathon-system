@@ -17,9 +17,9 @@ import com.seal.hackathon.repository.TeamInviteRepository;
 import com.seal.hackathon.repository.TeamMemberRepository;
 import com.seal.hackathon.repository.TeamRepository;
 import com.seal.hackathon.repository.UserRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -60,8 +60,15 @@ class TeamInviteServiceTest {
     @Mock
     private NotificationService notificationService;
 
-    @InjectMocks
     private TeamInviteService teamInviteService;
+
+    @BeforeEach
+    void setUp() {
+        TeamAccessGuard teamAccessGuard = new TeamAccessGuard(teamRepository, teamMemberRepository, teamEventEntryRepository);
+        teamInviteService = new TeamInviteService(
+                inviteRepository, teamRepository, teamEventEntryRepository, teamMemberRepository,
+                userRepository, notificationService, teamAccessGuard);
+    }
 
     @Test
     void createInvite_shouldCreatePendingInviteWithTrimmedMessage_whenRequestIsValid() {
