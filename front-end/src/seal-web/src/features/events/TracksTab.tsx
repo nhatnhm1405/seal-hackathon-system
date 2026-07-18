@@ -284,8 +284,11 @@ export function TracksTab({
       const approved = teams.filter(t => t.status === 'APPROVED');
       const currentCount = teamsForTrack(approved, targetTrackId).length;
       const targetTrack = tracks.find(t => t.trackId === targetTrackId);
+      // Always compare against the uniform ceiling (e.g. 4/4 everywhere), not each
+      // track's own backend-assigned capacity — the actual split can be uneven
+      // (4/4/3/3) but the displayed/enforced max must read the same on every track.
       const max = Math.max(
-        targetTrack?.capacity ?? maxTeamsPerTrack(approved.length, tracks.length),
+        maxTeamsPerTrack(approved.length, tracks.length),
         MIN_TEAMS_PER_TRACK,
       );
       if (wouldExceedMax(currentCount, max)) {
@@ -435,10 +438,10 @@ export function TracksTab({
           const trackTeams = teamsForTrack(approvedTeams, t.trackId);
           // PHẦN 2 — a track needs >= MIN_TEAMS_PER_TRACK teams to be valid.
           const underMinimum = showTrackStats && !isTrackValid(trackTeams.length);
-          // Capacity is computed per track by the backend (e.g. 15 teams
-          // across 4 tracks => 4/4/4/3). Fall back to the aggregate max,
-          // while never displaying a target below the business minimum.
-          const trackMax = Math.max(t.capacity ?? maxPerTrack, MIN_TEAMS_PER_TRACK);
+          // The backend distributes teams unevenly per track (e.g. 15 teams across
+          // 4 tracks => 4/4/4/3 actual counts), but the displayed max stays the
+          // same uniform ceiling on every track card — never below the minimum.
+          const trackMax = Math.max(maxPerTrack, MIN_TEAMS_PER_TRACK);
           const overCapacity = showTrackStats && trackTeams.length > trackMax;
           const trackTone = underMinimum ? "red" : overCapacity ? "amber" : "green";
           // Shared team list. In SETUP each row is draggable (PHẦN 4); the
