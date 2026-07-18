@@ -27,7 +27,9 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -438,6 +440,50 @@ class HackathonEventServiceTest {
         assertThrows(BadRequestException.class, () -> eventService.completeEvent(1));
 
         verify(participantHistorySnapshotService, never()).snapshotEventCompletion(any());
+    }
+
+    @Test
+    void completeEvent_shouldDeactivateTeam_whenTeamHasNoEntryInAnotherNonCompletedEvent() {
+        HackathonEvent completingEvent = event(1, "IN_PROGRESS");
+        Team team = Team.builder().teamId(500).name("Team 500").isActive(true).build();
+        TeamEventEntry entry = TeamEventEntry.builder().id(1).team(team).event(completingEvent).status("APPROVED").build();
+
+        when(hackathonEventRepository.findById(1)).thenReturn(Optional.of(completingEvent));
+        when(hackathonEventRepository.save(any(HackathonEvent.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(teamEventEntryRepository.findAllByEvent_EventId(1)).thenReturn(List.of(entry));
+        when(teamMemberRepository.findByTeam_TeamId(500)).thenReturn(List.of());
+        when(teamEventEntryRepository.findAllByTeam_TeamId(500)).thenReturn(List.of(entry));
+        when(judgeAssignmentRepository.findActiveByEvent(1)).thenReturn(List.of());
+
+        eventService.completeEvent(1);
+
+        assertFalse(team.getIsActive());
+        verify(teamRepository).saveAll(List.of(team));
+    }
+
+    @Test
+    void completeEvent_shouldKeepTeamActive_whenTeamHasEntryInAnotherNonCompletedEvent() {
+        // Multi-season scenario: a next-season event was already opened (non-COMPLETED
+        // status) before this admin got around to completing the older one — event date
+        // ranges can't overlap, but status transitions are manual, so this gap is real.
+        HackathonEvent completingEvent = event(1, "IN_PROGRESS");
+        HackathonEvent nextSeasonEvent = fallEvent(2, "OPEN", futureYear() + 1);
+        Team team = Team.builder().teamId(500).name("Team 500").isActive(true).build();
+        TeamEventEntry completingEntry = TeamEventEntry.builder().id(1).team(team).event(completingEvent).status("APPROVED").build();
+        TeamEventEntry nextSeasonEntry = TeamEventEntry.builder().id(2).team(team).event(nextSeasonEvent).status("APPROVED").build();
+
+        when(hackathonEventRepository.findById(1)).thenReturn(Optional.of(completingEvent));
+        when(hackathonEventRepository.save(any(HackathonEvent.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(teamEventEntryRepository.findAllByEvent_EventId(1)).thenReturn(List.of(completingEntry));
+        when(teamMemberRepository.findByTeam_TeamId(500)).thenReturn(List.of());
+        when(teamEventEntryRepository.findAllByTeam_TeamId(500))
+                .thenReturn(List.of(completingEntry, nextSeasonEntry));
+        when(judgeAssignmentRepository.findActiveByEvent(1)).thenReturn(List.of());
+
+        eventService.completeEvent(1);
+
+        assertTrue(team.getIsActive());
+        verify(teamRepository).saveAll(List.of());
     }
 
     // Helpers
