@@ -19,7 +19,10 @@ import com.seal.hackathon.dto.response.TeamResponse;
 import com.seal.hackathon.dto.response.UserResponse;
 import com.seal.hackathon.security.UserPrincipal;
 import com.seal.hackathon.service.LeftoverGroupingService;
-import com.seal.hackathon.service.TeamService;
+import com.seal.hackathon.service.TeamMembershipService;
+import com.seal.hackathon.service.TeamModerationService;
+import com.seal.hackathon.service.TeamQueryService;
+import com.seal.hackathon.service.TeamTrackAssignmentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -35,7 +38,10 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class TeamController {
 
-    private final TeamService teamService;
+    private final TeamQueryService teamQueryService;
+    private final TeamMembershipService teamMembershipService;
+    private final TeamModerationService teamModerationService;
+    private final TeamTrackAssignmentService teamTrackAssignmentService;
     private final LeftoverGroupingService leftoverGroupingService;
 
     // ── Participant endpoints ────────────────────────────────────────
@@ -48,7 +54,7 @@ public class TeamController {
         UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
         return ResponseEntity.ok(ApiResponse.success(
                 "Team created successfully. You are now the Team Leader.",
-                teamService.createTeam(principal.getUserId(), request)));
+                teamMembershipService.createTeam(principal.getUserId(), request)));
     }
 
     /**
@@ -61,7 +67,7 @@ public class TeamController {
     public ResponseEntity<ApiResponse<Boolean>> checkTeamName(
             @RequestParam Integer eventId,
             @RequestParam String name) {
-        return ResponseEntity.ok(ApiResponse.success("OK", teamService.teamNameExists(eventId, name)));
+        return ResponseEntity.ok(ApiResponse.success("OK", teamQueryService.teamNameExists(eventId, name)));
     }
 
     @GetMapping("/my")
@@ -69,7 +75,7 @@ public class TeamController {
     public ResponseEntity<ApiResponse<MyTeamResponse>> getMyTeam(Authentication authentication) {
         UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
         return ResponseEntity.ok(ApiResponse.success("My team retrieved successfully.",
-                teamService.getMyTeam(principal.getUserId())));
+                teamQueryService.getMyTeam(principal.getUserId())));
     }
 
     @GetMapping("/my/history")
@@ -77,7 +83,7 @@ public class TeamController {
     public ResponseEntity<ApiResponse<List<MyTeamResponse>>> getMyTeamHistory(Authentication authentication) {
         UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
         return ResponseEntity.ok(ApiResponse.success("My team history retrieved successfully.",
-                teamService.getMyTeamHistory(principal.getUserId())));
+                teamQueryService.getMyTeamHistory(principal.getUserId())));
     }
 
     @GetMapping("/my/result-history")
@@ -85,7 +91,7 @@ public class TeamController {
     public ResponseEntity<ApiResponse<List<TeamHistoryResponse>>> getMyResultHistory(Authentication authentication) {
         UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
         return ResponseEntity.ok(ApiResponse.success("My result history retrieved successfully.",
-                teamService.getMyResultHistory(principal.getUserId())));
+                teamQueryService.getMyResultHistory(principal.getUserId())));
     }
 
     @GetMapping("/my/event/{eventId}")
@@ -95,13 +101,13 @@ public class TeamController {
             Authentication authentication) {
         UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
         return ResponseEntity.ok(ApiResponse.success("My team retrieved successfully.",
-                teamService.getMyTeamByEvent(principal.getUserId(), eventId)));
+                teamQueryService.getMyTeamByEvent(principal.getUserId(), eventId)));
     }
 
     @GetMapping("/active-events")
     public ResponseEntity<ApiResponse<List<ActiveEventResponse>>> getActiveEvents() {
         return ResponseEntity.ok(ApiResponse.success("Active events retrieved successfully.",
-                teamService.getActiveEventsWithTracks()));
+                teamQueryService.getActiveEventsWithTracks()));
     }
 
     // SELF_SELECT events: the team leader picks the team's track during SETUP.
@@ -113,7 +119,7 @@ public class TeamController {
             Authentication authentication) {
         UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
         return ResponseEntity.ok(ApiResponse.success("Track selected.",
-                teamService.selectTrack(principal.getUserId(), teamId, request.getTrackId())));
+                teamTrackAssignmentService.selectTrack(principal.getUserId(), teamId, request.getTrackId())));
     }
 
     // ── Participant: team management ─────────────────────────────────
@@ -122,7 +128,7 @@ public class TeamController {
     @PreAuthorize("hasRole('PARTICIPANT')")
     public ResponseEntity<ApiResponse<List<UserResponse>>> searchUsers(@RequestParam String query) {
         return ResponseEntity.ok(ApiResponse.success("Users retrieved.",
-                teamService.searchInvitableUsers(query)));
+                teamQueryService.searchInvitableUsers(query)));
     }
 
     @PutMapping("/{teamId}")
@@ -133,7 +139,7 @@ public class TeamController {
             Authentication authentication) {
         UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
         return ResponseEntity.ok(ApiResponse.success("Team updated.",
-                teamService.updateTeam(principal.getUserId(), teamId, request)));
+                teamMembershipService.updateTeam(principal.getUserId(), teamId, request)));
     }
 
     @DeleteMapping("/{teamId}/members/{userId}")
@@ -144,7 +150,7 @@ public class TeamController {
             Authentication authentication) {
         UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
         return ResponseEntity.ok(ApiResponse.success("Member removed.",
-                teamService.removeMember(principal.getUserId(), teamId, userId)));
+                teamMembershipService.removeMember(principal.getUserId(), teamId, userId)));
     }
 
     @PutMapping("/{teamId}/transfer/{newLeaderUserId}")
@@ -155,7 +161,7 @@ public class TeamController {
             Authentication authentication) {
         UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
         return ResponseEntity.ok(ApiResponse.success("Leadership transferred.",
-                teamService.transferLeadership(principal.getUserId(), teamId, newLeaderUserId)));
+                teamMembershipService.transferLeadership(principal.getUserId(), teamId, newLeaderUserId)));
     }
 
     @PostMapping("/{teamId}/leave")
@@ -164,7 +170,7 @@ public class TeamController {
             @PathVariable Integer teamId,
             Authentication authentication) {
         UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
-        teamService.leaveTeam(principal.getUserId(), teamId);
+        teamMembershipService.leaveTeam(principal.getUserId(), teamId);
         return ResponseEntity.ok(ApiResponse.success("You have left the team.", null));
     }
 
@@ -176,7 +182,7 @@ public class TeamController {
             @PathVariable Integer eventId,
             Authentication authentication) {
         UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
-        teamService.leaveEvent(principal.getUserId(), eventId);
+        teamMembershipService.leaveEvent(principal.getUserId(), eventId);
         return ResponseEntity.ok(ApiResponse.success("You have left this event.", null));
     }
 
@@ -186,7 +192,7 @@ public class TeamController {
     @PreAuthorize("hasRole('EVENT_COORDINATOR')")
     public ResponseEntity<ApiResponse<List<TeamDetailResponse>>> getTeamsByEvent(@PathVariable Integer eventId) {
         return ResponseEntity.ok(ApiResponse.success("Teams retrieved successfully.",
-                teamService.getTeamsByEvent(eventId)));
+                teamQueryService.getTeamsByEvent(eventId)));
     }
 
     // Backs the Coordinator sidebar's "Teams" badge — a cross-event count so it's
@@ -195,14 +201,14 @@ public class TeamController {
     @PreAuthorize("hasRole('EVENT_COORDINATOR')")
     public ResponseEntity<ApiResponse<Map<String, Long>>> getPendingTeamsCount() {
         return ResponseEntity.ok(ApiResponse.success("Pending teams count retrieved.",
-                Map.of("count", teamService.getPendingTeamsCount())));
+                Map.of("count", teamQueryService.getPendingTeamsCount())));
     }
 
     @GetMapping("/{teamId}")
     @PreAuthorize("hasAnyRole('EVENT_COORDINATOR', 'MENTOR')")
     public ResponseEntity<ApiResponse<TeamDetailResponse>> getTeamById(@PathVariable Integer teamId) {
         return ResponseEntity.ok(ApiResponse.success("Team retrieved successfully.",
-                teamService.getTeamById(teamId)));
+                teamQueryService.getTeamById(teamId)));
     }
 
     // Leftover-team grouping — SETUP phase, run BEFORE the track draw. Preview is a
@@ -264,7 +270,7 @@ public class TeamController {
             Authentication authentication) {
         UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
         return ResponseEntity.ok(ApiResponse.success("Tracks drawn successfully.",
-                teamService.drawTracks(eventId, includeAssigned, principal.getUserId(), reason)));
+                teamTrackAssignmentService.drawTracks(eventId, includeAssigned, principal.getUserId(), reason)));
     }
 
     // Coordinator drag-and-drop: (re)assign a team to a track, or unassign it
@@ -278,14 +284,14 @@ public class TeamController {
         UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
         Integer trackId = request != null ? request.getTrackId() : null;
         return ResponseEntity.ok(ApiResponse.success("Team assignment updated.",
-                teamService.assignTeamToTrack(principal.getUserId(), teamId, trackId)));
+                teamTrackAssignmentService.assignTeamToTrack(principal.getUserId(), teamId, trackId)));
     }
 
     @PutMapping("/{teamId}/approve")
     @PreAuthorize("hasRole('EVENT_COORDINATOR')")
     public ResponseEntity<ApiResponse<TeamDetailResponse>> approveTeam(@PathVariable Integer teamId) {
         return ResponseEntity.ok(ApiResponse.success("Team approved successfully.",
-                teamService.approveTeam(teamId)));
+                teamModerationService.approveTeam(teamId)));
     }
 
     @PutMapping("/{teamId}/reject")
@@ -294,7 +300,7 @@ public class TeamController {
             @PathVariable Integer teamId,
             @RequestBody(required = false) RejectTeamRequest request) {
         return ResponseEntity.ok(ApiResponse.success("Team rejected.",
-                teamService.rejectTeam(teamId, request)));
+                teamModerationService.rejectTeam(teamId, request)));
     }
 
     @PutMapping("/{teamId}/disqualify")
@@ -303,7 +309,7 @@ public class TeamController {
             @PathVariable Integer teamId,
             @RequestBody(required = false) RejectTeamRequest request) {
         return ResponseEntity.ok(ApiResponse.success("Team disqualified.",
-                teamService.disqualifyTeam(teamId, request)));
+                teamModerationService.disqualifyTeam(teamId, request)));
     }
 
     // Coordinator removes one specific member during a live (IN_PROGRESS) competition
@@ -318,6 +324,6 @@ public class TeamController {
             Authentication authentication) {
         UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
         return ResponseEntity.ok(ApiResponse.success("Member removed from the competition.",
-                teamService.coordinatorRemoveMember(principal.getUserId(), teamId, userId, request.getReason())));
+                teamModerationService.coordinatorRemoveMember(principal.getUserId(), teamId, userId, request.getReason())));
     }
 }

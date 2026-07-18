@@ -243,7 +243,7 @@ public class TeamInviteService {
             throw new BadRequestException("Team invitations are only allowed during registration or setup.");
         }
         // A not-yet-approved (PENDING) team may still build its roster; approval only
-        // gates track selection (see TeamService#selectTrack). Rejected/disqualified
+        // gates track selection (see TeamTrackAssignmentService#selectTrack). Rejected/disqualified
         // teams are done, so they cannot invite.
         if ("REJECTED".equalsIgnoreCase(entry.getStatus())
                 || "DISQUALIFIED".equalsIgnoreCase(entry.getStatus())) {

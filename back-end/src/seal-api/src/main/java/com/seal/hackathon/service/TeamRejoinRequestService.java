@@ -136,7 +136,7 @@ public class TeamRejoinRequestService {
         return mapToResponse(request, event);
     }
 
-    /** Loads the team and asserts the given user is its LEADER (mirrors TeamService#requireLeader). */
+    /** Loads the team and asserts the given user is its LEADER (mirrors TeamAccessGuard#requireLeader). */
     private Team requireLeader(Integer userId, Integer teamId) {
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new ResourceNotFoundException("Team not found: " + teamId));
