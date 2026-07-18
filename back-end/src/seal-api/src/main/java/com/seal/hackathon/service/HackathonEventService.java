@@ -339,8 +339,15 @@ public class HackathonEventService {
 
         // Teams mirror User's isActive: no longer "in a running competition" once
         // the event completes. A DISQUALIFIED entry already flipped this earlier —
-        // leave it false either way, it's a no-op to re-set it.
-        List<Team> teams = entries.stream().map(TeamEventEntry::getTeam).distinct().collect(Collectors.toList());
+        // leave it false either way, it's a no-op to re-set it. Same guard as the
+        // student loop above: a team with a live entry in another non-completed
+        // event (e.g. next season already opened before this one was marked
+        // Complete) must stay active.
+        List<Team> teams = entries.stream()
+                .map(TeamEventEntry::getTeam)
+                .distinct()
+                .filter(team -> !hasNonCompletedEntryElsewhere(team, completedEventId))
+                .collect(Collectors.toList());
         teams.forEach(team -> team.setIsActive(false));
         teamRepository.saveAll(teams);
 
@@ -399,6 +406,17 @@ public class HackathonEventService {
         return teamMemberRepository.findByUser_UserIdOrderByIdDesc(user.getUserId()).stream()
                 .flatMap(member -> teamEventEntryRepository
                         .findAllByTeam_TeamId(member.getTeam().getTeamId()).stream())
+                .map(TeamEventEntry::getEvent)
+                .filter(event -> !event.getEventId().equals(completedEventId))
+                .anyMatch(event -> !"COMPLETED".equalsIgnoreCase(event.getStatus()));
+    }
+
+    // Team-level counterpart of hasNonCompletedMembership: true if this team has a
+    // season entry in some other event that isn't COMPLETED yet (status transitions
+    // are manual, so a new season can already be open before the old one is marked
+    // Complete), meaning the team must not be deactivated by that other event.
+    private boolean hasNonCompletedEntryElsewhere(Team team, Integer completedEventId) {
+        return teamEventEntryRepository.findAllByTeam_TeamId(team.getTeamId()).stream()
                 .map(TeamEventEntry::getEvent)
                 .filter(event -> !event.getEventId().equals(completedEventId))
                 .anyMatch(event -> !"COMPLETED".equalsIgnoreCase(event.getStatus()));
