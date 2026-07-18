@@ -170,6 +170,7 @@ public class DemoFixtures {
                 .name(name).season(season).year(year)
                 .status(status).trackSelectionMode(mode)
                 .description("Seeded demo event — safe to delete.")
+                .topic("AI-Driven Smart Operations: Turning Real-Time IoT Data into Intelligent Actions")
                 .registrationStart(regStart).registrationEnd(regEnd)
                 .startDate(start).endDate(end)
                 .build());

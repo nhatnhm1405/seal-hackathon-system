@@ -337,6 +337,9 @@ export function CoordEventsPage() {
                 {eventStatusBadge(selectedEvent.status)}
                 <EventDateBadge ev={selectedEvent} />
               </div>
+              {selectedEvent.topic && (
+                <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, marginTop: 4 }}>{selectedEvent.topic}</div>
+              )}
               <div style={{ display: "flex", gap: 8, alignItems: "center", marginTop: 8 }}>
                 <span style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.05em" }}>TRACK ASSIGNMENT:</span>
                 {(selectedEvent.status === 'DRAFT' || selectedEvent.status === 'OPEN') ? (

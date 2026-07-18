@@ -18,6 +18,7 @@ public class ActiveEventResponse {
     private String season;
     private Integer year;
     private String description;
+    private String topic;
     private LocalDateTime registrationStart;
     private LocalDateTime registrationEnd;
     private LocalDateTime startDate;

@@ -39,7 +39,7 @@ public class DemoScenario {
 
     private static final Logger log = LoggerFactory.getLogger(DemoScenario.class);
 
-    public static final String DEMO_EVENT_NAME = "SEAL Demo Summer 2026";
+    public static final String DEMO_EVENT_NAME = "SEAL Summer 2026";
     /** Seeded in every scenario (incl. S0) — used as the "already seeded?" guard. */
     public static final String COORDINATOR_EMAIL = "coordinator@fpt.edu.vn";
     private static final int YEAR = 2026;

@@ -833,6 +833,9 @@ function EventsSection({ data }: { data: LandingData }) {
                     <div className="glitch-text" style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 700 }}>{current.name}</div>
                     <PixelBadge color={cur.color}>{cur.label}</PixelBadge>
                   </div>
+                  {current.topic && (
+                    <div style={{ color: accent, fontFamily: "'JetBrains Mono', monospace", fontSize: 12.5, marginBottom: 8, lineHeight: 1.5 }}>{current.topic}</div>
+                  )}
                   <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 13 }}>
                     {current.season} · {current.year}{activeRound ? ` · Current round: ${activeRound.name}` : ""}
                   </div>

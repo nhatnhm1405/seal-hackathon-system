@@ -55,6 +55,7 @@ export interface MyTeam {
   teamId: number;
   eventId?: number;
   eventName?: string;
+  eventTopic?: string;
   trackId?: number | null;
   trackName?: string;
   trackDescription?: string | null;

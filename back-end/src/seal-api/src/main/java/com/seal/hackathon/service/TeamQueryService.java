@@ -232,6 +232,7 @@ public class TeamQueryService {
                             .season(event.getSeason())
                             .year(event.getYear())
                             .description(event.getDescription())
+                            .topic(event.getTopic())
                             .registrationStart(event.getRegistrationStart())
                             .registrationEnd(event.getRegistrationEnd())
                             .startDate(event.getStartDate())

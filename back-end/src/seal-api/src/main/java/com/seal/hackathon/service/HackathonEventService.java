@@ -128,6 +128,7 @@ public class HackathonEventService {
                 .season(season)
                 .year(year)
                 .description(request.getDescription())
+                .topic(request.getTopic())
                 .registrationStart(request.getRegistrationStart())
                 .registrationEnd(request.getRegistrationEnd())
                 .startDate(request.getStartDate())
@@ -168,6 +169,9 @@ public class HackathonEventService {
         }
         if (request.getDescription() != null) {
             event.setDescription(request.getDescription());
+        }
+        if (request.getTopic() != null) {
+            event.setTopic(request.getTopic());
         }
         if (request.getRegistrationStart() != null) {
             effectiveRegistrationStart = request.getRegistrationStart();
@@ -270,7 +274,7 @@ public class HackathonEventService {
         lockCompletedEventParticipantsReadOnly(event.getEventId());
         // Freeze every current participant's result for this event — the
         // "stayed till the end" half of participant history; departures
-        // before this point are snapshotted separately in TeamService.
+        // before this point are snapshotted separately in TeamMembershipService.
         participantHistorySnapshotService.snapshotEventCompletion(event.getEventId());
         return mapToResponse(event);
     }
@@ -634,6 +638,7 @@ public class HackathonEventService {
                 .season(event.getSeason())
                 .year(event.getYear())
                 .description(event.getDescription())
+                .topic(event.getTopic())
                 .registrationStart(event.getRegistrationStart())
                 .registrationEnd(event.getRegistrationEnd())
                 .startDate(event.getStartDate())

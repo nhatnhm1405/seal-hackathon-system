@@ -171,12 +171,15 @@ export function CoordinatorDashboard() {
               MANAGE →
             </PixelButton>
           </div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
             <EventName size={20}>{event.name}</EventName>
             <PixelBadge color={statusBadgeColor(event.status)}>
               {event.status}
             </PixelBadge>
           </div>
+          {event.topic && (
+            <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, marginBottom: 12 }}>{event.topic}</div>
+          )}
           <PixelProgress value={closedRounds} max={roundCount || 1} label="Round progress" gradient />
         </PixelCard>
       )}

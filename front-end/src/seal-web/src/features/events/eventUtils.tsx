@@ -16,6 +16,7 @@ export interface ApiEvent {
   season?: string;
   year?: number;
   description?: string | null;
+  topic?: string | null;
   registrationStart?: string; registration_start?: string;
   registrationEnd?: string; registration_end?: string;
   startDate?: string; start_date?: string;
@@ -29,6 +30,7 @@ export interface EventRow {
   name: string;
   season: string;
   year: number | null;
+  topic: string;
   registrationStart: string;
   registrationEnd: string;
   startDate: string;
@@ -76,6 +78,7 @@ export function normalizeEvent(item: ApiEvent): EventRow {
     name:              item.name ?? '',
     season:            item.season ?? '',
     year:              item.year ?? null,
+    topic:             item.topic ?? '',
     registrationStart: item.registrationStart ?? item.registration_start ?? '',
     registrationEnd:   item.registrationEnd ?? item.registration_end ?? '',
     startDate:         item.startDate ?? item.start_date ?? '',

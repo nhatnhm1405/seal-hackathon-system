@@ -8,6 +8,7 @@ export interface HackathonEvent {
   season: string;
   year: number;
   description?: string;
+  topic?: string;
   registrationStart: string;
   registrationEnd: string;
   startDate: string;
@@ -21,6 +22,7 @@ export interface CreateEventPayload {
   season: string;
   year: number;
   description?: string;
+  topic?: string;
   registrationStart: string;
   registrationEnd: string;
   startDate: string;
@@ -32,6 +34,7 @@ export interface CreateEventPayload {
 export interface UpdateEventPayload {
   name?: string;
   description?: string;
+  topic?: string;
   status?: string;
   trackSelectionMode?: string;
   registrationStart?: string;

@@ -228,6 +228,9 @@ export function NoTeamDashboard({
                                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 18, flexWrap: "wrap" }}>
                                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                                         <EventName size={28}>{ev.name}</EventName>
+                                        {ev.topic && (
+                                            <div style={{ color: txt, fontFamily: "'JetBrains Mono', monospace", fontSize: 12.5, opacity: 0.8 }}>{ev.topic}</div>
+                                        )}
                                         <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
                                             <span style={{ color: txt, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 800 }}>
                                                 {fmtShort(ev.startDate)} - {fmtShort(ev.endDate)}

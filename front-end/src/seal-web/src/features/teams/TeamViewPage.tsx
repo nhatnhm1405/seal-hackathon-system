@@ -378,6 +378,9 @@ export function TeamViewPage() {
             <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 20, fontWeight: 900, lineHeight: 1.2 }}>
               {team.eventName ?? "—"}
             </div>
+            {team.eventTopic && (
+              <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, marginTop: 4 }}>{team.eventTopic}</div>
+            )}
           </div>
           <PixelBadge color={eventStatusBadgeColor(team.eventStatus)}>{team.eventStatus ?? "—"}</PixelBadge>
         </div>

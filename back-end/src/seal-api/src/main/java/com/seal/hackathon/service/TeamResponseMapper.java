@@ -71,6 +71,7 @@ public class TeamResponseMapper {
                 .teamId(team.getTeamId())
                 .eventId(entry.getEvent().getEventId())
                 .eventName(entry.getEvent().getName())
+                .eventTopic(entry.getEvent().getTopic())
                 .trackId(entry.getTrack() != null ? entry.getTrack().getTrackId() : null)
                 .trackName(entry.getTrack() != null ? entry.getTrack().getName() : null)
                 .trackDescription(entry.getTrack() != null ? entry.getTrack().getDescription() : null)
