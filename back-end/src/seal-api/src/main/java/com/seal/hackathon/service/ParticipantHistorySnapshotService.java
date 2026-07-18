@@ -21,7 +21,7 @@ import java.util.stream.Collectors;
 
 /**
  * Computes and freezes a participant's per-event result — the archival
- * counterpart to {@link TeamService}'s live team views. A {@code TeamMember}
+ * counterpart to {@link TeamQueryService}'s live team views. A {@code TeamMember}
  * row is hard-deleted on every departure path (leave, leader-remove,
  * coordinator-remove), so without a snapshot taken *before* that delete, a
  * participant who leaves early loses all history for that season. Snapshots
@@ -55,7 +55,7 @@ public class ParticipantHistorySnapshotService {
     /**
      * Computes a participant's result view for one (membership, entry) pair —
      * single source of truth reused for both the live "My History" read path
-     * (see {@link TeamService#getMyResultHistory}) and the frozen snapshot
+     * (see {@link TeamQueryService#getMyResultHistory}) and the frozen snapshot
      * payload below. A team competing across multiple seasons (rejoin) has
      * round results/submissions/prizes from every season on the same team_id,
      * so every lookup here is filtered to this entry's own event.
@@ -145,7 +145,7 @@ public class ParticipantHistorySnapshotService {
      * timestamp, so the only bound available is: exclude a season already
      * superseded by a newer entry before this member ever joined. Newest
      * first. Shared by the live "My History" read path
-     * ({@link TeamService#getMyResultHistory}) and {@link #snapshotDeparture}
+     * ({@link TeamQueryService#getMyResultHistory}) and {@link #snapshotDeparture}
      * below — both need the identical set, or a departure snapshot could
      * cover a different (narrower) set of seasons than what was visible live
      * a moment earlier.

@@ -43,6 +43,7 @@ public class TeamInviteService {
     private final TeamMemberRepository teamMemberRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final TeamAccessGuard teamAccessGuard;
 
     @Transactional
     public TeamInviteResponse createInvite(Integer inviterId, Integer teamId, CreateInviteRequest request) {
@@ -53,7 +54,7 @@ public class TeamInviteService {
 
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new ResourceNotFoundException("Team not found: " + teamId));
-        TeamEventEntry entry = requireCurrentEntry(team);
+        TeamEventEntry entry = teamAccessGuard.requireCurrentEntry(team);
         User inviter = requireApprovedActiveUser(inviterId, "Inviter");
 
         boolean isLeader = teamMemberRepository.findByTeam_TeamId(teamId).stream()
@@ -156,7 +157,7 @@ public class TeamInviteService {
                 .build();
         saveMember(member);
 
-        TeamMember leader = findCurrentLeader(team);
+        TeamMember leader = teamAccessGuard.findLeader(team);
         notificationService.createNotification(
                 leader.getUser().getUserId(),
                 "Invitation accepted",
@@ -243,7 +244,7 @@ public class TeamInviteService {
             throw new BadRequestException("Team invitations are only allowed during registration or setup.");
         }
         // A not-yet-approved (PENDING) team may still build its roster; approval only
-        // gates track selection (see TeamService#selectTrack). Rejected/disqualified
+        // gates track selection (see TeamTrackAssignmentService#selectTrack). Rejected/disqualified
         // teams are done, so they cannot invite.
         if ("REJECTED".equalsIgnoreCase(entry.getStatus())
                 || "DISQUALIFIED".equalsIgnoreCase(entry.getStatus())) {
@@ -257,17 +258,6 @@ public class TeamInviteService {
     private Team lockTeam(Integer teamId) {
         return teamRepository.findByIdForUpdate(teamId)
                 .orElseThrow(() -> new ResourceNotFoundException("Team not found: " + teamId));
-    }
-
-    /**
-     * Resolves the team's current {@link TeamEventEntry} — the most recently
-     * created one. A team is only ever mid-review under one live season at a
-     * time in practice (rejoin isn't built yet), so this is unambiguous.
-     */
-    private TeamEventEntry requireCurrentEntry(Team team) {
-        return teamEventEntryRepository.findTopByTeam_TeamIdOrderByIdDesc(team.getTeamId())
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "No season participation found for team: " + team.getTeamId()));
     }
 
     private String normalizeMessage(CreateInviteRequest request) {
@@ -295,13 +285,6 @@ public class TeamInviteService {
         } catch (DataIntegrityViolationException ex) {
             throw new BadRequestException("This user is already a member of this team.");
         }
-    }
-
-    private TeamMember findCurrentLeader(Team team) {
-        return teamMemberRepository.findByTeam_TeamId(team.getTeamId()).stream()
-                .filter(member -> "LEADER".equalsIgnoreCase(member.getMemberRole()))
-                .findFirst()
-                .orElseThrow(() -> new BadRequestException("This team does not have a leader."));
     }
 
     private TeamInviteResponse mapToResponse(TeamInvite invite) {

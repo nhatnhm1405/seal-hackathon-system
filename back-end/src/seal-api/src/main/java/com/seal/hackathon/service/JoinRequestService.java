@@ -42,6 +42,7 @@ public class JoinRequestService {
     private final TeamMemberRepository teamMemberRepository;
     private final UserRepository userRepository;
     private final NotificationService notificationService;
+    private final TeamAccessGuard teamAccessGuard;
 
     @Transactional
     public JoinRequestResponse createJoinRequest(Integer requesterUserId, Integer teamId,
@@ -50,7 +51,7 @@ public class JoinRequestService {
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + requesterUserId));
         Team team = teamRepository.findById(teamId)
                 .orElseThrow(() -> new ResourceNotFoundException("Team not found: " + teamId));
-        TeamEventEntry entry = requireCurrentEntry(team);
+        TeamEventEntry entry = teamAccessGuard.requireCurrentEntry(team);
 
         validateRequesterCanAskToJoin(requester, entry);
 
@@ -230,17 +231,6 @@ public class JoinRequestService {
         return team;
     }
 
-    /**
-     * Resolves the team's current {@link TeamEventEntry} — the most recently
-     * created one. A team is only ever mid-review under one live season at a
-     * time in practice (rejoin isn't built yet), so this is unambiguous.
-     */
-    private TeamEventEntry requireCurrentEntry(Team team) {
-        return teamEventEntryRepository.findTopByTeam_TeamIdOrderByIdDesc(team.getTeamId())
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "No season participation found for team: " + team.getTeamId()));
-    }
-
     private JoinRequest requirePendingRequest(Integer requestId) {
         JoinRequest joinRequest = joinRequestRepository.findById(requestId)
                 .orElseThrow(() -> new ResourceNotFoundException("Join request not found: " + requestId));
@@ -267,7 +257,7 @@ public class JoinRequestService {
     }
 
     private void notifyLeaderAboutJoinRequest(JoinRequest joinRequest) {
-        TeamMember leader = findLeader(joinRequest.getTeam());
+        TeamMember leader = teamAccessGuard.findLeader(joinRequest.getTeam());
         notificationService.createNotification(
                 leader.getUser().getUserId(),
                 "New join request",
@@ -290,13 +280,6 @@ public class JoinRequestService {
         );
     }
 
-    private TeamMember findLeader(Team team) {
-        return teamMemberRepository.findByTeam_TeamId(team.getTeamId()).stream()
-                .filter(member -> "LEADER".equalsIgnoreCase(member.getMemberRole()))
-                .findFirst()
-                .orElseThrow(() -> new BadRequestException("This team does not have a leader."));
-    }
-
     private boolean matchesQuery(TeamEventEntry entry, String query) {
         if (query == null || query.isBlank()) {
             return true;
@@ -317,7 +300,7 @@ public class JoinRequestService {
 
     private JoinableTeamResponse mapToJoinableTeamResponse(TeamEventEntry entry, Integer requesterUserId) {
         Team team = entry.getTeam();
-        TeamMember leader = findLeader(team);
+        TeamMember leader = teamAccessGuard.findLeader(team);
         Optional<JoinRequest> myRequest = joinRequestRepository
                 .findByTeam_TeamIdAndRequester_UserId(team.getTeamId(), requesterUserId);
 

@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Run the SEAL app in code-first mode and seed one demo scenario (S0..S3).
+    Run the SEAL app in code-first mode and seed one demo scenario (S1/S25/S3).
 
 .DESCRIPTION
     Bundles the manual steps into a single command:
@@ -13,11 +13,13 @@
     old data it SKIPS seeding. A clean drop means a clean reseed.
 
 .PARAMETER Scenario
-    NONE | S0 | S1 | S2 | S25 | S3  (default NONE = real run, no fake data)
+    NONE | S1 | S25 | S3  (default NONE = real run, no fake data)
       NONE  bootstrap admin only
-      S0    + all demo accounts (pre-approved)
-      S1    + OPEN event + track/round/criteria + 15 forming teams
-      S2    + complete preliminary scores, ready to rank       (IN_PROGRESS)
+      S1    all demo accounts + OPEN event + track/round/criteria + 15 forming teams.
+            Everything from here — SETUP config, leftover grouping, track draw
+            (default RANDOM; SELF_SELECT also works), starting the event,
+            submitting, and judge scoring with the round timer running — is
+            demoed live through the app rather than pre-seeded.
       S25   + prelim finalized + final round fully scored,
             ready to calculate the final ranking then award    (IN_PROGRESS)
       S3    + rankings + final scores/results + prizes         (COMPLETED)
@@ -31,13 +33,13 @@
 .EXAMPLE
     ./run-demo.ps1 S3            # full demo: scores, rankings, prizes
 .EXAMPLE
-    ./run-demo.ps1 S2 -Force     # calculate-ranking demo, no confirm before drop
+    ./run-demo.ps1 S1 -Force     # live-flow demo from OPEN registration onward
 .EXAMPLE
     ./run-demo.ps1               # NONE - clean run
 #>
 [CmdletBinding()]
 param(
-    [ValidateSet('NONE', 'S0', 'S1', 'S2', 'S25', 'S3')]
+    [ValidateSet('NONE', 'S1', 'S25', 'S3')]
     [string]$Scenario = 'NONE',
     [switch]$Force,
     [switch]$NoDrop

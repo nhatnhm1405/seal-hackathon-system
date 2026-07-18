@@ -25,6 +25,9 @@ public class CreateEventRequest {
 
     private String description;
 
+    @Size(max = 500, message = "Topic must not exceed 500 characters")
+    private String topic;
+
     @NotNull(message = "Registration start date is required")
     private LocalDateTime registrationStart;
 

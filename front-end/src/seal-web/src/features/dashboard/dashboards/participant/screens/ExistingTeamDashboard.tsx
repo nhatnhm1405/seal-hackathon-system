@@ -335,8 +335,9 @@ export function ExistingTeamDashboard({ inactive, requestingActive, activeReques
                                 PENDING COORDINATOR APPROVAL — You cannot submit until approved.
                             </div>
                         )}
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 16 }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "0.8fr 1.5fr 1fr 1fr", gap: 16 }}>
                             <InfoRow label="Team" value={team.name} accent="green" />
+                            <InfoRow label="Event" value={team.eventName ?? "—"} sub={team.eventTopic} accent="blue" />
                             {needsTrackPick ? (
                                 <InfoRow label="Track" accent="cyan" action={
                                     <button
@@ -357,7 +358,6 @@ export function ExistingTeamDashboard({ inactive, requestingActive, activeReques
                             ) : (
                                 <InfoRow label="Track" value={team.trackName ?? "—"} accent="cyan" mentorNames={mentorNames} />
                             )}
-                            <InfoRow label="Event" value={team.eventName ?? "—"} accent="blue" />
                             <InfoRow
                                 label={eliminated || waitingForResults || eligibilityUnavailable ? "Journey Status" : "Current Round"}
                                 value={eliminated || waitingForResults
@@ -439,7 +439,7 @@ function GlassStat({ rgb, valueColor, label, value, sublabel, dark }: {
     );
 }
 
-function InfoRow({ label, value, badge, action, mentorNames, accent = "green" }: { label: string; value?: string; badge?: string; action?: ReactNode; mentorNames?: string[]; accent?: "green" | "blue" | "cyan" | "purple" }) {
+function InfoRow({ label, value, badge, action, mentorNames, sub, accent = "green" }: { label: string; value?: string; badge?: string; action?: ReactNode; mentorNames?: string[]; sub?: string; accent?: "green" | "blue" | "cyan" | "purple" }) {
     const { theme } = useTheme();
     const dark = theme === "dark";
     // rgb kept as fixed literals so alpha suffixes are valid CSS (the green accent
@@ -477,6 +477,11 @@ function InfoRow({ label, value, badge, action, mentorNames, accent = "green" }:
                 <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", filter: `drop-shadow(0 0 10px rgba(${M.rgb},0.5))` }}>
                     <GradientText from={M.from} to={M.to} style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 23, fontWeight: 800, lineHeight: 1.15 }}>{value}</GradientText>
                     {badge && <PixelBadge color={roundStatusColor(badge)}>{badge}</PixelBadge>}
+                </div>
+            )}
+            {sub && (
+                <div style={{ color: M.to, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 600, lineHeight: 1.5, marginTop: 2, textShadow: `0 0 8px rgba(${M.rgb},0.4)` }}>
+                    {sub}
                 </div>
             )}
             {mentorNames && mentorNames.length > 0 && (

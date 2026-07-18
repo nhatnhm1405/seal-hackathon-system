@@ -22,6 +22,7 @@ public class MyTeamResponse {
     private Integer teamId;
     private Integer eventId;
     private String eventName;
+    private String eventTopic;
     private Integer trackId;
     private String trackName;
     private String trackDescription;

@@ -37,7 +37,7 @@ public class ParticipantEventHistory {
     private User user;
 
     // Plain int, not a FK — used only to look up the event's *current* live
-    // status for TeamService's read-merge rule, never for display. Display
+    // status for TeamQueryService's read-merge rule, never for display. Display
     // data (event name/season/team/rounds/...) lives entirely in resultJson.
     @Column(name = "event_id", nullable = false)
     private Integer eventId;

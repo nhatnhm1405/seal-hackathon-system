@@ -103,6 +103,9 @@ export function EventDetailDrawer({
                         <h2 style={{ lineHeight: 1.1, marginBottom: 8 }}>
                             <EventName size={34}>{event.name}</EventName>
                         </h2>
+                        {event.topic && (
+                            <div style={{ color: txt, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, lineHeight: 1.5, marginBottom: 8 }}>{event.topic}</div>
+                        )}
                         <div style={{ color: mut, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>
                             {fmtShort(event.startDate)} — {fmtShort(event.endDate)}
                         </div>

@@ -7,7 +7,7 @@ import lombok.Data;
 /**
  * Coordinator's mandatory-reason removal of a specific team member during a live
  * (IN_PROGRESS) competition — e.g. absence at a roll call. See
- * {@code TeamService#coordinatorRemoveMember} for the removal rules.
+ * {@code TeamModerationService#coordinatorRemoveMember} for the removal rules.
  */
 @Data
 public class CoordinatorRemoveMemberRequest {

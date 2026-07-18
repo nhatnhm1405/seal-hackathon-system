@@ -276,7 +276,12 @@ export function CoordJudgesPage() {
             const otherMentorAssignment = active?.kind === 'mentor'
               ? mentors.find(m => m.mentorUserId === u.userId && m.trackId !== active.trackId)
               : undefined;
-            const unavailableReason = otherMentorAssignment
+            // Guest judges are one-off external scorers, not embedded staff —
+            // they can't take on a mentor's ongoing track responsibility.
+            const isGuestMentorAttempt = active?.kind === 'mentor' && u.judgeType === 'GUEST';
+            const unavailableReason = isGuestMentorAttempt
+              ? "Guest judges cannot be assigned as mentors."
+              : otherMentorAssignment
               ? `Already manages ${otherMentorAssignment.trackName} in this event.`
               : null;
             const warning = already || unavailableReason ? null : conflictWarning(u.userId);

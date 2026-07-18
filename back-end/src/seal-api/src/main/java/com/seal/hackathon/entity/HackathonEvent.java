@@ -31,6 +31,12 @@ public class HackathonEvent {
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
+    // The overall competition theme for this hackathon (e.g. "AI-Driven Smart
+    // Operations: Turning Real-Time IoT Data into Intelligent Actions") — distinct
+    // from a track's own category, this applies to the whole event.
+    @Column(name = "topic", length = 500)
+    private String topic;
+
     @Column(name = "registration_start")
     private LocalDateTime registrationStart;
 

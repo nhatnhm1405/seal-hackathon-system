@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { C, PixelBadge, PixelCard, PixelInput } from "@/shared/components/PixelComponents";
 import type { ConfirmVariant } from "@/shared/components/ConfirmDialog";
 
@@ -16,6 +16,7 @@ export interface ApiEvent {
   season?: string;
   year?: number;
   description?: string | null;
+  topic?: string | null;
   registrationStart?: string; registration_start?: string;
   registrationEnd?: string; registration_end?: string;
   startDate?: string; start_date?: string;
@@ -29,6 +30,7 @@ export interface EventRow {
   name: string;
   season: string;
   year: number | null;
+  topic: string;
   registrationStart: string;
   registrationEnd: string;
   startDate: string;
@@ -76,6 +78,7 @@ export function normalizeEvent(item: ApiEvent): EventRow {
     name:              item.name ?? '',
     season:            item.season ?? '',
     year:              item.year ?? null,
+    topic:             item.topic ?? '',
     registrationStart: item.registrationStart ?? item.registration_start ?? '',
     registrationEnd:   item.registrationEnd ?? item.registration_end ?? '',
     startDate:         item.startDate ?? item.start_date ?? '',
@@ -316,4 +319,152 @@ export function statusChangeCopy(from: EventStatus, action: StatusAction): Confi
     confirmLabel: `CONFIRM`,
     variant: action.variant,
   };
+}
+
+// ── Track/Round/Criteria detail shapes ─────────────────────────────
+// Shared by CoordEventsPage (which lifts tracks/rounds so the SETUP-gate
+// check and the Rounds/Criteria/Timers tabs can all read them) and its
+// extracted per-tab components (TracksTab/RoundsTab/CriteriaTab/AuditTab).
+
+export interface ApiTrack {
+  id?: number; trackId?: number; track_id?: number;
+  eventId?: number; event_id?: number;
+  name?: string;
+  description?: string | null;
+  capacity?: number | null;
+}
+
+export interface ApiRound {
+  id?: number; roundId?: number; round_id?: number;
+  eventId?: number; event_id?: number;
+  name?: string;
+  orderNumber?: number; order_number?: number;
+  startTime?: string; start_time?: string;
+  endTime?: string; end_time?: string;
+  submissionDeadline?: string; submission_deadline?: string;
+  topNAdvance?: number | null; top_n_advance?: number | null;
+  isFinal?: boolean; is_final?: boolean;
+  status?: string;
+}
+
+export interface ApiCriteria {
+  id?: number; criteriaId?: number; criteria_id?: number;
+  roundId?: number; round_id?: number;
+  name?: string;
+  description?: string | null;
+  weight?: number;
+  maxScore?: number; max_score?: number;
+  orderNumber?: number; order_number?: number;
+}
+
+export interface TrackRow {
+  trackId: number;
+  name: string;
+  description: string;
+  capacity: number | null;
+}
+
+export interface RoundRow {
+  roundId: number;
+  name: string;
+  orderNumber: number;
+  startTime: string;
+  endTime: string;
+  submissionDeadline: string;
+  topNAdvance: number | null;
+  isFinal: boolean;
+  status: string;
+}
+
+export interface CriteriaRow {
+  criteriaId: number;
+  roundId: number;
+  name: string;
+  description: string;
+  weight: number;
+  maxScore: number;
+  orderNumber: number;
+}
+
+// A reusable scoring-criteria template (GET /api/criteria-templates).
+export interface CriteriaTemplate {
+  templateId: number;
+  name: string;
+  description?: string;
+  isDefault?: boolean;
+  items: { name: string }[];
+}
+
+export function normalizeTrack(item: ApiTrack): TrackRow {
+  return {
+    trackId:     item.id ?? item.trackId ?? item.track_id ?? 0,
+    name:        item.name ?? '',
+    description: item.description ?? '',
+    capacity:    item.capacity ?? null,
+  };
+}
+
+export function normalizeRound(item: ApiRound): RoundRow {
+  return {
+    roundId:            item.id ?? item.roundId ?? item.round_id ?? 0,
+    name:               item.name ?? '',
+    orderNumber:        item.orderNumber ?? item.order_number ?? 0,
+    startTime:          item.startTime ?? item.start_time ?? '',
+    endTime:            item.endTime ?? item.end_time ?? '',
+    submissionDeadline: item.submissionDeadline ?? item.submission_deadline ?? '',
+    topNAdvance:        item.topNAdvance ?? item.top_n_advance ?? null,
+    isFinal:            item.isFinal ?? item.is_final ?? false,
+    status:             (item.status ?? 'PENDING').toUpperCase(),
+  };
+}
+
+export function normalizeCriteria(item: ApiCriteria): CriteriaRow {
+  return {
+    criteriaId:  item.id ?? item.criteriaId ?? item.criteria_id ?? 0,
+    roundId:     item.roundId ?? item.round_id ?? 0,
+    name:        item.name ?? '',
+    description: item.description ?? '',
+    weight:      item.weight ?? 0,
+    maxScore:    item.maxScore ?? item.max_score ?? 0,
+    orderNumber: item.orderNumber ?? item.order_number ?? 0,
+  };
+}
+
+export function splitDT(iso: string) {
+  if (!iso) return { date: "", time: "" };
+  const [datePart, timePart] = iso.split("T");
+  return { date: datePart ?? "", time: (timePart ?? "").slice(0, 5) };
+}
+
+export function joinDT(date: string, time: string): string | undefined {
+  if (!date) return undefined;
+  return `${date}T${time || "00:00"}`;
+}
+
+export function fmtDT(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const hh = String(d.getHours()).padStart(2, "0");
+  const min = String(d.getMinutes()).padStart(2, "0");
+  return `${dd}/${mm} ${hh}:${min}`;
+}
+
+// ── Shared confirmation-dialog plumbing ────────────────────────────
+// A queued action awaiting confirmation in CoordEventsPage's single shared
+// <ConfirmDialog>. Every tab (Tracks/Rounds/Criteria) opens its destructive
+// or status-changing actions through this same dialog via an `openConfirm`
+// prop, rather than each growing its own dialog instance.
+export interface PendingAction {
+  title: string;
+  message: ReactNode;
+  warning?: ReactNode;
+  confirmLabel: string;
+  variant: ConfirmVariant;
+  withReason?: boolean;          // show optional reason textarea (reopen request / redraw)
+  reasonPlaceholder?: string;    // placeholder for the reason textarea when withReason
+  requireTypedText?: string;     // type-to-confirm gate for the highest-impact irreversible actions
+  run: (reason?: string) => Promise<void>;
 }

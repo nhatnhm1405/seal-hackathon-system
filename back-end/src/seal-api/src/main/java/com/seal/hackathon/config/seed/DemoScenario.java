@@ -21,9 +21,10 @@ import java.util.List;
 /**
  * Builds one demo event as a layered pipeline. Each scenario is a cut-point:
  * <pre>
- *   S0  accounts only            (no event)
- *   S1  + event OPEN + structure + forming teams (incl. solo/pairs for grouping)
- *   S2  + submissions + complete preliminary scores, no results  (IN_PROGRESS)
+ *   S1  accounts + event OPEN + structure + forming teams (incl. solo/pairs for
+ *       grouping) — everything from here on (SETUP config, leftover grouping,
+ *       track draw, starting the event, submitting, scoring) is demoed live
+ *       through the app itself rather than pre-seeded.
  *   S25 + prelim FINALIZED + final round fully scored, no results — ready to
  *        calculate the final ranking then award prizes            (IN_PROGRESS)
  *   S3  + ranked results + final scores/results + prizes          (COMPLETED)
@@ -38,7 +39,7 @@ public class DemoScenario {
 
     private static final Logger log = LoggerFactory.getLogger(DemoScenario.class);
 
-    public static final String DEMO_EVENT_NAME = "SEAL Demo Summer 2026";
+    public static final String DEMO_EVENT_NAME = "SEAL Summer 2026";
     /** Seeded in every scenario (incl. S0) — used as the "already seeded?" guard. */
     public static final String COORDINATOR_EMAIL = "coordinator@fpt.edu.vn";
     private static final int YEAR = 2026;
@@ -104,11 +105,6 @@ public class DemoScenario {
         // spare accounts to demo live actions (register/create team) alongside the seed
         fx.user("leader1@fpt.edu.vn", "Hoàng Văn Neymar Jr.", "FPT_STUDENT", null);
         fx.user("member1@fpt.edu.vn", "Đinh Văn Kane", "FPT_STUDENT", null);
-
-        if ("S0".equals(scenario)) {
-            log.info("[demo] S0 seeded — accounts only, no event.");
-            return;
-        }
 
         // ── 2-4. EVENT + STRUCTURE ───────────────────────────────────
         Window w = windowFor(scenario);
@@ -192,14 +188,6 @@ public class DemoScenario {
         // coordinator demo rather than a pre-computed result.
         List<User> prelimJudges = List.of(judge1, judge2);
         writeScores(prelimSubs, slots, prelimCriteria, prelimJudges);
-
-        if ("S2".equals(scenario)) {
-            fx.expiredTimer(prelim, "CONTEST", prelim.getStartTime(), prelim.getSubmissionDeadline());
-            fx.expiredTimer(prelim, "JUDGING", prelim.getSubmissionDeadline(), prelim.getEndTime());
-            log.info("[demo] S2 seeded — CONTEST/JUDGING expired, {} preliminary submissions, {} final score rows, no RoundResult; ready to calculate rankings.",
-                    prelimSubs.size(), prelimSubs.size() * prelimCriteria.size() * prelimJudges.size());
-            return;
-        }
 
         // ── 7-9. SCORES → RESULTS → PRIZES (S3) ──────────────────────
         // Prelim: score everyone, then rank WITHIN each track (mirrors RoundResultService
@@ -372,7 +360,7 @@ public class DemoScenario {
     private String eventStatusFor(String scenario) {
         return switch (scenario) {
             case "S1" -> "OPEN";
-            case "S2", "S25" -> "IN_PROGRESS";
+            case "S25" -> "IN_PROGRESS";
             default -> "COMPLETED";
         };
     }
@@ -380,7 +368,6 @@ public class DemoScenario {
     private String roundStatusFor(String scenario, boolean prelim) {
         return switch (scenario) {
             case "S1" -> "PENDING";
-            case "S2" -> prelim ? "ACTIVE" : "PENDING";
             case "S25" -> prelim ? "FINALIZED" : "ACTIVE";
             default -> "FINALIZED";
         };
@@ -390,7 +377,6 @@ public class DemoScenario {
         LocalDateTime now = LocalDateTime.now();
         return switch (scenario) {
             case "S1" -> new Window(now.minusDays(5), now.plusDays(15), now.plusDays(20), now.plusDays(40));
-            case "S2" -> new Window(now.minusDays(40), now.minusDays(20), now.minusDays(10), now.plusDays(20));
             case "S25" -> new Window(now.minusDays(45), now.minusDays(25), now.minusDays(16), now.plusDays(5));
             default -> new Window(now.minusDays(70), now.minusDays(50), now.minusDays(45), now.minusDays(15));
         };

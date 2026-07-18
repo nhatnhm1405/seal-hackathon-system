@@ -1,44 +1,23 @@
-import { useEffect, useState, ReactNode } from "react";
+import { useEffect, useState } from "react";
 import {
   C, GradientText, PixelCard, PixelButton, PixelInput,
 } from "@/shared/components/PixelComponents";
 import { apiFetch, ApiError, apiErrorMessage, eventsApi, reopenRequestsApi, type ReopenRequest } from "@/shared/apiClient";
-import { ConfirmDialog, type ConfirmVariant } from "@/shared/components/ConfirmDialog";
+import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
 import { PixelMenu, type PixelMenuEntry } from "@/shared/components/PixelMenu";
 import { usePermissions } from "@/shared/permissions";
 import { useNotifications } from "@/app/providers/NotificationProvider";
 import {
-  TrackMode, EventRow, ApiEvent,
+  TrackMode, EventRow, ApiEvent, PendingAction,
   normalizeEvent, eventStatusBadge, EventDateBadge, EventName, pickDefaultEvent, EventsListCard,
-  parseDDMM, toDDMM,
+  parseDDMM, toDDMM, fmtDT,
 } from "@/features/events/eventUtils";
 
 // System Admin's event console. The Admin is the only role that can CREATE an
 // event, COMPLETE a running one, and REOPEN a completed one — and reviews the
 // reopen requests filed by Coordinators. Every state change is confirmed first.
 
-interface PendingAction {
-  title: string;
-  message: ReactNode;
-  warning?: ReactNode;
-  confirmLabel: string;
-  variant: ConfirmVariant;
-  requireTypedText?: string;
-  run: () => Promise<void>;
-}
-
 type EventSeason = 'SPRING' | 'SUMMER' | 'FALL';
-
-function fmtDateTime(iso?: string) {
-  if (!iso) return "—";
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return "—";
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const hh = String(d.getHours()).padStart(2, "0");
-  const min = String(d.getMinutes()).padStart(2, "0");
-  return `${dd}/${mm} ${hh}:${min}`;
-}
 
 function dateToLocalDateTime(date: string, time = "08:00:00") {
   if (!date) return undefined;
@@ -133,6 +112,7 @@ export function AdminEventsPage() {
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [evName, setEvName] = useState("");
+  const [evTopic, setEvTopic] = useState("");
   const [evSeason, setEvSeason] = useState<EventSeason | "">("");
   const [evYear, setEvYear] = useState(String(new Date().getFullYear()));
   const [evRegStart, setEvRegStart] = useState("");
@@ -146,6 +126,7 @@ export function AdminEventsPage() {
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
+  const [editTopic, setEditTopic] = useState("");
   const [editSeason, setEditSeason] = useState<EventSeason>("SPRING");
   const [editYear, setEditYear] = useState(String(new Date().getFullYear()));
   const [editRegStart, setEditRegStart] = useState("");
@@ -296,6 +277,7 @@ export function AdminEventsPage() {
   function openEditForm() {
     if (!selectedEvent) return;
     setEditName(selectedEvent.name);
+    setEditTopic(selectedEvent.topic ?? "");
     setEditSeason((selectedEvent.season as EventSeason) || "SPRING");
     setEditYear(String(selectedEvent.year ?? new Date().getFullYear()));
     setEditRegStart(toDDMM(selectedEvent.registrationStart));
@@ -327,6 +309,7 @@ export function AdminEventsPage() {
         method: 'PUT',
         body: JSON.stringify({
           name: editName,
+          topic: editTopic,
           season: editSeason,
           year: Number(editYear),
           registrationStart: dateToLocalDateTime(parseDDMM(editRegStart, editYear)!, "00:00:00"),
@@ -352,7 +335,7 @@ export function AdminEventsPage() {
   // Tracks & rounds are NOT configured here — the Event Coordinator sets them up
   // during the event's SETUP phase. The Admin only creates the event shell.
   function resetCreateForm() {
-    setEvName(""); setEvSeason(""); setEvRegStart(""); setEvRegEnd(""); setEvStart(""); setEvEnd(""); setEvMode("SELF_SELECT");
+    setEvName(""); setEvTopic(""); setEvSeason(""); setEvRegStart(""); setEvRegEnd(""); setEvStart(""); setEvEnd(""); setEvMode("SELF_SELECT");
   }
 
   // Autofill the create form's date fields with the season's proposed dates —
@@ -389,6 +372,7 @@ export function AdminEventsPage() {
         method: 'POST',
         body: JSON.stringify({
           name: evName,
+          topic: evTopic,
           season: evSeason,
           year: Number(evYear) || new Date().getFullYear(),
           registrationStart: dateToLocalDateTime(parseDDMM(evRegStart, evYear)!, "00:00:00"),
@@ -437,7 +421,7 @@ export function AdminEventsPage() {
                 <div style={{ minWidth: 0 }}>
                   <div style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, fontWeight: 700 }}>{req.eventName}</div>
                   <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginTop: 3 }}>
-                    {req.requesterName ?? 'Coordinator'} · {fmtDateTime(req.createdAt)}
+                    {req.requesterName ?? 'Coordinator'} · {fmtDT(req.createdAt)}
                   </div>
                   {req.reason && (
                     <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, marginTop: 4, fontStyle: "italic" }}>"{req.reason}"</div>
@@ -464,6 +448,12 @@ export function AdminEventsPage() {
             )}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
               <PixelInput label="Event Name" value={evName} onChange={(e) => setEvName(e.target.value)} placeholder="SEAL Fall 2026" />
+              <div style={{ gridColumn: "span 2" }}>
+                <PixelInput
+                  label="Topic" value={evTopic} onChange={(e) => setEvTopic(e.target.value)}
+                  placeholder="The overall competition theme"
+                />
+              </div>
               <div>
                 <label style={{ color: C.greenMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase" }}>Season</label>
                 <select value={evSeason} onChange={(e) => handleCreateSeasonChange(e.target.value as EventSeason | "")} style={{ width: "100%", marginTop: 6, padding: "10px 12px", background: C.surface2, border: `1px solid ${C.border}`, color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, borderRadius: 0, outline: "none" }}>
@@ -508,6 +498,12 @@ export function AdminEventsPage() {
               )}
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
                 <PixelInput label="Event Name" value={editName} onChange={(e) => setEditName(e.target.value)} />
+                <div style={{ gridColumn: "span 2" }}>
+                  <PixelInput
+                    label="Topic" value={editTopic} onChange={(e) => setEditTopic(e.target.value)}
+                    placeholder="The overall competition theme"
+                  />
+                </div>
                 <div>
                   <label style={{ color: C.greenMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase" }}>Season</label>
                   <select value={editSeason} onChange={(e) => setEditSeason(e.target.value as EventSeason)} style={{ width: "100%", marginTop: 6, padding: "10px 12px", background: C.surface2, border: `1px solid ${C.border}`, color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, borderRadius: 0, outline: "none" }}>
@@ -538,6 +534,9 @@ export function AdminEventsPage() {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
               <div>
                 <div><EventName>{selectedEvent.name}</EventName></div>
+                {selectedEvent.topic && (
+                  <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, marginTop: 4 }}>{selectedEvent.topic}</div>
+                )}
                 <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginTop: 8 }}>
                   {eventStatusBadge(selectedEvent.status)}
                   <EventDateBadge ev={selectedEvent} />

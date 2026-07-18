@@ -30,6 +30,11 @@ interface EditableTeam {
   existingTeamId: number | null;
   teamName: string;
   members: GroupingMember[];
+  // userIds that are newly merged into this card — every member of a brand-new
+  // team, or just the delta absorbed into an existing (GROWN) team's original
+  // seed. Dragging a person into a card marks them "new" here too, since
+  // they're now an atom the coordinator merged in by hand.
+  addedMemberIds: Set<number>;
 }
 
 function toEditableTeams(proposedTeams: GroupingProposedTeam[]): EditableTeam[] {
@@ -38,6 +43,7 @@ function toEditableTeams(proposedTeams: GroupingProposedTeam[]): EditableTeam[] 
     existingTeamId: t.existingTeamId ?? null,
     teamName: t.teamName,
     members: t.members.length ? [...t.members] : [...t.addedMembers],
+    addedMemberIds: new Set(t.addedMembers.map(m => m.userId)),
   }));
 }
 
@@ -107,14 +113,16 @@ export function LeftoverGroupingModal({ eventId, teams, onClose, onCommitted, on
   const moveMember = useCallback((userId: number, fromKey: string, toKey: string) => {
     if (fromKey === toKey) return;
     setEditedTeams(prev => {
-      const next = prev.map(t => ({ ...t, members: t.members.slice() }));
+      const next = prev.map(t => ({ ...t, members: t.members.slice(), addedMemberIds: new Set(t.addedMemberIds) }));
       const from = next.find(t => t.key === fromKey);
       const to = next.find(t => t.key === toKey);
       if (!from || !to) return prev;
       const idx = from.members.findIndex(m => m.userId === userId);
       if (idx === -1) return prev;
       const [person] = from.members.splice(idx, 1);
+      from.addedMemberIds.delete(userId);
       to.members.push(person);
+      to.addedMemberIds.add(userId); // now an atom merged into this card by hand
       return next;
     });
   }, []);
@@ -348,7 +356,10 @@ function ProposedTeamCard({ team, onMoveMember, disabled }: {
         <table style={{ width: "100%", borderCollapse: "collapse", fontFamily: MONO, fontSize: 11 }}>
           <tbody>
             {team.members.map((m, i) => (
-              <DraggableProposedMemberRow key={m.userId} member={m} index={i} teamKey={team.key} disabled={disabled} />
+              <DraggableProposedMemberRow
+                key={m.userId} member={m} index={i} teamKey={team.key} disabled={disabled}
+                isNew={team.addedMemberIds.has(m.userId)}
+              />
             ))}
           </tbody>
         </table>
@@ -357,8 +368,8 @@ function ProposedTeamCard({ team, onMoveMember, disabled }: {
   );
 }
 
-function DraggableProposedMemberRow({ member, index, teamKey, disabled }: {
-  member: GroupingMember; index: number; teamKey: string; disabled: boolean;
+function DraggableProposedMemberRow({ member, index, teamKey, disabled, isNew }: {
+  member: GroupingMember; index: number; teamKey: string; disabled: boolean; isNew: boolean;
 }) {
   const [{ isDragging }, dragRef] = useDrag(() => ({
     type: PROPOSED_MEMBER_DND_TYPE,
@@ -376,7 +387,20 @@ function DraggableProposedMemberRow({ member, index, teamKey, disabled }: {
       <td style={{ color: C.textMuted, padding: "5px 8px 5px 0", width: 22, textAlign: "right" }}>
         {index + 1}
       </td>
-      <td style={{ color: C.text, padding: "5px 0" }}>{member.fullName}</td>
+      <td style={{ color: C.text, padding: "5px 0" }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          {member.fullName}
+          {isNew && (
+            <span style={{
+              fontFamily: MONO, fontSize: 9, fontWeight: 700, letterSpacing: "0.05em",
+              color: "#60a5fa", background: "rgba(59,130,246,0.1)", border: "1px solid rgba(59,130,246,0.35)",
+              padding: "1px 5px",
+            }}>
+              NEW
+            </span>
+          )}
+        </span>
+      </td>
     </tr>
   );
 }

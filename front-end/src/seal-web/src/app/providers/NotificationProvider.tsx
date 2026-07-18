@@ -31,14 +31,14 @@ export interface UINotification {
 
 // Backend `type` is a free-form string (e.g. TEAM_APPROVED, ACCOUNT_REJECTED);
 // fold it into the three visual kinds the bell/banner styling understands.
-function toKind(type?: string): NotifKind {
+export function toKind(type?: string): NotifKind {
   const t = (type ?? "").toUpperCase();
   if (/SUCCESS|APPROV|ACCEPT|PUBLISH|WIN|ADVANCE/.test(t)) return "success";
   if (/WARN|REJECT|DISQUALIF|FAIL|REMOV|DECLINE/.test(t)) return "warning";
   return "info";
 }
 
-function mapNotification(n: ApiNotification): UINotification {
+export function mapNotification(n: ApiNotification): UINotification {
   return {
     notification_id: n.notificationId,
     title: n.title,
@@ -108,7 +108,7 @@ const POLL_INTERVAL = 25000;
 const BASELINE_SPLASH_KEY = "sealAnnounceSplashSeen";
 
 // Human "from" summary for a batch of announcement notifications.
-function summariseSenders(senders: string[]): string {
+export function summariseSenders(senders: string[]): string {
   if (senders.length <= 1) return senders[0] ?? "a coordinator";
   if (senders.length === 2) return `${senders[0]} and ${senders[1]}`;
   return `${senders[0]} and ${senders.length - 1} others`;
@@ -116,7 +116,7 @@ function summariseSenders(senders: string[]): string {
 
 // Build the splash payload from a list of announcement notifications (null = none).
 // Keeps the actual items so "View" can open the message detail directly.
-function announceSplashFor(items: UINotification[]): { items: UINotification[]; from: string } | null {
+export function announceSplashFor(items: UINotification[]): { items: UINotification[]; from: string } | null {
   if (items.length === 0) return null;
   const senders = [...new Set(items.map(a => a.from).filter(Boolean))] as string[];
   return { items, from: summariseSenders(senders) };
