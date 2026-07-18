@@ -485,7 +485,9 @@ export function TeamViewPage() {
           <span style={{ color: C.green, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 700 }}>Your Mentor</span>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             {openRequest && <PixelBadge color="cyan">SUPPORT OPEN</PixelBadge>}
-            {mentors.length > 0 && (
+            {/* Only the leader can raise a request — members only get the entry
+                point once one is already open, so they can view (not create) it. */}
+            {mentors.length > 0 && (isLeader || openRequest) && (
               <PixelButton size="sm" variant={teamPanel === "mentor" ? "secondary" : "cyber"} onClick={() => setTeamPanel("mentor")}>
                 {openRequest ? "VIEW REQUEST" : "REQUEST HELP"}
               </PixelButton>
