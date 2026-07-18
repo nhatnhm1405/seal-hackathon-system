@@ -54,7 +54,7 @@ public interface UserRepository extends JpaRepository<User, Integer> {
      * Approved STAFF a coordinator may assign as judge/mentor — excludes anyone already
      * holding SYSTEM_ADMIN or EVENT_COORDINATOR (both are also userType=STAFF). Cannot
      * instead filter "must already hold JUDGE/MENTOR" because that role is only granted
-     * the first time they're assigned (see AssignmentService#ensureRole), which would
+     * the first time they're assigned (see EventRoleGranter#ensureRole), which would
      * make brand-new staff impossible to assign.
      */
     @Query("SELECT DISTINCT u FROM User u WHERE u.userType = 'STAFF' AND u.isApproved = true " +

@@ -5,7 +5,8 @@ import com.seal.hackathon.dto.response.JudgeAssignmentResponse;
 import com.seal.hackathon.dto.response.MentorAssignmentResponse;
 import com.seal.hackathon.dto.response.MentorHistoryResponse;
 import com.seal.hackathon.security.UserPrincipal;
-import com.seal.hackathon.service.AssignmentService;
+import com.seal.hackathon.service.JudgeAssignmentService;
+import com.seal.hackathon.service.MentorAssignmentService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -24,7 +25,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class AssignmentController {
 
-    private final AssignmentService assignmentService;
+    private final MentorAssignmentService mentorAssignmentService;
+    private final JudgeAssignmentService judgeAssignmentService;
 
     /**
      * GET /api/mentor/assignments
@@ -34,7 +36,7 @@ public class AssignmentController {
     @PreAuthorize("hasRole('MENTOR')")
     public ResponseEntity<ApiResponse<MentorAssignmentResponse>> getMentorAssignments(Authentication authentication) {
         UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
-        MentorAssignmentResponse response = assignmentService.getMentorAssignments(principal.getUserId());
+        MentorAssignmentResponse response = mentorAssignmentService.getMentorAssignments(principal.getUserId());
         return ResponseEntity.ok(ApiResponse.success("Mentor assignments retrieved successfully.", response));
     }
 
@@ -47,7 +49,7 @@ public class AssignmentController {
     public ResponseEntity<ApiResponse<List<MentorHistoryResponse>>> getMentorHistory(Authentication authentication) {
         UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
         return ResponseEntity.ok(ApiResponse.success("Mentor history retrieved successfully.",
-                assignmentService.getMentorHistory(principal.getUserId())));
+                mentorAssignmentService.getMentorHistory(principal.getUserId())));
     }
 
     /**
@@ -58,7 +60,7 @@ public class AssignmentController {
     @PreAuthorize("hasRole('JUDGE')")
     public ResponseEntity<ApiResponse<JudgeAssignmentResponse>> getJudgeAssignments(Authentication authentication) {
         UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
-        JudgeAssignmentResponse response = assignmentService.getJudgeAssignments(principal.getUserId());
+        JudgeAssignmentResponse response = judgeAssignmentService.getJudgeAssignments(principal.getUserId());
         return ResponseEntity.ok(ApiResponse.success("Judge assignments retrieved successfully.", response));
     }
 }

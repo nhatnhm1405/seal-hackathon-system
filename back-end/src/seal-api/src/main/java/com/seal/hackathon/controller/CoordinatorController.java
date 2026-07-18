@@ -6,7 +6,9 @@ import com.seal.hackathon.dto.response.CoordinatorEventHistoryResponse;
 import com.seal.hackathon.dto.response.JudgeAssignmentResponse;
 import com.seal.hackathon.dto.response.UserResponse;
 import com.seal.hackathon.security.UserPrincipal;
-import com.seal.hackathon.service.AssignmentService;
+import com.seal.hackathon.service.AssignableStaffService;
+import com.seal.hackathon.service.CoordinatorEventHistoryService;
+import com.seal.hackathon.service.JudgeAssignmentService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -35,17 +37,19 @@ import java.util.List;
 @PreAuthorize("hasRole('EVENT_COORDINATOR')")
 public class CoordinatorController {
 
-    private final AssignmentService assignmentService;
+    private final AssignableStaffService assignableStaffService;
+    private final CoordinatorEventHistoryService coordinatorEventHistoryService;
+    private final JudgeAssignmentService judgeAssignmentService;
 
     @GetMapping("/staff")
     public ResponseEntity<ApiResponse<List<UserResponse>>> getStaff() {
-        return ResponseEntity.ok(ApiResponse.success("Staff retrieved.", assignmentService.listApprovedStaff()));
+        return ResponseEntity.ok(ApiResponse.success("Staff retrieved.", assignableStaffService.listApprovedStaff()));
     }
 
     /** Full retrospective of one past event: teams/results/prizes + mentor/judge assignments. */
     @GetMapping("/history/{eventId}")
     public ResponseEntity<ApiResponse<CoordinatorEventHistoryResponse>> getEventHistory(@PathVariable Integer eventId) {
-        return ResponseEntity.ok(ApiResponse.success("Event history retrieved.", assignmentService.getEventHistory(eventId)));
+        return ResponseEntity.ok(ApiResponse.success("Event history retrieved.", coordinatorEventHistoryService.getEventHistory(eventId)));
     }
 
     /** Create a GUEST judge account and assign it to a round in one step. */
@@ -56,6 +60,6 @@ public class CoordinatorController {
         UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Guest judge created and assigned.",
-                        assignmentService.createGuestJudge(request, principal.getUserId())));
+                        judgeAssignmentService.createGuestJudge(request, principal.getUserId())));
     }
 }
