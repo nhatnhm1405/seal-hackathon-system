@@ -39,6 +39,9 @@ services:
       - JWT_COOKIE_SECURE=true
       # Dữ liệu demo (tùy chọn): S0|S1|S2|S3 để seed kịch bản; mặc định NONE = không data giả.
       # - SEED_SCENARIO=S3
+      # Khóa schema khi DB đã có dữ liệu thật không muốn bị tự động ALTER lúc redeploy
+      # (mặc định là "update" nếu bỏ comment dòng dưới — không set = giữ nguyên "update").
+      # - DDL_AUTO=validate
     expose:
       - "8080"
     depends_on:
