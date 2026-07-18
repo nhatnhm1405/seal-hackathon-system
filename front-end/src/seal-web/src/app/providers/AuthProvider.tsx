@@ -61,7 +61,7 @@ function setStoredActiveRole(role: string | null) {
 }
 
 // ── API response shape (defensive — backend may vary) ─────────────────
-interface ApiUserProfile {
+export interface ApiUserProfile {
   userId?: number;
   user_id?: number;
   email: string;
@@ -93,7 +93,7 @@ interface ApiUserProfile {
 // ── Collects all raw role strings from backend profile ────────────────
 const STAFF_ROLE_KEYWORDS = ['ADMIN', 'JUDGE', 'MENTOR', 'COORDINATOR'];
 
-function resolveAllRoles(profile: ApiUserProfile): string[] {
+export function resolveAllRoles(profile: ApiUserProfile): string[] {
   const raw: string[] = [];
   const collect = (v: unknown) => {
     if (!v) return;
@@ -114,7 +114,7 @@ function resolveAllRoles(profile: ApiUserProfile): string[] {
 }
 
 // ── Maps a raw backend role string to frontend AuthUser role ──────────
-function mapBackendRole(backendRole: string): AuthUser['role'] {
+export function mapBackendRole(backendRole: string): AuthUser['role'] {
   const r = backendRole.toUpperCase();
   if (r.includes('ADMIN'))       return 'ADMIN';
   if (r.includes('COORDINATOR')) return 'COORDINATOR';
@@ -126,7 +126,7 @@ function mapBackendRole(backendRole: string): AuthUser['role'] {
 // ── CRITICAL: role resolver ───────────────────────────────────────────
 // Handles: string, string[], nested object, snake_case, camelCase
 // Priority: ADMIN > COORDINATOR > JUDGE > MENTOR > PARTICIPANT
-function resolveRole(profile: ApiUserProfile): AuthUser['role'] {
+export function resolveRole(profile: ApiUserProfile): AuthUser['role'] {
   const raw: string[] = [];
 
   const collect = (v: unknown) => {
@@ -153,7 +153,7 @@ function resolveRole(profile: ApiUserProfile): AuthUser['role'] {
   return 'PARTICIPANT';
 }
 
-function mapApiUser(profile: ApiUserProfile): AuthUser {
+export function mapApiUser(profile: ApiUserProfile): AuthUser {
   const userType = profile.userType ?? profile.user_type ?? '';
   const isActive = profile.isActive ?? profile.is_active ?? true;
   return {
