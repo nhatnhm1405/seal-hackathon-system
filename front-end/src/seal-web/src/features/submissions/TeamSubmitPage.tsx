@@ -296,11 +296,33 @@ export function TeamSubmitPage() {
           <label style={{ color: C.greenMuted, fontFamily: mono, fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase" }}>
             Event
           </label>
-          <select
-            value={selectedEventId ?? ""}
-            onChange={(event) => handleEventChange(Number(event.target.value))}
-            disabled={teamHistory.length <= 1}
-            style={{
+          {teamHistory.length > 1 ? (
+            <select
+              value={selectedEventId ?? ""}
+              onChange={(event) => handleEventChange(Number(event.target.value))}
+              style={{
+                width: "100%",
+                background: C.surface2,
+                border: `1px solid ${C.border}`,
+                color: C.text,
+                padding: "13px 16px",
+                fontFamily: mono,
+                fontSize: 13,
+                fontWeight: 700,
+                borderRadius: 0,
+                outline: "none",
+              }}
+            >
+              {teamHistory.map((item) => (
+                <option key={item.teamId} value={item.eventId ?? ""}>
+                  {eventOptionLabel(item)}
+                </option>
+              ))}
+            </select>
+          ) : (
+            // Only one event on record — nothing to switch between, so show it
+            // as a plain read-only field instead of a dropdown that does nothing.
+            <div style={{
               width: "100%",
               background: C.surface2,
               border: `1px solid ${C.border}`,
@@ -309,16 +331,10 @@ export function TeamSubmitPage() {
               fontFamily: mono,
               fontSize: 13,
               fontWeight: 700,
-              borderRadius: 0,
-              outline: "none",
-            }}
-          >
-            {teamHistory.map((item) => (
-              <option key={item.teamId} value={item.eventId ?? ""}>
-                {eventOptionLabel(item)}
-              </option>
-            ))}
-          </select>
+            }}>
+              {eventOptionLabel(teamHistory[0])}
+            </div>
+          )}
         </div>
       )}
 
