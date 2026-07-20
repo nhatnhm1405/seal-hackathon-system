@@ -213,8 +213,13 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
 
-        // Allow requests from the local dev server and the deployed frontend.
-        config.setAllowedOrigins(List.of("http://localhost:5173", frontendUrl));
+        // Allow Vite's fallback local ports while still keeping production scoped
+        // to the configured frontend URL.
+        config.setAllowedOriginPatterns(List.of(
+                "http://localhost:*",
+                "http://127.0.0.1:*",
+                frontendUrl
+        ));
 
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
