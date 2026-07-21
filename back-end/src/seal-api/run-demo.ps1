@@ -53,6 +53,31 @@ function Write-Step($msg) { Write-Host "`n>> $msg" -ForegroundColor Cyan }
 function Write-Ok($msg)   { Write-Host "   OK  $msg" -ForegroundColor Green }
 function Write-Warn2($msg){ Write-Host "   !   $msg" -ForegroundColor Yellow }
 
+function Resolve-MavenCommand {
+    $mvnOnPath = Get-Command mvn.cmd -ErrorAction SilentlyContinue
+    if ($mvnOnPath) { return $mvnOnPath.Source }
+
+    $wrapperProps = Join-Path $ScriptDir '.mvn\wrapper\maven-wrapper.properties'
+    if (Test-Path $wrapperProps) {
+        $distributionUrl = (Get-Content -Raw $wrapperProps | ConvertFrom-StringData).distributionUrl
+        if ($distributionUrl) {
+            $distributionName = $distributionUrl -replace '^.*/',''
+            $distributionMain = $distributionName -replace '\.[^.]*$','' -replace '-bin$',''
+            $m2Root = if ($env:MAVEN_USER_HOME) { $env:MAVEN_USER_HOME } else { Join-Path $HOME '.m2' }
+            $cachedDists = Join-Path $m2Root "wrapper\dists\$distributionMain"
+            if (Test-Path $cachedDists) {
+                $cachedMaven = Get-ChildItem -Path $cachedDists -Recurse -Filter 'mvn.cmd' -ErrorAction SilentlyContinue |
+                    Where-Object { $_.FullName -match '\\bin\\mvn\.cmd$' } |
+                    Sort-Object FullName -Descending |
+                    Select-Object -First 1
+                if ($cachedMaven) { return $cachedMaven.FullName }
+            }
+        }
+    }
+
+    return (Join-Path $ScriptDir 'mvnw.cmd')
+}
+
 # ─── 1. Doc DB creds tu .env ──────────────────────────────────────────────────
 $envFile = Join-Path $ScriptDir '.env'
 $dbUser = 'root'; $dbPass = ''
@@ -110,4 +135,6 @@ Write-Ok "Demo accounts: coordinator@fpt.edu.vn / judge1@ / p1@ ...  (password: 
 Write-Ok "Bootstrap admin: admin@fpt.edu.vn / Test@1234"
 
 Set-Location $ScriptDir
-& "$ScriptDir\mvnw.cmd" spring-boot:run
+$mavenCmd = Resolve-MavenCommand
+Write-Ok "Maven: $mavenCmd"
+& $mavenCmd spring-boot:run
