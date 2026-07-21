@@ -1,0 +1,907 @@
+<mxfile host="Electron" pages="7">
+  <diagram name="Process 1 — Event Lifecycle" id="p1">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="820" pageHeight="2860" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title_p1" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=16;fontStyle=0;align=center;verticalAlign=middle;" value="Process 1 — Event Lifecycle">
+          <mxGeometry x="0" y="0" width="780" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="hdr_p1_0" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#E6E6E6;strokeColor=#000000;fontSize=13;fontStyle=1;verticalAlign=middle;align=center;" value="System Admin">
+          <mxGeometry x="0" y="50" width="260" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="body_p1_0" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F0F0F0;gradientColor=#DCDCDC;strokeColor=#000000;fontSize=1;" value="">
+          <mxGeometry x="0" y="100" width="260" height="2720" as="geometry" />
+        </mxCell>
+        <mxCell id="hdr_p1_1" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#E6E6E6;strokeColor=#000000;fontSize=13;fontStyle=1;verticalAlign=middle;align=center;" value="Event Coordinator">
+          <mxGeometry x="260" y="50" width="260" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="body_p1_1" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F0F0F0;gradientColor=#DCDCDC;strokeColor=#000000;fontSize=1;" value="">
+          <mxGeometry x="260" y="100" width="260" height="2720" as="geometry" />
+        </mxCell>
+        <mxCell id="hdr_p1_2" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#E6E6E6;strokeColor=#000000;fontSize=13;fontStyle=1;verticalAlign=middle;align=center;" value="Participants (Teams)">
+          <mxGeometry x="520" y="50" width="260" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="body_p1_2" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F0F0F0;gradientColor=#DCDCDC;strokeColor=#000000;fontSize=1;" value="">
+          <mxGeometry x="520" y="100" width="260" height="2720" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p1_start" parent="1" vertex="1" style="terminator;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;fontStyle=1;verticalAlign=middle;align=center;" value="Start">
+          <mxGeometry x="50" y="150" width="160" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p1_create" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;verticalAlign=middle;align=center;" value="Create a new&#xa;Hackathon Event">
+          <mxGeometry x="20" y="290" width="220" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p1_track" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;verticalAlign=middle;align=center;" value="Set up Tracks and&#xa;problem statements">
+          <mxGeometry x="280" y="450" width="220" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p1_open" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;verticalAlign=middle;align=center;" value="Open the event&#xa;for registration">
+          <mxGeometry x="280" y="610" width="220" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p1_teams" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;verticalAlign=middle;align=center;" value="Teams register and request approval&#xa;(see Team Formation process)">
+          <mxGeometry x="540" y="770" width="220" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p1_chkteam" parent="1" vertex="1" style="rhombus;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;fontStyle=0;verticalAlign=middle;align=center;" value="Have all teams&#xa;been reviewed?">
+          <mxGeometry x="285" y="920" width="210" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p1_setup" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;verticalAlign=middle;align=center;" value="Close registration and&#xa;prepare tracks for the contest">
+          <mxGeometry x="280" y="1090" width="220" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p1_assign" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;verticalAlign=middle;align=center;" value="Teams are assigned to tracks;&#xa;mentors and judges are assigned&#xa;(see Team Formation process)">
+          <mxGeometry x="540" y="1250" width="220" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p1_chktrack" parent="1" vertex="1" style="rhombus;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;fontStyle=0;verticalAlign=middle;align=center;" value="Does every track have&#xa;at least one team?">
+          <mxGeometry x="285" y="1400" width="210" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p1_inprogress" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;verticalAlign=middle;align=center;" value="Start the event">
+          <mxGeometry x="280" y="1570" width="220" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p1_rounds" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;verticalAlign=middle;align=center;" value="Contest rounds run: teams submit&#xa;and are judged (see Round process)">
+          <mxGeometry x="540" y="1730" width="220" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p1_complete" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;verticalAlign=middle;align=center;" value="Mark the event&#xa;as complete">
+          <mxGeometry x="20" y="1890" width="220" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p1_prizes" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;verticalAlign=middle;align=center;" value="Prizes are generated and announced&#xa;(see Prizes process)">
+          <mxGeometry x="540" y="2050" width="220" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p1_end" parent="1" vertex="1" style="terminator;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;fontStyle=1;verticalAlign=middle;align=center;" value="End: Event Completed">
+          <mxGeometry x="50" y="2230" width="160" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p1_reopenreq" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;verticalAlign=middle;align=center;" value="Request to reopen the event&#xa;for corrections">
+          <mxGeometry x="280" y="2370" width="220" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p1_reopendec" parent="1" vertex="1" style="rhombus;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;fontStyle=0;verticalAlign=middle;align=center;" value="Approve the&#xa;reopen request?">
+          <mxGeometry x="25" y="2520" width="210" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p1_reopenok" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;verticalAlign=middle;align=center;" value="Event reopens&#xa;and continues">
+          <mxGeometry x="20" y="2690" width="220" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p1_reopenno" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;verticalAlign=middle;align=center;" value="Event remains completed;&#xa;no further action">
+          <mxGeometry x="280" y="2530" width="220" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p1_1" parent="1" edge="1" source="n_p1_start" target="n_p1_create" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p1_2" parent="1" edge="1" source="n_p1_create" target="n_p1_track" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p1_3" parent="1" edge="1" source="n_p1_track" target="n_p1_open" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p1_4" parent="1" edge="1" source="n_p1_open" target="n_p1_teams" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p1_5" parent="1" edge="1" source="n_p1_teams" target="n_p1_chkteam" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p1_6" parent="1" edge="1" source="n_p1_chkteam" target="n_p1_teams" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" value="No, continue reviewing">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p1_7" parent="1" edge="1" source="n_p1_chkteam" target="n_p1_setup" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;" value="Yes">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p1_8" parent="1" edge="1" source="n_p1_setup" target="n_p1_assign" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p1_9" parent="1" edge="1" source="n_p1_assign" target="n_p1_chktrack" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p1_10" parent="1" edge="1" source="n_p1_chktrack" target="n_p1_assign" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" value="No, reassign teams">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p1_11" parent="1" edge="1" source="n_p1_chktrack" target="n_p1_inprogress" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;" value="Yes">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p1_12" parent="1" edge="1" source="n_p1_inprogress" target="n_p1_rounds" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p1_13" parent="1" edge="1" source="n_p1_rounds" target="n_p1_complete" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" value="After the final round">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p1_14" parent="1" edge="1" source="n_p1_complete" target="n_p1_prizes" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p1_15" parent="1" edge="1" source="n_p1_prizes" target="n_p1_end" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p1_16" parent="1" edge="1" source="n_p1_complete" target="n_p1_reopenreq" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" value="Needs a fix&#xa;after completion">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p1_17" parent="1" edge="1" source="n_p1_reopenreq" target="n_p1_reopendec" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p1_18" parent="1" edge="1" source="n_p1_reopendec" target="n_p1_reopenok" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;" value="Yes">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p1_19" parent="1" edge="1" source="n_p1_reopendec" target="n_p1_reopenno" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" value="No">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram name="Process 2 — Account Registration and Approval" id="p2">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1080" pageHeight="2380" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title_p2" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=16;fontStyle=0;align=center;verticalAlign=middle;" value="Process 2 — Account Registration and Approval">
+          <mxGeometry x="0" y="0" width="1040" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="hdr_p2_0" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#E6E6E6;strokeColor=#000000;fontSize=13;fontStyle=1;verticalAlign=middle;align=center;" value="New User">
+          <mxGeometry x="0" y="50" width="260" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="body_p2_0" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F0F0F0;gradientColor=#DCDCDC;strokeColor=#000000;fontSize=1;" value="">
+          <mxGeometry x="0" y="100" width="260" height="2240" as="geometry" />
+        </mxCell>
+        <mxCell id="hdr_p2_1" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#E6E6E6;strokeColor=#000000;fontSize=13;fontStyle=1;verticalAlign=middle;align=center;" value="System Admin">
+          <mxGeometry x="260" y="50" width="260" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="body_p2_1" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F0F0F0;gradientColor=#DCDCDC;strokeColor=#000000;fontSize=1;" value="">
+          <mxGeometry x="260" y="100" width="260" height="2240" as="geometry" />
+        </mxCell>
+        <mxCell id="hdr_p2_2" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#E6E6E6;strokeColor=#000000;fontSize=13;fontStyle=1;verticalAlign=middle;align=center;" value="Event Coordinator">
+          <mxGeometry x="520" y="50" width="260" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="body_p2_2" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F0F0F0;gradientColor=#DCDCDC;strokeColor=#000000;fontSize=1;" value="">
+          <mxGeometry x="520" y="100" width="260" height="2240" as="geometry" />
+        </mxCell>
+        <mxCell id="hdr_p2_3" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#E6E6E6;strokeColor=#000000;fontSize=13;fontStyle=1;verticalAlign=middle;align=center;" value="System">
+          <mxGeometry x="780" y="50" width="260" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="body_p2_3" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F0F0F0;gradientColor=#DCDCDC;strokeColor=#000000;fontSize=1;" value="">
+          <mxGeometry x="780" y="100" width="260" height="2240" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p2_start" parent="1" vertex="1" style="terminator;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;fontStyle=1;verticalAlign=middle;align=center;" value="Start">
+          <mxGeometry x="50" y="150" width="160" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p2_register" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;verticalAlign=middle;align=center;" value="Register for&#xa;an account">
+          <mxGeometry x="20" y="290" width="220" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p2_profile" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;verticalAlign=middle;align=center;" value="Complete profile details&#xa;(first-time sign-in only)">
+          <mxGeometry x="20" y="450" width="220" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p2_pending" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;verticalAlign=middle;align=center;" value="Account awaits approval;&#xa;sign-in is not yet allowed">
+          <mxGeometry x="20" y="610" width="220" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p2_list" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;verticalAlign=middle;align=center;" value="Review the list of&#xa;pending accounts">
+          <mxGeometry x="540" y="770" width="220" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p2_decide" parent="1" vertex="1" style="rhombus;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;fontStyle=0;verticalAlign=middle;align=center;" value="Approve or reject&#xa;the account?">
+          <mxGeometry x="545" y="920" width="210" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p2_approve" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;verticalAlign=middle;align=center;" value="Approve the account">
+          <mxGeometry x="540" y="1090" width="220" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p2_reject" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;verticalAlign=middle;align=center;" value="Reject the account">
+          <mxGeometry x="20" y="1250" width="220" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p2_notif" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;verticalAlign=middle;align=center;" value="Notify the user of&#xa;the approval decision">
+          <mxGeometry x="800" y="1250" width="220" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p2_audit" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;verticalAlign=middle;align=center;" value="Record the decision&#xa;in the audit trail">
+          <mxGeometry x="540" y="1410" width="220" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p2_end" parent="1" vertex="1" style="terminator;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;fontStyle=1;verticalAlign=middle;align=center;" value="End">
+          <mxGeometry x="570" y="1590" width="160" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p2_sstart" parent="1" vertex="1" style="terminator;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;fontStyle=1;verticalAlign=middle;align=center;" value="Start&#xa;(new staff member)">
+          <mxGeometry x="310" y="1750" width="160" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p2_screate" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;verticalAlign=middle;align=center;" value="Create a pre-approved&#xa;staff account&#xa;(coordinator / mentor / judge)">
+          <mxGeometry x="280" y="1890" width="220" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p2_srole" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;verticalAlign=middle;align=center;" value="Grant the&#xa;appropriate role">
+          <mxGeometry x="280" y="2050" width="220" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p2_send" parent="1" vertex="1" style="terminator;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;fontStyle=1;verticalAlign=middle;align=center;" value="End: Staff ready">
+          <mxGeometry x="310" y="2230" width="160" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p2_1" parent="1" edge="1" source="n_p2_start" target="n_p2_register" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p2_2" parent="1" edge="1" source="n_p2_register" target="n_p2_profile" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p2_3" parent="1" edge="1" source="n_p2_profile" target="n_p2_pending" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p2_4" parent="1" edge="1" source="n_p2_pending" target="n_p2_list" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p2_5" parent="1" edge="1" source="n_p2_list" target="n_p2_decide" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p2_6" parent="1" edge="1" source="n_p2_decide" target="n_p2_approve" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;" value="Approve">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p2_7" parent="1" edge="1" source="n_p2_decide" target="n_p2_reject" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" value="Reject">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p2_8" parent="1" edge="1" source="n_p2_approve" target="n_p2_notif" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p2_9" parent="1" edge="1" source="n_p2_reject" target="n_p2_notif" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p2_10" parent="1" edge="1" source="n_p2_notif" target="n_p2_audit" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p2_11" parent="1" edge="1" source="n_p2_audit" target="n_p2_end" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p2_12" parent="1" edge="1" source="n_p2_sstart" target="n_p2_screate" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p2_13" parent="1" edge="1" source="n_p2_screate" target="n_p2_srole" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p2_14" parent="1" edge="1" source="n_p2_srole" target="n_p2_send" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram name="Process 3 — Team Formation" id="p3">
+    <mxGraphModel dx="3100" dy="1201" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1080" pageHeight="3180" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title_p3" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=16;fontStyle=0;align=center;verticalAlign=middle;" value="Team Formation" vertex="1">
+          <mxGeometry height="50" width="1310" x="-130" as="geometry" />
+        </mxCell>
+        <mxCell id="hdr_p3_0" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=13;fontStyle=1;verticalAlign=middle;align=center;" value="Team Leader" vertex="1">
+          <mxGeometry height="50" width="390" x="-130" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="body_p3_0" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=1;" value="" vertex="1">
+          <mxGeometry height="3040" width="390" x="-130" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="hdr_p3_1" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=13;fontStyle=1;verticalAlign=middle;align=center;" value="Candidate / Team Member" vertex="1">
+          <mxGeometry height="50" width="260" x="260" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="body_p3_1" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=1;" value="" vertex="1">
+          <mxGeometry height="3040" width="260" x="260" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="hdr_p3_2" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=13;fontStyle=1;verticalAlign=middle;align=center;" value="Event Coordinator" vertex="1">
+          <mxGeometry height="50" width="310" x="520" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="body_p3_2" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=1;" value="" vertex="1">
+          <mxGeometry height="3040" width="310" x="520" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="hdr_p3_3" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=13;fontStyle=1;verticalAlign=middle;align=center;" value="System" vertex="1">
+          <mxGeometry height="50" width="350" x="830" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="body_p3_3" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=1;" value="" vertex="1">
+          <mxGeometry height="3040" width="350" x="830" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p3_start" parent="1" style="terminator;whiteSpace=wrap;html=1;fontSize=12;fontStyle=1;verticalAlign=middle;align=center;" value="Start" vertex="1">
+          <mxGeometry height="60" width="160" x="-15" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p3_create" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;verticalAlign=middle;align=center;" value="Create a team&#xa;(registration must be open)" vertex="1">
+          <mxGeometry height="100" width="220" x="-45" y="300" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p3_jreq" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;verticalAlign=middle;align=center;" value="Request to join&#xa;the team" vertex="1">
+          <mxGeometry height="100" width="220" x="310" y="300" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p3_jnotif1" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;verticalAlign=middle;align=center;" value="Notify the&#xa;team leader" vertex="1">
+          <mxGeometry height="100" width="220" x="910" y="420" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p3_jdec" parent="1" style="rhombus;whiteSpace=wrap;html=1;fontSize=12;fontStyle=0;verticalAlign=middle;align=center;" value="Accept or decline&#xa;the request?" vertex="1">
+          <mxGeometry height="120" width="210" x="-35" y="760" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p3_jacc" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;verticalAlign=middle;align=center;" value="Accept the candidate&#xa;into the team" vertex="1">
+          <mxGeometry height="100" width="220" x="-35" y="940" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p3_jnotif2" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;verticalAlign=middle;align=center;" value="Notify the&#xa;candidate" vertex="1">
+          <mxGeometry height="100" width="220" x="880" y="1080" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p3_inv" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;verticalAlign=middle;align=center;" value="Invite a member&#xa;to the team" vertex="1">
+          <mxGeometry height="100" width="220" x="-45" y="610" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p3_inotif1" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;verticalAlign=middle;align=center;" value="Notify the&#xa;invitee" vertex="1">
+          <mxGeometry height="100" width="220" x="920" y="770" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p3_idec" parent="1" style="rhombus;whiteSpace=wrap;html=1;fontSize=12;fontStyle=0;verticalAlign=middle;align=center;" value="Accept or decline&#xa;the invitation?" vertex="1">
+          <mxGeometry height="120" width="210" x="285" y="920" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p3_iacc" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;verticalAlign=middle;align=center;" value="Accept the invitation&#xa;and join the team" vertex="1">
+          <mxGeometry height="100" width="220" x="285" y="1240" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p3_inotif2" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;verticalAlign=middle;align=center;" value="Notify the&#xa;team leader" vertex="1">
+          <mxGeometry height="100" width="220" x="890" y="1240" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p3_jdecl" parent="1" style="terminator;whiteSpace=wrap;html=1;fontSize=12;fontStyle=1;verticalAlign=middle;align=center;" value="Request declined,&#xa;candidate is notified" vertex="1">
+          <mxGeometry height="60" width="160" x="580" y="680" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p3_idecl" parent="1" style="terminator;whiteSpace=wrap;html=1;fontSize=12;fontStyle=1;verticalAlign=middle;align=center;" value="Invitation declined,&#xa;leader is notified" vertex="1">
+          <mxGeometry height="60" width="160" x="620" y="990" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p3_cdec" parent="1" style="rhombus;whiteSpace=wrap;html=1;fontSize=12;fontStyle=0;verticalAlign=middle;align=center;" value="Approve or reject&#xa;the team?" vertex="1">
+          <mxGeometry height="120" width="210" x="555" y="1400" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p3_capp" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;verticalAlign=middle;align=center;" value="Approve the team" vertex="1">
+          <mxGeometry height="100" width="220" x="550" y="1580" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p3_crej" parent="1" style="terminator;whiteSpace=wrap;html=1;fontSize=12;fontStyle=1;verticalAlign=middle;align=center;" value="Reject the team;&#xa;it cannot proceed" vertex="1">
+          <mxGeometry height="60" width="160" x="-5" y="1430" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p3_tmode" parent="1" style="rhombus;whiteSpace=wrap;html=1;fontSize=12;fontStyle=0;verticalAlign=middle;align=center;" value="How are tracks assigned&#xa;for this event?" vertex="1">
+          <mxGeometry height="120" width="210" x="555" y="1720" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p3_tself" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;verticalAlign=middle;align=center;" value="The team selects its own&#xa;track (subject to capacity)" vertex="1">
+          <mxGeometry height="100" width="220" x="-45" y="1890" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p3_trand" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;verticalAlign=middle;align=center;" value="The coordinator randomly&#xa;assigns tracks, balanced&#xa;by capacity" vertex="1">
+          <mxGeometry height="100" width="220" x="550" y="1890" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p3_leftoverprev" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;verticalAlign=middle;align=center;" value="The coordinator reviews&#xa;leftover solo/small teams" vertex="1">
+          <mxGeometry height="100" width="220" x="550" y="2050" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p3_leftovercommit" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;verticalAlign=middle;align=center;" value="Regroup leftover teams&#xa;into balanced teams" vertex="1">
+          <mxGeometry height="100" width="220" x="550" y="2210" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p3_ready" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;verticalAlign=middle;align=center;" value="Team is fully set up&#xa;and active for the event" vertex="1">
+          <mxGeometry height="100" width="220" x="550" y="2370" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p3_end" parent="1" style="terminator;whiteSpace=wrap;html=1;fontSize=12;fontStyle=1;verticalAlign=middle;align=center;" value="End: Team&#xa;ready for the event" vertex="1">
+          <mxGeometry height="60" width="160" x="640" y="2700" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p3_cdisq" parent="1" style="terminator;whiteSpace=wrap;html=1;fontSize=12;fontStyle=1;verticalAlign=middle;align=center;" value="The coordinator may later&#xa;disqualify the team&#xa;for rule violations" vertex="1">
+          <mxGeometry height="60" width="160" x="545" y="2830" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p3_transfer" parent="1" style="terminator;whiteSpace=wrap;html=1;fontSize=12;fontStyle=1;verticalAlign=middle;align=center;" value="The leader may hand off&#xa;leadership to another member" vertex="1">
+          <mxGeometry height="60" width="160" y="2860" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p3_leave" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;verticalAlign=middle;align=center;" value="A member&#xa;may leave the team" vertex="1">
+          <mxGeometry height="100" width="220" x="285" y="2930" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p3_disband" parent="1" style="terminator;whiteSpace=wrap;html=1;fontSize=12;fontStyle=1;verticalAlign=middle;align=center;" value="If the last member leaves,&#xa;the team is disbanded" vertex="1">
+          <mxGeometry height="60" width="160" y="3020" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p3_1" edge="1" parent="1" source="n_p3_start" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;fontColor=#000000;" target="n_p3_create" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p3_2" edge="1" parent="1" source="n_p3_create" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;fontColor=#000000;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="n_p3_jreq" value="Channel 1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p3_3" edge="1" parent="1" source="n_p3_jreq" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;fontColor=#000000;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="n_p3_jnotif1" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p3_4" edge="1" parent="1" source="n_p3_jnotif1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;fontColor=#000000;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" target="n_p3_jdec" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="560" y="490" />
+              <mxPoint x="560" y="590" />
+              <mxPoint x="220" y="590" />
+              <mxPoint x="220" y="780" />
+              <mxPoint x="175" y="780" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_p3_5" edge="1" parent="1" source="n_p3_jdec" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;fontColor=#000000;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="n_p3_jdecl" value="Decline">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p3_6" edge="1" parent="1" source="n_p3_jdec" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;fontColor=#000000;" target="n_p3_jacc" value="Accept">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p3_7" edge="1" parent="1" source="n_p3_jacc" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;fontColor=#000000;exitX=0.51;exitY=1.001;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitPerimeter=0;" target="n_p3_jnotif2" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="77" y="1130" />
+              <mxPoint x="810" y="1130" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_p3_8" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;fontColor=#000000;exitX=0.008;exitY=0.692;exitDx=0;exitDy=0;exitPerimeter=0;" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="875" y="1149" />
+              <mxPoint x="815" y="1150" />
+              <mxPoint x="815" y="1460" />
+            </Array>
+            <mxPoint x="876.7600000000002" y="1149.1999999999998" as="sourcePoint" />
+            <mxPoint x="765" y="1460" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_p3_9" edge="1" parent="1" source="n_p3_create" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;fontColor=#000000;" target="n_p3_inv" value="Channel 2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p3_10" edge="1" parent="1" source="n_p3_inv" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;fontColor=#000000;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="n_p3_inotif1" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p3_11" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;fontColor=#000000;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" target="n_p3_idec" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="920" y="850" />
+              <mxPoint x="708" y="850" />
+              <mxPoint x="708" y="980" />
+            </Array>
+            <mxPoint x="920" y="850" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_p3_12" edge="1" parent="1" source="n_p3_idec" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;fontColor=#000000;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="n_p3_idecl" value="Decline">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="495" y="1020" />
+              <mxPoint x="610" y="1020" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_p3_13" edge="1" parent="1" source="n_p3_idec" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;fontColor=#000000;" target="n_p3_iacc" value="Accept">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p3_14" edge="1" parent="1" source="n_p3_iacc" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;fontColor=#000000;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="n_p3_inotif2" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p3_15" edge="1" parent="1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;fontColor=#000000;" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="765" y="1320" />
+            </Array>
+            <mxPoint x="890" y="1320" as="sourcePoint" />
+            <mxPoint x="765" y="1460" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_p3_16" edge="1" parent="1" source="n_p3_cdec" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;fontColor=#000000;" target="n_p3_capp" value="Approve">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p3_17" edge="1" parent="1" source="n_p3_cdec" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;fontColor=#000000;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" target="n_p3_crej" value="Reject">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p3_18" edge="1" parent="1" source="n_p3_capp" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;fontColor=#000000;" target="n_p3_tmode" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p3_19" edge="1" parent="1" source="n_p3_tmode" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;fontColor=#000000;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" target="n_p3_tself" value="Teams choose">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p3_20" edge="1" parent="1" source="n_p3_tmode" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;fontColor=#000000;" target="n_p3_trand" value="Random draw">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p3_21" edge="1" parent="1" source="n_p3_trand" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;fontColor=#000000;" target="n_p3_leftoverprev" value="Some teams are&#xa;left ungrouped">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p3_22" edge="1" parent="1" source="n_p3_leftoverprev" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;fontColor=#000000;" target="n_p3_leftovercommit" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p3_23" edge="1" parent="1" source="n_p3_tself" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;fontColor=#000000;entryX=0.005;entryY=0.306;entryDx=0;entryDy=0;exitX=1;exitY=0.701;exitDx=0;exitDy=0;exitPerimeter=0;entryPerimeter=0;" target="n_p3_ready" value="">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="390" y="1960" />
+              <mxPoint x="390" y="2400" />
+              <mxPoint x="545" y="2400" />
+            </Array>
+            <mxPoint x="180" y="1960" as="sourcePoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_p3_24" edge="1" parent="1" source="n_p3_leftovercommit" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;fontColor=#000000;" target="n_p3_ready" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p3_25" edge="1" parent="1" source="n_p3_ready" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;fontColor=#000000;" target="n_p3_end" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p3_26" edge="1" parent="1" source="n_p3_ready" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;fontColor=#000000;" target="n_p3_cdisq" value="Any time —&#xa;rule violation">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="625" y="2500" />
+              <mxPoint x="625" y="2500" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_p3_27" edge="1" parent="1" source="n_p3_ready" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;fontColor=#000000;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" target="n_p3_transfer" value="Any time">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p3_28" edge="1" parent="1" source="n_p3_ready" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;fontColor=#000000;exitX=0.003;exitY=0.81;exitDx=0;exitDy=0;entryX=0.541;entryY=0.014;entryDx=0;entryDy=0;entryPerimeter=0;exitPerimeter=0;" target="n_p3_leave" value="Any time">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="460" y="2450" />
+              <mxPoint x="460" y="2880" />
+              <mxPoint x="404" y="2880" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_p3_29" edge="1" parent="1" source="n_p3_leave" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;fontColor=#000000;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" target="n_p3_disband" value="Team left&#xa;with 0 members">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram name="Process 4 — Contest Round (Submission, Scoring, Results)" id="p4">
+    <mxGraphModel dx="1488" dy="885" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1080" pageHeight="2540" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title_p4" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=16;fontStyle=0;align=center;verticalAlign=middle;" value="Process 4 — Contest Round (Submission, Scoring, Results)" vertex="1">
+          <mxGeometry height="50" width="1040" as="geometry" />
+        </mxCell>
+        <mxCell id="hdr_p4_0" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=13;fontStyle=1;verticalAlign=middle;align=center;" value="Event Coordinator" vertex="1">
+          <mxGeometry height="50" width="260" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="body_p4_0" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=1;" value="" vertex="1">
+          <mxGeometry height="2400" width="260" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="hdr_p4_1" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=13;fontStyle=1;verticalAlign=middle;align=center;" value="Team Leader" vertex="1">
+          <mxGeometry height="50" width="260" x="260" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="body_p4_1" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=1;" value="" vertex="1">
+          <mxGeometry height="2400" width="260" x="260" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="hdr_p4_2" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=13;fontStyle=1;verticalAlign=middle;align=center;" value="Judge" vertex="1">
+          <mxGeometry height="50" width="260" x="520" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="body_p4_2" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=1;" value="" vertex="1">
+          <mxGeometry height="2400" width="260" x="520" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="hdr_p4_3" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=13;fontStyle=1;verticalAlign=middle;align=center;" value="System" vertex="1">
+          <mxGeometry height="50" width="260" x="780" y="50" as="geometry" />
+        </mxCell>
+        <mxCell id="body_p4_3" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=1;" value="" vertex="1">
+          <mxGeometry height="2400" width="260" x="780" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p4_start" parent="1" style="terminator;whiteSpace=wrap;html=1;fontSize=12;fontStyle=1;verticalAlign=middle;align=center;" value="Start&#xa;(new round)" vertex="1">
+          <mxGeometry height="60" width="160" x="50" y="150" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p4_mkround" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;verticalAlign=middle;align=center;" value="Create a contest round and&#xa;define the scoring criteria" vertex="1">
+          <mxGeometry height="100" width="220" x="20" y="290" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p4_assign" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;verticalAlign=middle;align=center;" value="Assign judges&#xa;to the round" vertex="1">
+          <mxGeometry height="100" width="220" x="20" y="450" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p4_starttimer" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;verticalAlign=middle;align=center;" value="Open the round&#xa;for submissions" vertex="1">
+          <mxGeometry height="100" width="220" x="20" y="610" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p4_remind" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;verticalAlign=middle;align=center;" value="Send deadline&#xa;reminders" vertex="1">
+          <mxGeometry height="100" width="220" x="800" y="770" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p4_chksub" parent="1" style="rhombus;whiteSpace=wrap;html=1;fontSize=12;fontStyle=0;verticalAlign=middle;align=center;" value="Is the team eligible&#xa;to submit?" vertex="1">
+          <mxGeometry height="120" width="210" x="285" y="920" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p4_submit" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;verticalAlign=middle;align=center;" value="Submit the&#xa;team&#39;s work" vertex="1">
+          <mxGeometry height="100" width="220" x="280" y="1090" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p4_judgetimer" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;verticalAlign=middle;align=center;" value="Open the round&#xa;for judging" vertex="1">
+          <mxGeometry height="100" width="220" x="20" y="1250" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p4_score" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;verticalAlign=middle;align=center;" value="Score the submission&#xa;against the criteria" vertex="1">
+          <mxGeometry height="100" width="220" x="540" y="1410" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p4_chkfin" parent="1" style="rhombus;whiteSpace=wrap;html=1;fontSize=12;fontStyle=0;verticalAlign=middle;align=center;" value="Have results already&#xa;been finalized?" vertex="1">
+          <mxGeometry height="120" width="210" x="25" y="1560" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p4_finalize" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;verticalAlign=middle;align=center;" value="Finalize the round&#xa;and rank the teams" vertex="1">
+          <mxGeometry height="100" width="220" x="20" y="1730" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p4_publish" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;verticalAlign=middle;align=center;" value="Publish&#xa;the results" vertex="1">
+          <mxGeometry height="100" width="220" x="20" y="1890" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p4_notifres" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fontSize=12;verticalAlign=middle;align=center;" value="Notify each team&#xa;of its result" vertex="1">
+          <mxGeometry height="100" width="220" x="800" y="2050" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p4_chknext" parent="1" style="rhombus;whiteSpace=wrap;html=1;fontSize=12;fontStyle=0;verticalAlign=middle;align=center;" value="Is there&#xa;another round?" vertex="1">
+          <mxGeometry height="120" width="210" x="25" y="2200" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p4_end" parent="1" style="terminator;whiteSpace=wrap;html=1;fontSize=12;fontStyle=1;verticalAlign=middle;align=center;" value="End: All rounds&#xa;complete" vertex="1">
+          <mxGeometry height="60" width="160" x="50" y="2390" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p4_subblocked" parent="1" style="terminator;whiteSpace=wrap;html=1;fontSize=12;fontStyle=1;verticalAlign=middle;align=center;" value="Team is not allowed&#xa;to submit this round" vertex="1">
+          <mxGeometry height="60" width="160" x="50" y="950" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p4_finblocked" parent="1" style="terminator;whiteSpace=wrap;html=1;fontSize=12;fontStyle=1;verticalAlign=middle;align=center;" value="Round is already&#xa;finalized, no action" vertex="1">
+          <mxGeometry height="60" width="160" x="310" y="1750" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p4_1" edge="1" parent="1" source="n_p4_start" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;fontColor=#000000;" target="n_p4_mkround" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p4_2" edge="1" parent="1" source="n_p4_mkround" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;fontColor=#000000;" target="n_p4_assign" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p4_3" edge="1" parent="1" source="n_p4_assign" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;fontColor=#000000;" target="n_p4_starttimer" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p4_4" edge="1" parent="1" source="n_p4_starttimer" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;fontColor=#000000;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="n_p4_remind" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p4_5" edge="1" parent="1" source="n_p4_remind" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;fontColor=#000000;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" target="n_p4_chksub" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p4_6" edge="1" parent="1" source="n_p4_chksub" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;fontColor=#000000;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" target="n_p4_subblocked" value="No">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p4_7" edge="1" parent="1" source="n_p4_chksub" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;fontColor=#000000;" target="n_p4_submit" value="Yes">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p4_8" edge="1" parent="1" source="n_p4_submit" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;fontColor=#000000;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" target="n_p4_judgetimer" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p4_9" edge="1" parent="1" source="n_p4_judgetimer" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;fontColor=#000000;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="n_p4_score" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p4_10" edge="1" parent="1" source="n_p4_score" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;fontColor=#000000;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" target="n_p4_chkfin" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p4_11" edge="1" parent="1" source="n_p4_chkfin" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;fontColor=#000000;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="n_p4_finblocked" value="Already finalized">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p4_12" edge="1" parent="1" source="n_p4_chkfin" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;fontColor=#000000;" target="n_p4_finalize" value="Not yet">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p4_13" edge="1" parent="1" source="n_p4_finalize" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;fontColor=#000000;" target="n_p4_publish" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p4_14" edge="1" parent="1" source="n_p4_publish" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;fontColor=#000000;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="n_p4_notifres" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p4_15" edge="1" parent="1" source="n_p4_notifres" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;fontColor=#000000;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" target="n_p4_chknext" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p4_16" edge="1" parent="1" source="n_p4_chknext" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;fontColor=#000000;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" target="n_p4_mkround" value="Yes, start&#xa;next round">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p4_17" edge="1" parent="1" source="n_p4_chknext" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;fontColor=#000000;" target="n_p4_end" value="No">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram name="Process 5 — Event Setup and Prizes" id="p5">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="820" pageHeight="1740" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title_p5" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=16;fontStyle=0;align=center;verticalAlign=middle;" value="Process 5 — Event Setup and Prizes">
+          <mxGeometry x="0" y="0" width="780" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="hdr_p5_0" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#E6E6E6;strokeColor=#000000;fontSize=13;fontStyle=1;verticalAlign=middle;align=center;" value="Event Coordinator">
+          <mxGeometry x="0" y="50" width="260" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="body_p5_0" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F0F0F0;gradientColor=#DCDCDC;strokeColor=#000000;fontSize=1;" value="">
+          <mxGeometry x="0" y="100" width="260" height="1600" as="geometry" />
+        </mxCell>
+        <mxCell id="hdr_p5_1" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#E6E6E6;strokeColor=#000000;fontSize=13;fontStyle=1;verticalAlign=middle;align=center;" value="System Admin">
+          <mxGeometry x="260" y="50" width="260" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="body_p5_1" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F0F0F0;gradientColor=#DCDCDC;strokeColor=#000000;fontSize=1;" value="">
+          <mxGeometry x="260" y="100" width="260" height="1600" as="geometry" />
+        </mxCell>
+        <mxCell id="hdr_p5_2" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#E6E6E6;strokeColor=#000000;fontSize=13;fontStyle=1;verticalAlign=middle;align=center;" value="System">
+          <mxGeometry x="520" y="50" width="260" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="body_p5_2" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F0F0F0;gradientColor=#DCDCDC;strokeColor=#000000;fontSize=1;" value="">
+          <mxGeometry x="520" y="100" width="260" height="1600" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p5_start" parent="1" vertex="1" style="terminator;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;fontStyle=1;verticalAlign=middle;align=center;" value="Start">
+          <mxGeometry x="50" y="150" width="160" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p5_mentor" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;verticalAlign=middle;align=center;" value="Assign mentors&#xa;to tracks">
+          <mxGeometry x="20" y="290" width="220" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p5_judge" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;verticalAlign=middle;align=center;" value="Assign judges&#xa;to rounds">
+          <mxGeometry x="20" y="450" width="220" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p5_grant" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;verticalAlign=middle;align=center;" value="Grant the necessary&#xa;access automatically">
+          <mxGeometry x="540" y="610" width="220" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p5_guest" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;verticalAlign=middle;align=center;" value="Optionally invite&#xa;a guest judge">
+          <mxGeometry x="20" y="770" width="220" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p5_chkfinal" parent="1" vertex="1" style="rhombus;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;fontStyle=0;verticalAlign=middle;align=center;" value="Has the final round&#xa;been completed?">
+          <mxGeometry x="25" y="920" width="210" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p5_prize" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;verticalAlign=middle;align=center;" value="Generate or edit&#xa;the prize list">
+          <mxGeometry x="20" y="1090" width="220" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p5_announce" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;verticalAlign=middle;align=center;" value="Announce the prizes">
+          <mxGeometry x="20" y="1250" width="220" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p5_notifprize" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;verticalAlign=middle;align=center;" value="Notify the&#xa;winning teams">
+          <mxGeometry x="540" y="1410" width="220" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p5_end" parent="1" vertex="1" style="terminator;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;fontStyle=1;verticalAlign=middle;align=center;" value="End">
+          <mxGeometry x="50" y="1590" width="160" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p5_notfinal" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;verticalAlign=middle;align=center;" value="Wait until the final round&#xa;has been finalized&#xa;(see Round process)">
+          <mxGeometry x="280" y="930" width="220" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p5_1" parent="1" edge="1" source="n_p5_start" target="n_p5_mentor" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p5_2" parent="1" edge="1" source="n_p5_mentor" target="n_p5_judge" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p5_3" parent="1" edge="1" source="n_p5_judge" target="n_p5_grant" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p5_4" parent="1" edge="1" source="n_p5_grant" target="n_p5_guest" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p5_5" parent="1" edge="1" source="n_p5_guest" target="n_p5_chkfinal" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p5_6" parent="1" edge="1" source="n_p5_chkfinal" target="n_p5_notfinal" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" value="Not yet">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p5_7" parent="1" edge="1" source="n_p5_chkfinal" target="n_p5_prize" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;" value="Yes">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p5_8" parent="1" edge="1" source="n_p5_prize" target="n_p5_announce" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p5_9" parent="1" edge="1" source="n_p5_announce" target="n_p5_notifprize" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p5_10" parent="1" edge="1" source="n_p5_notifprize" target="n_p5_end" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram name="Process 6 — Participation Access Request" id="p6">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="820" pageHeight="1260" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title_p6" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=16;fontStyle=0;align=center;verticalAlign=middle;" value="Process 6 — Participation Access Request">
+          <mxGeometry x="0" y="0" width="780" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="hdr_p6_0" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#E6E6E6;strokeColor=#000000;fontSize=13;fontStyle=1;verticalAlign=middle;align=center;" value="Participant">
+          <mxGeometry x="0" y="50" width="260" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="body_p6_0" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F0F0F0;gradientColor=#DCDCDC;strokeColor=#000000;fontSize=1;" value="">
+          <mxGeometry x="0" y="100" width="260" height="1120" as="geometry" />
+        </mxCell>
+        <mxCell id="hdr_p6_1" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#E6E6E6;strokeColor=#000000;fontSize=13;fontStyle=1;verticalAlign=middle;align=center;" value="System Admin">
+          <mxGeometry x="260" y="50" width="260" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="body_p6_1" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F0F0F0;gradientColor=#DCDCDC;strokeColor=#000000;fontSize=1;" value="">
+          <mxGeometry x="260" y="100" width="260" height="1120" as="geometry" />
+        </mxCell>
+        <mxCell id="hdr_p6_2" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#E6E6E6;strokeColor=#000000;fontSize=13;fontStyle=1;verticalAlign=middle;align=center;" value="System">
+          <mxGeometry x="520" y="50" width="260" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="body_p6_2" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F0F0F0;gradientColor=#DCDCDC;strokeColor=#000000;fontSize=1;" value="">
+          <mxGeometry x="520" y="100" width="260" height="1120" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p6_start" parent="1" vertex="1" style="terminator;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;fontStyle=1;verticalAlign=middle;align=center;" value="Start">
+          <mxGeometry x="50" y="150" width="160" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p6_req" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;verticalAlign=middle;align=center;" value="Request access&#xa;(e.g. reactivation)">
+          <mxGeometry x="20" y="290" width="220" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p6_list" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;verticalAlign=middle;align=center;" value="Review pending&#xa;access requests">
+          <mxGeometry x="280" y="450" width="220" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p6_decide" parent="1" vertex="1" style="rhombus;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;fontStyle=0;verticalAlign=middle;align=center;" value="Approve or reject&#xa;the request?">
+          <mxGeometry x="285" y="600" width="210" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p6_approve" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;verticalAlign=middle;align=center;" value="Approve the request&#xa;and restore access">
+          <mxGeometry x="280" y="770" width="220" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p6_reject" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;verticalAlign=middle;align=center;" value="Reject the request;&#xa;access remains restricted">
+          <mxGeometry x="20" y="930" width="220" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p6_notif" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;verticalAlign=middle;align=center;" value="Notify the&#xa;participant">
+          <mxGeometry x="540" y="930" width="220" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p6_end" parent="1" vertex="1" style="terminator;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;fontStyle=1;verticalAlign=middle;align=center;" value="End">
+          <mxGeometry x="310" y="1110" width="160" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p6_1" parent="1" edge="1" source="n_p6_start" target="n_p6_req" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p6_2" parent="1" edge="1" source="n_p6_req" target="n_p6_list" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p6_3" parent="1" edge="1" source="n_p6_list" target="n_p6_decide" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p6_4" parent="1" edge="1" source="n_p6_decide" target="n_p6_approve" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;" value="Approve">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p6_5" parent="1" edge="1" source="n_p6_decide" target="n_p6_reject" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" value="Reject">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p6_6" parent="1" edge="1" source="n_p6_approve" target="n_p6_notif" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p6_7" parent="1" edge="1" source="n_p6_reject" target="n_p6_notif" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p6_8" parent="1" edge="1" source="n_p6_notif" target="n_p6_end" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram name="Process 7 — Announcements" id="p7">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1080" pageHeight="940" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title_p7" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=16;fontStyle=0;align=center;verticalAlign=middle;" value="Process 7 — Announcements">
+          <mxGeometry x="0" y="0" width="1040" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="hdr_p7_0" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#E6E6E6;strokeColor=#000000;fontSize=13;fontStyle=1;verticalAlign=middle;align=center;" value="Mentor">
+          <mxGeometry x="0" y="50" width="260" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="body_p7_0" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F0F0F0;gradientColor=#DCDCDC;strokeColor=#000000;fontSize=1;" value="">
+          <mxGeometry x="0" y="100" width="260" height="800" as="geometry" />
+        </mxCell>
+        <mxCell id="hdr_p7_1" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#E6E6E6;strokeColor=#000000;fontSize=13;fontStyle=1;verticalAlign=middle;align=center;" value="Event Coordinator">
+          <mxGeometry x="260" y="50" width="260" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="body_p7_1" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F0F0F0;gradientColor=#DCDCDC;strokeColor=#000000;fontSize=1;" value="">
+          <mxGeometry x="260" y="100" width="260" height="800" as="geometry" />
+        </mxCell>
+        <mxCell id="hdr_p7_2" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#E6E6E6;strokeColor=#000000;fontSize=13;fontStyle=1;verticalAlign=middle;align=center;" value="System">
+          <mxGeometry x="520" y="50" width="260" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="body_p7_2" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F0F0F0;gradientColor=#DCDCDC;strokeColor=#000000;fontSize=1;" value="">
+          <mxGeometry x="520" y="100" width="260" height="800" as="geometry" />
+        </mxCell>
+        <mxCell id="hdr_p7_3" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#E6E6E6;strokeColor=#000000;fontSize=13;fontStyle=1;verticalAlign=middle;align=center;" value="Recipients">
+          <mxGeometry x="780" y="50" width="260" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="body_p7_3" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F0F0F0;gradientColor=#DCDCDC;strokeColor=#000000;fontSize=1;" value="">
+          <mxGeometry x="780" y="100" width="260" height="800" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p7_mstart" parent="1" vertex="1" style="terminator;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;fontStyle=1;verticalAlign=middle;align=center;" value="Start&#xa;(mentor)">
+          <mxGeometry x="50" y="150" width="160" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p7_cstart" parent="1" vertex="1" style="terminator;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;fontStyle=1;verticalAlign=middle;align=center;" value="Start&#xa;(coordinator)">
+          <mxGeometry x="310" y="150" width="160" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p7_mpost" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;verticalAlign=middle;align=center;" value="Post an announcement&#xa;to teams in the track">
+          <mxGeometry x="20" y="450" width="220" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p7_cpost" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;verticalAlign=middle;align=center;" value="Post an announcement&#xa;to the chosen audience">
+          <mxGeometry x="280" y="290" width="220" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p7_notif" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;verticalAlign=middle;align=center;" value="Notify the&#xa;audience">
+          <mxGeometry x="540" y="450" width="220" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p7_view" parent="1" vertex="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;verticalAlign=middle;align=center;" value="Recipients read&#xa;the announcement">
+          <mxGeometry x="800" y="610" width="220" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="n_p7_end" parent="1" vertex="1" style="terminator;whiteSpace=wrap;html=1;fillColor=#F5F5F5;gradientColor=#B0B0B0;strokeColor=#000000;fontSize=12;fontStyle=1;verticalAlign=middle;align=center;" value="End">
+          <mxGeometry x="830" y="790" width="160" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p7_1" parent="1" edge="1" source="n_p7_mstart" target="n_p7_mpost" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p7_2" parent="1" edge="1" source="n_p7_cstart" target="n_p7_cpost" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p7_3" parent="1" edge="1" source="n_p7_mpost" target="n_p7_notif" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p7_4" parent="1" edge="1" source="n_p7_cpost" target="n_p7_notif" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p7_5" parent="1" edge="1" source="n_p7_notif" target="n_p7_view" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_p7_6" parent="1" edge="1" source="n_p7_view" target="n_p7_end" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;strokeColor=#000000;fontColor=#000000;" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

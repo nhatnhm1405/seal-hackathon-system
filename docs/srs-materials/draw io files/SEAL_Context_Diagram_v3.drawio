@@ -1,0 +1,172 @@
+<mxfile host="Electron">
+  <diagram name="Context Diagram v3" id="seal-ctx-03">
+    <mxGraphModel dx="1488" dy="2325" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1960" pageHeight="1440" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="proc" parent="1" style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;fontSize=14;fontStyle=1;verticalAlign=middle;" value="0&#xa;SEAL&#xa;Software Engineering&#xa;Hackathon Management System" vertex="1">
+          <mxGeometry height="340" width="340" x="740" y="520" as="geometry" />
+        </mxCell>
+        <mxCell id="ec" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;fontSize=13;fontStyle=1;verticalAlign=middle;" value="Event Coordinator&#xa;SE Department / PDP Staff" vertex="1">
+          <mxGeometry height="110" width="270" x="40" y="70" as="geometry" />
+        </mxCell>
+        <mxCell id="oauth" parent="1" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;fillColor=#ffffff;strokeColor=#000000;fontSize=13;fontStyle=1;verticalAlign=middle;" value="Google Identity Provider&#xa;OAuth 2.0 / OIDC&#xa;Optional SSO" vertex="1">
+          <mxGeometry height="90" width="250" x="40" y="340" as="geometry" />
+        </mxCell>
+        <mxCell id="oauthnote" parent="1" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=top;fontSize=10;fontStyle=2;spacingLeft=4;" value="The SEAL system still supports Email and Password authentication and issues its own JWT. Google OIDC is an optional login method." vertex="1">
+          <mxGeometry height="90" width="250" x="40" y="440" as="geometry" />
+        </mxCell>
+        <mxCell id="ad" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;fontSize=13;fontStyle=1;verticalAlign=middle;" value="System Admin" vertex="1">
+          <mxGeometry height="100" width="230" x="40" y="580" as="geometry" />
+        </mxCell>
+        <mxCell id="email" parent="1" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;fillColor=#ffffff;strokeColor=#000000;fontSize=13;verticalAlign=middle;" value="Email / SMTP Service&#xa;Optional" vertex="1">
+          <mxGeometry height="90" width="250" x="40" y="760" as="geometry" />
+        </mxCell>
+        <mxCell id="mn" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;fontSize=13;fontStyle=1;verticalAlign=middle;" value="Mentor" vertex="1">
+          <mxGeometry height="100" width="230" x="180" y="940" as="geometry" />
+        </mxCell>
+        <mxCell id="pv" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;fontSize=13;fontStyle=1;verticalAlign=middle;" value="Public Visitor&#xa;Unauthenticated" vertex="1">
+          <mxGeometry height="80" width="220" x="800" y="-60" as="geometry" />
+        </mxCell>
+        <mxCell id="git" parent="1" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;fillColor=#ffffff;strokeColor=#000000;fontSize=13;verticalAlign=middle;" value="GitHub / GitLab API&#xa;Optional Repository Integration" vertex="1">
+          <mxGeometry height="90" width="240" x="740" y="1270" as="geometry" />
+        </mxCell>
+        <mxCell id="tl" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;fontSize=13;fontStyle=1;verticalAlign=middle;" value="Team Leader" vertex="1">
+          <mxGeometry height="110" width="240" x="1600" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="jd" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;fontSize=13;fontStyle=1;verticalAlign=middle;" value="Judge&#xa;Internal / Guest" vertex="1">
+          <mxGeometry height="110" width="240" x="1660" y="560" as="geometry" />
+        </mxCell>
+        <mxCell id="gem" parent="1" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;fillColor=#ffffff;strokeColor=#000000;fontSize=13;verticalAlign=middle;" value="Google Gemini API&#xa;Optional AI Assistance" vertex="1">
+          <mxGeometry height="100" width="260" x="1650" y="830" as="geometry" />
+        </mxCell>
+        <mxCell id="tm" parent="1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;fontSize=13;fontStyle=1;verticalAlign=middle;" value="Team Member" vertex="1">
+          <mxGeometry height="100" width="240" x="1550" y="1190" as="geometry" />
+        </mxCell>
+        <mxCell id="lg" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;fontSize=12;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;" value="Legend&#xa;&#xa;Solid rounded rectangle: Human external entity&#xa;Dashed rounded rectangle: Optional external system&#xa;Circle: Process 0 &#8211; SEAL System&#xa;Arrow toward the system: Input data&#xa;Arrow away from the system: Output data&#xa;RBL: Research-Based Learning feature&#xa;Optional: Can be removed from MVP scope" vertex="1">
+          <mxGeometry height="200" width="360" x="1180" y="20" as="geometry" />
+        </mxCell>
+        <mxCell id="br" parent="1" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#000000;fontSize=11;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;" value="Business Rules&#xa;&#xa;1. Accounts must be approved before participation.&#xa;2. Teams contain 3 to 5 members.&#xa;3. Teams register for one Track within an Event.&#xa;4. Judges may access only assigned Rounds and Tracks.&#xa;5. Guest Judge accounts are temporary and assignment-scoped.&#xa;6. Each Judge&#39;s per-criterion scores are stored separately.&#xa;7. Score revisions, disqualifications, and result publication are recorded in the Audit Log.&#xa;8. Promotion follows the configured Top-N rule.&#xa;9. Research exports must anonymize Judge and participant identities.&#xa;10. AI assistance is optional and advisory only." vertex="1">
+          <mxGeometry height="330" width="470" x="40" y="1080" as="geometry" />
+        </mxCell>
+        <mxCell id="ec_o1" edge="1" parent="1" source="ec" target="proc" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;exitX=1;exitY=0.3;exitDx=0;exitDy=0;entryX=0.18;entryY=0.08;entryDx=0;entryDy=0;" value="Event, Track and Round configuration&#xa;Scoring criteria and weights&#xa;Submission deadline configuration&#xa;Account and team approval decisions&#xa;Judge and Mentor assignment data&#xa;Promotion rule configuration&#xa;Disqualification decision and reason&#xa;Ranking finalization and prize assignment&#xa;Result publication request&#xa;Audit log query and report export request&#xa;Inter-rater analysis request (RBL)&#xa;Anonymized scoring dataset export request (RBL)">
+          <mxGeometry relative="1" x="-0.45" as="geometry" />
+        </mxCell>
+        <mxCell id="ec_i1" edge="1" parent="1" source="proc" target="ec" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;exitX=0.06;exitY=0.22;exitDx=0;exitDy=0;entryX=1;entryY=0.75;entryDx=0;entryDy=0;" value="Pending accounts and teams&#xa;Submission and scoring progress&#xa;Aggregated scores and rankings&#xa;Promotion candidates&#xa;Disqualification records&#xa;Audit log report&#xa;CSV and Excel reports&#xa;Publication and prize status&#xa;Inter-judge variance dashboard (RBL)&#xa;Anonymized scoring dataset (RBL)&#xa;Calibration analysis results (RBL)">
+          <mxGeometry relative="1" x="0.4" as="geometry">
+            <Array as="points">
+              <mxPoint x="660" y="588" />
+              <mxPoint x="660" y="420" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="oa1" edge="1" parent="1" source="proc" target="oauth" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;exitX=0.02;exitY=0.45;exitDx=0;exitDy=0;entryX=1;entryY=0.35;entryDx=0;entryDy=0;" value="Authorization request">
+          <mxGeometry relative="1" x="-0.5" as="geometry">
+            <Array as="points">
+              <mxPoint x="470" y="617" />
+              <mxPoint x="470" y="368" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="oa2" edge="1" parent="1" source="oauth" target="proc" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;exitX=1;exitY=0.65;exitDx=0;exitDy=0;entryX=0.03;entryY=0.52;entryDx=0;entryDy=0;" value="ID token&#xa;Verified user claims">
+          <mxGeometry relative="1" x="-0.4" as="geometry">
+            <Array as="points">
+              <mxPoint x="520" y="399" />
+              <mxPoint x="520" y="697" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ad_o1" edge="1" parent="1" source="ad" target="proc" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;exitX=1;exitY=0.35;exitDx=0;exitDy=0;entryX=0.02;entryY=0.6;entryDx=0;entryDy=0;" value="User account management data&#xa;Role and permission configuration&#xa;System configuration&#xa;Default scoring criteria template">
+          <mxGeometry relative="1" x="-0.4" as="geometry" />
+        </mxCell>
+        <mxCell id="ad_i1" edge="1" parent="1" source="proc" target="ad" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;exitX=0.02;exitY=0.72;exitDx=0;exitDy=0;entryX=1;entryY=0.72;entryDx=0;entryDy=0;" value="User and role information&#xa;Account status&#xa;System statistics&#xa;System and security logs">
+          <mxGeometry relative="1" x="0.4" as="geometry" />
+        </mxCell>
+        <mxCell id="em1" edge="1" parent="1" source="proc" target="email" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;exitX=0;exitY=0.68;exitDx=0;exitDy=0;entryX=1;entryY=0.35;entryDx=0;entryDy=0;" value="Recipient information&#xa;Account approval or rejection email&#xa;Password-reset OTP email&#xa;Event and result notifications">
+          <mxGeometry relative="1" x="-0.4" as="geometry" />
+        </mxCell>
+        <mxCell id="em2" edge="1" parent="1" source="email" target="proc" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;exitX=1;exitY=0.7;exitDx=0;exitDy=0;entryX=0.02;entryY=0.82;entryDx=0;entryDy=0;" value="Delivery status&#xa;Delivery failure reason">
+          <mxGeometry relative="1" x="0.3" as="geometry">
+            <Array as="points">
+              <mxPoint x="690" y="823" />
+              <mxPoint x="690" y="799" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="mn_o1" edge="1" parent="1" source="mn" target="proc" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;exitX=0.85;exitY=0;exitDx=0;exitDy=0;entryX=0.14;entryY=0.9;entryDx=0;entryDy=0;" value="Assigned Track and team information request&#xa;Submission progress request&#xa;Team support notes (Optional)">
+          <mxGeometry relative="1" x="-0.3" as="geometry" />
+        </mxCell>
+        <mxCell id="mn_i1" edge="1" parent="1" source="proc" target="mn" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;exitX=0.06;exitY=0.85;exitDx=0;exitDy=0;entryX=0.35;entryY=0;entryDx=0;entryDy=0;" value="Assigned Tracks and teams&#xa;Team details&#xa;Submission progress&#xa;Event announcements&#xa;Team results">
+          <mxGeometry relative="1" x="0.35" as="geometry">
+            <Array as="points">
+              <mxPoint x="560" y="810" />
+              <mxPoint x="260" y="850" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="pv2" edge="1" parent="1" source="pv" target="proc" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;exitX=0.35;exitY=1;exitDx=0;exitDy=0;entryX=0.42;entryY=0.03;entryDx=0;entryDy=0;" value="Public event and result query">
+          <mxGeometry relative="1" x="-0.4" as="geometry">
+            <Array as="points">
+              <mxPoint x="877" y="300" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="pv1" edge="1" parent="1" source="proc" target="pv" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;exitX=0.6;exitY=0.02;exitDx=0;exitDy=0;entryX=0.6;entryY=1;entryDx=0;entryDy=0;" value="Published event information&#xa;Public schedules&#xa;Published leaderboard and results">
+          <mxGeometry relative="1" x="0.4" as="geometry">
+            <Array as="points">
+              <mxPoint x="972" y="300" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="git1" edge="1" parent="1" source="proc" target="git" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;exitX=0.42;exitY=0.98;exitDx=0;exitDy=0;entryX=0.35;entryY=0;entryDx=0;entryDy=0;" value="Repository metadata request&#xa;Repository URL or repository identifier">
+          <mxGeometry relative="1" x="-0.4" as="geometry">
+            <Array as="points">
+              <mxPoint x="843" y="1150" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="git2" edge="1" parent="1" source="git" target="proc" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;exitX=0.62;exitY=0;exitDx=0;exitDy=0;entryX=0.55;entryY=0.99;entryDx=0;entryDy=0;" value="Repository metadata&#xa;Repository accessibility status&#xa;Last update timestamp&#xa;Commit information">
+          <mxGeometry relative="1" x="0.4" as="geometry">
+            <Array as="points">
+              <mxPoint x="909" y="1150" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="tl_o1" edge="1" parent="1" source="tl" target="proc" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;exitX=0;exitY=0.3;exitDx=0;exitDy=0;entryX=0.8;entryY=0.08;entryDx=0;entryDy=0;" value="Team profile and roster information&#xa;Member invitation data&#xa;Track registration data&#xa;Repository URL&#xa;Demo URL&#xa;Report or presentation URL&#xa;Submission updates before deadline">
+          <mxGeometry relative="1" x="-0.35" as="geometry" />
+        </mxCell>
+        <mxCell id="tl_i1" edge="1" parent="1" source="proc" target="tl" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;exitX=0.9;exitY=0.2;exitDx=0;exitDy=0;entryX=0;entryY=0.72;entryDx=0;entryDy=0;" value="Team creation and approval status&#xa;Member invitation status&#xa;Track registration status&#xa;Round deadlines&#xa;Submission status&#xa;Promotion status&#xa;Rankings and results">
+          <mxGeometry relative="1" x="0.35" as="geometry">
+            <Array as="points">
+              <mxPoint x="1120" y="588" />
+              <mxPoint x="1120" y="200" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="jd_o1" edge="1" parent="1" source="jd" target="proc" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;exitX=0;exitY=0.3;exitDx=0;exitDy=0;entryX=0.99;entryY=0.42;entryDx=0;entryDy=0;" value="Draft per-criterion scores&#xa;Final per-criterion scores&#xa;Judge comments&#xa;Score revision request and reason&#xa;Calibration scores (RBL)">
+          <mxGeometry relative="1" x="-0.35" as="geometry" />
+        </mxCell>
+        <mxCell id="jd_i1" edge="1" parent="1" source="proc" target="jd" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;exitX=0.99;exitY=0.62;exitDx=0;exitDy=0;entryX=0;entryY=0.72;entryDx=0;entryDy=0;" value="Assigned rounds and Tracks&#xa;Assigned submission details&#xa;Scoring criteria and weights&#xa;Scoring deadlines&#xa;Draft and final score status&#xa;Calibration sample and score distribution (RBL)&#xa;AI-generated submission summary and criteria observations (Optional)">
+          <mxGeometry relative="1" x="0.35" as="geometry" />
+        </mxCell>
+        <mxCell id="ge1" edge="1" parent="1" source="proc" target="gem" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;exitX=0.96;exitY=0.72;exitDx=0;exitDy=0;entryX=0;entryY=0.35;entryDx=0;entryDy=0;" value="Anonymized repository summary&#xa;Submission context&#xa;Scoring criteria">
+          <mxGeometry relative="1" x="-0.35" as="geometry" />
+        </mxCell>
+        <mxCell id="ge2" edge="1" parent="1" source="gem" target="proc" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;exitX=0;exitY=0.65;exitDx=0;exitDy=0;entryX=0.9;entryY=0.82;entryDx=0;entryDy=0;" value="AI-generated submission summary&#xa;Criteria-related observations&#xa;Missing-information warnings&#xa;Advisory only &#8211; no score generation">
+          <mxGeometry relative="1" x="0.35" as="geometry" />
+        </mxCell>
+        <mxCell id="tm_o1" edge="1" parent="1" source="tm" target="proc" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;exitX=0;exitY=0.3;exitDx=0;exitDy=0;entryX=0.86;entryY=0.9;entryDx=0;entryDy=0;" value="Registration information&#xa;Student classification information&#xa;FPT Student ID or External Student ID and University&#xa;Team invitation response&#xa;Event and team information request">
+          <mxGeometry relative="1" x="-0.35" as="geometry" />
+        </mxCell>
+        <mxCell id="tm_i1" edge="1" parent="1" source="proc" target="tm" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=classic;fontSize=11;labelBackgroundColor=#ffffff;exitX=0.82;exitY=0.95;exitDx=0;exitDy=0;entryX=0;entryY=0.72;entryDx=0;entryDy=0;" value="Account approval status&#xa;Team invitation&#xa;Team information&#xa;Event and round schedule&#xa;Event announcements and notifications&#xa;Promotion status&#xa;Rankings and results">
+          <mxGeometry relative="1" x="0.35" as="geometry">
+            <Array as="points">
+              <mxPoint x="1120" y="1090" />
+              <mxPoint x="1500" y="1090" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
