@@ -43,7 +43,7 @@ public class RoundResultController {
             @PathVariable Integer roundId,
             Authentication authentication) {
         UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
-        return ResponseEntity.ok(ApiResponse.success("Round finalized successfully.",
+        return ResponseEntity.ok(ApiResponse.success("Rankings calculated successfully.",
                 roundResultService.finalizeRound(eventId, roundId, principal.getUserId())));
     }
 

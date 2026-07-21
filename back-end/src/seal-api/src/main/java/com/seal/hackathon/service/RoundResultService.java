@@ -176,10 +176,6 @@ public class RoundResultService {
             }
         }
 
-        // Update round status to FINALIZED
-        round.setStatus("FINALIZED");
-        roundRepository.save(round);
-
         return results.stream().map(this::mapToResponse).collect(Collectors.toList());
     }
 
@@ -192,7 +188,7 @@ public class RoundResultService {
 
         List<RoundResult> results = resultRepository.findAllByRound_RoundIdOrderByRankPosition(roundId);
         if (results.isEmpty()) {
-            throw new BadRequestException("No results to publish. Please finalize the round first.");
+            throw new BadRequestException("No results to publish. Please calculate rankings first.");
         }
 
         List<RoundResult> newlyPublished = results.stream()
@@ -201,6 +197,9 @@ public class RoundResultService {
         results.forEach(r -> r.setIsPublished(true));
         resultRepository.saveAll(results);
         newlyPublished.forEach(this::notifyTeamResultPublished);
+
+        round.setStatus("FINALIZED");
+        roundRepository.save(round);
 
         // Notify each ranked team that results are out.
         String roundName = round.getName();
