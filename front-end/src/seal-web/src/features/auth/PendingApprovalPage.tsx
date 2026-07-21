@@ -1,5 +1,4 @@
 import { useNavigate } from "react-router";
-import { useForceDark } from "@/app/providers/ThemeProvider";
 import {
   C, GradientText, PixelButton, PixelCard, FloatingParticles,
 } from "@/shared/components/PixelComponents";
@@ -8,7 +7,6 @@ import { useAuth } from "@/app/providers/AuthProvider";
 import sealLogo from "@/imports/image.png";
 
 export function PendingApprovalPage() {
-  useForceDark();
   const navigate = useNavigate();
   const { isAuthenticated, logout } = useAuth();
 
