@@ -32,7 +32,7 @@ This repository contains a full-stack web platform that digitizes and centralize
 ### Nguyen Huynh Khanh Trang — Frontend Developer & UI/UX
 
 - Led UI/UX design in Figma and translated it into a shared, reusable component library (layout, overlay, navigation, data-display, and interaction components) used consistently across the application.
-- Designed and implemented the light/dark theming system, including a full visual redesign of light mode to a neutral, HackerRank-style palette.
+- Designed and implemented the shared dark cyber-tech design system used across the application.
 - Built the scoring and ranking engine: Top-N advancement per track and overall, tie-break resolution by submission time, and anonymized team names in judge-facing views to reduce scoring bias.
 - Implemented the final results experience — awards, history pages, and mentor/judge guide popups to support scoring and adjudication workflows.
 - Built participant-facing flows: join-request handling for teams without an assigned track, the competition rules popup (with login auto-show and footer access), and event-status gating for participant team actions.
