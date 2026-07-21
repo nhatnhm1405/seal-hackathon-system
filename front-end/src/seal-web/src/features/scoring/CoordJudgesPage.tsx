@@ -18,6 +18,7 @@ import {
 // "Assignment History" tab. This page only ever works the one event still
 // being configured/run (the "one active event" model).
 const ENDED_STATUSES = new Set(["COMPLETED", "CANCELLED"]);
+const ASSIGNMENT_MUTABLE_STATUSES = new Set(["SETUP", "IN_PROGRESS"]);
 
 /** The event currently being configured, if any: furthest along its lifecycle wins. */
 function pickCurrentEvent(events: HackathonEvent[]): HackathonEvent | null {
@@ -42,6 +43,7 @@ export function CoordJudgesPage() {
   const [events, setEvents] = useState<HackathonEvent[]>([]);
   const currentEvent = useMemo(() => pickCurrentEvent(events), [events]);
   const selectedEventId = currentEvent?.eventId ?? null;
+  const assignmentMutable = ASSIGNMENT_MUTABLE_STATUSES.has((currentEvent?.status ?? "").toUpperCase());
   const [rounds, setRounds] = useState<Round[]>([]);
   const [tracks, setTracks] = useState<Track[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
@@ -221,9 +223,12 @@ export function CoordJudgesPage() {
 
   function AddButton({ onClick, isActive }: { onClick: (anchor: DOMRect) => void; isActive: boolean }) {
     return (
-      <button onClick={e => onClick(e.currentTarget.getBoundingClientRect())}
-        style={{ alignSelf: "flex-start", background: isActive ? "rgba(34,197,94,0.16)" : "transparent", border: `1px dashed ${isActive ? C.green : C.border}`, borderRadius: 4, color: isActive ? C.green : C.textMuted, fontFamily: mono, fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", padding: "5px 11px", cursor: "pointer", transition: "color .12s, border-color .12s" }}
-        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = C.green; (e.currentTarget as HTMLElement).style.color = C.green; }}
+      <button
+        onClick={e => { if (assignmentMutable) onClick(e.currentTarget.getBoundingClientRect()); }}
+        disabled={!assignmentMutable}
+        title={assignmentMutable ? "Add assignment" : "Assignments can only be changed in SETUP or IN_PROGRESS."}
+        style={{ alignSelf: "flex-start", background: isActive ? "rgba(34,197,94,0.16)" : "transparent", border: `1px dashed ${isActive ? C.green : C.border}`, borderRadius: 4, color: isActive ? C.green : C.textMuted, fontFamily: mono, fontSize: 11, fontWeight: 600, letterSpacing: "0.06em", padding: "5px 11px", cursor: assignmentMutable ? "pointer" : "not-allowed", opacity: assignmentMutable ? 1 : 0.45, transition: "color .12s, border-color .12s" }}
+        onMouseEnter={e => { if (assignmentMutable) { (e.currentTarget as HTMLElement).style.borderColor = C.green; (e.currentTarget as HTMLElement).style.color = C.green; } }}
         onMouseLeave={e => { if (!isActive) { (e.currentTarget as HTMLElement).style.borderColor = C.border; (e.currentTarget as HTMLElement).style.color = C.textMuted; } }}>
         + add
       </button>
@@ -276,6 +281,11 @@ export function CoordJudgesPage() {
             const otherMentorAssignment = active?.kind === 'mentor'
               ? mentors.find(m => m.mentorUserId === u.userId && m.trackId !== active.trackId)
               : undefined;
+            const otherJudgeRoundAssignment = active?.kind === 'judge' || active?.kind === 'final'
+              ? judges.find(j => j.judgeUserId === u.userId
+                && j.roundId === active.roundId
+                && (active.kind === 'final' ? j.trackId != null : j.trackId !== active.trackId))
+              : undefined;
             // Guest judges are one-off external scorers, not embedded staff —
             // they can't take on a mentor's ongoing track responsibility.
             const isGuestMentorAttempt = active?.kind === 'mentor' && u.judgeType === 'GUEST';
@@ -283,6 +293,8 @@ export function CoordJudgesPage() {
               ? "Guest judges cannot be assigned as mentors."
               : otherMentorAssignment
               ? `Already manages ${otherMentorAssignment.trackName} in this event.`
+              : otherJudgeRoundAssignment
+              ? `Already judges ${otherJudgeRoundAssignment.trackName ?? "all tracks"} in this round.`
               : null;
             const warning = already || unavailableReason ? null : conflictWarning(u.userId);
             return (
@@ -441,7 +453,7 @@ export function CoordJudgesPage() {
                 style={{ display: "block", width: "100%", marginTop: 6, background: C.surface2, border: `1px solid ${C.border}`, color: C.text, fontFamily: mono, padding: "9px 10px" }}>
                 <option value="">Select staff…</option>
                 {staff.filter(user => user.userId !== replaceTarget.judgeUserId
-                  && !judgesOf(replaceTarget.roundId, replaceTarget.trackId ?? null).some(judge => judge.judgeUserId === user.userId))
+                  && !judges.some(judge => judge.roundId === replaceTarget.roundId && judge.judgeUserId === user.userId))
                   .map(user => <option key={user.userId} value={user.userId}>{user.fullName}</option>)}
               </select>
             </label>
