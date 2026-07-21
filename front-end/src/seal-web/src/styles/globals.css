@@ -88,6 +88,14 @@ body {
   background-size: 12px 12px;
 }
 
+/* 1c Blueprint (light mode): grid mực xám mảnh thay vì xanh lá — "bản vẽ kỹ thuật" */
+:root[data-theme="light"] .pixel-grid-bg,
+:root[data-theme="light"] .pixel-grid-dense {
+  background-image:
+    linear-gradient(rgba(51,65,85,.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(51,65,85,.05) 1px, transparent 1px);
+}
+
 /* Glow effects */
 .pixel-glow {
   box-shadow: 0 0 20px rgba(34, 197, 94, 0.3), 0 0 40px rgba(34, 197, 94, 0.1);
@@ -169,6 +177,9 @@ body {
 .pixel-float { animation: pixelFloat 4s ease-in-out infinite; }
 .pixel-float-slow { animation: pixelFloat 6s ease-in-out infinite; }
 .pixel-float-fast { animation: pixelFloat 2.5s ease-in-out infinite; }
+
+/* Light mode: hạ độ nổi của particle nền — neon xanh trên nền trắng chỉ gây nhiễu */
+:root[data-theme="light"] .pixel-particles { opacity: .35; }
 .glow-pulse { animation: glowPulse 2s ease-in-out infinite; }
 .text-glow-pulse { animation: textGlowPulse 2s ease-in-out infinite; }
 .cursor-blink::after { content: '█'; animation: blink 1s step-end infinite; }
@@ -190,6 +201,15 @@ body {
     linear-gradient(rgba(59, 130, 246, 0.04) 1px, transparent 1px),
     linear-gradient(90deg, rgba(34, 197, 94, 0.05) 1px, transparent 1px);
   background-size: 100% 100%, 100% 100%, 28px 28px, 28px 28px;
+}
+
+/* 1c Blueprint (light mode): tắt spotlight xanh dương/lá, chỉ còn mực xám mảnh */
+:root[data-theme="light"] .cyber-grid-bg {
+  background-image:
+    radial-gradient(ellipse at 20% 50%, transparent 0%, transparent 55%),
+    radial-gradient(ellipse at 80% 30%, transparent 0%, transparent 55%),
+    linear-gradient(rgba(51,65,85,.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(51,65,85,.05) 1px, transparent 1px);
 }
 
 /* Gradient border card */

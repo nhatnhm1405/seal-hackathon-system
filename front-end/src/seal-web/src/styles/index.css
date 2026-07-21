@@ -51,11 +51,46 @@ html.theme-transitioning *::after {
 
   /* Màu chữ đặt trên nền accent (nút primary): dark = gần đen */
   --c-on-accent:     #030b06;
+
+  /* Accent phụ (blue/cyan/purple) — theme-aware để component tham chiếu thay vì hardcode hex */
+  --c-blue:   #3b82f6;
+  --c-cyan:   #06b6d4;
+  --c-purple: #8b5cf6;
+  --c-blue-text:   #93c5fd;
+  --c-cyan-text:   #22d3ee;
+  --c-purple-text: #a78bfa;
+
+  /* RGB triplet của accent chính — cho phép rgba(var(--c-accent-rgb), alpha) trong hover/border hardcode */
+  --c-accent-rgb: 34,197,94;
+
+  /* Stat card treatment (CyberStatCard) */
+  --c-stat-shadow:     0 0 20px rgba(34,197,94,.08), inset 0 0 30px rgba(34,197,94,.04);
+  --c-stat-textshadow: 0 0 20px var(--c-glow);
+
+  /* Corner-brackets (PixelCard / CyberStatCard) */
+  --c-bracket-size:    10px;
+  --c-bracket-w:       2px;
+  --c-bracket-opacity: .7;
+
+  /* Danger (logout, v.v.) — theo theme để đủ tương phản trên nền sáng */
+  --c-danger-bg:     rgba(239,68,68,0.08);
+  --c-danger-border: rgba(239,68,68,0.35);
+  --c-danger-text:   #ef4444;
+
+  /* Gradient surfaces (PixelCard gradient=true / TerminalWindow hero) */
+  --c-gradient-card: linear-gradient(135deg, rgba(34,197,94,0.06) 0%, rgba(59,130,246,0.04) 100%);
+  --c-gradient-hero: linear-gradient(160deg, rgba(34,197,94,0.08) 0%, rgba(59,130,246,0.06) 50%, rgba(6,182,212,0.04) 100%);
+
+  /* Grid lines + spotlight dùng ở DashboardLayout (sidebar/main content backdrop) */
+  --c-grid-line-h:      rgba(59,130,246,0.045);
+  --c-grid-line-v:      rgba(34,197,94,0.05);
+  --c-grid-spot-sidebar:rgba(34,197,94,0.10);
+  --c-grid-spot-main:   rgba(34,197,94,0.06);
 }
 
 :root[data-theme="light"] {
-  /* HackerRank-style: nền trắng/xám rất nhạt, trung tính */
-  --c-bg:           #f7f8fa;
+  /* 1c Blueprint: nền hơi xám hơn để grid mực xám nổi rõ */
+  --c-bg:           #f2f4f6;
   --c-surface:      #ffffff;
   --c-surface2:     #f1f3f5;
   --c-surface3:     #e7ebef;
@@ -63,18 +98,18 @@ html.theme-transitioning *::after {
   /* Text — slate/navy đậm, dễ đọc (muted/dim đậm thêm cho sidebar & chữ phụ rõ hơn) */
   --c-text:         #1b2733;
   --c-text-muted:   #41505f;
-  --c-text-dim:     #6b7888;
+  --c-text-dim:     #5b6674;
   --c-text-blue:    #1d4ed8;
 
-  /* Borders — xám nhạt trung tính */
-  --c-border:       #e2e6ea;
+  /* Borders — 1c Blueprint: viền chrome đậm hơn cho chất "bản vẽ" */
+  --c-border:       #cbd3db;
   --c-border-bright:#1ba94c;
   --c-border-blue:  rgba(29,78,216,0.18);
 
-  /* Nav/Footer — xanh lá đậm dịu mắt thay vì trắng */
-  --c-navbar-bg:    rgba(205,235,215,0.96);
-  --c-footer-bg:    linear-gradient(180deg, #d2ecd9 0%, #b7e0c2 100%);
-  --c-copyright:    rgba(46,84,60,0.8);
+  /* Nav/Footer — chrome trung tính, HẾT mint */
+  --c-navbar-bg:    #ffffff;
+  --c-footer-bg:    #f1f3f5;
+  --c-copyright:    #5b6674;
 
   /* Accent xanh đậm cho đủ tương phản trên nền trắng (đọc rõ + nút có chữ trắng) */
   --c-accent:        #157f3c;
@@ -90,6 +125,41 @@ html.theme-transitioning *::after {
 
   /* Nút primary ở light: chữ trắng trên nền xanh đậm */
   --c-on-accent:     #ffffff;
+
+  /* Accent phụ đậm cho nền trắng (AA) */
+  --c-blue:   #1d4ed8;
+  --c-cyan:   #0e7490;
+  --c-purple: #6d28d9;
+  --c-blue-text:   #1d4ed8;
+  --c-cyan-text:   #0e7490;
+  --c-purple-text: #6d28d9;
+
+  /* RGB triplet của --c-accent (#157f3c) — cho hover/border rgba(var(--c-accent-rgb),alpha) */
+  --c-accent-rgb: 21,127,60;
+
+  /* Stat card: bỏ glow, dùng bóng xám nhẹ */
+  --c-stat-shadow:     0 1px 2px rgba(16,24,40,.06), 0 1px 3px rgba(16,24,40,.04);
+  --c-stat-textshadow: none;
+
+  /* 1c Blueprint: corner-brackets đậm hơn, dài hơn */
+  --c-bracket-size:    14px;
+  --c-bracket-w:       2px;
+  --c-bracket-opacity: 1;
+
+  /* Danger đậm đặc trên nền trắng — khớp .pixel-badge--red */
+  --c-danger-bg:     #fdeaea;
+  --c-danger-border: #f0b4b4;
+  --c-danger-text:   #c0341d;
+
+  /* Gradient card/hero: màu đặc, không loang */
+  --c-gradient-card: linear-gradient(135deg, #ffffff 0%, #ffffff 100%);
+  --c-gradient-hero: linear-gradient(160deg, #ffffff 0%, #ffffff 100%);
+
+  /* Grid mực xám mảnh toàn trang (blueprint), không spotlight neon */
+  --c-grid-line-h:      rgba(51,65,85,0.05);
+  --c-grid-line-v:      rgba(51,65,85,0.05);
+  --c-grid-spot-sidebar:transparent;
+  --c-grid-spot-main:   transparent;
 }
 
 /* ── Light-mode overrides cho hiệu ứng neon hardcode ─────────────── */
@@ -109,6 +179,14 @@ html.theme-transitioning *::after {
 :root[data-theme="light"] .cyber-pulse {
   box-shadow: 0 1px 3px rgba(16,24,40,0.08) !important;
   animation: none !important;
+}
+
+/* PixelButton "cyber" ở light: gradient xanh→lam + chữ trắng chìm trên nền sáng.
+   Thay bằng nền accent đặc — vẫn nổi bật, không mờ chữ. */
+:root[data-theme="light"] .pixel-btn--cyber {
+  background: var(--c-accent) !important;
+  box-shadow: var(--c-card-shadow) !important;
+  color: var(--c-on-accent) !important;
 }
 
 /* Scrollbar sáng cho light mode (mặc định là tông đen) */

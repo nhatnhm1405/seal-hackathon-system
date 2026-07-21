@@ -16,21 +16,24 @@ export const C = {
   greenGlow:     "var(--c-glow)",
   greenGlowFaint:"var(--c-glow-faint)",
 
-  // Blue (secondary cyber accent — cố định)
-  blue:          "#3b82f6",
+  // Blue (secondary cyber accent — theo theme: light dùng tông đậm hơn)
+  blue:          "var(--c-blue)",
   blueBright:    "#60a5fa",
   blueDim:       "#1d4ed8",
   blueGlow:      "rgba(59,130,246,0.3)",
   blueGlowFaint: "rgba(59,130,246,0.1)",
+  blueText:      "var(--c-blue-text)",
 
-  // Cyan (innovation highlight — cố định)
-  cyan:      "#06b6d4",
+  // Cyan (innovation highlight — theo theme)
+  cyan:      "var(--c-cyan)",
   cyanBright:"#22d3ee",
   cyanGlow:  "rgba(6,182,212,0.35)",
+  cyanText:  "var(--c-cyan-text)",
 
-  // Purple (AI / ML accent — cố định)
-  purple:    "#8b5cf6",
+  // Purple (AI / ML accent — theo theme)
+  purple:    "var(--c-purple)",
   purpleGlow:"rgba(139,92,246,0.3)",
+  purpleText:"var(--c-purple-text)",
 
   // Text — theo theme
   text:     "var(--c-text)",
@@ -48,6 +51,11 @@ export const C = {
   yellow: "#eab308",
   orange: "#f97316",
 
+  // Danger (logout, xoá, v.v.) — theo theme để đủ tương phản trên nền sáng
+  dangerBg:     "var(--c-danger-bg)",
+  dangerBorder: "var(--c-danger-border)",
+  dangerText:   "var(--c-danger-text)",
+
   // Màu chữ đặt trên nền accent (nút primary) — theo theme
   onAccent: "var(--c-on-accent)",
 
@@ -56,11 +64,11 @@ export const C = {
   footerBg:  "var(--c-footer-bg)",
   copyright: "var(--c-copyright)",
 
-  // Gradients
-  gradientPrimary: "linear-gradient(135deg, #22c55e 0%, #3b82f6 100%)",
+  // Gradients — theo theme
+  gradientPrimary: "linear-gradient(135deg, var(--c-accent) 0%, var(--c-blue) 100%)",
   gradientCyber:   "linear-gradient(135deg, var(--c-surface) 0%, var(--c-surface2) 100%)",
-  gradientCard:    "linear-gradient(135deg, rgba(34,197,94,0.06) 0%, rgba(59,130,246,0.04) 100%)",
-  gradientHero:    "linear-gradient(160deg, rgba(34,197,94,0.08) 0%, rgba(59,130,246,0.06) 50%, rgba(6,182,212,0.04) 100%)",
+  gradientCard:    "var(--c-gradient-card)",
+  gradientHero:    "var(--c-gradient-hero)",
 };
 
 // ── Gradient text helper ─────────────────────────────────────────
@@ -126,21 +134,21 @@ export function PixelButton({
       background: C.green,
       color: C.onAccent,
       border: `1px solid ${C.green}`,
-      boxShadow: `0 0 16px ${C.greenGlow}, inset 0 1px 0 rgba(255,255,255,0.1)`,
+      boxShadow: `0 0 16px ${C.greenGlow}, var(--c-card-shadow)`,
       fontWeight: 700,
     },
     cyber: {
-      background: "linear-gradient(135deg, #22c55e 0%, #3b82f6 100%)",
+      background: C.gradientPrimary,
       color: "#ffffff",
       border: "none",
       boxShadow: `0 0 20px rgba(34,197,94,0.25), 0 0 40px rgba(59,130,246,0.15)`,
       fontWeight: 700,
     },
     secondary: {
-      background: "rgba(34,197,94,0.06)",
+      background: "rgba(var(--c-accent-rgb),0.06)",
       color: C.green,
-      border: `1px solid rgba(34,197,94,0.35)`,
-      boxShadow: `inset 0 0 20px rgba(34,197,94,0.04)`,
+      border: `1px solid rgba(var(--c-accent-rgb),0.35)`,
+      boxShadow: `inset 0 0 20px rgba(var(--c-accent-rgb),0.04)`,
     },
     ghost: {
       background: "transparent",
@@ -163,10 +171,10 @@ export function PixelButton({
   };
 
   const hoverStyles: Record<string, React.CSSProperties> = {
-    primary: { background: C.greenBright, boxShadow: `0 0 28px rgba(34,197,94,0.7), 0 4px 16px rgba(0,0,0,0.4)` },
+    primary: { background: C.greenBright, boxShadow: `0 0 28px rgba(var(--c-accent-rgb),0.7), var(--c-card-shadow)` },
     cyber:   { boxShadow: `0 0 30px rgba(34,197,94,0.5), 0 0 60px rgba(59,130,246,0.3)`, filter: "brightness(1.1)" },
-    secondary: { background: "rgba(34,197,94,0.12)", borderColor: C.green, boxShadow: `0 0 16px ${C.greenGlow}` },
-    ghost:   { borderColor: C.green, color: C.green, background: "rgba(34,197,94,0.04)" },
+    secondary: { background: "rgba(var(--c-accent-rgb),0.12)", borderColor: C.green, boxShadow: `0 0 16px ${C.greenGlow}` },
+    ghost:   { borderColor: C.green, color: C.green, background: "rgba(var(--c-accent-rgb),0.04)" },
     danger:  { background: "rgba(239,68,68,0.12)", boxShadow: "0 0 12px rgba(239,68,68,0.3)" },
     warning: { background: "rgba(234,179,8,0.16)", borderColor: C.yellow, boxShadow: "0 0 14px rgba(234,179,8,0.35)" },
   };
@@ -180,7 +188,7 @@ export function PixelButton({
       aria-haspopup={ariaHasPopup}
       aria-expanded={ariaExpanded}
       style={{ ...baseStyle, ...variantStyles[variant], ...(fullWidth ? { width: "100%", display: "flex", justifyContent: "center" } : {}) }}
-      className={`inline-flex items-center justify-center gap-2 font-mono ${sizeClasses[size]} ${className}`}
+      className={`inline-flex items-center justify-center gap-2 font-mono pixel-btn--${variant} ${sizeClasses[size]} ${className}`}
       onMouseEnter={(e) => { if (!disabled) Object.assign((e.currentTarget as HTMLElement).style, hoverStyles[variant]); }}
       onMouseLeave={(e) => { if (!disabled) Object.assign((e.currentTarget as HTMLElement).style, variantStyles[variant]); }}
     >{children}</button>
@@ -213,7 +221,7 @@ export function PixelCard({ children, className = "", glow = false, glowColor = 
       onClick={onClick}
       style={{
         background: gradient ? C.gradientCard : C.surface,
-        border: `1px solid ${glow ? accentMap[glowColor] + "33" : C.border}`,
+        border: `1px solid var(--c-border)`,
         borderRadius: 0,
         boxShadow: glow ? glowMap[glowColor] : `var(--c-card-shadow)`,
         position: "relative",
@@ -228,10 +236,10 @@ export function PixelCard({ children, className = "", glow = false, glowColor = 
         <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 1, background: C.gradientPrimary, opacity: 0.6 }} />
       )}
       {/* Corner accents */}
-      <div style={{ position: "absolute", top: 0, left: 0, width: 10, height: 10, borderTop: `2px solid ${accentMap[glowColor]}`, borderLeft: `2px solid ${accentMap[glowColor]}`, opacity: 0.7 }} />
-      <div style={{ position: "absolute", top: 0, right: 0, width: 10, height: 10, borderTop: `2px solid ${accentMap[glowColor]}`, borderRight: `2px solid ${accentMap[glowColor]}`, opacity: 0.7 }} />
-      <div style={{ position: "absolute", bottom: 0, left: 0, width: 10, height: 10, borderBottom: `2px solid ${accentMap[glowColor]}`, borderLeft: `2px solid ${accentMap[glowColor]}`, opacity: 0.4 }} />
-      <div style={{ position: "absolute", bottom: 0, right: 0, width: 10, height: 10, borderBottom: `2px solid ${accentMap[glowColor]}`, borderRight: `2px solid ${accentMap[glowColor]}`, opacity: 0.4 }} />
+      <div style={{ position: "absolute", top: 0, left: 0, width: "var(--c-bracket-size)", height: "var(--c-bracket-size)", borderTop: `var(--c-bracket-w) solid ${accentMap[glowColor]}`, borderLeft: `var(--c-bracket-w) solid ${accentMap[glowColor]}`, opacity: "var(--c-bracket-opacity)" }} />
+      <div style={{ position: "absolute", top: 0, right: 0, width: "var(--c-bracket-size)", height: "var(--c-bracket-size)", borderTop: `var(--c-bracket-w) solid ${accentMap[glowColor]}`, borderRight: `var(--c-bracket-w) solid ${accentMap[glowColor]}`, opacity: "var(--c-bracket-opacity)" }} />
+      <div style={{ position: "absolute", bottom: 0, left: 0, width: "var(--c-bracket-size)", height: "var(--c-bracket-size)", borderBottom: `var(--c-bracket-w) solid ${accentMap[glowColor]}`, borderLeft: `var(--c-bracket-w) solid ${accentMap[glowColor]}`, opacity: "calc(var(--c-bracket-opacity) * 0.57)" }} />
+      <div style={{ position: "absolute", bottom: 0, right: 0, width: "var(--c-bracket-size)", height: "var(--c-bracket-size)", borderBottom: `var(--c-bracket-w) solid ${accentMap[glowColor]}`, borderRight: `var(--c-bracket-w) solid ${accentMap[glowColor]}`, opacity: "calc(var(--c-bracket-opacity) * 0.57)" }} />
       {children}
     </div>
   );
@@ -262,12 +270,12 @@ export function CyberStatCard({ value, label, icon, trend, accent = "green", sub
     <div
       style={{
         background: C.surface,
-        border: `1px solid ${a.main}22`,
+        border: `1px solid var(--c-border)`,
         borderRadius: 0,
         padding: "20px",
         position: "relative",
         overflow: "hidden",
-        boxShadow: glow ? `0 0 20px ${a.dim}, inset 0 0 30px ${a.dim}` : "var(--c-card-shadow)",
+        boxShadow: glow ? `var(--c-stat-shadow)` : "var(--c-card-shadow)",
       }}
     >
       {/* Gradient fill bottom accent */}
@@ -282,7 +290,7 @@ export function CyberStatCard({ value, label, icon, trend, accent = "green", sub
             </span>
           )}
         </div>
-        <div style={{ color: a.main, fontFamily: "'JetBrains Mono', monospace", fontSize: 30, fontWeight: 800, textShadow: glow ? `0 0 20px ${a.glow}` : "none", lineHeight: 1.1, marginTop: 6 }}>
+        <div style={{ color: a.main, fontFamily: "'JetBrains Mono', monospace", fontSize: 30, fontWeight: 800, textShadow: glow ? `var(--c-stat-textshadow)` : "none", lineHeight: 1.1, marginTop: 6 }}>
           {value}
         </div>
         <div style={{ color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, fontWeight: 500 }}>
@@ -294,8 +302,8 @@ export function CyberStatCard({ value, label, icon, trend, accent = "green", sub
       </div>
 
       {/* Top-left corner accent */}
-      <div style={{ position: "absolute", top: 0, left: 0, width: 12, height: 12, borderTop: `2px solid ${a.main}`, borderLeft: `2px solid ${a.main}`, opacity: 0.8 }} />
-      <div style={{ position: "absolute", top: 0, right: 0, width: 12, height: 12, borderTop: `2px solid ${a.main}`, borderRight: `2px solid ${a.main}`, opacity: 0.4 }} />
+      <div style={{ position: "absolute", top: 0, left: 0, width: "var(--c-bracket-size)", height: "var(--c-bracket-size)", borderTop: `var(--c-bracket-w) solid ${a.main}`, borderLeft: `var(--c-bracket-w) solid ${a.main}`, opacity: "var(--c-bracket-opacity)" }} />
+      <div style={{ position: "absolute", top: 0, right: 0, width: "var(--c-bracket-size)", height: "var(--c-bracket-size)", borderTop: `var(--c-bracket-w) solid ${a.main}`, borderRight: `var(--c-bracket-w) solid ${a.main}`, opacity: "var(--c-bracket-opacity)" }} />
     </div>
   );
 }
@@ -483,17 +491,17 @@ export function TerminalWindow({ title = "terminal", children, className = "" }:
   return (
     <div
       style={{
-        background: "#050c07",
-        border: `1px solid rgba(34,197,94,0.2)`,
+        background: "var(--c-surface2)",
+        border: `1px solid var(--c-border)`,
         borderRadius: 0,
-        boxShadow: `0 0 30px rgba(34,197,94,0.08), 0 0 60px rgba(59,130,246,0.04)`,
+        boxShadow: `var(--c-card-shadow)`,
       }}
       className={className}
     >
       <div
         style={{
-          background: "linear-gradient(90deg, #0d1117, #0a1020)",
-          borderBottom: `1px solid rgba(34,197,94,0.15)`,
+          background: "var(--c-surface3)",
+          borderBottom: `1px solid var(--c-border)`,
           padding: "7px 14px",
           display: "flex",
           alignItems: "center",
@@ -505,12 +513,12 @@ export function TerminalWindow({ title = "terminal", children, className = "" }:
           <div style={{ width: 8, height: 8, background: C.yellow, borderRadius: 0 }} />
           <div style={{ width: 8, height: 8, background: C.green, borderRadius: 0 }} />
         </div>
-        <span style={{ color: "rgba(134,239,172,0.5)", fontSize: 10, fontFamily: "'JetBrains Mono', monospace", marginLeft: 6, letterSpacing: "0.08em" }}>
+        <span style={{ color: C.textDim, fontSize: 10, fontFamily: "'JetBrains Mono', monospace", marginLeft: 6, letterSpacing: "0.08em" }}>
           {title}
         </span>
         {/* Fake data-flow line */}
-        <div style={{ flex: 1, height: 1, background: "linear-gradient(90deg, transparent, rgba(59,130,246,0.3), transparent)", overflow: "hidden", position: "relative" }}>
-          <div className="data-flow" style={{ position: "absolute", inset: 0, background: "linear-gradient(90deg, transparent, #60a5fa, transparent)", height: "100%" }} />
+        <div style={{ flex: 1, height: 1, background: "linear-gradient(90deg, transparent, var(--c-border-blue), transparent)", overflow: "hidden", position: "relative" }}>
+          <div className="data-flow" style={{ position: "absolute", inset: 0, background: "linear-gradient(90deg, transparent, var(--c-blue-text), transparent)", height: "100%" }} />
         </div>
       </div>
       <div style={{ padding: "16px", fontFamily: "'JetBrains Mono', monospace" }}>{children}</div>
@@ -678,7 +686,7 @@ export function FloatingParticles({ count = 28, className = "" }: FloatingPartic
   );
 
   return (
-    <div className={`pointer-events-none absolute inset-0 overflow-hidden ${className}`}>
+    <div className={`pixel-particles pointer-events-none absolute inset-0 overflow-hidden ${className}`}>
       {particles.map((p) => (
         <div
           key={p.id}

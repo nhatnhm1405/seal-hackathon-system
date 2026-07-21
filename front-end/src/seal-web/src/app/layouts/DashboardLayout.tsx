@@ -141,13 +141,15 @@ function getPageTitle(pathname: string): string {
   return map[pathname] || "Console";
 }
 
-function roleBadgeStyle(role: string): { bg: string; color: string } {
+// Cùng bảng màu vai trò như trước, nhưng trả về prop `color` của PixelBadge thay vì
+// rgba hardcode — badge tự ăn override .pixel-badge--* (index.css) theo theme.
+function roleBadgeColor(role: string): "red" | "yellow" | "cyan" | "blue" | "green" {
   switch (role) {
-    case "ADMIN": return { bg: "rgba(239,68,68,0.15)", color: "#ef4444" };
-    case "COORDINATOR": return { bg: "rgba(234,179,8,0.15)", color: "#eab308" };
-    case "MENTOR": return { bg: "rgba(6,182,212,0.15)", color: "#06b6d4" };
-    case "JUDGE": return { bg: "rgba(59,130,246,0.15)", color: "#3b82f6" };
-    default: return { bg: "rgba(34,197,94,0.15)", color: "#22c55e" };
+    case "ADMIN": return "red";
+    case "COORDINATOR": return "yellow";
+    case "MENTOR": return "cyan";
+    case "JUDGE": return "blue";
+    default: return "green";
   }
 }
 
@@ -202,7 +204,7 @@ function NotificationBell() {
           onClick={() => setOpen(o => !o)}
           style={{
             position: "relative",
-            background: open ? "rgba(34,197,94,0.08)" : "none",
+            background: open ? "rgba(var(--c-accent-rgb),0.08)" : "none",
             border: open ? `1px solid ${C.border}` : "1px solid transparent",
             cursor: "pointer",
             padding: "6px 8px",
@@ -213,7 +215,7 @@ function NotificationBell() {
             transition: "all 0.15s",
           }}
           title="Notifications"
-          onMouseEnter={(e) => { if (!open) (e.currentTarget as HTMLElement).style.background = "rgba(34,197,94,0.06)"; }}
+          onMouseEnter={(e) => { if (!open) (e.currentTarget as HTMLElement).style.background = "rgba(var(--c-accent-rgb),0.06)"; }}
           onMouseLeave={(e) => { if (!open) (e.currentTarget as HTMLElement).style.background = "none"; }}
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={unreadCount > 0 ? C.green : C.textMuted} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -289,16 +291,16 @@ function NotificationBell() {
                     onClick={() => openDetail(n)}
                     style={{
                       padding: "12px 16px",
-                      borderBottom: `1px solid rgba(34,197,94,0.05)`,
-                      background: n.is_read ? "transparent" : "rgba(34,197,94,0.03)",
+                      borderBottom: `1px solid rgba(var(--c-accent-rgb),0.05)`,
+                      background: n.is_read ? "transparent" : "rgba(var(--c-accent-rgb),0.03)",
                       display: "flex",
                       gap: 10,
                       alignItems: "flex-start",
                       cursor: "pointer",
                       transition: "background 0.12s",
                     }}
-                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(34,197,94,0.07)"; }}
-                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = n.is_read ? "transparent" : "rgba(34,197,94,0.03)"; }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(var(--c-accent-rgb),0.07)"; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = n.is_read ? "transparent" : "rgba(var(--c-accent-rgb),0.03)"; }}
                   >
                     {/* Unread dot */}
                     <div style={{
@@ -356,7 +358,6 @@ function TopNavbar({ pageTitle, collapsed, onToggleCollapse, currentUser, onLogo
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
-  const badge = roleBadgeStyle(currentUser.role);
   const initials = getInitials(currentUser.full_name);
   const avatarUrl = currentUser.avatar_url
     ? (currentUser.avatar_url.startsWith("http") ? currentUser.avatar_url : `${API_BASE_URL}${currentUser.avatar_url}`)
@@ -385,8 +386,8 @@ function TopNavbar({ pageTitle, collapsed, onToggleCollapse, currentUser, onLogo
           onClick={onToggleCollapse}
           title={collapsed ? "Mở sidebar" : "Đóng sidebar"}
           style={{
-            background: collapsed ? "rgba(34,197,94,0.08)" : "transparent",
-            border: `1px solid ${collapsed ? "rgba(34,197,94,0.4)" : "rgba(34,197,94,0.15)"}`,
+            background: collapsed ? "rgba(var(--c-accent-rgb),0.08)" : "transparent",
+            border: `1px solid ${collapsed ? "rgba(var(--c-accent-rgb),0.4)" : "rgba(var(--c-accent-rgb),0.15)"}`,
             color: collapsed ? C.green : C.textMuted,
             cursor: "pointer",
             width: 38,
@@ -397,10 +398,10 @@ function TopNavbar({ pageTitle, collapsed, onToggleCollapse, currentUser, onLogo
             flexShrink: 0,
             padding: 0,
             transition: "all 0.15s",
-            boxShadow: collapsed ? "0 0 12px rgba(34,197,94,0.2)" : "none",
+            boxShadow: collapsed ? "0 0 12px rgba(var(--c-accent-rgb),0.2)" : "none",
           }}
-          onMouseEnter={(e) => { const el = e.currentTarget as HTMLElement; el.style.color = C.green; el.style.borderColor = "rgba(34,197,94,0.5)"; el.style.background = "rgba(34,197,94,0.08)"; }}
-          onMouseLeave={(e) => { const el = e.currentTarget as HTMLElement; el.style.color = collapsed ? C.green : C.textMuted; el.style.borderColor = collapsed ? "rgba(34,197,94,0.4)" : "rgba(34,197,94,0.15)"; el.style.background = collapsed ? "rgba(34,197,94,0.08)" : "transparent"; }}
+          onMouseEnter={(e) => { const el = e.currentTarget as HTMLElement; el.style.color = C.green; el.style.borderColor = "rgba(var(--c-accent-rgb),0.5)"; el.style.background = "rgba(var(--c-accent-rgb),0.08)"; }}
+          onMouseLeave={(e) => { const el = e.currentTarget as HTMLElement; el.style.color = collapsed ? C.green : C.textMuted; el.style.borderColor = collapsed ? "rgba(var(--c-accent-rgb),0.4)" : "rgba(var(--c-accent-rgb),0.15)"; el.style.background = collapsed ? "rgba(var(--c-accent-rgb),0.08)" : "transparent"; }}
         >
           {collapsed ? (
             /* Hamburger (mở) */
@@ -427,9 +428,9 @@ function TopNavbar({ pageTitle, collapsed, onToggleCollapse, currentUser, onLogo
           style={{ display: "flex", alignItems: "center", gap: 10, height: 44, overflow: "hidden", background: "transparent", border: "none", padding: 0, cursor: "pointer" }}
         >
           <div style={{ width: 96, height: 44, overflow: "hidden", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <img src={sealLogo} alt="SEAL" style={{ height: 96, width: "auto", objectFit: "contain", filter: "drop-shadow(0 0 6px rgba(34,197,94,0.4))", pointerEvents: "none" }} />
+            <img src={sealLogo} alt="SEAL" style={{ height: 96, width: "auto", objectFit: "contain", filter: "drop-shadow(0 0 6px var(--c-glow))", pointerEvents: "none" }} />
           </div>
-          <span style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 13, letterSpacing: "0.06em", background: "linear-gradient(135deg, #22c55e 0%, #3b82f6 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", whiteSpace: "nowrap" }}>
+          <span style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontWeight: 700, fontSize: 13, letterSpacing: "0.06em", background: C.gradientPrimary, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text", whiteSpace: "nowrap" }}>
             SEAL Hackathon
           </span>
         </button>
@@ -451,7 +452,7 @@ function TopNavbar({ pageTitle, collapsed, onToggleCollapse, currentUser, onLogo
           title={theme === "dark" ? "Chuyển sang Light mode" : "Chuyển sang Dark mode"}
           style={{
             background: "transparent",
-            border: `1px solid rgba(34,197,94,0.15)`,
+            border: `1px solid rgba(var(--c-accent-rgb),0.15)`,
             color: C.textMuted,
             cursor: "pointer",
             width: 36,
@@ -463,8 +464,8 @@ function TopNavbar({ pageTitle, collapsed, onToggleCollapse, currentUser, onLogo
             transition: "all 0.15s",
             flexShrink: 0,
           }}
-          onMouseEnter={(e) => { const el = e.currentTarget as HTMLElement; el.style.color = C.green; el.style.borderColor = "rgba(34,197,94,0.45)"; el.style.background = "rgba(34,197,94,0.06)"; }}
-          onMouseLeave={(e) => { const el = e.currentTarget as HTMLElement; el.style.color = C.textMuted; el.style.borderColor = "rgba(34,197,94,0.15)"; el.style.background = "transparent"; }}
+          onMouseEnter={(e) => { const el = e.currentTarget as HTMLElement; el.style.color = C.green; el.style.borderColor = "rgba(var(--c-accent-rgb),0.45)"; el.style.background = "rgba(var(--c-accent-rgb),0.06)"; }}
+          onMouseLeave={(e) => { const el = e.currentTarget as HTMLElement; el.style.color = C.textMuted; el.style.borderColor = "rgba(var(--c-accent-rgb),0.15)"; el.style.background = "transparent"; }}
         >
           {theme === "dark" ? (
             /* Sun icon */
@@ -496,7 +497,7 @@ function TopNavbar({ pageTitle, collapsed, onToggleCollapse, currentUser, onLogo
             onClick={() => setUserMenuOpen(o => !o)}
             style={{
               display: "flex", alignItems: "center", gap: 8,
-              background: userMenuOpen ? "rgba(34,197,94,0.06)" : "transparent",
+              background: userMenuOpen ? "rgba(var(--c-accent-rgb),0.06)" : "transparent",
               border: `1px solid ${userMenuOpen ? C.border : "transparent"}`,
               padding: "6px 10px",
               cursor: "pointer",
@@ -513,9 +514,9 @@ function TopNavbar({ pageTitle, collapsed, onToggleCollapse, currentUser, onLogo
             ) : (
               <div style={{
                 width: 32, height: 32, borderRadius: "50%",
-                background: "linear-gradient(135deg, #22c55e 0%, #3b82f6 100%)",
+                background: C.gradientPrimary,
                 display: "flex", alignItems: "center", justifyContent: "center",
-                fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700, color: "#070c0f",
+                fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700, color: C.onAccent,
                 flexShrink: 0,
               }}>
                 {initials}
@@ -525,14 +526,7 @@ function TopNavbar({ pageTitle, collapsed, onToggleCollapse, currentUser, onLogo
               <span style={{ color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" }}>
                 {currentUser.full_name}
               </span>
-              <span style={{
-                display: "inline-block",
-                background: badge.bg, color: badge.color,
-                fontFamily: "'JetBrains Mono', monospace", fontSize: 8, fontWeight: 700,
-                letterSpacing: "0.1em", padding: "1px 6px",
-              }}>
-                {currentUser.role}
-              </span>
+              <PixelBadge color={roleBadgeColor(currentUser.role)}>{currentUser.role}</PixelBadge>
             </div>
           </button>
 
@@ -545,7 +539,7 @@ function TopNavbar({ pageTitle, collapsed, onToggleCollapse, currentUser, onLogo
               <button
                 onClick={() => { onNavigate("/profile"); setUserMenuOpen(false); }}
                 style={{ width: "100%", padding: "10px 14px", background: "transparent", border: "none", cursor: "pointer", textAlign: "left", color: C.text, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, borderRadius: 0, display: "flex", alignItems: "center", gap: 10 }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(34,197,94,0.06)"; }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(var(--c-accent-rgb),0.06)"; }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
               >
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, pointerEvents: "none" }}>
@@ -557,7 +551,7 @@ function TopNavbar({ pageTitle, collapsed, onToggleCollapse, currentUser, onLogo
               {canSwitchRole && (
                 <button
                   onClick={() => { onSwitchRole(); setUserMenuOpen(false); }}
-                  style={{ width: "100%", padding: "10px 14px", background: "transparent", border: "none", cursor: "pointer", textAlign: "left", color: "#3b82f6", fontFamily: "'JetBrains Mono', monospace", fontSize: 13, borderRadius: 0, display: "flex", alignItems: "center", gap: 10 }}
+                  style={{ width: "100%", padding: "10px 14px", background: "transparent", border: "none", cursor: "pointer", textAlign: "left", color: C.blueText, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, borderRadius: 0, display: "flex", alignItems: "center", gap: 10 }}
                   onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(59,130,246,0.08)"; }}
                   onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
                 >
@@ -573,8 +567,8 @@ function TopNavbar({ pageTitle, collapsed, onToggleCollapse, currentUser, onLogo
               <div style={{ height: 1, background: C.border, margin: "0 14px" }} />
               <button
                 onClick={() => { onLogout(); setUserMenuOpen(false); }}
-                style={{ width: "100%", padding: "10px 14px", background: "transparent", border: "none", cursor: "pointer", textAlign: "left", color: C.red, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, borderRadius: 0 }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.08)"; }}
+                style={{ width: "100%", padding: "10px 14px", background: "transparent", border: "none", cursor: "pointer", textAlign: "left", color: C.dangerText, fontFamily: "'JetBrains Mono', monospace", fontSize: 13, borderRadius: 0 }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = C.dangerBg; }}
                 onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
               >
                 Logout
@@ -632,8 +626,10 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
   const isAdminRoute = currentUser.role === "ADMIN";
   const sideText = C.textMuted;
   const sideStrong = C.text;
-  const dashboardSidebarGrid = `radial-gradient(100% 46% at 50% 20%, rgba(34,197,94,0.10) 0%, transparent 72%), radial-gradient(130% 60% at 50% 46%, transparent 0%, transparent 32%, ${C.surface} 92%), linear-gradient(rgba(59,130,246,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(34,197,94,0.05) 1px, transparent 1px)`;
-  const dashboardMainGrid = `radial-gradient(60% 50% at 50% 34%, rgba(34,197,94,0.06) 0%, transparent 72%), radial-gradient(85% 75% at 50% 40%, transparent 0%, transparent 42%, ${C.bg} 90%), linear-gradient(rgba(59,130,246,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(34,197,94,0.05) 1px, transparent 1px)`;
+  // Màu line/spotlight đọc từ token (--c-grid-*): dark giữ crosshatch xanh lá/xanh dương,
+  // light (1c Blueprint) đổi thành mực xám mảnh + tắt hẳn spotlight neon.
+  const dashboardSidebarGrid = `radial-gradient(100% 46% at 50% 20%, var(--c-grid-spot-sidebar) 0%, transparent 72%), radial-gradient(130% 60% at 50% 46%, transparent 0%, transparent 32%, ${C.surface} 92%), linear-gradient(var(--c-grid-line-h) 1px, transparent 1px), linear-gradient(90deg, var(--c-grid-line-v) 1px, transparent 1px)`;
+  const dashboardMainGrid = `radial-gradient(60% 50% at 50% 34%, var(--c-grid-spot-main) 0%, transparent 72%), radial-gradient(85% 75% at 50% 40%, transparent 0%, transparent 42%, ${C.bg} 90%), linear-gradient(var(--c-grid-line-h) 1px, transparent 1px), linear-gradient(90deg, var(--c-grid-line-v) 1px, transparent 1px)`;
 
   // Logout is confirmed through a themed modal — handleLogout only opens it, the
   // real sign-out happens in performLogout once the user confirms.
@@ -739,8 +735,8 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
                     justifyContent: collapsed ? "center" : "space-between",
                     gap: 8,
                     padding: collapsed ? "10px 6px" : "10px 12px",
-                    background: active ? "rgba(34,197,94,0.1)" : "transparent",
-                    border: active ? `1px solid rgba(34,197,94,0.35)` : `1px solid transparent`,
+                    background: active ? "rgba(var(--c-accent-rgb),0.1)" : "transparent",
+                    border: active ? `1px solid rgba(var(--c-accent-rgb),0.35)` : `1px solid transparent`,
                     borderLeft: active ? `2px solid ${C.green}` : `2px solid transparent`,
                     color: active ? C.green : sideText,
                     cursor: "pointer",
@@ -750,7 +746,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
                     textAlign: "left",
                     borderRadius: 0,
                     transition: "all 0.15s ease",
-                    boxShadow: active ? `0 0 12px rgba(34,197,94,0.15)` : "none",
+                    boxShadow: active ? `0 0 12px rgba(var(--c-accent-rgb),0.15)` : "none",
                     width: "100%",
                   }}
                   onMouseEnter={(e) => { if (!active) (e.currentTarget as HTMLElement).style.color = C.green; }}
@@ -786,8 +782,8 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
               style={{
                 padding: "8px",
                 background: "transparent",
-                border: `1px solid rgba(239,68,68,0.35)`,
-                color: C.red,
+                border: `1px solid ${C.dangerBorder}`,
+                color: C.dangerText,
                 cursor: "pointer",
                 borderRadius: 0,
                 width: "100%",
@@ -796,7 +792,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
                 justifyContent: "center",
                 transition: "all 0.15s",
               }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(239,68,68,0.12)"; }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = C.dangerBg; }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
             >
               {/* Power icon */}
@@ -865,15 +861,15 @@ function LogoutConfirmModal({ open, userName, onCancel, onConfirm }: { open: boo
         style={{
           position: "relative", width: "100%", maxWidth: 400,
           background: C.surface, border: `1px solid ${C.border}`,
-          boxShadow: "0 0 40px rgba(239,68,68,0.1), 0 20px 60px rgba(0,0,0,0.6)",
+          boxShadow: "var(--c-card-shadow), 0 20px 60px rgba(0,0,0,0.6)",
           padding: "26px 26px 22px",
         }}
       >
-        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${C.red}, transparent)`, opacity: 0.7 }} />
+        <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${C.dangerText}, transparent)`, opacity: 0.7 }} />
 
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
-          <div style={{ width: 40, height: 40, borderRadius: "50%", border: `1px solid rgba(239,68,68,0.4)`, background: "rgba(239,68,68,0.06)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={C.red} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <div style={{ width: 40, height: 40, borderRadius: "50%", border: `1px solid ${C.dangerBorder}`, background: C.dangerBg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={C.dangerText} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M18.36 6.64a9 9 0 1 1-12.73 0" />
               <line x1="12" y1="2" x2="12" y2="12" />
             </svg>
@@ -896,9 +892,9 @@ function LogoutConfirmModal({ open, userName, onCancel, onConfirm }: { open: boo
           </button>
           <button
             onClick={onConfirm}
-            style={{ padding: "9px 18px", background: "rgba(239,68,68,0.1)", border: `1px solid rgba(239,68,68,0.5)`, color: C.red, cursor: "pointer", fontFamily: mono, fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", borderRadius: 0, transition: "all 0.15s" }}
-            onMouseEnter={(e) => { const el = e.currentTarget as HTMLElement; el.style.background = "rgba(239,68,68,0.2)"; }}
-            onMouseLeave={(e) => { const el = e.currentTarget as HTMLElement; el.style.background = "rgba(239,68,68,0.1)"; }}
+            style={{ padding: "9px 18px", background: C.dangerBg, border: `1px solid ${C.dangerBorder}`, color: C.dangerText, cursor: "pointer", fontFamily: mono, fontSize: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", borderRadius: 0, transition: "all 0.15s" }}
+            onMouseEnter={(e) => { const el = e.currentTarget as HTMLElement; el.style.background = C.dangerBorder; }}
+            onMouseLeave={(e) => { const el = e.currentTarget as HTMLElement; el.style.background = C.dangerBg; }}
           >
             Logout
           </button>
