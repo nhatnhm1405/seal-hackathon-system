@@ -1,6 +1,6 @@
 
   <!DOCTYPE html>
-  <html lang="en">
+  <html lang="en" class="dark" data-theme="dark">
     <head>
       
       <meta charset="UTF-8" />
@@ -11,20 +11,11 @@
       <title>SEAL Hackathon</title>
       <meta name="description" content="Manage hackathons effortlessly with a pixel-inspired platform featuring event management, team collaboration, and real-time leaderboards for participants." />
       <meta name="robots" content="noindex, nofollow" />
-      <!-- Prevent flash: set theme from localStorage before React renders -->
+      <!-- Dark-only base styles before React renders. -->
       <style>
         html, body { height: 100%; margin: 0; background: #070c0f; color: #f0fdf4; }
         #root { height: 100%; }
       </style>
-      <script>
-        (function () {
-          try {
-            var t = localStorage.getItem('seal-theme') || 'dark';
-            document.documentElement.setAttribute('data-theme', t);
-            if (t === 'dark') document.documentElement.classList.add('dark');
-          } catch (e) {}
-        })();
-      </script>
     </head>
 
     <body>
