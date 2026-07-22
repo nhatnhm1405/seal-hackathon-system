@@ -1,4 +1,4 @@
-import { apiFetch, type ApiResponse } from './core';
+import { apiFetch, ApiError, API_BASE_URL, type ApiResponse } from './core';
 
 // ── Account Approvals ─────────────────────────────────────────────
 
@@ -143,4 +143,35 @@ export const adminApi = {
   // System log
   getSystemLogs: () =>
     apiFetch<ApiResponse<SystemLogItem[]>>('/api/admin/system-logs'),
+
+  exportEventCsv: async (eventId: number) => {
+    const res = await fetch(`${API_BASE_URL}/api/admin/events/${eventId}/export.csv`, {
+      credentials: 'include',
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new ApiError(res.status, body?.message ?? `HTTP ${res.status}`);
+    }
+
+    const blob = await res.blob();
+    const name = filenameFromContentDisposition(res.headers.get('Content-Disposition')) ?? `event-${eventId}-export.csv`;
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = name;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  },
 };
+
+function filenameFromContentDisposition(header: string | null): string | null {
+  if (!header) return null;
+  const star = /filename\*=UTF-8''([^;]+)/i.exec(header);
+  if (star?.[1]) {
+    try { return decodeURIComponent(star[1]); } catch { /* fall through */ }
+  }
+  const plain = /filename="?([^";]+)"?/i.exec(header);
+  return plain?.[1] ?? null;
+}

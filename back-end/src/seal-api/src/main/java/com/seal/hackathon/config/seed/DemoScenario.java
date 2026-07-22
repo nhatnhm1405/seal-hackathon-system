@@ -16,7 +16,9 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Builds one demo event as a layered pipeline. Each scenario is a cut-point:
@@ -96,6 +98,8 @@ public class DemoScenario {
         fx.grant(coordinator, "EVENT_COORDINATOR", null);
         User judge1 = staff("judge1@fpt.edu.vn", "Nguyễn Văn Ronaldo", "INTERNAL", "JUDGE");
         User judge2 = staff("judge2@fpt.edu.vn", "Trần Văn Haaland", "INTERNAL", "JUDGE");
+        User judge3 = staff("judge3@fpt.edu.vn", "Pham Van Salah", "INTERNAL", "JUDGE");
+        User judge4 = staff("judge4@fpt.edu.vn", "Vu Van Mbappe", "INTERNAL", "JUDGE");
         User guestJudge = staff("guestjudge@gmail.com", "Lê Văn Messi", "GUEST", "JUDGE");
         // One mentor per track (business rule: a mentor manages exactly one track per event).
         User mentor1 = staff("mentor1@fpt.edu.vn", "Lê Minh Gia Mẫn", null, "MENTOR");
@@ -121,12 +125,6 @@ public class DemoScenario {
                 w.start.plusDays(8), w.start.plusDays(14), w.start.plusDays(13), null);
         List<ScoringCriteria> prelimCriteria = criteriaFor(event, prelim);
         List<ScoringCriteria> finalCriteria = criteriaFor(event, finalRound);
-        // One mentor per track — a mentor manages exactly one track per event.
-        List<User> trackMentors = List.of(mentor1, mentor2, mentor3, mentor4);
-        for (int t = 0; t < tracks.size(); t++) {
-            fx.assignMentor(trackMentors.get(t), tracks.get(t));
-        }
-
         // ── S1: forming teams (no tracks yet — assigned at SETUP) ────
         if ("S1".equals(scenario)) {
             fx.team(event, null, "Arsenal", "APPROVED", participant(), members(2));
@@ -150,6 +148,12 @@ public class DemoScenario {
             return;
         }
 
+        // One mentor per track — a mentor manages exactly one track per event.
+        List<User> trackMentors = List.of(mentor1, mentor2, mentor3, mentor4);
+        for (int t = 0; t < tracks.size(); t++) {
+            fx.assignMentor(trackMentors.get(t), tracks.get(t));
+        }
+
         // ── 5-6. APPROVED ROSTER IN TRACKS + judges + submissions ────
         List<Slot> slots = new ArrayList<>();
         int numTracks = tracks.size();
@@ -168,10 +172,18 @@ public class DemoScenario {
                 slots.add(new Slot(team, track, leader, strength));
             }
         }
-        // prelim judges score per track; the final-round judges score everyone
-        for (Track track : tracks) {
-            fx.assignJudge(judge1, prelim, track);
-            fx.assignJudge(judge2, prelim, track);
+        // Prelim judges score per track. A judge may cover only one track in the
+        // same round, so the seeded prelim roster keeps judge -> round unique.
+        List<User> prelimJudgePool = List.of(judge1, judge2, judge3, judge4);
+        if (tracks.size() > prelimJudgePool.size()) {
+            throw new IllegalStateException("Not enough seeded judges for prelim tracks.");
+        }
+        Map<Integer, List<User>> prelimJudgesByTrack = new LinkedHashMap<>();
+        for (int t = 0; t < tracks.size(); t++) {
+            Track track = tracks.get(t);
+            User judge = prelimJudgePool.get(t);
+            fx.assignJudge(judge, prelim, track);
+            prelimJudgesByTrack.put(track.getTrackId(), List.of(judge));
         }
         fx.assignJudge(judge1, finalRound, null);
         fx.assignJudge(judge2, finalRound, null);
@@ -182,12 +194,11 @@ public class DemoScenario {
             prelimSubs.add(fx.submission(s.team, prelim, s.leader));
         }
 
-        // Both judges assigned to each preliminary (round, track) cell have
+        // Every judge assigned to each preliminary (round, track) cell has
         // finalized every criterion for every submission. S2 deliberately stops
         // before creating RoundResult rows so Calculate Rankings remains a live
         // coordinator demo rather than a pre-computed result.
-        List<User> prelimJudges = List.of(judge1, judge2);
-        writeScores(prelimSubs, slots, prelimCriteria, prelimJudges);
+        writeScoresByTrack(prelimSubs, slots, prelimCriteria, prelimJudgesByTrack);
 
         // ── 7-9. SCORES → RESULTS → PRIZES (S3) ──────────────────────
         // Prelim: score everyone, then rank WITHIN each track (mirrors RoundResultService
@@ -196,11 +207,13 @@ public class DemoScenario {
         for (Track track : tracks) {
             List<Slot> inTrack = slots.stream()
                     .filter(s -> track.getTrackId().equals(s.track().getTrackId()))
-                    .sorted(Comparator.comparingDouble((Slot s) -> total(s, prelimCriteria, prelimJudges.size())).reversed())
+                    .sorted(Comparator.comparingDouble((Slot s) -> total(s, prelimCriteria,
+                            judgesForTrack(s.track(), prelimJudgesByTrack).size())).reversed())
                     .toList();
             for (int r = 0; r < inTrack.size(); r++) {
                 Slot s = inTrack.get(r);
-                fx.result(s.team, prelim, total(s, prelimCriteria, prelimJudges.size()), r + 1, coordinator);
+                fx.result(s.team, prelim, total(s, prelimCriteria,
+                        judgesForTrack(s.track(), prelimJudgesByTrack).size()), r + 1, coordinator);
                 if (r < TOP_PER_TRACK_ADVANCE) advancing.add(s);
             }
         }
@@ -281,6 +294,30 @@ public class DemoScenario {
     }
 
     // ── scoring/ranking ──────────────────────────────────────────────
+
+    /** Writes scores for prelim submissions using only the judges assigned to each track. */
+    private void writeScoresByTrack(List<Submission> subs, List<Slot> slots,
+                                    List<ScoringCriteria> criteria,
+                                    Map<Integer, List<User>> judgesByTrack) {
+        for (int k = 0; k < subs.size(); k++) {
+            Slot slot = slots.get(k);
+            Submission sub = subs.get(k);
+            List<User> judges = judgesForTrack(slot.track(), judgesByTrack);
+            for (int c = 0; c < criteria.size(); c++) {
+                for (int j = 0; j < judges.size(); j++) {
+                    fx.score(sub, judges.get(j), criteria.get(c), value(slot.strength, c, j));
+                }
+            }
+        }
+    }
+
+    private List<User> judgesForTrack(Track track, Map<Integer, List<User>> judgesByTrack) {
+        List<User> judges = judgesByTrack.get(track.getTrackId());
+        if (judges == null || judges.isEmpty()) {
+            throw new IllegalStateException("No prelim judge seeded for track " + track.getName() + ".");
+        }
+        return judges;
+    }
 
     /** Writes every judge×criteria score for the round. subs[k] must pair with slots.get(k). */
     private void writeScores(List<Submission> subs, List<Slot> slots,

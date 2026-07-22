@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import { useForceDark } from "@/app/providers/ThemeProvider";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { C, GradientText, PixelButton, PixelInput, FloatingParticles } from "@/shared/components/PixelComponents";
 import { UniversitySelect } from "@/shared/components/UniversitySelect";
@@ -15,7 +14,6 @@ const selectStyle: React.CSSProperties = {
 };
 
 export function CompleteProfilePage() {
-  useForceDark();
   const navigate = useNavigate();
   const { currentUser, logout, patchCurrentUser } = useAuth();
   const { addAuthToast } = useNotifications();

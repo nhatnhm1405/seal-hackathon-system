@@ -7,7 +7,6 @@ import {
   FloatingParticles,
 } from "@/shared/components/PixelComponents";
 import { SealFooter } from "@/shared/components/SealFooter";
-import { useForceDark } from "@/app/providers/ThemeProvider";
 import { useAuth } from "@/app/providers/AuthProvider";
 import sealLogo from "@/imports/image.png";
 
@@ -39,7 +38,6 @@ function PageHeader() {
 }
 
 export function ContactPage() {
-  useForceDark(); // public marketing page is designed dark-only
   return (
     <div style={{ background: C.bg, minHeight: "100vh", display: "flex", flexDirection: "column" }}>
       <PageHeader />

@@ -38,6 +38,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class JudgeAssignmentService {
 
+    private static final Set<String> ASSIGNMENT_EVENT_STATUSES = Set.of("SETUP", "IN_PROGRESS");
     private static final Set<String> JUDGE_TYPES = Set.of("INTERNAL", "GUEST");
 
     private final JudgeAssignmentRepository judgeAssignmentRepository;
@@ -140,12 +141,17 @@ public class JudgeAssignmentService {
             }
         }
 
+        assertEventAllowsAssignments(round.getEvent().getStatus(), "Judge assignments");
         roundTimerService.assertJudgeAssignmentsMutable(round.getRoundId());
 
         JudgeAssignment existing = findExactJudgeAssignment(judge.getUserId(), round.getRoundId(), track)
                 .orElse(null);
         if (existing != null && Boolean.TRUE.equals(existing.getIsActive())) {
             throw new BadRequestException("This judge is already assigned to this round/track.");
+        }
+        if (judgeAssignmentRepository.existsByJudge_UserIdAndRound_RoundIdAndIsActiveTrue(
+                judge.getUserId(), round.getRoundId())) {
+            throw new BadRequestException("This judge is already assigned in this round. A judge can score only one track per round.");
         }
 
         // judge_type lives on the user; default internal judges to INTERNAL so every
@@ -225,6 +231,7 @@ public class JudgeAssignmentService {
             throw new BadRequestException("This judge assignment is no longer active.");
         }
         Round round = old.getRound();
+        assertEventAllowsAssignments(round.getEvent().getStatus(), "Judge assignments");
         roundTimerService.assertJudgeReplacementAllowed(round.getRoundId());
 
         if (Objects.equals(old.getJudge().getUserId(), request.getJudgeUserId())) {
@@ -242,6 +249,10 @@ public class JudgeAssignmentService {
                 replacement.getUserId(), round.getRoundId(), old.getTrack()).orElse(null);
         if (existing != null && Boolean.TRUE.equals(existing.getIsActive())) {
             throw new BadRequestException("The replacement judge is already assigned to this round/track.");
+        }
+        if (judgeAssignmentRepository.existsByJudge_UserIdAndRound_RoundIdAndIsActiveTrue(
+                replacement.getUserId(), round.getRoundId())) {
+            throw new BadRequestException("The replacement judge is already assigned in this round. A judge can score only one track per round.");
         }
 
         if (replacement.getJudgeType() == null
@@ -281,6 +292,10 @@ public class JudgeAssignmentService {
      */
     @Transactional
     public JudgeAssignmentResponse createGuestJudge(CreateGuestJudgeRequest request, Integer actorUserId) {
+        Round round = roundRepository.findById(request.getRoundId())
+                .orElseThrow(() -> new ResourceNotFoundException("Round not found: " + request.getRoundId()));
+        assertEventAllowsAssignments(round.getEvent().getStatus(), "Judge assignments");
+
         String email = request.getEmail().toLowerCase().trim();
         if (userRepository.existsByEmail(email)) {
             throw new BadRequestException("An account with this email already exists.");
@@ -302,6 +317,12 @@ public class JudgeAssignmentService {
         assign.setRoundId(request.getRoundId());
         assign.setTrackId(request.getTrackId());
         return assignJudge(assign, actorUserId);
+    }
+
+    private void assertEventAllowsAssignments(String eventStatus, String subject) {
+        if (!ASSIGNMENT_EVENT_STATUSES.contains((eventStatus == null ? "" : eventStatus).toUpperCase())) {
+            throw new BadRequestException(subject + " can only be changed when the event is SETUP or IN_PROGRESS.");
+        }
     }
 
     private Optional<JudgeAssignment> findExactJudgeAssignment(

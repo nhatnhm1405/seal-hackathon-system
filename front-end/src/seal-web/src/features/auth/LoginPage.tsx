@@ -1,5 +1,4 @@
 ﻿import { useState, useEffect } from "react";
-import { useForceDark } from "@/app/providers/ThemeProvider";
 import { useNavigate, useSearchParams } from "react-router";
 import {
   C, GradientText, PixelButton, PixelInput, FloatingParticles, TerminalWindow,
@@ -26,7 +25,6 @@ function oauthErrorMessage(errorCode: string) {
 }
 
 export function LoginPage() {
-  useForceDark();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { login } = useAuth();

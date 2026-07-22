@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, type ReactNode, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
-import { useForceDark } from "@/app/providers/ThemeProvider";
 import { useNavigate } from "react-router";
 import {
   C, GradientText, PixelButton, PixelBadge,
@@ -1617,7 +1616,6 @@ function CTASection({ navigate }: { navigate: (p: Page) => void }) {
 }
 
 export function LandingPage({ navigate, hideChrome = false }: { navigate: (p: Page) => void; hideChrome?: boolean }) {
-  useForceDark();
   const data = useLandingData();
   return (
     <div style={{ background: C.bg, minHeight: "100vh", overflowX: "clip" }}>

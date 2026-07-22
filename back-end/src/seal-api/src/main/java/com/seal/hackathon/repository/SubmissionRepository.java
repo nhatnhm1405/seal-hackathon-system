@@ -16,6 +16,17 @@ public interface SubmissionRepository extends JpaRepository<Submission, Integer>
     List<Submission> findAllByTeam_TeamId(Integer teamId);
 
     @Query("""
+            SELECT s
+            FROM Submission s
+            JOIN FETCH s.team t
+            JOIN FETCH s.round r
+            JOIN FETCH s.submittedBy u
+            WHERE r.event.eventId = :eventId
+            ORDER BY r.orderNumber ASC, t.name ASC, s.submittedAt ASC
+            """)
+    List<Submission> findAllByEventIdForExport(@Param("eventId") Integer eventId);
+
+    @Query("""
             SELECT DISTINCT s
             FROM Submission s
             JOIN s.round r

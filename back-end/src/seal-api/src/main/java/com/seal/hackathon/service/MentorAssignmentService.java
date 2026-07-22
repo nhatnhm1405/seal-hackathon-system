@@ -45,6 +45,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class MentorAssignmentService {
 
+    private static final Set<String> ASSIGNMENT_EVENT_STATUSES = Set.of("SETUP", "IN_PROGRESS");
+
     private final MentorAssignmentRepository mentorAssignmentRepository;
     private final TeamEventEntryRepository teamEventEntryRepository;
     private final TeamMemberRepository teamMemberRepository;
@@ -294,6 +296,7 @@ public class MentorAssignmentService {
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + request.getMentorUserId()));
         Track track = trackRepository.findById(request.getTrackId())
                 .orElseThrow(() -> new ResourceNotFoundException("Track not found: " + request.getTrackId()));
+        assertEventAllowsAssignments(track.getEvent().getStatus(), "Mentor assignments");
 
         // Guest judges are one-off external scorers, not embedded staff — they
         // can't take on a mentor's ongoing track responsibility.
@@ -363,5 +366,11 @@ public class MentorAssignmentService {
                         .university(m.getUser().getUniversity())
                         .build())
                 .collect(Collectors.toList());
+    }
+
+    private void assertEventAllowsAssignments(String eventStatus, String subject) {
+        if (!ASSIGNMENT_EVENT_STATUSES.contains((eventStatus == null ? "" : eventStatus).toUpperCase())) {
+            throw new BadRequestException(subject + " can only be changed when the event is SETUP or IN_PROGRESS.");
+        }
     }
 }

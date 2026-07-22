@@ -1,5 +1,4 @@
 import { ReactNode, useState, useRef, useEffect } from "react";
-import { useTheme } from "@/app/providers/ThemeProvider";
 import { useNavigate, useLocation } from "react-router";
 import { C, PixelBadge } from "@/shared/components/PixelComponents";
 import { useAuth } from "@/app/providers/AuthProvider";
@@ -347,7 +346,6 @@ interface TopNavbarProps {
 
 function TopNavbar({ pageTitle, collapsed, onToggleCollapse, currentUser, onLogout, onNavigate, canSwitchRole, onSwitchRole }: TopNavbarProps) {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const { theme, toggleTheme } = useTheme();
   const userMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -442,52 +440,9 @@ function TopNavbar({ pageTitle, collapsed, onToggleCollapse, currentUser, onLogo
       {/* CENTER — spacer */}
       <div style={{ flex: 1 }} />
 
-      {/* RIGHT — theme toggle + bell + user menu */}
+      {/* RIGHT — bell + user menu */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
         <NavbarRoleTimer role={currentUser.role} teamId={currentUser.team_id} />
-
-        {/* Theme toggle */}
-        <button
-          type="button"
-          onClick={toggleTheme}
-          title={theme === "dark" ? "Chuyển sang Light mode" : "Chuyển sang Dark mode"}
-          style={{
-            background: "transparent",
-            border: `1px solid rgba(34,197,94,0.15)`,
-            color: C.textMuted,
-            cursor: "pointer",
-            width: 36,
-            height: 36,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: 0,
-            transition: "all 0.15s",
-            flexShrink: 0,
-          }}
-          onMouseEnter={(e) => { const el = e.currentTarget as HTMLElement; el.style.color = C.green; el.style.borderColor = "rgba(34,197,94,0.45)"; el.style.background = "rgba(34,197,94,0.06)"; }}
-          onMouseLeave={(e) => { const el = e.currentTarget as HTMLElement; el.style.color = C.textMuted; el.style.borderColor = "rgba(34,197,94,0.15)"; el.style.background = "transparent"; }}
-        >
-          {theme === "dark" ? (
-            /* Sun icon */
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={{ pointerEvents: "none" }}>
-              <circle cx="12" cy="12" r="5" />
-              <line x1="12" y1="1" x2="12" y2="3" />
-              <line x1="12" y1="21" x2="12" y2="23" />
-              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
-              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-              <line x1="1" y1="12" x2="3" y2="12" />
-              <line x1="21" y1="12" x2="23" y2="12" />
-              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
-              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
-            </svg>
-          ) : (
-            /* Moon icon */
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" style={{ pointerEvents: "none" }}>
-              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-            </svg>
-          )}
-        </button>
 
         {/* Bell */}
         <NotificationBell />
@@ -594,7 +549,6 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { currentUser, logout, availableRoles, setActiveRole } = useAuth();
-  const { theme } = useTheme();
   const { addAuthToast } = useNotifications();
   const [collapsed, setCollapsed] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -618,10 +572,8 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
   const sidebarWidth = collapsed ? 0 : 248;
   const pageTitle = getPageTitle(location.pathname);
 
-  // Scope: dark-mode restyle only while a team-less participant is on the no-team
-  // dashboard screen. Sidebar → "pending approval" gradient card + white text.
+  // Team-less participant dashboard owns its own full-screen cyber backdrop.
   const sealNoTeam =
-    theme === "dark" &&
     currentUser.role === "PARTICIPANT" &&
     currentUser.team_id === null &&
     isDashboardPath(location.pathname);

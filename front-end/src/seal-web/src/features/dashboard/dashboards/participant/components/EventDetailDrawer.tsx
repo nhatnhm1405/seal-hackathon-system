@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { C, PixelBadge, PixelButton } from "@/shared/components/PixelComponents";
 import { tracksApi, roundsApi, teamsApi, ApiError, apiErrorMessage, HackathonEvent, Track, Round } from "@/shared/apiClient";
-import { useTheme } from "@/app/providers/ThemeProvider";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { useNotifications } from "@/app/providers/NotificationProvider";
 import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
@@ -61,11 +60,8 @@ export function EventDetailDrawer({
 
     const seasonLabel = `${(event.season ?? "").toUpperCase()} ${event.year ?? ""}`.trim();
 
-    // Match the no-team screen: dark → basic text white, important text highlighted.
-    const { theme } = useTheme();
-    const dark = theme === "dark";
-    const txt = dark ? "#ffffff" : C.text;
-    const mut = dark ? "rgba(255,255,255,0.85)" : C.textMuted;
+    const txt = "#ffffff";
+    const mut = "rgba(255,255,255,0.85)";
     // Real event status drives the badge colour (not always green).
     const st = (event.status ?? "").toUpperCase();
     const statusBadgeColor: "green" | "blue" | "red" | "yellow" =
