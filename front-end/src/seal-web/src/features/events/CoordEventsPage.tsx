@@ -489,7 +489,7 @@ export function CoordEventsPage() {
                         );
                       })}
                     </div>
-                    <ContestTimerPanel eventId={selectedEvent.eventId} roundId={selectedRoundId} />
+                    <ContestTimerPanel eventId={selectedEvent.eventId} roundId={selectedRoundId} eventStatus={selectedEvent.status} />
                   </>
                 )}
               </div>

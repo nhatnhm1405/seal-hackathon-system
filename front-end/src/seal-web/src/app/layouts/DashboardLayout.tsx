@@ -383,7 +383,7 @@ function TopNavbar({ pageTitle, collapsed, onToggleCollapse, currentUser, onLogo
         <button
           type="button"
           onClick={onToggleCollapse}
-          title={collapsed ? "Mở sidebar" : "Đóng sidebar"}
+          title={collapsed ? "Open sidebar" : "Collapse sidebar"}
           style={{
             background: collapsed ? "rgba(34,197,94,0.08)" : "transparent",
             border: `1px solid ${collapsed ? "rgba(34,197,94,0.4)" : "rgba(34,197,94,0.15)"}`,
@@ -423,7 +423,7 @@ function TopNavbar({ pageTitle, collapsed, onToggleCollapse, currentUser, onLogo
         <button
           type="button"
           onClick={() => onNavigate("/")}
-          title="Về trang chủ"
+          title="Go to home"
           style={{ display: "flex", alignItems: "center", gap: 10, height: 44, overflow: "hidden", background: "transparent", border: "none", padding: 0, cursor: "pointer" }}
         >
           <div style={{ width: 96, height: 44, overflow: "hidden", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -736,7 +736,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
             )}
             <button
               onClick={handleLogout}
-              title="Đăng xuất"
+              title="Log out"
               style={{
                 padding: "8px",
                 background: "transparent",

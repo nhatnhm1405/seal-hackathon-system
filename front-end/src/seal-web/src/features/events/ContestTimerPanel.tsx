@@ -20,7 +20,7 @@ const PHASES: { phase: TimerPhase; title: string }[] = [
   { phase: "JUDGING", title: "Judging — Scoring window" },
 ];
 
-export function ContestTimerPanel({ eventId, roundId }: { eventId: number; roundId: number | null }) {
+export function ContestTimerPanel({ eventId, roundId, eventStatus }: { eventId: number; roundId: number | null; eventStatus: string }) {
   if (roundId == null) {
     return (
       <div style={{ color: C.textMuted, fontFamily: MONO, fontSize: 12 }}>
@@ -28,22 +28,29 @@ export function ContestTimerPanel({ eventId, roundId }: { eventId: number; round
       </div>
     );
   }
+  const eventInProgress = eventStatus === "IN_PROGRESS";
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      {!eventInProgress && (
+        <div style={{ padding: 12, background: C.surface, border: `1px dashed ${C.border}`, color: C.textMuted, fontFamily: MONO, fontSize: 11, lineHeight: 1.6 }}>
+          {`Timers can only be operated while the event is IN_PROGRESS. Current: ${eventStatus}.`}
+        </div>
+      )}
       {PHASES.map(p => (
-        <PhaseTimerControl key={p.phase} eventId={eventId} roundId={roundId} phase={p.phase} title={p.title} />
+        <PhaseTimerControl key={p.phase} eventId={eventId} roundId={roundId} phase={p.phase} title={p.title} disabled={!eventInProgress} />
       ))}
     </div>
   );
 }
 
 function PhaseTimerControl({
-  eventId, roundId, phase, title,
+  eventId, roundId, phase, title, disabled,
 }: {
   eventId: number;
   roundId: number;
   phase: TimerPhase;
   title: string;
+  disabled: boolean;
 }) {
   const { addToast } = useNotifications();
   const timer = useRoundTimer(eventId, roundId, phase, { fireBanners: false });
@@ -59,7 +66,8 @@ function PhaseTimerControl({
 
   const idle = !timer.isConfigured || timer.status === "STOPPED" || timer.status === "EXPIRED";
   const contestFinished = contestGate.status === "STOPPED" || contestGate.status === "EXPIRED";
-  const startBlocked = timer.loading
+  const startBlocked = disabled
+    || timer.loading
     || timer.loadFailed
     || (phase === "JUDGING" && (contestGate.loading || contestGate.loadFailed || !contestFinished));
 
@@ -120,13 +128,13 @@ function PhaseTimerControl({
             {/* One button per job: PAUSE/RESUME · EXTEND · STOP. */}
             <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
               {timer.status === "PAUSED" ? (
-                <PixelButton size="sm" variant="cyber" disabled={busy || timer.loadFailed} onClick={resume}>RESUME</PixelButton>
+                <PixelButton size="sm" variant="cyber" disabled={disabled || busy || timer.loadFailed} onClick={resume}>RESUME</PixelButton>
               ) : (
-                <PixelButton size="sm" variant="secondary" disabled={busy || timer.loadFailed} onClick={pause}>PAUSE</PixelButton>
+                <PixelButton size="sm" variant="secondary" disabled={disabled || busy || timer.loadFailed} onClick={pause}>PAUSE</PixelButton>
               )}
-              <PixelButton size="sm" variant="secondary" disabled={busy || timer.loadFailed} onClick={() => setShowExtend(v => !v)}>EXTEND</PixelButton>
+              <PixelButton size="sm" variant="secondary" disabled={disabled || busy || timer.loadFailed} onClick={() => setShowExtend(v => !v)}>EXTEND</PixelButton>
               {/* STOP ends the window for everyone at once — confirmed first. */}
-              <PixelButton size="sm" variant="danger" disabled={busy || timer.loadFailed} onClick={() => setConfirmStop(true)}>STOP</PixelButton>
+              <PixelButton size="sm" variant="danger" disabled={disabled || busy || timer.loadFailed} onClick={() => setConfirmStop(true)}>STOP</PixelButton>
             </div>
             {showExtend && (
               <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
@@ -144,7 +152,7 @@ function PhaseTimerControl({
                   />
                   min
                 </label>
-                <PixelButton size="sm" variant="cyber" disabled={busy}
+                <PixelButton size="sm" variant="cyber" disabled={disabled || busy}
                   onClick={() => { extend(extendMin * 60); setShowExtend(false); }}>
                   ADD TIME
                 </PixelButton>
