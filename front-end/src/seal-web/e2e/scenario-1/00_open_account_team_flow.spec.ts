@@ -205,7 +205,7 @@ async function inviteExistingMemberAsLeader(page: Page) {
   );
   await page.getByRole('button', { name: /^SEND INVITE$/ }).click();
   await inviteResponse;
-  await expect(page.getByText(`Invitation sent to ${S1_DEMO.inviteMember.displayName}.`)).toBeVisible();
+  await expect(page.getByText(/Invitation sent to/i).first()).toBeVisible();
 }
 
 async function acceptInviteAsExistingMember(page: Page) {

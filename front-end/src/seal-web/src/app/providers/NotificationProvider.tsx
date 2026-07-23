@@ -314,7 +314,7 @@ function BannerContainer({
           borderRadius: 2,
           padding: "3px 10px",
         }}>
-          +{overflow} thông báo nữa
+          +{overflow} more
         </div>
       )}
     </div>

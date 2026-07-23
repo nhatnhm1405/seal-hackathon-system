@@ -64,7 +64,12 @@ public class RoundResultService {
         User coordinator = userRepository.findById(coordinatorId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + coordinatorId));
 
-        List<Submission> submissions = submissionRepository.findAllByRound_RoundId(roundId);
+        // Disqualified teams drop out of the competition — their submission (if
+        // any) is excluded from both the completeness gate and the ranking itself,
+        // so a team disqualified after submitting can never re-enter via recalculation.
+        List<Submission> submissions = submissionRepository.findAllByRound_RoundId(roundId).stream()
+                .filter(s -> !isDisqualified(s.getTeam().getTeamId(), eventId))
+                .collect(Collectors.toList());
         if (submissions.isEmpty()) {
             throw new BadRequestException("No submissions found for this round.");
         }
@@ -257,6 +262,12 @@ public class RoundResultService {
             if (tb == null) return -1;
             return ta.compareTo(tb);
         };
+    }
+
+    private boolean isDisqualified(Integer teamId, Integer eventId) {
+        return teamEventEntryRepository.findByTeam_TeamIdAndEvent_EventId(teamId, eventId)
+                .map(entry -> "DISQUALIFIED".equalsIgnoreCase(entry.getStatus()))
+                .orElse(false);
     }
 
     private RoundResultResponse mapToResponse(RoundResult r) {

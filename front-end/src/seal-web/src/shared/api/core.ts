@@ -17,11 +17,27 @@ function getCsrfToken(): string | null {
 // would then go out with no X-XSRF-TOKEN header and be rejected with 403 (the
 // "forbidden for the first 1-3s, works on retry" symptom). Prime it here with a
 // cheap GET (every response sets the cookie) so mutations never race the token.
+//
+// Bulk actions (e.g. "Release All") fire several mutations via Promise.all — if
+// none of them has a cookie yet, each would otherwise fire its OWN priming GET,
+// and the backend hands out a different random token per unauthenticated GET.
+// Those responses race to overwrite document.cookie, so one request's header
+// (captured right after ITS priming GET resolved) can end up mismatched against
+// whatever the LAST priming GET wrote — a genuine 403. Dedupe concurrent primes
+// into a single in-flight promise so every caller in the burst awaits the same
+// GET and reads the same resulting cookie value.
+let csrfPriming: Promise<string | null> | null = null;
+
 async function ensureCsrfToken(): Promise<string | null> {
   const existing = getCsrfToken();
   if (existing) return existing;
-  await fetch(`${BASE_URL}/api/csrf`, { credentials: 'include' }).catch(() => {});
-  return getCsrfToken();
+  if (!csrfPriming) {
+    csrfPriming = fetch(`${BASE_URL}/api/csrf`, { credentials: 'include' })
+      .catch(() => {})
+      .then(() => getCsrfToken())
+      .finally(() => { csrfPriming = null; });
+  }
+  return csrfPriming;
 }
 
 // ── Error shape ──────────────────────────────────────────────────────
@@ -69,10 +85,6 @@ export async function apiFetch<T>(
 
   return res.json() as Promise<T>;
 }
-
-// ═══════════════════════════════════════════════════════════════════
-// Shared types
-// ═══════════════════════════════════════════════════════════════════
 
 export interface ApiResponse<T> {
   data: T;

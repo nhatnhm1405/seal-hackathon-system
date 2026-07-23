@@ -104,6 +104,8 @@ class JudgeScoringCompletenessServiceTest {
 
     @Test
     void assertRoundComplete_shouldRejectMissingJudgeInsteadOfTreatingThemAsZero() {
+        when(roundRepository.findById(2)).thenReturn(Optional.of(round));
+
         BadRequestException error = assertThrows(BadRequestException.class,
                 () -> service.assertRoundComplete(2));
 

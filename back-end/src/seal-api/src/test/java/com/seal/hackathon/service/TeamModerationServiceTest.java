@@ -3,6 +3,7 @@ package com.seal.hackathon.service;
 import com.seal.hackathon.dto.request.RejectTeamRequest;
 import com.seal.hackathon.dto.response.TeamDetailResponse;
 import com.seal.hackathon.entity.HackathonEvent;
+import com.seal.hackathon.entity.RoundResult;
 import com.seal.hackathon.entity.Team;
 import com.seal.hackathon.entity.TeamEventEntry;
 import com.seal.hackathon.entity.TeamMember;
@@ -85,7 +86,8 @@ class TeamModerationServiceTest {
                 teamMemberRepository, roundRepository, roundResultRepository, teamRejoinRequestRepository, teamAccessGuard);
         teamService = new TeamModerationService(
                 teamRepository, teamEventEntryRepository, teamMemberRepository, userRepository, notificationService,
-                auditLogService, participantHistorySnapshotService, teamAccessGuard, teamResponseMapper);
+                auditLogService, participantHistorySnapshotService, teamAccessGuard, teamResponseMapper,
+                roundResultRepository);
     }
 
     @Test
@@ -103,6 +105,24 @@ class TeamModerationServiceTest {
 
         verify(participantHistorySnapshotService).snapshotDeparture(target, "REMOVED_BY_COORDINATOR");
         verify(teamMemberRepository).delete(target);
+    }
+
+    @Test
+    void coordinatorRemoveMember_shouldDeleteRoundResults_whenLastMemberRemovedDisqualifiesTeam() {
+        HackathonEvent event = event(1, "IN_PROGRESS");
+        Team team = team(99, event, null, "Seal Team", "APPROVED");
+        TeamMember leader = member(1, team, user(100, "Leader"), "LEADER");
+        RoundResult stale = RoundResult.builder().resultId(500).team(team).build();
+
+        when(teamRepository.findById(99)).thenReturn(Optional.of(team));
+        when(teamMemberRepository.findByTeam_TeamId(99)).thenReturn(List.of(leader), List.of());
+        when(roundResultRepository.findAllByTeam_TeamIdAndRound_Event_EventId(99, 1))
+                .thenReturn(List.of(stale));
+
+        TeamDetailResponse response = teamService.coordinatorRemoveMember(500, 99, 100, "No-show");
+
+        assertEquals("DISQUALIFIED", response.getStatus());
+        verify(roundResultRepository).deleteAll(List.of(stale));
     }
 
     @Test
@@ -291,6 +311,23 @@ class TeamModerationServiceTest {
         assertEquals("DISQUALIFIED", response.getStatus());
         assertNull(response.getDisqualifiedReason());
         assertNotNull(response.getDisqualifiedAt());
+    }
+
+    @Test
+    void disqualifyTeam_shouldDeleteTeamsRoundResultsForThisEvent() {
+        HackathonEvent event = event(1, "OPEN");
+        Team team = team(99, event, track(10, event), "Seal Team", "APPROVED");
+        RoundResult stale = RoundResult.builder().resultId(500).team(team).build();
+
+        when(teamRepository.findById(99)).thenReturn(Optional.of(team));
+        when(teamRepository.save(team)).thenReturn(team);
+        when(teamMemberRepository.findByTeam_TeamId(99)).thenReturn(List.of());
+        when(roundResultRepository.findAllByTeam_TeamIdAndRound_Event_EventId(99, 1))
+                .thenReturn(List.of(stale));
+
+        teamService.disqualifyTeam(99, new RejectTeamRequest());
+
+        verify(roundResultRepository).deleteAll(List.of(stale));
     }
 
     @Test

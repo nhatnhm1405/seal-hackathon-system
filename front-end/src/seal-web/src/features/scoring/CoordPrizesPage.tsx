@@ -1,22 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { C, GradientText, PixelBadge, PixelButton, PixelCard, PixelInput } from "@/shared/components/PixelComponents";
+import { PixelMenu } from "@/shared/components/PixelMenu";
 import { ApiError, apiErrorMessage, eventsApi, HackathonEvent, Prize, prizesApi, Round, roundsApi, Team, teamsApi } from "@/shared/apiClient";
 import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
 import { useNotifications } from "@/app/providers/NotificationProvider";
 
 const mono = "'JetBrains Mono', monospace";
 
-const selectStyle: React.CSSProperties = {
-  padding: "10px 12px",
-  background: C.surface2,
-  border: `1px solid ${C.border}`,
-  color: C.text,
-  fontFamily: mono,
-  fontSize: 12,
-  borderRadius: 0,
-  outline: "none",
-  minWidth: 220,
-};
+// TOP | PRIZE | TEAM | STATUS
+const PRIZE_COLS = ["10%", "32%", "32%", "26%"];
 
 const MEDAL_COLOR: Record<number, string> = {
   1: "#FFD24A",
@@ -55,6 +47,28 @@ function downloadCsv(filename: string, header: string[], rows: unknown[][]) {
   anchor.click();
 
   URL.revokeObjectURL(url);
+}
+
+// Local edit draft, decoupled from `prize.name` so we can tell "actually
+// changed" apart from "just re-rendered with the same server value" on blur.
+function PrizeNameField({ prize, disabled, onSave }: { prize: Prize; disabled: boolean; onSave: (name: string) => void }) {
+  const [draft, setDraft] = useState(prize.name);
+
+  useEffect(() => setDraft(prize.name), [prize.name]);
+
+  return (
+    <PixelInput
+      label=""
+      value={draft}
+      disabled={disabled}
+      onChange={(event) => setDraft(event.target.value)}
+      onBlur={() => {
+        const trimmed = draft.trim();
+        if (trimmed && trimmed !== prize.name) onSave(trimmed);
+        else setDraft(prize.name);
+      }}
+    />
+  );
 }
 
 export function CoordPrizesPage() {
@@ -148,19 +162,15 @@ export function CoordPrizesPage() {
     run(() => prizesApi.autoGenerate(selectedEventId, topNInput), `Generated top ${topNInput} from the final ranking.`);
   }
 
-  function addSlot() {
+  // The only editable field — a prize's winning team and rank always come
+  // from AUTO-GENERATE (the final ranking), never a manual pick.
+  function renamePrize(prize: Prize, nextName: string) {
     if (selectedEventId == null) return;
 
-    const lastPrize = sortedPrizes[sortedPrizes.length - 1];
-    const nextRank = (lastPrize?.rankPosition ?? 0) + 1;
+    const trimmed = nextName.trim();
+    if (!trimmed || trimmed === prize.name) return;
 
-    run(() => prizesApi.create(selectedEventId, { name: `Prize #${nextRank}`, rankPosition: nextRank }), "Slot added.");
-  }
-
-  function updatePrize(prizeId: number, patch: Partial<Pick<Prize, "name" | "description">> & { teamId?: number | null }) {
-    if (selectedEventId == null) return;
-
-    run(() => prizesApi.update(selectedEventId, prizeId, patch));
+    run(() => prizesApi.update(selectedEventId, prize.prizeId, { name: trimmed }), `"${prize.name}" renamed to "${trimmed}".`);
   }
 
   async function deletePrize(prizeId: number) {
@@ -281,110 +291,119 @@ export function CoordPrizesPage() {
         </PixelCard>
       ) : selectedEvent == null ? null : (
         <>
-          <PixelCard style={{ padding: 16, display: "flex", gap: 16, alignItems: "flex-end", flexWrap: "wrap", justifyContent: "space-between" }}>
-            <div style={{ display: "flex", gap: 16, alignItems: "flex-end", flexWrap: "wrap" }}>
-              {!finalReady && (
-                <div style={{ color: C.yellow, fontFamily: mono, fontSize: 12 }}>
-                  The final round is not finalized yet - finalize it before generating prizes.
+          <PixelCard style={{ padding: 16, display: "flex", flexDirection: "column", gap: 14 }}>
+            <GradientText style={{ fontFamily: mono, fontSize: 22, fontWeight: 800, letterSpacing: "0.04em" }}>
+              PRIZE AWARDS
+            </GradientText>
+
+            {!finalReady && (
+              <div style={{ color: C.yellow, fontFamily: mono, fontSize: 12 }}>
+                The final round is not finalized yet - finalize it before generating prizes.
+              </div>
+            )}
+
+            {finalReady && !announced && (
+              <div style={{ display: "flex", gap: 16, alignItems: "flex-end", flexWrap: "wrap" }}>
+                <div style={{ maxWidth: 140 }}>
+                  <PixelInput label="Top N" type="number" value={String(topNInput)} min="1" onChange={(event) => setTopNInput(Math.max(1, Number(event.target.value) || 1))} />
                 </div>
-              )}
+                <PixelButton variant="cyber" onClick={autoGenerate} disabled={busy}>AUTO-GENERATE FROM FINAL</PixelButton>
+              </div>
+            )}
 
-              {finalReady && !announced && (
-                <>
-                  <div style={{ maxWidth: 140 }}>
-                    <PixelInput label="Top N" type="number" value={String(topNInput)} min="1" onChange={(event) => setTopNInput(Math.max(1, Number(event.target.value) || 1))} />
-                  </div>
-                  <PixelButton variant="cyber" onClick={autoGenerate} disabled={busy}>AUTO-GENERATE FROM FINAL</PixelButton>
-                  <PixelButton variant="ghost" onClick={addSlot} disabled={busy}>ADD SLOT</PixelButton>
-                </>
-              )}
-
-              {announced && (
-                <div style={{ color: C.green, fontFamily: mono, fontSize: 12 }}>
-                  Prizes announced - each winning team has been notified.
-                </div>
-              )}
-            </div>
-
-            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-              {finalReady && !announced && (
-                <PixelButton variant="primary" onClick={requestAnnounce} disabled={busy || sortedPrizes.length === 0 || !allHaveTeam}>ANNOUNCE</PixelButton>
-              )}
-              {sortedPrizes.some((prize) => prize.teamId != null) && (
-                <PixelButton variant="secondary" onClick={exportWinnersCsv} disabled={busy}>EXPORT WINNERS CSV</PixelButton>
-              )}
-            </div>
-          </PixelCard>
-
-          <PixelCard style={{ padding: 16, display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap", justifyContent: "space-between" }}>
-            <div style={{ color: C.text, fontFamily: mono, fontSize: 13, fontWeight: 700 }}>Participation certificates</div>
-            <PixelButton variant="secondary" onClick={exportParticipantsCsv} disabled={busy || teams.length === 0 || selectedEvent.status !== "COMPLETED"}>
-              EXPORT PARTICIPANTS CSV
-            </PixelButton>
+            {announced && (
+              <div style={{ color: C.green, fontFamily: mono, fontSize: 12 }}>
+                Prizes announced - each winning team has been notified.
+              </div>
+            )}
           </PixelCard>
 
           {sortedPrizes.length === 0 ? (
             <PixelCard style={{ padding: 40, textAlign: "center" }}>
               <div style={{ color: C.textMuted, fontFamily: mono, fontSize: 13 }}>
-                No prizes yet. Use Auto-generate from final or Add slot.
+                No prizes yet. Use Auto-generate from final.
               </div>
             </PixelCard>
           ) : (
-            <PixelCard glow gradient style={{ padding: 0, overflow: "hidden" }}>
-              {sortedPrizes.map((prize) => {
-                const locked = prize.announced;
+            <PixelCard glow gradient glowColor="amber" style={{ padding: 0, overflow: "hidden" }}>
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", tableLayout: "fixed", borderCollapse: "collapse", fontFamily: mono }}>
+                  <thead>
+                    <tr style={{ background: C.surface2, borderBottom: `1px solid ${C.border}` }}>
+                      {["Top", "Prize", "Team", "Status"].map((h, i) => (
+                        <th key={h} style={{ width: PRIZE_COLS[i], color: C.green, fontSize: 10, letterSpacing: "0.12em", textAlign: "left", padding: "12px 14px", fontWeight: 600, textTransform: "uppercase" }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedPrizes.map((prize, ri) => {
+                      const locked = prize.announced;
 
-                return (
-                  <div key={prize.prizeId} className="row-actionable" style={{ padding: 16, borderBottom: `1px solid ${C.border}`, display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
-                    <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: "50%", background: medalColor(prize.rankPosition), color: "#0d1117", fontWeight: 800, fontFamily: mono, fontSize: 13 }}>
-                      {prize.rankPosition}
-                    </span>
+                      return (
+                        <tr key={prize.prizeId} className="row-actionable" style={{ borderBottom: "1px solid rgba(34,197,94,0.06)", background: ri % 2 === 0 ? C.surface : C.surface2 }}>
+                          <td style={{ padding: "12px 14px" }}>
+                            <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, borderRadius: "50%", background: medalColor(prize.rankPosition), color: "#0d1117", fontWeight: 800, fontFamily: mono, fontSize: 13 }}>
+                              {prize.rankPosition}
+                            </span>
+                          </td>
 
-                    <div style={{ minWidth: 160, flex: "1 1 180px" }}>
-                      {locked ? (
-                        <div style={{ color: C.text, fontFamily: mono, fontSize: 14, fontWeight: 700 }}>{prize.name}</div>
-                      ) : (
-                        <PixelInput label="" value={prize.name} onChange={(event) => setPrizes((previous) => previous.map((item) => item.prizeId === prize.prizeId ? { ...item, name: event.target.value } : item))} />
-                      )}
-                    </div>
+                          <td style={{ padding: "12px 14px" }}>
+                            {locked ? (
+                              <div style={{ color: C.text, fontFamily: mono, fontSize: 14, fontWeight: 700 }}>{prize.name}</div>
+                            ) : (
+                              <PrizeNameField prize={prize} disabled={busy} onSave={(name) => renamePrize(prize, name)} />
+                            )}
+                          </td>
 
-                    <div style={{ minWidth: 200, flex: "1 1 220px" }}>
-                      {locked ? (
-                        <div style={{ color: prize.teamId ? C.green : C.textMuted, fontFamily: mono, fontSize: 13 }}>
-                          {prize.teamName ?? "-"}{prize.finalScore != null ? ` - ${Number(prize.finalScore).toFixed(1)}` : ""}
-                        </div>
-                      ) : (
-                        <select
-                          value={prize.teamId ?? 0}
-                          onChange={(event) => updatePrize(prize.prizeId, { teamId: Number(event.target.value) || null })}
-                          style={{ ...selectStyle, minWidth: 200 }}
-                          disabled={busy}
-                        >
-                          <option value={0}>pick winning team</option>
-                          {teams.map((team) => (
-                            <option key={team.teamId} value={team.teamId}>
-                              {team.name}{team.trackName ? ` (${team.trackName})` : ""}
-                            </option>
-                          ))}
-                        </select>
-                      )}
-                    </div>
+                          {/* Winning team is read-only everywhere — it only ever comes
+                              from AUTO-GENERATE FROM FINAL, never a manual pick. Just the
+                              name, bold and bright — the score isn't the point here. */}
+                          <td style={{ padding: "12px 14px" }}>
+                            <div style={{ color: prize.teamId ? C.text : C.textMuted, fontFamily: mono, fontSize: 14, fontWeight: 800 }}>
+                              {prize.teamName ?? "-"}
+                            </div>
+                          </td>
 
-                    <PixelBadge color={prize.announced ? "green" : "gray"}>{prize.announced ? "ANNOUNCED" : "DRAFT"}</PixelBadge>
-
-                    {!locked && (
-                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                        <PixelButton variant="ghost" onClick={() => updatePrize(prize.prizeId, { name: prize.name })} disabled={busy}>SAVE</PixelButton>
-                        <span className="row-action">
-                          <PixelButton variant="danger" onClick={() => setConfirmDelete(prize)} disabled={busy}>DELETE</PixelButton>
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+                          <td style={{ padding: "12px 14px" }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                              <PixelBadge color={prize.announced ? "green" : "gray"}>{prize.announced ? "ANNOUNCED" : "DRAFT"}</PixelBadge>
+                              {!locked && (
+                                <span className="row-action">
+                                  <PixelButton variant="danger" size="sm" onClick={() => setConfirmDelete(prize)} disabled={busy}>DELETE</PixelButton>
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </PixelCard>
           )}
+
+          {/* Functional actions live below the table: finalizing (Announce) and
+              exporting are things you do once the list above is settled. The two
+              CSV exports share one menu trigger just to cut visual clutter — they
+              stay two separate actions underneath. */}
+          <div style={{ display: "flex", gap: 12, alignItems: "center", justifyContent: "flex-end", flexWrap: "wrap" }}>
+            {finalReady && !announced && (
+              <PixelButton variant="primary" size="md" onClick={requestAnnounce} disabled={busy || sortedPrizes.length === 0 || !allHaveTeam}>ANNOUNCE</PixelButton>
+            )}
+            <PixelMenu
+              label="EXPORT CSV"
+              triggerVariant="secondary"
+              size="md"
+              ariaLabel="Export CSV"
+              align="right"
+              disabled={busy}
+              items={[
+                { label: "Export winners CSV", onClick: exportWinnersCsv, disabled: !sortedPrizes.some((prize) => prize.teamId != null) },
+                { label: "Export participants CSV", onClick: exportParticipantsCsv, disabled: teams.length === 0 || selectedEvent.status !== "COMPLETED" },
+              ]}
+            />
+          </div>
         </>
       )}
 

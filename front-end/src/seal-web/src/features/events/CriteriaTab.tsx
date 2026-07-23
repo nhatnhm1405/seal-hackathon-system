@@ -39,17 +39,20 @@ export function CriteriaTab({
   const [newTemplateName, setNewTemplateName] = useState("");
 
   // Criteria form (collapsed behind "+ ADD CRITERIA" until needed)
+  // Max/Weight are kept as raw text while typing (not Number()) so a trailing
+  // "." or partial decimal ("5.") isn't stripped by a Number→String round-trip
+  // on every keystroke — they're only parsed to Number() at submit time.
   const [showAddCriteria, setShowAddCriteria] = useState(false);
   const [crName, setCrName] = useState("");
   const [crDesc, setCrDesc] = useState("");
-  const [crMax, setCrMax] = useState(10);
-  const [crWeight, setCrWeight] = useState(1.0);
+  const [crMax, setCrMax] = useState("10");
+  const [crWeight, setCrWeight] = useState("1.0");
   // Inline criteria edit (separate from the create form so the two never clash)
   const [editingCriteriaId, setEditingCriteriaId] = useState<number | null>(null);
   const [ecName, setEcName] = useState("");
   const [ecDesc, setEcDesc] = useState("");
-  const [ecMax, setEcMax] = useState(10);
-  const [ecWeight, setEcWeight] = useState(1.0);
+  const [ecMax, setEcMax] = useState("10");
+  const [ecWeight, setEcWeight] = useState("1.0");
 
   // ── Load criteria when the selected round changes ─────────────────
   useEffect(() => {
@@ -79,6 +82,12 @@ export function CriteriaTab({
       addToast({ type: 'warning', title: 'MISSING NAME', message: 'Please enter a criteria name.' });
       return;
     }
+    const weight = Number(crWeight);
+    const maxScore = Number(crMax);
+    if (!Number.isFinite(weight) || !Number.isFinite(maxScore)) {
+      addToast({ type: 'warning', title: 'INVALID NUMBER', message: 'Max and Weight must be valid numbers.' });
+      return;
+    }
     setActionError(null);
     try {
       const res = await apiFetch<{ data: ApiCriteria }>(`/api/events/${eventId}/rounds/${selectedRoundId}/criteria`, {
@@ -86,8 +95,8 @@ export function CriteriaTab({
         body: JSON.stringify({
           name,
           description: crDesc || undefined,
-          weight: crWeight,
-          maxScore: crMax,
+          weight,
+          maxScore,
           orderNumber: criteria.length + 1,
         }),
       });
@@ -156,13 +165,13 @@ export function CriteriaTab({
     setEditingCriteriaId(c.criteriaId);
     setEcName(c.name);
     setEcDesc(c.description ?? "");
-    setEcMax(c.maxScore);
-    setEcWeight(c.weight);
+    setEcMax(String(c.maxScore));
+    setEcWeight(String(c.weight));
   }
 
   function cancelCriteriaEdit() {
     setEditingCriteriaId(null);
-    setEcName(""); setEcDesc(""); setEcMax(10); setEcWeight(1.0);
+    setEcName(""); setEcDesc(""); setEcMax("10"); setEcWeight("1.0");
   }
 
   async function saveCriteriaEdit(original: CriteriaRow) {
@@ -172,6 +181,12 @@ export function CriteriaTab({
       addToast({ type: 'warning', title: 'MISSING NAME', message: 'Please enter a criteria name.' });
       return;
     }
+    const weight = Number(ecWeight);
+    const maxScore = Number(ecMax);
+    if (!Number.isFinite(weight) || !Number.isFinite(maxScore)) {
+      addToast({ type: 'warning', title: 'INVALID NUMBER', message: 'Max and Weight must be valid numbers.' });
+      return;
+    }
     setActionError(null);
     try {
       const res = await apiFetch<{ data: ApiCriteria }>(`/api/events/${eventId}/rounds/${selectedRoundId}/criteria/${editingCriteriaId}`, {
@@ -179,8 +194,8 @@ export function CriteriaTab({
         body: JSON.stringify({
           name,
           description: ecDesc || undefined,
-          weight: ecWeight,
-          maxScore: ecMax,
+          weight,
+          maxScore,
           orderNumber: original.orderNumber,
         }),
       });
@@ -278,8 +293,8 @@ export function CriteriaTab({
             <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr 80px 80px auto", gap: 10, alignItems: "end" }}>
               <PixelInput label="Name" value={ecName} onChange={(e) => setEcName(e.target.value)} />
               <PixelInput label="Description" value={ecDesc} onChange={(e) => setEcDesc(e.target.value)} />
-              <PixelInput label="Max" type="number" value={String(ecMax)} onChange={(e) => setEcMax(Number(e.target.value))} />
-              <PixelInput label="Weight" type="number" value={String(ecWeight)} onChange={(e) => setEcWeight(Number(e.target.value))} />
+              <PixelInput label="Max" type="number" value={ecMax} onChange={(e) => setEcMax(e.target.value)} />
+              <PixelInput label="Weight" type="number" value={ecWeight} onChange={(e) => setEcWeight(e.target.value)} />
               <div style={{ display: "flex", gap: 8 }}>
                 <PixelButton size="sm" variant="cyber" onClick={() => saveCriteriaEdit(c)}>SAVE</PixelButton>
                 <PixelButton size="sm" variant="ghost" onClick={cancelCriteriaEdit}>CANCEL</PixelButton>
@@ -316,8 +331,8 @@ export function CriteriaTab({
           <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr 80px 80px auto", gap: 10, alignItems: "end" }}>
             <PixelInput label="Name" value={crName} onChange={(e) => setCrName(e.target.value)} />
             <PixelInput label="Description" value={crDesc} onChange={(e) => setCrDesc(e.target.value)} />
-            <PixelInput label="Max" type="number" value={String(crMax)} onChange={(e) => setCrMax(Number(e.target.value))} />
-            <PixelInput label="Weight" type="number" value={String(crWeight)} onChange={(e) => setCrWeight(Number(e.target.value))} />
+            <PixelInput label="Max" type="number" value={crMax} onChange={(e) => setCrMax(e.target.value)} />
+            <PixelInput label="Weight" type="number" value={crWeight} onChange={(e) => setCrWeight(e.target.value)} />
             <div style={{ display: "flex", gap: 8 }}>
               <PixelButton variant="secondary" onClick={addCriteria}>ADD</PixelButton>
               <PixelButton variant="ghost" onClick={() => { setShowAddCriteria(false); setCrName(""); setCrDesc(""); }}>CANCEL</PixelButton>

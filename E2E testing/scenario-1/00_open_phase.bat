@@ -6,18 +6,22 @@ for %%I in ("%ROOT%") do set "ROOT=%%~fI"
 
 set "BACKEND=%ROOT%\back-end\src\seal-api"
 set "FRONTEND=%ROOT%\front-end\src\seal-web"
-set "REPORT_DIR=%ROOT%\E2E testing\scenario-1\playwright-report"
-set "API_PORT=18080"
-set "WEB_PORT=5174"
+set "REPORT_DIR=%ROOT%\E2E testing\scenario-1\playwright-report\00_open_phase"
+set "REVIEW_SCRIPT=%~dp0open-review-edge.ps1"
+set "API_PORT=8080"
+set "WEB_PORT=5173"
 set "API_URL=http://localhost:%API_PORT%"
 set "WEB_URL=http://localhost:%WEB_PORT%"
-set "E2E_SLOW_MO_MS=1200"
-set "E2E_STEP_PAUSE_MS=2500"
+set "REVIEW_URL=%WEB_URL%/coordinator/teams"
+if not defined E2E_SLOW_MO_MS set "E2E_SLOW_MO_MS=1500"
+if not defined E2E_STEP_PAUSE_MS set "E2E_STEP_PAUSE_MS=3000"
+if not defined E2E_TEST_TIMEOUT_MS set "E2E_TEST_TIMEOUT_MS=900000"
 set "SERVERS_STARTED=0"
 set "TEST_STARTED=0"
+set "TEST_EXIT=0"
 
 echo [S1-00] Workspace: %ROOT%
-echo [S1-00] Checking that demo ports %API_PORT% and %WEB_PORT% are free.
+echo [S1-00] Checking that common demo ports %API_PORT% and %WEB_PORT% are free.
 powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "$ErrorActionPreference='Stop'; function Test-Port([int]$Port) { $client=New-Object System.Net.Sockets.TcpClient; try { $async=$client.BeginConnect('127.0.0.1',$Port,$null,$null); $ok=$async.AsyncWaitHandle.WaitOne(500); if ($ok) { $client.EndConnect($async) }; return $ok } catch { return $false } finally { $client.Close() } }; if (Test-Port %API_PORT%) { Write-Host '[S1-00] Port %API_PORT% is already in use. Close the existing S1 demo backend window before running 00_open_phase.bat.'; exit 20 }; if (Test-Port %WEB_PORT%) { Write-Host '[S1-00] Port %WEB_PORT% is already in use. Close the existing S1 demo frontend window before running 00_open_phase.bat.'; exit 21 }"
 if errorlevel 1 (
   echo [S1-00] Pre-flight check failed.
@@ -50,16 +54,25 @@ cd /d "%FRONTEND%"
 set "E2E_API_URL=%API_URL%"
 set "E2E_BASE_URL=%WEB_URL%"
 set "PLAYWRIGHT_HTML_REPORT=%REPORT_DIR%"
-set "PLAYWRIGHT_HTML_OPEN=always"
+set "PLAYWRIGHT_HTML_OPEN=never"
+if /i "%E2E_HEADLESS%"=="1" (
+  set "PW_HEADED="
+  set "RUN_MODE=headless"
+) else (
+  set "PW_HEADED=--headed"
+  set "RUN_MODE=headed"
+)
 
-echo [S1-00] Running headed Playwright demo with %E2E_SLOW_MO_MS%ms slow motion and %E2E_STEP_PAUSE_MS%ms step pauses.
+echo [S1-00] Running %RUN_MODE% Playwright demo with %E2E_SLOW_MO_MS%ms slow motion and %E2E_STEP_PAUSE_MS%ms step pauses.
 set "TEST_STARTED=1"
-npx.cmd playwright test e2e/scenario-1/00_open_account_team_flow.spec.ts --headed --project=chromium
+call npx.cmd playwright test e2e/scenario-1/00_open_account_team_flow.spec.ts %PW_HEADED% --project=chromium
 set "TEST_EXIT=%ERRORLEVEL%"
 
 :finish
 if "%TEST_STARTED%"=="1" (
   echo [S1-00] HTML report: %REPORT_DIR%\index.html
+  powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%REVIEW_SCRIPT%" -Url "%REVIEW_URL%"
+  if errorlevel 1 echo [S1-00] WARNING: Could not open the Edge review window.
 ) else (
   echo [S1-00] Playwright did not run, so no new HTML report was created.
 )
@@ -74,5 +87,5 @@ if "%TEST_EXIT%"=="0" (
   echo [S1-00] Demo stopped with exit code %TEST_EXIT%.
 )
 echo.
-pause
+if /i not "%E2E_NO_PAUSE%"=="1" pause
 exit /b %TEST_EXIT%
