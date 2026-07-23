@@ -66,7 +66,8 @@ public class InactiveParticipantWriteFilter extends OncePerRequestFilter {
         }
 
         String path = request.getRequestURI();
-        return !(("POST".equals(request.getMethod()) && "/api/auth/logout".equals(path))
+        return !(("POST".equals(request.getMethod()) && "/api/auth/login".equals(path))
+                || ("POST".equals(request.getMethod()) && "/api/auth/logout".equals(path))
                 || ("POST".equals(request.getMethod()) && "/api/participation-requests".equals(path))
                 || ("PUT".equals(request.getMethod()) && "/api/auth/me".equals(path))
                 || (("POST".equals(request.getMethod()) || "DELETE".equals(request.getMethod()))

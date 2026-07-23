@@ -25,4 +25,6 @@ public interface PasswordResetOtpRepository extends JpaRepository<PasswordResetO
               AND p.usedAt IS NULL
             """)
     void markActiveTokensUsed(@Param("userId") Integer userId, @Param("usedAt") LocalDateTime usedAt);
+
+    void deleteAllByUser_UserId(Integer userId);
 }

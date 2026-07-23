@@ -5,6 +5,8 @@ import com.seal.hackathon.entity.User;
 import com.seal.hackathon.event.AccountApprovalEmailEvent;
 import com.seal.hackathon.exception.BadRequestException;
 import com.seal.hackathon.exception.ResourceNotFoundException;
+import com.seal.hackathon.repository.NotificationRepository;
+import com.seal.hackathon.repository.PasswordResetOtpRepository;
 import com.seal.hackathon.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
@@ -23,6 +25,8 @@ public class AccountService {
     private final ApplicationEventPublisher eventPublisher;
     private final NotificationService notificationService;
     private final AuditLogService auditLogService;
+    private final NotificationRepository notificationRepository;
+    private final PasswordResetOtpRepository passwordResetOtpRepository;
 
     // ---------------------------------------------------------------
     // List pending approvals
@@ -85,24 +89,39 @@ public class AccountService {
 
     // ---------------------------------------------------------------
     // Reject a user
-    // Rejection keeps the account unapproved; login remains blocked by is_approved.
-    // Recorded in AuditLog (REJECT_ACCOUNT) with the optional reason.
+    // Rejection permanently deletes a still-pending account and its pre-approval
+    // notification/password-reset data. Approved accounts are never deleted here.
+    // The decision remains recorded in AuditLog with the optional reason.
     // ---------------------------------------------------------------
 
     @Transactional
     public UserResponse rejectUser(Integer userId, Integer actorUserId, String reason) {
         User user = getUserOrThrow(userId);
 
-        user.setIsApproved(false);
-        userRepository.save(user);
+        if (Boolean.TRUE.equals(user.getIsApproved())) {
+            throw new BadRequestException("Only pending accounts can be rejected.");
+        }
+
+        UserResponse rejectedUser = authService.mapToUserResponse(user);
+        String rejectionReason = (reason != null && !reason.isBlank()) ? reason.trim() : null;
+
+        auditLogService.record(actorUserId, "REJECT_ACCOUNT", "USER", user.getUserId(),
+                rejectionReason, null);
+
+        // OAuth sign-ups receive a welcome notification before approval, and local
+        // sign-ups can request a password-reset OTP. Remove those FK dependants first.
+        notificationRepository.deleteAllByRecipient_UserIdOrSender_UserId(
+                user.getUserId(), user.getUserId());
+        passwordResetOtpRepository.deleteAllByUser_UserId(user.getUserId());
+        userRepository.delete(user);
+        userRepository.flush();
+
         eventPublisher.publishEvent(new AccountApprovalEmailEvent(
                 user.getEmail(),
                 user.getFullName(),
                 false
         ));
-        auditLogService.record(actorUserId, "REJECT_ACCOUNT", "USER", user.getUserId(),
-                (reason != null && !reason.isBlank()) ? reason.trim() : null, null);
-        return authService.mapToUserResponse(user);
+        return rejectedUser;
     }
 
     // ---------------------------------------------------------------

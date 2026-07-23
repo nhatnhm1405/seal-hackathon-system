@@ -68,7 +68,7 @@ function ApprovalModal({ account, reject, onClose, onConfirm, working, error }: 
         </h2>
         <p style={{ color: C.textMuted, fontFamily: MONO, fontSize: 12, lineHeight: 1.8, marginBottom: 24 }}>
           {reject
-            ? <>You are about to reject {name} ({account.email}). Their account will remain unapproved and they will not be able to log in.</>
+            ? <>You are about to reject {name} ({account.email}). Their pending account will be permanently deleted.</>
             : <>You are about to approve {name} ({account.email}). They will be able to log in once approved.</>}
         </p>
         {error && (
