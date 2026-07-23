@@ -2,12 +2,14 @@ package com.seal.hackathon.service;
 
 import com.seal.hackathon.dto.request.RejectTeamRequest;
 import com.seal.hackathon.dto.response.TeamDetailResponse;
+import com.seal.hackathon.entity.RoundResult;
 import com.seal.hackathon.entity.Team;
 import com.seal.hackathon.entity.TeamEventEntry;
 import com.seal.hackathon.entity.TeamMember;
 import com.seal.hackathon.entity.User;
 import com.seal.hackathon.exception.BadRequestException;
 import com.seal.hackathon.exception.ResourceNotFoundException;
+import com.seal.hackathon.repository.RoundResultRepository;
 import com.seal.hackathon.repository.TeamEventEntryRepository;
 import com.seal.hackathon.repository.TeamMemberRepository;
 import com.seal.hackathon.repository.TeamRepository;
@@ -35,6 +37,7 @@ public class TeamModerationService {
     private final ParticipantHistorySnapshotService participantHistorySnapshotService;
     private final TeamAccessGuard teamAccessGuard;
     private final TeamResponseMapper teamResponseMapper;
+    private final RoundResultRepository roundResultRepository;
 
     // ── Coordinator: Approve team ────────────────────────────────────
 
@@ -103,6 +106,7 @@ public class TeamModerationService {
         // A disqualified team is no longer "active" regardless of the event's phase.
         team.setIsActive(false);
         teamRepository.save(team);
+        deleteRoundResultsForEvent(team, entry.getEvent().getEventId());
         String reason = entry.getDisqualifiedReason();
         notifyTeamMembers(
                 team,
@@ -164,6 +168,7 @@ public class TeamModerationService {
             // A disqualified team is no longer "active" regardless of the event's phase.
             team.setIsActive(false);
             teamRepository.save(team);
+            deleteRoundResultsForEvent(team, entry.getEvent().getEventId());
         } else if (wasLeader) {
             TeamMember newLeader = remaining.stream()
                     .min(Comparator.comparing(TeamMember::getJoinedAt))
@@ -195,6 +200,21 @@ public class TeamModerationService {
                         "promotedLeaderUserId", promotedLeaderUserId == null ? "NONE" : promotedLeaderUserId));
 
         return teamResponseMapper.mapToDetailResponse(team, entry);
+    }
+
+    /**
+     * A disqualified team drops out of the competition entirely, so any ranking
+     * it already earned in this event (published or not) must go with it —
+     * otherwise a stale, no-longer-valid rank lingers on the leaderboard until
+     * the coordinator happens to recalculate. Other teams' rank_position values
+     * are left as-is (gaps close on the next CALCULATE RANKINGS run).
+     */
+    private void deleteRoundResultsForEvent(Team team, Integer eventId) {
+        List<RoundResult> staleResults =
+                roundResultRepository.findAllByTeam_TeamIdAndRound_Event_EventId(team.getTeamId(), eventId);
+        if (!staleResults.isEmpty()) {
+            roundResultRepository.deleteAll(staleResults);
+        }
     }
 
     private void deactivate(User user) {

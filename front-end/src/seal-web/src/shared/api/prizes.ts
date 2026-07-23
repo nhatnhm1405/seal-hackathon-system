@@ -16,30 +16,16 @@ export interface Prize {
   announced: boolean;
 }
 
-export interface CreatePrizePayload {
-  name: string;
-  description?: string;
-  rankPosition: number;
-  teamId?: number | null;
-}
-
+// A prize's winning team and rank always come from `autoGenerate` (the final
+// ranking) — a coordinator may only rename a slot before it's announced.
 export interface UpdatePrizePayload {
-  name?: string;
-  description?: string;
-  rankPosition?: number;
-  teamId?: number | null;
+  name: string;
 }
 
 export const prizesApi = {
   // Public sees announced only; coordinator token returns drafts too.
   getAll: (eventId: number) =>
     apiFetch<ApiResponse<Prize[]>>(`/api/events/${eventId}/prizes`),
-
-  create: (eventId: number, payload: CreatePrizePayload) =>
-    apiFetch<ApiResponse<Prize>>(`/api/events/${eventId}/prizes`, {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    }),
 
   update: (eventId: number, prizeId: number, payload: UpdatePrizePayload) =>
     apiFetch<ApiResponse<Prize>>(`/api/events/${eventId}/prizes/${prizeId}`, {

@@ -1,7 +1,6 @@
 package com.seal.hackathon.service;
 
 import com.seal.hackathon.dto.request.AutoGeneratePrizesRequest;
-import com.seal.hackathon.dto.request.CreatePrizeRequest;
 import com.seal.hackathon.dto.request.UpdatePrizeRequest;
 import com.seal.hackathon.dto.response.PrizeResponse;
 import com.seal.hackathon.entity.*;
@@ -31,7 +30,6 @@ public class PrizeService {
     private final HackathonEventRepository eventRepository;
     private final RoundRepository roundRepository;
     private final RoundResultRepository resultRepository;
-    private final TeamRepository teamRepository;
     private final TeamEventEntryRepository teamEventEntryRepository;
     private final TeamMemberRepository teamMemberRepository;
     private final NotificationService notificationService;
@@ -50,29 +48,10 @@ public class PrizeService {
         return prizes.stream().map(p -> mapToResponse(p, finalScores)).collect(Collectors.toList());
     }
 
-    // ── Create / update / delete a slot ───────────────────────────────
-
-    @Transactional
-    public PrizeResponse createPrize(Integer eventId, CreatePrizeRequest req) {
-        HackathonEvent event = requireEvent(eventId);
-
-        boolean rankTaken = prizeRepository.findAllByEvent_EventIdOrderByRankPosition(eventId).stream()
-                .anyMatch(p -> p.getRankPosition().equals(req.getRankPosition()));
-        if (rankTaken) {
-            throw new BadRequestException("A prize with rank " + req.getRankPosition() + " already exists.");
-        }
-
-        Prize prize = Prize.builder()
-                .event(event)
-                .track(null)                 // event-wide
-                .name(req.getName())
-                .description(req.getDescription())
-                .rankPosition(req.getRankPosition())
-                .team(resolveTeam(eventId, req.getTeamId()))
-                .build();
-        prize = prizeRepository.save(prize);
-        return mapToResponse(prize, finalScoreByTeam(eventId));
-    }
+    // ── Update / delete a slot ─────────────────────────────────────────
+    // There is no manual "create a slot" or "assign a team" path — every prize
+    // + its winning team is produced by autoGenerate() from the final ranking.
+    // A coordinator may only rename a slot or delete one before it's announced.
 
     @Transactional
     public PrizeResponse updatePrize(Integer eventId, Integer prizeId, UpdatePrizeRequest req) {
@@ -82,17 +61,6 @@ public class PrizeService {
         }
 
         if (req.getName() != null) prize.setName(req.getName());
-        if (req.getDescription() != null) prize.setDescription(req.getDescription());
-        if (req.getRankPosition() != null && !req.getRankPosition().equals(prize.getRankPosition())) {
-            boolean rankTaken = prizeRepository.findAllByEvent_EventIdOrderByRankPosition(eventId).stream()
-                    .anyMatch(p -> !p.getPrizeId().equals(prizeId)
-                            && p.getRankPosition().equals(req.getRankPosition()));
-            if (rankTaken) {
-                throw new BadRequestException("A prize with rank " + req.getRankPosition() + " already exists.");
-            }
-            prize.setRankPosition(req.getRankPosition());
-        }
-        if (req.getTeamId() != null) prize.setTeam(resolveTeam(eventId, req.getTeamId()));
 
         prizeRepository.save(prize);
         return mapToResponse(prize, finalScoreByTeam(eventId));
@@ -210,17 +178,6 @@ public class PrizeService {
             throw new ResourceNotFoundException("Prize " + prizeId + " does not belong to event " + eventId);
         }
         return prize;
-    }
-
-    /** Resolves a team id to a Team in this event, or null when id is null. */
-    private Team resolveTeam(Integer eventId, Integer teamId) {
-        if (teamId == null) return null;
-        Team team = teamRepository.findById(teamId)
-                .orElseThrow(() -> new ResourceNotFoundException("Team not found: " + teamId));
-        if (!teamEventEntryRepository.existsByTeam_TeamIdAndEvent_EventId(teamId, eventId)) {
-            throw new BadRequestException("Team " + teamId + " does not belong to event " + eventId);
-        }
-        return team;
     }
 
     /** team_id → total score in the final round (for display); empty if no final round. */

@@ -4,9 +4,13 @@ import com.seal.hackathon.dto.response.RoundResultResponse;
 import com.seal.hackathon.entity.HackathonEvent;
 import com.seal.hackathon.entity.Round;
 import com.seal.hackathon.entity.RoundResult;
+import com.seal.hackathon.entity.Score;
+import com.seal.hackathon.entity.ScoringCriteria;
 import com.seal.hackathon.entity.Submission;
 import com.seal.hackathon.entity.Team;
+import com.seal.hackathon.entity.TeamEventEntry;
 import com.seal.hackathon.entity.User;
+import com.seal.hackathon.exception.BadRequestException;
 import com.seal.hackathon.repository.HackathonEventRepository;
 import com.seal.hackathon.repository.RoundRepository;
 import com.seal.hackathon.repository.RoundResultRepository;
@@ -29,6 +33,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
@@ -134,6 +139,68 @@ class RoundResultServiceTest {
         assertEquals(1, response.size());
         assertTrue(response.get(0).getIsPublished());
         verify(roundRepository).save(round);
+    }
+
+    @Test
+    void finalizeRound_shouldExcludeDisqualifiedTeamFromRankingAndCompletenessGate() {
+        HackathonEvent event = event(1);
+        Round round = round(10, event, "ACTIVE");
+        User coordinator = user(7, "Coordinator");
+        User judge = user(11, "Judge A");
+        Team ok = team(20, "Arsenal");
+        Team disqualified = team(21, "Chelsea");
+        Submission okSubmission = submission(30, ok, round, coordinator);
+        Submission dqSubmission = submission(31, disqualified, round, coordinator);
+        ScoringCriteria criteria = ScoringCriteria.builder()
+                .criteriaId(40).round(round).name("Innovation")
+                .maxScore(BigDecimal.TEN).weight(BigDecimal.ONE).build();
+        Score score = Score.builder()
+                .submission(okSubmission).judge(judge).criteria(criteria)
+                .value(BigDecimal.valueOf(8)).isDraft(false).build();
+
+        when(roundRepository.findByIdAndEventId(round.getRoundId(), event.getEventId()))
+                .thenReturn(Optional.of(round));
+        when(userRepository.findById(coordinator.getUserId())).thenReturn(Optional.of(coordinator));
+        when(submissionRepository.findAllByRound_RoundId(round.getRoundId()))
+                .thenReturn(List.of(okSubmission, dqSubmission));
+        when(resultRepository.findAllByRound_RoundIdOrderByRankPosition(round.getRoundId())).thenReturn(List.of());
+        when(teamEventEntryRepository.findByTeam_TeamIdAndEvent_EventId(ok.getTeamId(), event.getEventId()))
+                .thenReturn(Optional.of(TeamEventEntry.builder().team(ok).event(event).status("APPROVED").build()));
+        when(teamEventEntryRepository.findByTeam_TeamIdAndEvent_EventId(disqualified.getTeamId(), event.getEventId()))
+                .thenReturn(Optional.of(TeamEventEntry.builder().team(disqualified).event(event).status("DISQUALIFIED").build()));
+        when(scoreRepository.findAllBySubmission_SubmissionId(okSubmission.getSubmissionId())).thenReturn(List.of(score));
+        when(resultRepository.save(any(RoundResult.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        List<RoundResultResponse> response = roundResultService.finalizeRound(
+                event.getEventId(), round.getRoundId(), coordinator.getUserId());
+
+        assertEquals(1, response.size());
+        assertEquals(ok.getTeamId(), response.get(0).getTeamId());
+        verify(completenessService).assertRoundComplete(round.getRoundId());
+        // The disqualified team's submission must never reach score lookup.
+        verify(scoreRepository, never()).findAllBySubmission_SubmissionId(dqSubmission.getSubmissionId());
+    }
+
+    @Test
+    void finalizeRound_shouldThrowBadRequest_whenOnlySubmissionIsFromDisqualifiedTeam() {
+        HackathonEvent event = event(1);
+        Round round = round(10, event, "ACTIVE");
+        User coordinator = user(7, "Coordinator");
+        Team disqualified = team(21, "Chelsea");
+        Submission dqSubmission = submission(31, disqualified, round, coordinator);
+
+        when(roundRepository.findByIdAndEventId(round.getRoundId(), event.getEventId()))
+                .thenReturn(Optional.of(round));
+        when(userRepository.findById(coordinator.getUserId())).thenReturn(Optional.of(coordinator));
+        when(submissionRepository.findAllByRound_RoundId(round.getRoundId())).thenReturn(List.of(dqSubmission));
+        when(teamEventEntryRepository.findByTeam_TeamIdAndEvent_EventId(disqualified.getTeamId(), event.getEventId()))
+                .thenReturn(Optional.of(TeamEventEntry.builder().team(disqualified).event(event).status("DISQUALIFIED").build()));
+
+        BadRequestException error = assertThrows(BadRequestException.class,
+                () -> roundResultService.finalizeRound(event.getEventId(), round.getRoundId(), coordinator.getUserId()));
+
+        assertTrue(error.getMessage().contains("No submissions"));
+        verify(completenessService, never()).assertRoundComplete(any());
     }
 
     private HackathonEvent event(Integer eventId) {
