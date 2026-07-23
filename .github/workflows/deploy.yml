@@ -27,7 +27,7 @@ jobs:
       - name: Validate SSH configuration
         run: |
           missing=0
-          for name in DEPLOY_HOST DEPLOY_USER DEPLOY_KEY; do
+          for name in DEPLOY_HOST DEPLOY_USER DEPLOY_KEY DEPLOY_BRANCH; do
             if [ -z "${!name}" ]; then
               echo "::error::$name is missing. Configure HOST/USERNAME/SSH_KEY or SSH_HOST/SSH_USERNAME/SSH_PRIVATE_KEY secrets."
               missing=1
@@ -68,12 +68,7 @@ jobs:
 
             cd "$APP_DIR"
             git fetch origin "$DEPLOY_BRANCH"
-            if git show-ref --verify --quiet "refs/heads/$DEPLOY_BRANCH"; then
-              git checkout "$DEPLOY_BRANCH"
-            else
-              git checkout -b "$DEPLOY_BRANCH" "origin/$DEPLOY_BRANCH"
-            fi
-            git pull --ff-only origin "$DEPLOY_BRANCH"
+            git checkout -B "$DEPLOY_BRANCH" "origin/$DEPLOY_BRANCH"
             sudo env CSRF_COOKIE_DOMAIN="$CSRF_COOKIE_DOMAIN" \
               docker compose up -d --build --remove-orphans
             sudo docker compose ps
