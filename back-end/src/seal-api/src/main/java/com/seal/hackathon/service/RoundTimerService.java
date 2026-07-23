@@ -57,6 +57,7 @@ public class RoundTimerService {
     private static final String EXPIRED = "EXPIRED";
 
     private static final String NOTIF_TYPE = "TIMER";
+    private static final String EVENT_STATUS_IN_PROGRESS = "IN_PROGRESS";
     private static final int MIN_DURATION_SECONDS = 30;
     private static final List<Integer> DEFAULT_MILESTONE_MINUTES = List.of(30, 15, 5, 1);
 
@@ -81,6 +82,7 @@ public class RoundTimerService {
                                     String phaseRaw, StartTimerRequest request) {
         String phase = normalizePhase(phaseRaw);
         Round round = requireRound(eventId, roundId);
+        requireEventInProgress(round);
 
         int duration = request.getDurationSeconds() == null ? 0 : request.getDurationSeconds();
         if (duration < MIN_DURATION_SECONDS) {
@@ -146,6 +148,7 @@ public class RoundTimerService {
     public RoundTimerResponse pause(Integer actorUserId, Integer eventId, Integer roundId, String phaseRaw) {
         String phase = normalizePhase(phaseRaw);
         Round round = requireRound(eventId, roundId);
+        requireEventInProgress(round);
         RoundTimer timer = requireTimer(roundId, phase);
         if (!RUNNING.equals(timer.getStatus())) {
             throw new BadRequestException("Only a running timer can be paused.");
@@ -168,6 +171,7 @@ public class RoundTimerService {
     public RoundTimerResponse resume(Integer actorUserId, Integer eventId, Integer roundId, String phaseRaw) {
         String phase = normalizePhase(phaseRaw);
         Round round = requireRound(eventId, roundId);
+        requireEventInProgress(round);
         RoundTimer timer = requireTimer(roundId, phase);
         if (!PAUSED.equals(timer.getStatus())) {
             throw new BadRequestException("Only a paused timer can be resumed.");
@@ -197,6 +201,7 @@ public class RoundTimerService {
                                      String phaseRaw, ExtendTimerRequest request) {
         String phase = normalizePhase(phaseRaw);
         Round round = requireRound(eventId, roundId);
+        requireEventInProgress(round);
         RoundTimer timer = requireTimer(roundId, phase);
         int add = request.getSeconds() == null ? 0 : request.getSeconds();
         if (add <= 0) {
@@ -237,6 +242,7 @@ public class RoundTimerService {
     public RoundTimerResponse stop(Integer actorUserId, Integer eventId, Integer roundId, String phaseRaw) {
         String phase = normalizePhase(phaseRaw);
         Round round = requireRound(eventId, roundId);
+        requireEventInProgress(round);
         RoundTimer timer = requireTimer(roundId, phase);
         if (!RUNNING.equals(timer.getStatus()) && !PAUSED.equals(timer.getStatus())) {
             throw new BadRequestException("Only a running or paused timer can be stopped.");
@@ -345,9 +351,7 @@ public class RoundTimerService {
 
     /** Strict transition guard: CONTEST must be over and the round must be score-ready. */
     private void assertJudgingReady(Round round, LocalDateTime now) {
-        if (!"IN_PROGRESS".equalsIgnoreCase(round.getEvent().getStatus())) {
-            throw new BadRequestException("Judging can only start while the event is IN_PROGRESS.");
-        }
+        // event.status is already enforced by requireEventInProgress() in start().
         if (!"ACTIVE".equalsIgnoreCase(round.getStatus())) {
             throw new BadRequestException("Judging can only start for an ACTIVE round.");
         }
@@ -549,6 +553,16 @@ public class RoundTimerService {
         return roundRepository.findByIdAndEventId(roundId, eventId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Round " + roundId + " not found in event " + eventId));
+    }
+
+    /** Every timer mutation (start/pause/resume/extend/stop, either phase) requires
+     * a running event — coordinators drive contest/judging windows only once the
+     * event has actually started. */
+    private void requireEventInProgress(Round round) {
+        if (!EVENT_STATUS_IN_PROGRESS.equalsIgnoreCase(round.getEvent().getStatus())) {
+            throw new BadRequestException(
+                    "Timers can only be operated while the event is IN_PROGRESS.");
+        }
     }
 
     private RoundTimer requireTimer(Integer roundId, String phase) {
