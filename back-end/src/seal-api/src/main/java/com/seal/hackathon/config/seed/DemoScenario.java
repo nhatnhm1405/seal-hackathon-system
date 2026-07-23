@@ -1,5 +1,6 @@
 package com.seal.hackathon.config.seed;
 
+import com.seal.hackathon.dto.request.AutoGeneratePrizesRequest;
 import com.seal.hackathon.entity.HackathonEvent;
 import com.seal.hackathon.entity.Round;
 import com.seal.hackathon.entity.ScoringCriteria;
@@ -7,6 +8,9 @@ import com.seal.hackathon.entity.Submission;
 import com.seal.hackathon.entity.Team;
 import com.seal.hackathon.entity.Track;
 import com.seal.hackathon.entity.User;
+import com.seal.hackathon.service.HackathonEventService;
+import com.seal.hackathon.service.PrizeService;
+import com.seal.hackathon.service.RoundResultService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,7 +33,9 @@ import java.util.Map;
  *       through the app itself rather than pre-seeded.
  *   S25 + prelim FINALIZED + final round fully scored, no results — ready to
  *        calculate the final ranking then award prizes            (IN_PROGRESS)
- *   S3  + ranked results + final scores/results + prizes          (COMPLETED)
+ *   S3  = the exact S25 cut-point, then the production workflow has calculated
+ *         and published the final ranking, generated and announced prizes, and
+ *         completed the event                                     (COMPLETED)
  * </pre>
  * Statuses are set to match each cut so the snapshot is always consistent with the
  * event state machine. Scoring is deterministic (a pure function of team strength),
@@ -47,12 +53,25 @@ public class DemoScenario {
     private static final int YEAR = 2026;
     private static final int MEMBERS_PER_TEAM = 3;   // 1 leader + 2 members
     private static final int TOP_PER_TRACK_ADVANCE = 2;  // top 2 of EACH track advance to the final
+    private static final int PRELIM_JUDGES_PER_TRACK = 2;
     private static final double MAX_SCORE = 10.0;
 
     // name + weight; max score is MAX_SCORE for all (see requirements §6.2)
     private static final String[][] CRITERIA = {
             {"Ý tưởng", "1.0"}, {"Kỹ thuật", "1.5"}, {"UI/UX", "1.0"},
             {"Hoàn thiện", "1.0"}, {"Trình bày", "0.5"},
+    };
+    // Two judge-evaluation targets per prelim submission, ordered by team strength.
+    // Histogram bins 20-30 .. 90-100 therefore contain exactly 1,2,3,5,6,8,3,2 samples.
+    private static final double[] PRELIM_EVALUATION_TARGETS = {
+            25,
+            34, 38,
+            42, 46, 49,
+            52, 54, 56, 58, 59,
+            62, 64, 65, 67, 68, 69,
+            72, 73, 74, 75, 76, 77, 78, 79,
+            82, 86, 89,
+            93, 97,
     };
     // 4 tracks (see requirements §5). TEAMS_PER_TRACK[i] teams in TRACKS[i] → 15 teams total.
     // Prelim takes top 2 of each track → 8 finalists; final ranks them, top 3 get prizes.
@@ -87,6 +106,9 @@ public class DemoScenario {
     };
 
     private final DemoFixtures fx;
+    private final RoundResultService roundResultService;
+    private final PrizeService prizeService;
+    private final HackathonEventService hackathonEventService;
 
     private int participantSeq = 0;
     private int maxStrength = 2;
@@ -100,6 +122,10 @@ public class DemoScenario {
         User judge2 = staff("judge2@fpt.edu.vn", "Trần Văn Haaland", "INTERNAL", "JUDGE");
         User judge3 = staff("judge3@fpt.edu.vn", "Pham Van Salah", "INTERNAL", "JUDGE");
         User judge4 = staff("judge4@fpt.edu.vn", "Vu Van Mbappe", "INTERNAL", "JUDGE");
+        User judge5 = staff("judge5@fpt.edu.vn", "Đỗ Văn Zidane", "INTERNAL", "JUDGE");
+        User judge6 = staff("judge6@fpt.edu.vn", "Bùi Văn Iniesta", "INTERNAL", "JUDGE");
+        User judge7 = staff("judge7@fpt.edu.vn", "Ngô Văn Xavi", "INTERNAL", "JUDGE");
+        User judge8 = staff("judge8@fpt.edu.vn", "Dương Văn Kaká", "INTERNAL", "JUDGE");
         User guestJudge = staff("guestjudge@gmail.com", "Lê Văn Messi", "GUEST", "JUDGE");
         // One mentor per track (business rule: a mentor manages exactly one track per event).
         User mentor1 = staff("mentor1@fpt.edu.vn", "Lê Minh Gia Mẫn", null, "MENTOR");
@@ -174,16 +200,20 @@ public class DemoScenario {
         }
         // Prelim judges score per track. A judge may cover only one track in the
         // same round, so the seeded prelim roster keeps judge -> round unique.
-        List<User> prelimJudgePool = List.of(judge1, judge2, judge3, judge4);
-        if (tracks.size() > prelimJudgePool.size()) {
+        List<User> prelimJudgePool = List.of(
+                judge1, judge2, judge3, judge4, judge5, judge6, judge7, judge8);
+        int requiredPrelimJudges = tracks.size() * PRELIM_JUDGES_PER_TRACK;
+        if (requiredPrelimJudges > prelimJudgePool.size()) {
             throw new IllegalStateException("Not enough seeded judges for prelim tracks.");
         }
         Map<Integer, List<User>> prelimJudgesByTrack = new LinkedHashMap<>();
         for (int t = 0; t < tracks.size(); t++) {
             Track track = tracks.get(t);
-            User judge = prelimJudgePool.get(t);
-            fx.assignJudge(judge, prelim, track);
-            prelimJudgesByTrack.put(track.getTrackId(), List.of(judge));
+            int panelStart = t * PRELIM_JUDGES_PER_TRACK;
+            List<User> panel = List.copyOf(prelimJudgePool.subList(
+                    panelStart, panelStart + PRELIM_JUDGES_PER_TRACK));
+            panel.forEach(judge -> fx.assignJudge(judge, prelim, track));
+            prelimJudgesByTrack.put(track.getTrackId(), panel);
         }
         fx.assignJudge(judge1, finalRound, null);
         fx.assignJudge(judge2, finalRound, null);
@@ -227,48 +257,50 @@ public class DemoScenario {
         List<User> finalJudges = List.of(judge1, judge2, guestJudge);
         writeScores(finalSubs, advancing, finalCriteria, finalJudges);
 
+        // Both S2.5 and S3 share this exact completed-scoring cut-point. Seed the
+        // same expired phase timers for both; S3 then continues through the real
+        // production services below instead of hand-writing their final state.
+        fx.expiredTimer(prelim, "CONTEST", prelim.getStartTime(), prelim.getSubmissionDeadline());
+        fx.expiredTimer(prelim, "JUDGING", prelim.getSubmissionDeadline(), prelim.getEndTime());
+        fx.expiredTimer(finalRound, "CONTEST", finalRound.getStartTime(), finalRound.getSubmissionDeadline());
+        fx.expiredTimer(finalRound, "JUDGING", finalRound.getSubmissionDeadline(), finalRound.getEndTime());
+
         // ── S2.5: STOP right before the final ranking is calculated. Prelim is
         // FINALIZED (finalists chosen); the final round is ACTIVE with every finalist's
         // submission fully scored by all judges — so JudgeScoringCompletenessService
         // passes. The coordinator's live flow runs on top: Calculate ranking
         // (finalizeRound) → auto-generate prizes → announce (award).
         if ("S25".equals(scenario)) {
-            // Both rounds' phases have run and expired: the prelim is finalized and the
-            // final's scoring window is closed — so the coordinator's next live action is
-            // to calculate the final ranking (mirrors S2's expired-timer treatment).
-            fx.expiredTimer(prelim, "CONTEST", prelim.getStartTime(), prelim.getSubmissionDeadline());
-            fx.expiredTimer(prelim, "JUDGING", prelim.getSubmissionDeadline(), prelim.getEndTime());
-            fx.expiredTimer(finalRound, "CONTEST", finalRound.getStartTime(), finalRound.getSubmissionDeadline());
-            fx.expiredTimer(finalRound, "JUDGING", finalRound.getSubmissionDeadline(), finalRound.getEndTime());
             log.info("[demo] S2.5 seeded — IN_PROGRESS: prelim FINALIZED, {} finalists submitted & fully "
                     + "scored in the ACTIVE final round; awaiting final ranking calculation → prize award.",
                     advancing.size());
             return;
         }
 
-        List<Slot> finalRanked = advancing.stream()
-                .sorted(Comparator.comparingDouble((Slot s) -> total(s, finalCriteria, finalJudges.size())).reversed())
-                .toList();
-        for (int r = 0; r < finalRanked.size(); r++) {
-            Slot s = finalRanked.get(r);
-            fx.result(s.team, finalRound, total(s, finalCriteria, finalJudges.size()), r + 1, coordinator);
-        }
+        // ── S3: replay exactly what the coordinator/admin would do after loading S25.
+        // Using production services keeps score normalization, result publication,
+        // winner notifications, AWARD_PRIZE audit data, completion locks and participant
+        // history snapshots identical to the real UI workflow.
+        int finalResultCount = roundResultService
+                .finalizeRound(event.getEventId(), finalRound.getRoundId(), coordinator.getUserId())
+                .size();
+        roundResultService.publishResults(event.getEventId(), finalRound.getRoundId());
 
-        String[] prizeNames = {"Giải Nhất", "Giải Nhì", "Giải Ba"};
-        for (int i = 0; i < Math.min(3, finalRanked.size()); i++) {
-            fx.prize(event, prizeNames[i], i + 1, finalRanked.get(i).team);
-        }
-        // Event is COMPLETED → participants and guest judges leave the running
-        // competition, so they go inactive (mirrors HackathonEventService on complete).
-        fx.deactivateCompletedEventUsers(event);
+        AutoGeneratePrizesRequest prizeRequest = new AutoGeneratePrizesRequest();
+        prizeRequest.setTopN(3);
+        int prizeCount = prizeService.autoGenerate(event.getEventId(), prizeRequest).size();
+        prizeService.announce(event.getEventId(), coordinator.getUserId());
+
+        hackathonEventService.completeEvent(event.getEventId());
 
         // ── 10. SYSTEM LOG (S3 only) ──────────────────────────────────
         // A believable admin audit trail spanning the event's lifetime, so the
         // System Logs screen has something to show in the fullest demo scenario.
         seedSystemLog(coordinator, judge1, judge2, guestJudge, mentor1, mentor2);
 
-        log.info("[demo] S3 seeded — COMPLETED event, {} teams across {} tracks, {} finalists, {} prizes.",
-                slots.size(), tracks.size(), advancing.size(), Math.min(3, finalRanked.size()));
+        log.info("[demo] S3 seeded from the S2.5 cut-point — COMPLETED event, {} teams across {} tracks, "
+                        + "{} published final results, {} announced prizes.",
+                slots.size(), tracks.size(), finalResultCount, prizeCount);
     }
 
     /** Writes a spread-out SystemLog history: account creation → role grants →
@@ -290,7 +322,7 @@ public class DemoScenario {
         fx.systemLog(admin, "GRANT_ROLE", "Granted MENTOR to " + mentor2.getFullName() + " (system-wide).", now.minusDays(68));
         fx.systemLog(coordinator, "LOGIN_FAILED", "Failed login attempt for " + coordinator.getEmail() + " (wrong password).", now.minusDays(40));
         fx.systemLog(admin, "RESET_PASSWORD", "Reset password for " + guestJudge.getEmail() + " after a lockout request.", now.minusDays(35));
-        fx.systemLog(admin, "COMPLETE_EVENT", "Marked \"" + DEMO_EVENT_NAME + "\" as COMPLETED (IN_PROGRESS → COMPLETED).", now.minusDays(15));
+        fx.systemLog(admin, "COMPLETE_EVENT", "Marked \"" + DEMO_EVENT_NAME + "\" as COMPLETED (IN_PROGRESS → COMPLETED).", now);
     }
 
     // ── scoring/ranking ──────────────────────────────────────────────
@@ -305,7 +337,7 @@ public class DemoScenario {
             List<User> judges = judgesForTrack(slot.track(), judgesByTrack);
             for (int c = 0; c < criteria.size(); c++) {
                 for (int j = 0; j < judges.size(); j++) {
-                    fx.score(sub, judges.get(j), criteria.get(c), value(slot.strength, c, j));
+                    fx.score(sub, judges.get(j), criteria.get(c), prelimValue(slot.strength, j));
                 }
             }
         }
@@ -333,29 +365,47 @@ public class DemoScenario {
         }
     }
 
-    /** Deterministic per-judge criterion score in [6.0, MAX_SCORE], stronger teams higher. */
+    private double prelimValue(int strength, int judgeIdx) {
+        int targetIndex = (strength - 1) * PRELIM_JUDGES_PER_TRACK + judgeIdx;
+        if (targetIndex < 0 || targetIndex >= PRELIM_EVALUATION_TARGETS.length) {
+            throw new IllegalArgumentException("No prelim score target for strength " + strength
+                    + " and judge index " + judgeIdx + ".");
+        }
+        return PRELIM_EVALUATION_TARGETS[targetIndex] / 10.0;
+    }
+
+    /** Deterministic final-round criterion score; stronger teams remain higher. */
     private double value(int strength, int criteriaIdx, int judgeIdx) {
         double strength01 = normalizedStrength(strength);
-        double base = 6.0 + 3.5 * strength01;          // 6.0 (weakest) .. 9.5 (strongest)
-        double judgeJitter = judgeIdx == 1 ? 0.3 : (judgeIdx == 2 ? -0.3 : 0.0);
+        double base = 4.0 + 5.5 * strength01;          // 4.0 (weakest) .. 9.5 (strongest)
+        double judgeJitter = switch (judgeIdx % 4) {
+            case 0 -> -0.35;
+            case 1 -> 0.35;
+            case 2 -> -0.55;
+            default -> 0.15;
+        };
         double criteriaAdj = criteriaIdx % 2 == 0 ? 0.2 : -0.1;
         double v = base + judgeJitter + criteriaAdj;
         v = Math.max(0.0, Math.min(MAX_SCORE, v));
         return Math.round(v * 100.0) / 100.0;
     }
 
-    /** Weighted total: sum over criteria of (avg judge value × weight). */
+    /** Same normalized 0-100 panel total used by RoundResultService. */
     private double total(Slot slot, List<ScoringCriteria> criteria, int judgeCount) {
-        double total = 0.0;
+        double weightedTotal = 0.0;
+        double weightSum = 0.0;
         for (int c = 0; c < criteria.size(); c++) {
             double sum = 0.0;
             for (int j = 0; j < judgeCount; j++) {
-                sum += value(slot.strength, c, j);
+                sum += prelimValue(slot.strength, j);
             }
             double avg = sum / judgeCount;
-            total += avg * criteria.get(c).getWeight().doubleValue();
+            double weight = criteria.get(c).getWeight().doubleValue();
+            weightedTotal += (avg / MAX_SCORE) * weight;
+            weightSum += weight;
         }
-        return Math.round(total * 100.0) / 100.0;
+        double normalized = weightSum == 0.0 ? 0.0 : 100.0 * weightedTotal / weightSum;
+        return Math.round(normalized * 100.0) / 100.0;
     }
 
     private double normalizedStrength(int strength) {
@@ -397,16 +447,14 @@ public class DemoScenario {
     private String eventStatusFor(String scenario) {
         return switch (scenario) {
             case "S1" -> "OPEN";
-            case "S25" -> "IN_PROGRESS";
-            default -> "COMPLETED";
+            default -> "IN_PROGRESS"; // S25 cut-point; S3 completes through HackathonEventService
         };
     }
 
     private String roundStatusFor(String scenario, boolean prelim) {
         return switch (scenario) {
             case "S1" -> "PENDING";
-            case "S25" -> prelim ? "FINALIZED" : "ACTIVE";
-            default -> "FINALIZED";
+            default -> prelim ? "FINALIZED" : "ACTIVE"; // shared S25/S3 cut-point
         };
     }
 
@@ -414,8 +462,7 @@ public class DemoScenario {
         LocalDateTime now = LocalDateTime.now();
         return switch (scenario) {
             case "S1" -> new Window(now.minusDays(5), now.plusDays(15), now.plusDays(20), now.plusDays(40));
-            case "S25" -> new Window(now.minusDays(45), now.minusDays(25), now.minusDays(16), now.plusDays(5));
-            default -> new Window(now.minusDays(70), now.minusDays(50), now.minusDays(45), now.minusDays(15));
+            default -> new Window(now.minusDays(45), now.minusDays(25), now.minusDays(16), now.plusDays(5));
         };
     }
 

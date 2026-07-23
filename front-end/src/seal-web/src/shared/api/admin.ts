@@ -72,6 +72,63 @@ export interface SystemLogItem {
   createdAt: string;
 }
 
+export type ScoreDistributionMetric = 'JUDGE_EVALUATION' | 'SUBMISSION_RESULT' | 'CRITERIA_SCORE';
+
+export interface AdminScoreDistribution {
+  eventId: number;
+  eventName: string;
+  metric: ScoreDistributionMetric;
+  selectedRoundId?: number;
+  selectedTrackId?: number;
+  selectedCriteriaId?: number;
+  rounds: Array<{ roundId: number; name: string; orderNumber: number; isFinal: boolean }>;
+  tracks: Array<{ trackId: number; name: string }>;
+  criteria: Array<{ criteriaId: number; name: string; weight: number; maxScore: number }>;
+  bins: ScoreDistributionBin[];
+  statistics: ScoreDistributionStatistics;
+  observations: ScoreDistributionObservation[];
+}
+
+export interface ScoreDistributionBin {
+  lowerBound: number;
+  upperBound: number;
+  midpoint: number;
+  label: string;
+  count: number;
+  percentage: number;
+}
+
+export interface ScoreDistributionStatistics {
+  sampleCount: number;
+  teamCount: number;
+  judgeCount: number;
+  average: number | null;
+  median: number | null;
+  standardDeviation: number | null;
+  minimum: number | null;
+  maximum: number | null;
+  belowFiftyCount: number;
+  belowFiftyPercentage: number;
+  atOrAboveEightyCount: number;
+  atOrAboveEightyPercentage: number;
+}
+
+export interface ScoreDistributionObservation {
+  observationId: string;
+  submissionId?: number;
+  teamId: number;
+  teamName: string;
+  judgeId?: number;
+  judgeName?: string;
+  trackId?: number;
+  trackName?: string;
+  criteriaId?: number;
+  criteriaName?: string;
+  rankPosition?: number;
+  score: number;
+  differenceFromAverage?: number | null;
+}
+
 // POST /api/admin/users — role grants are a SEPARATE step
 export interface CreateUserPayload {
   email: string;
@@ -143,6 +200,26 @@ export const adminApi = {
   // System log
   getSystemLogs: () =>
     apiFetch<ApiResponse<SystemLogItem[]>>('/api/admin/system-logs'),
+
+  getEventScoreDistribution: (
+    eventId: number,
+    filters: {
+      roundId?: number;
+      trackId?: number;
+      metric?: ScoreDistributionMetric;
+      criteriaId?: number;
+    } = {},
+  ) => {
+    const query = new URLSearchParams();
+    if (filters.roundId !== undefined) query.set('roundId', String(filters.roundId));
+    if (filters.trackId !== undefined) query.set('trackId', String(filters.trackId));
+    if (filters.metric !== undefined) query.set('metric', filters.metric);
+    if (filters.criteriaId !== undefined) query.set('criteriaId', String(filters.criteriaId));
+    const suffix = query.toString();
+    return apiFetch<ApiResponse<AdminScoreDistribution>>(
+      `/api/admin/events/${eventId}/score-distribution${suffix ? `?${suffix}` : ''}`,
+    );
+  },
 
   exportEventCsv: async (eventId: number) => {
     const res = await fetch(`${API_BASE_URL}/api/admin/events/${eventId}/export.csv`, {
