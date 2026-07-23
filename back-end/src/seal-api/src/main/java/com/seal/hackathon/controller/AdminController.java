@@ -4,20 +4,27 @@ import com.seal.hackathon.dto.request.CreateUserRequest;
 import com.seal.hackathon.dto.request.GrantRoleRequest;
 import com.seal.hackathon.dto.request.UpdateUserRequest;
 import com.seal.hackathon.dto.response.ApiResponse;
+import com.seal.hackathon.dto.response.AdminScoreDistributionResponse;
 import com.seal.hackathon.dto.response.SystemLogResponse;
 import com.seal.hackathon.dto.response.UserEventRoleResponse;
 import com.seal.hackathon.dto.response.UserResponse;
 import com.seal.hackathon.security.UserPrincipal;
+import com.seal.hackathon.service.AdminEventCsvExportService;
+import com.seal.hackathon.service.AdminScoreDistributionService;
 import com.seal.hackathon.service.AdminService;
 import com.seal.hackathon.service.SystemLogService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /**
@@ -35,6 +42,8 @@ public class AdminController {
 
     private final AdminService adminService;
     private final SystemLogService systemLogService;
+    private final AdminEventCsvExportService eventCsvExportService;
+    private final AdminScoreDistributionService scoreDistributionService;
 
     // ── Users ─────────────────────────────────────────────────────────
 
@@ -111,6 +120,33 @@ public class AdminController {
     @GetMapping("/system-logs")
     public ResponseEntity<ApiResponse<List<SystemLogResponse>>> getSystemLogs() {
         return ResponseEntity.ok(ApiResponse.success("System logs retrieved.", systemLogService.getAllLogs()));
+    }
+
+    // ── Event export ──────────────────────────────────────────────────
+
+    @GetMapping(value = "/events/{eventId}/export.csv", produces = "text/csv")
+    public ResponseEntity<byte[]> exportCompletedEventCsv(@PathVariable Integer eventId) {
+        AdminEventCsvExportService.ExportedCsv csv = eventCsvExportService.exportCompletedEvent(eventId);
+        ContentDisposition disposition = ContentDisposition.attachment()
+                .filename(csv.fileName(), StandardCharsets.UTF_8)
+                .build();
+        return ResponseEntity.ok()
+                .contentType(new MediaType("text", "csv", StandardCharsets.UTF_8))
+                .contentLength(csv.content().length)
+                .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
+                .body(csv.content());
+    }
+
+    @GetMapping("/events/{eventId}/score-distribution")
+    public ResponseEntity<ApiResponse<AdminScoreDistributionResponse>> getEventScoreDistribution(
+            @PathVariable Integer eventId,
+            @RequestParam(required = false) Integer roundId,
+            @RequestParam(required = false) Integer trackId,
+            @RequestParam(defaultValue = "JUDGE_EVALUATION") String metric,
+            @RequestParam(required = false) Integer criteriaId) {
+        return ResponseEntity.ok(ApiResponse.success("Score distribution retrieved.",
+                scoreDistributionService.getDistribution(
+                        eventId, roundId, trackId, metric, criteriaId)));
     }
 
     // ── Helper ────────────────────────────────────────────────────────

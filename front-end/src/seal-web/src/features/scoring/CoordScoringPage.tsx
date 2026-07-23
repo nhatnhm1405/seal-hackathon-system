@@ -163,8 +163,8 @@ export function CoordScoringPage() {
       addToast({ type: 'success', title: 'RANKINGS CALCULATED', message: 'Round rankings have been calculated.' });
       setConfirmAction(null);
     } catch (err) {
-      setActionError(err instanceof ApiError ? err.message : "Failed to finalize results.");
-      addToast({ type: 'warning', title: 'CALCULATE FAILED', message: apiErrorMessage(err, 'Failed to finalize results.') });
+      setActionError(err instanceof ApiError ? err.message : "Failed to calculate rankings.");
+      addToast({ type: 'warning', title: 'CALCULATE FAILED', message: apiErrorMessage(err, 'Failed to calculate rankings.') });
     } finally {
       setBusy(false);
     }

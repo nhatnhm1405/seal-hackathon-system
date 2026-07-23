@@ -3,7 +3,6 @@ import { C, GradientText, PixelButton, FloatingParticles } from "@/shared/compon
 import { teamsApi, ApiError, apiErrorMessage, ActiveEventWithTracks } from "@/shared/apiClient";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { useNotifications } from "@/app/providers/NotificationProvider";
-import { useTheme } from "@/app/providers/ThemeProvider";
 
 const FIELD_BORDER = "rgba(148,163,184,0.18)";
 
@@ -20,8 +19,6 @@ export function CreateTeamScreen({
 }) {
     const { refreshTeamContext } = useAuth();
     const { addToast } = useNotifications();
-    const { theme } = useTheme();
-    const dark = theme === "dark";
 
     const [activeEvents, setActiveEvents] = useState<ActiveEventWithTracks[]>([]);
     const [loadError, setLoadError] = useState<string | null>(null);
@@ -136,11 +133,11 @@ export function CreateTeamScreen({
     };
 
     return (
-        <div className={dark ? "cyber-grid-bg" : undefined} style={{ position: "relative", minHeight: "100%", padding: "28px 24px" }}>
+        <div className="cyber-grid-bg" style={{ position: "relative", minHeight: "100%", padding: "28px 24px" }}>
             {/* Same ambient backdrop as the dashboard — cyber grid, floating
-                particles and a soft radial glow (dark theme only). */}
-            {dark && <FloatingParticles count={24} />}
-            {dark && <div style={{ position: "absolute", top: "4%", left: "50%", transform: "translateX(-50%)", width: 480, height: 480, borderRadius: "50%", background: "radial-gradient(circle, rgba(59,130,246,0.06), transparent 70%)", pointerEvents: "none" }} />}
+                particles and a soft radial glow. */}
+            <FloatingParticles count={24} />
+            <div style={{ position: "absolute", top: "4%", left: "50%", transform: "translateX(-50%)", width: 480, height: 480, borderRadius: "50%", background: "radial-gradient(circle, rgba(59,130,246,0.06), transparent 70%)", pointerEvents: "none" }} />
             <div style={{ position: "relative", zIndex: 1, maxWidth: 560, margin: "0 auto" }}>
             <button
                 onClick={onBack}

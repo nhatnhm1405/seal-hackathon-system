@@ -2,7 +2,6 @@ import { useState, useEffect, CSSProperties } from "react";
 import { C, PixelButton, PixelBadge, PixelCard, FloatingParticles } from "@/shared/components/PixelComponents";
 import { teamsApi, roundsApi, HackathonEvent, ActiveEventWithTracks, Round } from "@/shared/apiClient";
 import { useTour } from "@/app/providers/TourProvider";
-import { useTheme } from "@/app/providers/ThemeProvider";
 import { ParticipantJourneyBar } from "@/shared/components/ParticipantJourneyBar";
 import { EventName } from "@/features/events/eventUtils";
 import { fmtShort } from "../utils/formatters";
@@ -67,11 +66,7 @@ function trackSummary(track: { name: string; description?: string }) {
 }
 
 // Liquid-glass tile tinted by an accent colour (rgb triplet, e.g. "6,182,212").
-// Dark mode gets the translucent frosted look — a diagonal accent film, a soft
-// accent border, real backdrop blur and an inner top highlight — matching the
-// glassy content boxes elsewhere on the card. Light mode keeps the flat surface.
-function glassTile(rgb: string, dark: boolean): CSSProperties {
-    if (!dark) return { background: C.surface2, border: `1px solid ${C.border}` };
+function glassTile(rgb: string): CSSProperties {
     return {
         background: `linear-gradient(135deg, rgba(${rgb},0.14) 0%, rgba(${rgb},0.05) 100%)`,
         border: `1px solid rgba(${rgb},0.34)`,
@@ -103,18 +98,12 @@ export function NoTeamDashboard({
     onRequestActive?: () => void;
 }) {
     const { openTour } = useTour();
-    const { theme } = useTheme();
-    const dark = theme === "dark";
-    // Dark-mode only: content/label text → white, muted text → soft white.
-    const txt = dark ? "#ffffff" : "var(--c-text)";
-    const mut = dark ? "rgba(255,255,255,0.85)" : "var(--c-text-muted)";
-    const statPanelBorder = dark ? "rgba(34,197,94,0.24)" : C.border;
-    const detailPanelBg = dark ? "rgba(8, 18, 24, 0.28)" : C.surface2;
-    const detailToggleBg = dark ? "rgba(59,130,246,0.08)" : C.surface2;
-    // Prominent section title → soft green→blue ombre (same as the navbar brand).
-    const titleStyle: CSSProperties = dark
-        ? { background: "linear-gradient(135deg, #22c55e 0%, #3b82f6 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }
-        : { color: C.green };
+    const txt = "#ffffff";
+    const mut = "rgba(255,255,255,0.85)";
+    const statPanelBorder = "rgba(34,197,94,0.24)";
+    const detailPanelBg = "rgba(8, 18, 24, 0.28)";
+    const detailToggleBg = "rgba(59,130,246,0.08)";
+    const titleStyle: CSSProperties = { background: "linear-gradient(135deg, #22c55e 0%, #3b82f6 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" };
     const [events, setEvents] = useState<ActiveEventWithTracks[]>([]);
     const [roundsByEvent, setRoundsByEvent] = useState<Record<number, Round[]>>({});
     const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -145,13 +134,13 @@ export function NoTeamDashboard({
     }
 
     return (
-        <div className={dark ? "cyber-grid-bg" : undefined} style={{ position: "relative", padding: "24px", minHeight: "100%" }}>
-            {/* Ambient background — same cyber grid + floating particles as the pending-approval page (dark only). */}
-            {dark && <FloatingParticles count={30} />}
-            {dark && <div style={{ position: "absolute", top: "6%", left: "50%", transform: "translateX(-50%)", width: 520, height: 520, borderRadius: "50%", background: "radial-gradient(circle, rgba(59,130,246,0.06), transparent 70%)", pointerEvents: "none" }} />}
+        <div className="cyber-grid-bg" style={{ position: "relative", padding: "24px", minHeight: "100%" }}>
+            {/* Ambient background — same cyber grid + floating particles as the pending-approval page. */}
+            <FloatingParticles count={30} />
+            <div style={{ position: "absolute", top: "6%", left: "50%", transform: "translateX(-50%)", width: 520, height: 520, borderRadius: "50%", background: "radial-gradient(circle, rgba(59,130,246,0.06), transparent 70%)", pointerEvents: "none" }} />
             <div style={{ position: "relative", zIndex: 1, display: "flex", flexDirection: "column", gap: 20 }}>
             {/* Live journey progress */}
-            <ParticipantJourneyBar team={null} highlight={dark} />
+            <ParticipantJourneyBar team={null} highlight />
 
             {/* Open events */}
             <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
@@ -164,7 +153,7 @@ export function NoTeamDashboard({
             {/* Inactive participant (finished a past event) + a competition is open →
                 offer to rejoin. Between seasons (no open event) we show nothing here. */}
             {inactive && events.length > 0 && (
-                <PixelCard glow={dark} glowColor={dark ? "blue" : "green"} gradient={dark} style={{ padding: 16 }}>
+                <PixelCard glow glowColor="blue" gradient style={{ padding: 16 }}>
                     <div style={{ display: "flex", gap: 12, alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" }}>
                         <p style={{ color: mut, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, margin: 0, lineHeight: 1.6 }}>
                             You're not in the current competition yet. Request to join this season to start registering a team.
@@ -177,7 +166,7 @@ export function NoTeamDashboard({
             )}
 
             {pendingTeamName && (
-                <PixelCard glow={dark} glowColor={dark ? "blue" : "green"} gradient={dark} style={{ padding: 16 }}>
+                <PixelCard glow glowColor="blue" gradient style={{ padding: 16 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                         <span style={{ color: mut, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>
                             Your team <strong style={{ color: txt }}>{pendingTeamName}</strong> is waiting for coordinator approval.
@@ -188,7 +177,7 @@ export function NoTeamDashboard({
             )}
 
             {events.length === 0 ? (
-                <PixelCard glow={dark} glowColor={dark ? "blue" : "green"} gradient={dark} style={{ padding: 20 }}>
+                <PixelCard glow glowColor="blue" gradient style={{ padding: 20 }}>
                     <p style={{ color: mut, fontFamily: "'JetBrains Mono', monospace", fontSize: 12 }}>No open events at this time. Check back later.</p>
                 </PixelCard>
             ) : (
@@ -215,11 +204,11 @@ export function NoTeamDashboard({
                         return (
                             <PixelCard key={ev.eventId}
                                 glow
-                                glowColor={dark ? "blue" : "green"}
+                                glowColor="blue"
                                 gradient
                                 style={{
                                     padding: "28px 30px", minHeight: 236, display: "flex", flexDirection: "column", gap: 22,
-                                    borderColor: dark ? "rgba(59,130,246,0.2)" : "rgba(34,197,94,0.35)",
+                                    borderColor: "rgba(59,130,246,0.2)",
                                     // Inactive participants can't register yet — dim the whole event card and
                                     // block interaction; their only action is the "Request to compete" banner above.
                                     ...(inactive ? { opacity: 0.45, pointerEvents: "none" as const, filter: "grayscale(0.4)" } : {}),
@@ -259,15 +248,15 @@ export function NoTeamDashboard({
                                 </div>
 
                                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }}>
-                                    <div style={{ ...glassTile("6,182,212", dark), padding: "12px 14px" }}>
+                                    <div style={{ ...glassTile("6,182,212"), padding: "12px 14px" }}>
                                         <div style={{ color: mut, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase" }}>Tracks</div>
                                         <div style={{ color: C.cyan, fontFamily: "'JetBrains Mono', monospace", fontSize: 22, fontWeight: 900, marginTop: 4 }}>{evTracks.length}</div>
                                     </div>
-                                    <div style={{ ...glassTile("59,130,246", dark), padding: "12px 14px" }}>
+                                    <div style={{ ...glassTile("59,130,246"), padding: "12px 14px" }}>
                                         <div style={{ color: mut, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase" }}>Rounds</div>
                                         <div style={{ color: C.blueBright, fontFamily: "'JetBrains Mono', monospace", fontSize: 22, fontWeight: 900, marginTop: 4 }}>{evRounds.length}</div>
                                     </div>
-                                    <div style={{ ...glassTile("34,197,94", dark), padding: "12px 14px" }}>
+                                    <div style={{ ...glassTile("34,197,94"), padding: "12px 14px" }}>
                                         <div style={{ color: mut, fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: "0.1em", textTransform: "uppercase" }}>Current Round</div>
                                         <div style={{ color: activeRound ? C.green : mut, fontFamily: "'JetBrains Mono', monospace", fontSize: 15, fontWeight: 900, marginTop: 7 }}>
                                             {activeRound
@@ -287,7 +276,7 @@ export function NoTeamDashboard({
                                         aria-expanded={detailOpen}
                                         onClick={() => toggleExpanded(detailKey)}
                                         onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); toggleExpanded(detailKey); } }}
-                                        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, background: detailOpen ? "rgba(59,130,246,0.1)" : detailToggleBg, border: `1px solid ${detailOpen ? "rgba(59,130,246,0.5)" : statPanelBorder}`, backdropFilter: dark ? "blur(2px)" : undefined, padding: "10px 16px", cursor: "pointer", transition: "all 0.2s ease" }}
+                                        style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, background: detailOpen ? "rgba(59,130,246,0.1)" : detailToggleBg, border: `1px solid ${detailOpen ? "rgba(59,130,246,0.5)" : statPanelBorder}`, backdropFilter: "blur(2px)", padding: "10px 16px", cursor: "pointer", transition: "all 0.2s ease" }}
                                     >
                                         <span style={{ color: detailOpen ? C.blueBright : mut, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase" }}>Tracks &amp; Rounds details</span>
                                         <span style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
@@ -300,7 +289,7 @@ export function NoTeamDashboard({
 
                                 <div style={{ maxHeight: detailOpen ? 1200 : 0, opacity: detailOpen ? 1 : 0, transform: detailOpen ? "translateY(0)" : "translateY(-8px)", overflow: "hidden", transition: "max-height 0.32s ease, opacity 0.22s ease, transform 0.25s ease" }}>
                                     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                                        <div style={{ background: detailPanelBg, border: "1px solid rgba(6,182,212,0.35)", backdropFilter: dark ? "blur(2px)" : undefined, padding: "14px 16px" }}>
+                                        <div style={{ background: detailPanelBg, border: "1px solid rgba(6,182,212,0.35)", backdropFilter: "blur(2px)", padding: "14px 16px" }}>
                                             <div style={{ color: C.cyan, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 10 }}>
                                                 Tracks
                                             </div>
@@ -319,7 +308,7 @@ export function NoTeamDashboard({
                                                 ))}
                                             </div>
                                         </div>
-                                        <div style={{ background: detailPanelBg, border: "1px solid rgba(59,130,246,0.35)", backdropFilter: dark ? "blur(2px)" : undefined, padding: "14px 16px" }}>
+                                        <div style={{ background: detailPanelBg, border: "1px solid rgba(59,130,246,0.35)", backdropFilter: "blur(2px)", padding: "14px 16px" }}>
                                             <div style={{ color: C.blueBright, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", marginBottom: 10 }}>
                                                 Rounds
                                             </div>

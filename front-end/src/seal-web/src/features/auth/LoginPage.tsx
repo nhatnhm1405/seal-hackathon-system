@@ -1,5 +1,4 @@
 ﻿import { useState, useEffect } from "react";
-import { useForceDark } from "@/app/providers/ThemeProvider";
 import { useNavigate, useSearchParams } from "react-router";
 import {
   C, GradientText, PixelButton, PixelInput, FloatingParticles, TerminalWindow,
@@ -26,7 +25,6 @@ function oauthErrorMessage(errorCode: string) {
 }
 
 export function LoginPage() {
-  useForceDark();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { login } = useAuth();
@@ -64,6 +62,8 @@ export function LoginPage() {
         // Not an error — the account exists but isn't approved yet. Send them to the
         // dedicated waiting page (which explains the review status) instead of a red error.
         navigate('/pending-approval');
+      } else if (result === 'access_denied') {
+        setError("Sign-in was blocked by the server. Refresh the page and try again; if it persists, contact a system administrator.");
       } else {
         setError("Invalid credentials. Please verify your email and password.");
       }

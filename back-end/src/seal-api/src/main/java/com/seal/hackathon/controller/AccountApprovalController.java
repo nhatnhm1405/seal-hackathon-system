@@ -70,7 +70,7 @@ public class AccountApprovalController {
 
     /**
      * PUT /api/account-approvals/{userId}/reject
-     * Sets is_approved = false. The user cannot log in until approved.
+     * Permanently deletes a still-pending account.
      */
     @PutMapping("/{userId}/reject")
     @PreAuthorize("hasRole('EVENT_COORDINATOR')")

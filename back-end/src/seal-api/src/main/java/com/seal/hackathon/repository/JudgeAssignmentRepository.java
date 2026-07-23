@@ -37,6 +37,8 @@ public interface JudgeAssignmentRepository extends JpaRepository<JudgeAssignment
     Optional<JudgeAssignment> findByJudge_UserIdAndRound_RoundIdAndTrackIsNull(
             Integer judgeUserId, Integer roundId);
 
+    boolean existsByJudge_UserIdAndRound_RoundIdAndIsActiveTrue(Integer judgeUserId, Integer roundId);
+
     List<JudgeAssignment> findAllByRound_RoundIdAndIsActiveTrue(Integer roundId);
 
     /** A track-scoped assignment must be removed, never widened to track = NULL. */

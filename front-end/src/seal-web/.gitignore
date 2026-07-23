@@ -9,6 +9,10 @@ dist-ssr/
 *.log
 npm-debug.log*
 
+# Playwright output
+test-results/
+playwright-report/
+
 # Editor
 .vscode/
 .idea/

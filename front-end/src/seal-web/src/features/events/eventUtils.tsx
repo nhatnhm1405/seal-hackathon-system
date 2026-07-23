@@ -190,13 +190,14 @@ export function pickDefaultEvent(rows: EventRow[]): EventRow | undefined {
 // matches name / season / year (case-insensitive substring). The filter only
 // narrows this list — it never changes the current selection or the detail panel.
 export function EventsListCard({
-  events, loading, error, selectedEventId, onSelect,
+  events, loading, error, selectedEventId, onSelect, renderRowAction,
 }: {
   events: EventRow[];
   loading: boolean;
   error: string | null;
   selectedEventId: number | null;
   onSelect: (eventId: number) => void;
+  renderRowAction?: (event: EventRow) => ReactNode;
 }) {
   const [query, setQuery] = useState("");
   const q = query.trim().toLowerCase();
@@ -208,6 +209,11 @@ export function EventsListCard({
     : events;
 
   const muted: React.CSSProperties = { padding: 20, color: C.textMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 12, textAlign: "center" };
+  const selectEventFromKeyboard = (event: React.KeyboardEvent<HTMLDivElement>, eventId: number) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    onSelect(eventId);
+  };
 
   return (
     <PixelCard style={{ padding: 18 }}>
@@ -230,8 +236,14 @@ export function EventsListCard({
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {filtered.map(ev => {
                 const active = selectedEventId === ev.eventId;
+                const rowAction = renderRowAction?.(ev);
                 return (
-                  <button key={ev.eventId} onClick={() => onSelect(ev.eventId)}
+                  <div
+                    key={ev.eventId}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => onSelect(ev.eventId)}
+                    onKeyDown={(event) => selectEventFromKeyboard(event, ev.eventId)}
                     style={{
                       padding: "12px 14px",
                       background: active ? "rgba(34,197,94,0.1)" : C.surface2,
@@ -244,8 +256,11 @@ export function EventsListCard({
                       <EventName size={18}>{ev.name}</EventName>
                       <div style={{ marginTop: 6 }}><EventDateBadge ev={ev} /></div>
                     </div>
-                    {eventStatusBadge(ev.status)}
-                  </button>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
+                      {rowAction}
+                      {eventStatusBadge(ev.status)}
+                    </div>
+                  </div>
                 );
               })}
             </div>

@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useForceDark } from "@/app/providers/ThemeProvider";
 import { useNavigate } from "react-router";
 import {
   C, GradientText, PixelButton, PixelInput, PixelCard, FloatingParticles,
@@ -14,7 +13,6 @@ import { useNotifications } from "@/app/providers/NotificationProvider";
 type StudentType = 'FPT' | 'EXTERNAL';
 
 export function RegisterPage() {
-  useForceDark();
   const navigate = useNavigate();
   const { addAuthToast } = useNotifications();
   const [fullName, setFullName] = useState("");

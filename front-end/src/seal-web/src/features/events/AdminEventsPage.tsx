@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import {
   C, GradientText, PixelCard, PixelButton, PixelInput,
 } from "@/shared/components/PixelComponents";
-import { apiFetch, ApiError, apiErrorMessage, eventsApi, reopenRequestsApi, type ReopenRequest } from "@/shared/apiClient";
+import { apiFetch, ApiError, apiErrorMessage, adminApi, eventsApi, reopenRequestsApi, type ReopenRequest } from "@/shared/apiClient";
 import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
+import { EventScoreDistribution } from "@/features/events/EventScoreDistribution";
 import { PixelMenu, type PixelMenuEntry } from "@/shared/components/PixelMenu";
 import { usePermissions } from "@/shared/permissions";
 import { useNotifications } from "@/app/providers/NotificationProvider";
@@ -103,6 +104,7 @@ export function AdminEventsPage() {
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
+  const [exportingEventId, setExportingEventId] = useState<number | null>(null);
 
   // Reopen-request review queue
   const [requests, setRequests] = useState<ReopenRequest[]>([]);
@@ -191,6 +193,23 @@ export function AdminEventsPage() {
       addToast({ type: 'warning', title: 'ACTION FAILED', message: apiErrorMessage(err, 'Action failed.') });
     } finally {
       setActionWorking(false);
+    }
+  }
+
+  async function exportEventCsv(event: EventRow) {
+    if (exportingEventId !== null) return;
+    if (event.status !== 'COMPLETED') {
+      addToast({ type: 'warning', title: 'EXPORT LOCKED', message: 'CSV export is only available after the event is completed.' });
+      return;
+    }
+    setExportingEventId(event.eventId);
+    try {
+      await adminApi.exportEventCsv(event.eventId);
+      addToast({ type: 'success', title: 'CSV EXPORTED', message: `"${event.name}" export started.` });
+    } catch (err) {
+      addToast({ type: 'warning', title: 'EXPORT FAILED', message: apiErrorMessage(err, 'Failed to export event CSV.') });
+    } finally {
+      setExportingEventId(null);
     }
   }
 
@@ -569,6 +588,10 @@ export function AdminEventsPage() {
         </PixelCard>
       )}
 
+      {selectedEvent?.status === 'COMPLETED' && (
+        <EventScoreDistribution key={selectedEvent.eventId} eventId={selectedEvent.eventId} />
+      )}
+
       {/* All-events summary list with find filter — below the detail panel */}
       <EventsListCard
         events={events}
@@ -576,6 +599,27 @@ export function AdminEventsPage() {
         error={fetchError}
         selectedEventId={selectedEventId}
         onSelect={setSelectedEventId}
+        renderRowAction={(event) => {
+          if (event.status !== 'COMPLETED') return null;
+          const exportingThisEvent = exportingEventId === event.eventId;
+          return (
+            <span
+              title="Export completed event CSV"
+              onClick={(clickEvent) => clickEvent.stopPropagation()}
+              onKeyDown={(keyEvent) => keyEvent.stopPropagation()}
+              style={{ display: "inline-flex" }}
+            >
+              <PixelButton
+                size="sm"
+                variant="secondary"
+                disabled={exportingEventId !== null}
+                onClick={() => exportEventCsv(event)}
+              >
+                {exportingThisEvent ? "EXPORTING..." : "EXPORT CSV"}
+              </PixelButton>
+            </span>
+          );
+        }}
       />
 
       {/* Shared confirmation dialog */}

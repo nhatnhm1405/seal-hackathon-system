@@ -230,6 +230,11 @@ public class DemoFixtures {
     // ── Assignments ──────────────────────────────────────────────────
 
     public void assignJudge(User judge, Round round, Track track) {
+        if (judgeAssignRepo.existsByJudge_UserIdAndRound_RoundIdAndIsActiveTrue(
+                judge.getUserId(), round.getRoundId())) {
+            throw new IllegalStateException("Judge " + judge.getEmail()
+                    + " is already assigned in round " + round.getRoundId() + ".");
+        }
         judgeAssignRepo.save(JudgeAssignment.builder().judge(judge).round(round).track(track).build());
     }
 

@@ -2,6 +2,7 @@ package com.seal.hackathon.service;
 
 import com.seal.hackathon.dto.response.SubmissionScoringProgressResponse;
 import com.seal.hackathon.entity.JudgeAssignment;
+import com.seal.hackathon.entity.Round;
 import com.seal.hackathon.entity.Score;
 import com.seal.hackathon.entity.ScoringCriteria;
 import com.seal.hackathon.entity.Submission;
@@ -47,7 +48,13 @@ public class JudgeScoringCompletenessService {
 
     @Transactional(readOnly = true)
     public void assertRoundComplete(Integer roundId) {
+        Round round = roundRepository.findById(roundId)
+                .orElseThrow(() -> new ResourceNotFoundException("Round not found: " + roundId));
+        Integer eventId = round.getEvent().getEventId();
+        // A disqualified team's submission (if it was never scored) must not block
+        // finalization — the team is being dropped from the ranking anyway.
         List<SubmissionScoringProgressResponse> incomplete = buildProgress(roundId).stream()
+                .filter(progress -> !isDisqualified(progress.getTeamId(), eventId))
                 .filter(progress -> !Boolean.TRUE.equals(progress.getComplete()))
                 .toList();
         if (incomplete.isEmpty()) return;
@@ -65,6 +72,12 @@ public class JudgeScoringCompletenessService {
                 .collect(Collectors.joining("; "));
         if (incomplete.size() > 5) details += "; and " + (incomplete.size() - 5) + " more submission(s)";
         throw new BadRequestException("Scoring is incomplete. " + details + ".");
+    }
+
+    private boolean isDisqualified(Integer teamId, Integer eventId) {
+        return teamEventEntryRepository.findByTeam_TeamIdAndEvent_EventId(teamId, eventId)
+                .map(entry -> "DISQUALIFIED".equalsIgnoreCase(entry.getStatus()))
+                .orElse(false);
     }
 
     private List<SubmissionScoringProgressResponse> buildProgress(Integer roundId) {

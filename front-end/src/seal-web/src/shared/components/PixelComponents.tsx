@@ -2,13 +2,13 @@ import { useState, useEffect, useRef } from "react";
 
 // ── Color tokens ─────────────────────────────────────────────────
 export const C = {
-  // Backgrounds — theo theme (CSS variables)
+  // Backgrounds
   bg:       "var(--c-bg)",
   surface:  "var(--c-surface)",
   surface2: "var(--c-surface2)",
   surface3: "var(--c-surface3)",
 
-  // Green (primary accent — theo theme: light dùng tông đậm hơn)
+  // Green (primary accent)
   green:         "var(--c-accent)",
   greenBright:   "var(--c-accent-bright)",
   greenDim:      "var(--c-accent-dim)",
@@ -16,42 +16,42 @@ export const C = {
   greenGlow:     "var(--c-glow)",
   greenGlowFaint:"var(--c-glow-faint)",
 
-  // Blue (secondary cyber accent — cố định)
+  // Blue (secondary cyber accent)
   blue:          "#3b82f6",
   blueBright:    "#60a5fa",
   blueDim:       "#1d4ed8",
   blueGlow:      "rgba(59,130,246,0.3)",
   blueGlowFaint: "rgba(59,130,246,0.1)",
 
-  // Cyan (innovation highlight — cố định)
+  // Cyan (innovation highlight)
   cyan:      "#06b6d4",
   cyanBright:"#22d3ee",
   cyanGlow:  "rgba(6,182,212,0.35)",
 
-  // Purple (AI / ML accent — cố định)
+  // Purple (AI / ML accent)
   purple:    "#8b5cf6",
   purpleGlow:"rgba(139,92,246,0.3)",
 
-  // Text — theo theme
+  // Text
   text:     "var(--c-text)",
   textMuted:"var(--c-text-muted)",
   textDim:  "var(--c-text-dim)",
   textBlue: "var(--c-text-blue)",
 
-  // Borders — theo theme
+  // Borders
   border:       "var(--c-border)",
   borderBright: "var(--c-border-bright)",
   borderBlue:   "var(--c-border-blue)",
 
-  // Status (cố định)
+  // Status
   red:    "#ef4444",
   yellow: "#eab308",
   orange: "#f97316",
 
-  // Màu chữ đặt trên nền accent (nút primary) — theo theme
+  // Text placed on accent backgrounds
   onAccent: "var(--c-on-accent)",
 
-  // Backgrounds đặc biệt — theo theme
+  // Special backgrounds
   navbarBg:  "var(--c-navbar-bg)",
   footerBg:  "var(--c-footer-bg)",
   copyright: "var(--c-copyright)",

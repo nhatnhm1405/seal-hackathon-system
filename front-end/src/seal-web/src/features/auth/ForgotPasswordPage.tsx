@@ -1,5 +1,4 @@
 import { FormEvent, useState } from "react";
-import { useForceDark } from "@/app/providers/ThemeProvider";
 import { useNavigate } from "react-router";
 import { C, GradientText, PixelButton, PixelInput, FloatingParticles } from "@/shared/components/PixelComponents";
 import { SealFooter } from "@/shared/components/SealFooter";
@@ -11,7 +10,6 @@ type ResetStep = "email" | "otp" | "password";
 const OTP_EXPIRATION_MINUTES = 10;
 
 export function ForgotPasswordPage() {
-  useForceDark();
   const navigate = useNavigate();
   const { addAuthToast } = useNotifications();
   const [step, setStep] = useState<ResetStep>("email");
