@@ -4,6 +4,7 @@ import {
 } from "@/shared/components/PixelComponents";
 import { apiFetch, ApiError, apiErrorMessage, adminApi, eventsApi, reopenRequestsApi, type ReopenRequest } from "@/shared/apiClient";
 import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
+import { EventScoreDistribution } from "@/features/events/EventScoreDistribution";
 import { PixelMenu, type PixelMenuEntry } from "@/shared/components/PixelMenu";
 import { usePermissions } from "@/shared/permissions";
 import { useNotifications } from "@/app/providers/NotificationProvider";
@@ -585,6 +586,10 @@ export function AdminEventsPage() {
             </div>
           )}
         </PixelCard>
+      )}
+
+      {selectedEvent?.status === 'COMPLETED' && (
+        <EventScoreDistribution key={selectedEvent.eventId} eventId={selectedEvent.eventId} />
       )}
 
       {/* All-events summary list with find filter — below the detail panel */}

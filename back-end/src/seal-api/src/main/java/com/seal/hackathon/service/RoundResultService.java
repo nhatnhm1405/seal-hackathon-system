@@ -91,34 +91,14 @@ public class RoundResultService {
                 continue;
             }
 
-            // Per judge, normalize to a 0–100 score:
-            //   100 × Σ(weight × value/maxScore) / Σ(weight)
-            // Dividing by Σ(weight) and each criteria's maxScore makes the result
-            // independent of HOW MANY criteria the round has (and of their individual
-            // max scores), so a 5-criteria round and a 10-criteria round stay on the
-            // same 0–100 scale. Then average across judges.
-            Map<Integer, BigDecimal> judgeWeightedFraction = new HashMap<>();
-            Map<Integer, BigDecimal> judgeWeightSum = new HashMap<>();
-            for (Score score : scores) {
-                ScoringCriteria criteria = score.getCriteria();
-                BigDecimal weight = criteria.getWeight();
-                BigDecimal maxScore = criteria.getMaxScore();
-                if (weight == null || maxScore == null || maxScore.signum() == 0) {
-                    continue; // skip mis-configured criteria
-                }
-                BigDecimal fraction = score.getValue().divide(maxScore, 6, RoundingMode.HALF_UP); // 0..1
-                Integer judgeId = score.getJudge().getUserId();
-                judgeWeightedFraction.merge(judgeId, fraction.multiply(weight), BigDecimal::add);
-                judgeWeightSum.merge(judgeId, weight, BigDecimal::add);
-            }
-
-            List<BigDecimal> judgePercents = new ArrayList<>();
-            for (Map.Entry<Integer, BigDecimal> e : judgeWeightSum.entrySet()) {
-                if (e.getValue().signum() == 0) continue;
-                judgePercents.add(judgeWeightedFraction.get(e.getKey())
-                        .divide(e.getValue(), 6, RoundingMode.HALF_UP)
-                        .multiply(BigDecimal.valueOf(100)));
-            }
+            // Use the same normalized per-judge score exposed by completed-event
+            // analytics, then average the panel to obtain the team result.
+            Map<Integer, List<Score>> scoresByJudge = scores.stream()
+                    .collect(Collectors.groupingBy(score -> score.getJudge().getUserId()));
+            List<BigDecimal> judgePercents = scoresByJudge.values().stream()
+                    .map(ScoreNormalization::weightedPercent)
+                    .flatMap(Optional::stream)
+                    .toList();
 
             if (judgePercents.isEmpty()) {
                 teamScores.put(submission.getTeam().getTeamId(), BigDecimal.ZERO);
