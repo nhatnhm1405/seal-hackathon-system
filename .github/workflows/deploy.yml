@@ -1,9 +1,13 @@
-name: Deploy to AWS EC2
+name: Deploy preview branch to AWS EC2
 
 on:
   push:
     branches:
       - fix/hoangnhat-update-judge-admin
+
+concurrency:
+  group: aws-preview-deploy
+  cancel-in-progress: true
 
 jobs:
   deploy:
