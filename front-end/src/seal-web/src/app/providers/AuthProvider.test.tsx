@@ -169,10 +169,13 @@ describe("AuthProvider / useAuth — login()", () => {
     expect(result.current.activeRole).toBeNull();
   });
 
-  it("resolves 'pending_approval' on a 403 from the login call", async () => {
+  it("resolves 'pending_approval' only when a 403 carries the backend approval message", async () => {
     (apiFetch as Mock)
       .mockImplementationOnce(() => Promise.reject(new ApiError(401, "no session")))
-      .mockImplementationOnce(() => Promise.reject(new ApiError(403, "not approved")));
+      .mockImplementationOnce(() => Promise.reject(new ApiError(
+        403,
+        "Your account is pending approval. Please wait for an Event Coordinator to review your registration.",
+      )));
 
     const { result } = renderHook(() => useAuth(), { wrapper: AuthProvider });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
@@ -181,6 +184,21 @@ describe("AuthProvider / useAuth — login()", () => {
     await act(async () => { outcome = await result.current.login("x@fpt.edu.vn", "pw"); });
 
     expect(outcome).toBe("pending_approval");
+    expect(result.current.isAuthenticated).toBe(false);
+  });
+
+  it("does not misreport an unrelated 403 as pending approval", async () => {
+    (apiFetch as Mock)
+      .mockImplementationOnce(() => Promise.reject(new ApiError(401, "no session")))
+      .mockImplementationOnce(() => Promise.reject(new ApiError(403, "Forbidden")));
+
+    const { result } = renderHook(() => useAuth(), { wrapper: AuthProvider });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    let outcome: string = "";
+    await act(async () => { outcome = await result.current.login("coord@fpt.edu.vn", "pw"); });
+
+    expect(outcome).toBe("access_denied");
     expect(result.current.isAuthenticated).toBe(false);
   });
 
