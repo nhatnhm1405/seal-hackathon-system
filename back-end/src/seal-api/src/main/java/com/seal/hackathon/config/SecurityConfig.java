@@ -65,6 +65,9 @@ public class SecurityConfig {
     @Value("${app.jwt.cookie.secure}")
     private boolean cookieSecure;
 
+    @Value("${app.csrf.cookie.domain:}")
+    private String csrfCookieDomain;
+
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
@@ -194,7 +197,16 @@ public class SecurityConfig {
     @Bean
     public CsrfTokenRepository csrfTokenRepository() {
         CookieCsrfTokenRepository repository = CookieCsrfTokenRepository.withHttpOnlyFalse();
-        repository.setCookieCustomizer(cookie -> cookie.secure(cookieSecure).sameSite("Lax").path("/"));
+        repository.setCookieCustomizer(cookie -> {
+            cookie.secure(cookieSecure).sameSite("Lax").path("/");
+            // Production serves the SPA and API from sibling subdomains. A host-only
+            // cookie issued by api.example.com is invisible to JavaScript on
+            // example.com, so the SPA cannot echo it as X-XSRF-TOKEN. Keep this
+            // optional so localhost development continues to use a host-only cookie.
+            if (csrfCookieDomain != null && !csrfCookieDomain.isBlank()) {
+                cookie.domain(csrfCookieDomain.trim());
+            }
+        });
         return repository;
     }
 

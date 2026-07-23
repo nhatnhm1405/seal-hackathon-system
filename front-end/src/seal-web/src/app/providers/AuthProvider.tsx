@@ -25,6 +25,13 @@ export interface AuthUser {
   is_active: boolean;
 }
 
+export type LoginResult =
+  | 'ok'
+  | 'ok:select-role'
+  | 'invalid_credentials'
+  | 'pending_approval'
+  | 'access_denied';
+
 // ── Context type ─────────────────────────────────────────────────────
 interface AuthContextType {
   currentUser: AuthUser | null;
@@ -33,7 +40,7 @@ interface AuthContextType {
   availableRoles: string[];
   activeRole: string | null;
   setActiveRole: (role: string | null) => void;
-  login: (email: string, password: string, rememberMe?: boolean) => Promise<'ok' | 'ok:select-role' | 'invalid_credentials' | 'pending_approval'>;
+  login: (email: string, password: string, rememberMe?: boolean) => Promise<LoginResult>;
   logout: () => void;
   updateLeaderStatus: (isLeader: boolean) => void;
   clearTeam: () => void;
@@ -259,7 +266,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     email: string,
     password: string,
     rememberMe = false,
-  ): Promise<'ok' | 'ok:select-role' | 'invalid_credentials' | 'pending_approval'> {
+  ): Promise<LoginResult> {
     try {
       // Wipe any prior session before authenticating a new one — otherwise a
       // leftover activeRole / user from the previous account can bleed into
@@ -304,9 +311,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       setStoredActiveRole(null);
       if (err instanceof ApiError) {
-        if (err.status === 403) {
+        if (err.status === 403 && err.message.toLowerCase().includes('pending approval')) {
           return 'pending_approval';
         }
+        if (err.status === 403) return 'access_denied';
         if (err.status === 401) return 'invalid_credentials';
       }
       return 'invalid_credentials';

@@ -2,10 +2,12 @@ import { defineConfig, devices } from '@playwright/test';
 
 const configuredSlowMo = Number.parseInt(process.env.E2E_SLOW_MO_MS ?? '0', 10);
 const slowMo = Number.isFinite(configuredSlowMo) ? configuredSlowMo : 0;
+const configuredTimeout = Number.parseInt(process.env.E2E_TEST_TIMEOUT_MS ?? '180000', 10);
+const testTimeout = Number.isFinite(configuredTimeout) ? configuredTimeout : 180_000;
 
 export default defineConfig({
   testDir: './e2e',
-  timeout: 180_000,
+  timeout: testTimeout,
   expect: {
     timeout: 15_000,
   },
