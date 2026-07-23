@@ -3,17 +3,19 @@ name: Deploy to AWS EC2
 on:
   push:
     branches:
-      - develop
+      - fix/hoangnhat-update-judge-admin
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     env:
+      DEPLOY_BRANCH: ${{ github.ref_name }}
       DEPLOY_HOST: ${{ secrets.HOST || secrets.SSH_HOST || secrets.EC2_HOST }}
       DEPLOY_USER: ${{ secrets.USERNAME || secrets.SSH_USERNAME || secrets.EC2_USER }}
       DEPLOY_KEY: ${{ secrets.SSH_KEY || secrets.SSH_PRIVATE_KEY || secrets.EC2_SSH_KEY }}
       DEPLOY_PORT: ${{ secrets.SSH_PORT || '22' }}
       APP_DIR: ${{ secrets.APP_DIR }}
+      CSRF_COOKIE_DOMAIN: sealhackathon.io.vn
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -37,17 +39,23 @@ jobs:
         uses: appleboy/ssh-action@v1.0.3
         env:
           APP_DIR: ${{ env.APP_DIR }}
+          DEPLOY_BRANCH: ${{ env.DEPLOY_BRANCH }}
+          CSRF_COOKIE_DOMAIN: ${{ env.CSRF_COOKIE_DOMAIN }}
         with:
           host: ${{ env.DEPLOY_HOST }}
           username: ${{ env.DEPLOY_USER }}
           key: ${{ env.DEPLOY_KEY }}
           port: ${{ env.DEPLOY_PORT }}
-          envs: APP_DIR
+          envs: APP_DIR,DEPLOY_BRANCH,CSRF_COOKIE_DOMAIN
           script_stop: true
           script: |
             set -eu
 
             APP_DIR="${APP_DIR:-$HOME/seal-hackathon-system}"
+            if [ -z "${DEPLOY_BRANCH:-}" ]; then
+              echo "DEPLOY_BRANCH is empty; refusing to deploy an unknown ref."
+              exit 1
+            fi
             if [ ! -d "$APP_DIR/.git" ]; then
               echo "Deploy directory is not a git repository: $APP_DIR"
               echo "Set the APP_DIR repository secret if the project lives elsewhere on the server."
@@ -55,12 +63,13 @@ jobs:
             fi
 
             cd "$APP_DIR"
-            git fetch origin develop
-            if git show-ref --verify --quiet refs/heads/develop; then
-              git checkout develop
+            git fetch origin "$DEPLOY_BRANCH"
+            if git show-ref --verify --quiet "refs/heads/$DEPLOY_BRANCH"; then
+              git checkout "$DEPLOY_BRANCH"
             else
-              git checkout -b develop origin/develop
+              git checkout -b "$DEPLOY_BRANCH" "origin/$DEPLOY_BRANCH"
             fi
-            git pull --ff-only origin develop
-            sudo docker compose up -d --build --remove-orphans
+            git pull --ff-only origin "$DEPLOY_BRANCH"
+            sudo env CSRF_COOKIE_DOMAIN="$CSRF_COOKIE_DOMAIN" \
+              docker compose up -d --build --remove-orphans
             sudo docker compose ps
