@@ -1,20 +1,15 @@
 package com.seal.hackathon.dto.request;
 
-import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
 /**
- * Partial update — only non-null fields are applied. Use {@code teamId} to set or
- * change the winning team; a prize that is already announced cannot be edited.
+ * A prize's winning team and rank always come from {@code autoGenerate} (the
+ * final ranking) — a coordinator may only rename a slot, and only before it's
+ * announced.
  */
 @Data
 public class UpdatePrizeRequest {
+    @NotBlank(message = "Prize name is required")
     private String name;
-
-    private String description;
-
-    @Min(value = 1, message = "Rank position must be at least 1")
-    private Integer rankPosition;
-
-    private Integer teamId;
 }

@@ -1,7 +1,6 @@
 package com.seal.hackathon.controller;
 
 import com.seal.hackathon.dto.request.AutoGeneratePrizesRequest;
-import com.seal.hackathon.dto.request.CreatePrizeRequest;
 import com.seal.hackathon.dto.request.UpdatePrizeRequest;
 import com.seal.hackathon.dto.response.ApiResponse;
 import com.seal.hackathon.dto.response.PrizeResponse;
@@ -9,7 +8,6 @@ import com.seal.hackathon.security.UserPrincipal;
 import com.seal.hackathon.service.PrizeService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -38,15 +36,6 @@ public class PrizeController {
         boolean includeUnannounced = hasCoordinatorRole(authentication);
         return ResponseEntity.ok(ApiResponse.success("Prizes retrieved successfully.",
                 prizeService.getPrizes(eventId, includeUnannounced)));
-    }
-
-    @PostMapping
-    @PreAuthorize("hasRole('EVENT_COORDINATOR')")
-    public ResponseEntity<ApiResponse<PrizeResponse>> createPrize(
-            @PathVariable Integer eventId,
-            @Valid @RequestBody CreatePrizeRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success(
-                "Prize created successfully.", prizeService.createPrize(eventId, request)));
     }
 
     @PutMapping("/{prizeId}")

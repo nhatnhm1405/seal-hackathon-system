@@ -4,11 +4,13 @@ import com.seal.hackathon.dto.request.CreateUserRequest;
 import com.seal.hackathon.dto.request.GrantRoleRequest;
 import com.seal.hackathon.dto.request.UpdateUserRequest;
 import com.seal.hackathon.dto.response.ApiResponse;
+import com.seal.hackathon.dto.response.AdminScoreDistributionResponse;
 import com.seal.hackathon.dto.response.SystemLogResponse;
 import com.seal.hackathon.dto.response.UserEventRoleResponse;
 import com.seal.hackathon.dto.response.UserResponse;
 import com.seal.hackathon.security.UserPrincipal;
 import com.seal.hackathon.service.AdminEventCsvExportService;
+import com.seal.hackathon.service.AdminScoreDistributionService;
 import com.seal.hackathon.service.AdminService;
 import com.seal.hackathon.service.SystemLogService;
 import jakarta.validation.Valid;
@@ -41,6 +43,7 @@ public class AdminController {
     private final AdminService adminService;
     private final SystemLogService systemLogService;
     private final AdminEventCsvExportService eventCsvExportService;
+    private final AdminScoreDistributionService scoreDistributionService;
 
     // ── Users ─────────────────────────────────────────────────────────
 
@@ -132,6 +135,18 @@ public class AdminController {
                 .contentLength(csv.content().length)
                 .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
                 .body(csv.content());
+    }
+
+    @GetMapping("/events/{eventId}/score-distribution")
+    public ResponseEntity<ApiResponse<AdminScoreDistributionResponse>> getEventScoreDistribution(
+            @PathVariable Integer eventId,
+            @RequestParam(required = false) Integer roundId,
+            @RequestParam(required = false) Integer trackId,
+            @RequestParam(defaultValue = "JUDGE_EVALUATION") String metric,
+            @RequestParam(required = false) Integer criteriaId) {
+        return ResponseEntity.ok(ApiResponse.success("Score distribution retrieved.",
+                scoreDistributionService.getDistribution(
+                        eventId, roundId, trackId, metric, criteriaId)));
     }
 
     // ── Helper ────────────────────────────────────────────────────────
