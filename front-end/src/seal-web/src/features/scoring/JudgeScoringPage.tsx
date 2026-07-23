@@ -279,15 +279,15 @@ export function JudgeScoringPage() {
     <PixelBadge color={st === "scored" ? "green" : st === "draft" ? "yellow" : "gray"}>{st.replace("_", " ")}</PixelBadge>;
 
   const lockedTitle = judgingTimer.loadFailed
-    ? "KHÔNG THỂ XÁC MINH THỜI GIAN CHẤM"
+    ? "COULD NOT VERIFY JUDGING TIME"
     : judgingTimer.loading
-      ? "ĐANG KIỂM TRA THỜI GIAN CHẤM…"
-      : "CHƯA TỚI GIỜ CHẤM BÀI";
+      ? "CHECKING JUDGING TIME…"
+      : "JUDGING HAS NOT STARTED";
   const lockedMessage = judgingTimer.loadFailed
-    ? "Khu vực chấm đang được khóa an toàn. Vui lòng thử lại sau."
+    ? "The scoring area is safely locked. Please try again shortly."
     : judgingTimer.loading
-      ? "Đang đồng bộ trạng thái timer với hệ thống."
-      : "Event Coordinator chưa bắt đầu thời gian chấm cho vòng này.";
+      ? "Syncing timer state with the system."
+      : "The Event Coordinator has not started the judging window for this round yet.";
 
   return (
     <div style={{ padding: 24 }}>
