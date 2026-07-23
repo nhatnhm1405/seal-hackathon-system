@@ -14,6 +14,7 @@ public interface RoundResultRepository extends JpaRepository<RoundResult, Intege
     List<RoundResult> findAllByRound_RoundIdOrderByRankPosition(Integer roundId);
     List<RoundResult> findAllByRound_RoundIdAndIsPublishedTrueOrderByRankPosition(Integer roundId);
     Optional<RoundResult> findByTeam_TeamIdAndRound_RoundId(Integer teamId, Integer roundId);
+    List<RoundResult> findAllByTeam_TeamIdAndRound_Event_EventId(Integer teamId, Integer eventId);
 
     @Query("""
             SELECT rr
