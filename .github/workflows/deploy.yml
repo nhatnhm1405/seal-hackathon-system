@@ -3,7 +3,7 @@ name: Deploy preview branch to AWS EC2
 on:
   push:
     branches:
-      - main
+      - develop
   pull_request:
     branches:
       - develop
