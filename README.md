@@ -128,14 +128,58 @@ _TODO: e.g., GitHub Projects for task tracking, Figma for UI/UX design, Postman 
 
 ```
 seal-hackathon-system/
-├── back-end/
-│   └── src/seal-api/       # Spring Boot API (Maven project)
-├── front-end/
-│   └── src/seal-web/       # React + Vite web client
 ├── docs/
-│   ├── documents/          # Project requirements, traceability matrix
-│   └── report/             # Engineering reports
-└── README.md
+├── .github/workflows/
+│
+├── back-end/src/seal-api/
+│   └── src/main/java/com/seal/hackathon/
+│       ├── controller/
+│       ├── service/
+│       │   └── grouping/
+│       ├── entity/
+│       ├── repository/
+│       ├── dto/
+│       │   ├── request/
+│       │   └── response/
+│       ├── security/
+│       │   └── oauth2/
+│       ├── config/
+│       │   └── seed/
+│       ├── event/
+│       ├── exception/
+│       └── resources/
+│   └── src/test/
+│
+└── front-end/src/seal-web/
+    ├── public/
+    └── src/
+        ├── app/
+        │   ├── routes/
+        │   ├── layouts/
+        │   └── providers/
+        ├── features/
+        │   ├── auth/
+        │   ├── dashboard/
+        │   │   └── dashboards/
+        │   │       └── participant/
+        │   │           ├── components/
+        │   │           ├── screens/
+        │   │           └── utils/
+        │   ├── events/
+        │   ├── scoring/
+        │   ├── submissions/
+        │   ├── teams/
+        │   ├── tracks/
+        │   ├── users/
+        │   └── landing/
+        ├── shared/
+        │   ├── api/
+        │   ├── components/
+        │   ├── hooks/
+        │   └── constants/
+        ├── styles/
+        ├── imports/
+        └── test/
 ```
 
 ## Prerequisites
