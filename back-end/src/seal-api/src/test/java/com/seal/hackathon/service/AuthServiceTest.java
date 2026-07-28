@@ -1,5 +1,7 @@
 package com.seal.hackathon.service;
 
+import com.seal.hackathon.dto.request.CompleteProfileRequest;
+import com.seal.hackathon.dto.request.RegisterRequest;
 import com.seal.hackathon.dto.request.UpdateProfileRequest;
 import com.seal.hackathon.dto.response.UserResponse;
 import com.seal.hackathon.entity.HackathonEvent;
@@ -14,6 +16,7 @@ import com.seal.hackathon.repository.UserRepository;
 import com.seal.hackathon.security.JwtService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -26,6 +29,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -50,6 +54,65 @@ class AuthServiceTest {
 
     @InjectMocks
     private AuthService authService;
+
+    @Test
+    void register_shouldRejectInvalidFptStudentId() {
+        RegisterRequest request = fptRegistration("SE230000");
+
+        BadRequestException exception = assertThrows(
+                BadRequestException.class,
+                () -> authService.register(request));
+
+        assertEquals(
+                "FPT student ID must start with HE, SE, DE, QE, or CE followed by "
+                        + "6 digits from 000000 to 229999.",
+                exception.getMessage());
+        verify(userRepository, never()).save(any(User.class));
+    }
+
+    @Test
+    void register_shouldAcceptAndTrimValidFptStudentId() {
+        RegisterRequest request = fptRegistration(" CE229999 ");
+        when(passwordEncoder.encode(request.getPassword())).thenReturn("hashed-password");
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
+            User savedUser = invocation.getArgument(0);
+            savedUser.setUserId(101);
+            return savedUser;
+        });
+
+        authService.register(request);
+
+        ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(userCaptor.capture());
+        assertEquals("CE229999", userCaptor.getValue().getStudentId());
+    }
+
+    @Test
+    void completeProfile_shouldRejectInvalidFptStudentIdForOAuthSignup() {
+        User oauthUser = User.builder()
+                .userId(101)
+                .email("oauth.student@fpt.edu.vn")
+                .fullName("OAuth Student")
+                .userType("PENDING_PROFILE")
+                .provider("GOOGLE")
+                .isApproved(false)
+                .isActive(true)
+                .build();
+        CompleteProfileRequest request = new CompleteProfileRequest();
+        request.setUserType("FPT_STUDENT");
+        request.setStudentId("se123456");
+        when(userRepository.findByEmailWithRoles(oauthUser.getEmail())).thenReturn(Optional.of(oauthUser));
+
+        BadRequestException exception = assertThrows(
+                BadRequestException.class,
+                () -> authService.completeProfile(oauthUser.getEmail(), request));
+
+        assertEquals(
+                "FPT student ID must start with HE, SE, DE, QE, or CE followed by "
+                        + "6 digits from 000000 to 229999.",
+                exception.getMessage());
+        verify(userRepository, never()).save(any(User.class));
+    }
 
     @Test
     void updateOwnProfile_shouldUpdateEditableFieldsButKeepStudentId() {
@@ -142,6 +205,16 @@ class AuthServiceTest {
                 .isActive(true)
                 .provider("LOCAL")
                 .build();
+    }
+
+    private RegisterRequest fptRegistration(String studentId) {
+        RegisterRequest request = new RegisterRequest();
+        request.setEmail("new.student@fpt.edu.vn");
+        request.setPassword("Test@1234");
+        request.setFullName("New Student");
+        request.setUserType("FPT_STUDENT");
+        request.setStudentId(studentId);
+        return request;
     }
 
     private HackathonEvent event(Integer eventId, String status) {
