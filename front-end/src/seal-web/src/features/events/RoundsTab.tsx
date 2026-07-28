@@ -12,6 +12,20 @@ import {
 // submission toggle. Extracted verbatim out of CoordEventsPage.tsx — behavior,
 // API calls, and copy are unchanged.
 
+// Native <input type="time"> renders AM/PM on some browsers/OS locales no matter
+// what `lang` is set to (Firefox in particular ignores it entirely), so the time
+// field is a plain masked text input instead — this guarantees a 24h HH:MM
+// display everywhere. Digits only; clamps hours to 0-23 and minutes to 0-59.
+function formatTime24Input(raw: string): string {
+  const digits = raw.replace(/\D/g, "").slice(0, 4);
+  if (digits.length <= 2) return digits;
+  let hh = digits.slice(0, 2);
+  let mm = digits.slice(2);
+  if (Number(hh) > 23) hh = "23";
+  if (mm.length === 2 && Number(mm) > 59) mm = "59";
+  return `${hh}:${mm}`;
+}
+
 export function RoundsTab({
   event, rounds, setRounds, selectedRoundId, setSelectedRoundId, detailLoading, openConfirm, setActionError,
 }: {
@@ -305,7 +319,13 @@ export function RoundsTab({
                   <PixelInput label={`${label} (DD/MM)`} type="text" placeholder="DD/MM" value={date} onChange={(e) => onDate(e.target.value)} />
                 </div>
                 <div style={{ width: 100 }}>
-                  <PixelInput label="Time" type="time" lang="en-GB" value={time} onChange={(e) => onTime(e.target.value)} />
+                  <PixelInput
+                    label="Time (24h)"
+                    type="text"
+                    placeholder="HH:MM"
+                    value={time}
+                    onChange={(e) => onTime(formatTime24Input(e.target.value))}
+                  />
                 </div>
               </div>
             ))}

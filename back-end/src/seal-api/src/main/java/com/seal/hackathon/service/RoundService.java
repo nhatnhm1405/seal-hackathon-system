@@ -59,6 +59,11 @@ public class RoundService {
                     + " already exists in this event.");
         }
 
+        boolean isFinal = request.getIsFinal() != null ? request.getIsFinal() : false;
+        if (isFinal && roundRepository.findFirstByEvent_EventIdAndIsFinalTrue(eventId).isPresent()) {
+            throw new BadRequestException("This event already has a final round. Only one final round is allowed per event.");
+        }
+
         Round round = Round.builder()
                 .event(event)
                 .name(request.getName().trim())
@@ -67,7 +72,7 @@ public class RoundService {
                 .endTime(request.getEndTime())
                 .submissionDeadline(request.getSubmissionDeadline())
                 .topNAdvance(request.getTopNAdvance())
-                .isFinal(request.getIsFinal() != null ? request.getIsFinal() : false)
+                .isFinal(isFinal)
                 .status("PENDING")
                 .build();
 
@@ -102,6 +107,10 @@ public class RoundService {
             round.setTopNAdvance(request.getTopNAdvance());
         }
         if (request.getIsFinal() != null) {
+            if (request.getIsFinal() && roundRepository
+                    .findFirstByEvent_EventIdAndIsFinalTrueAndRoundIdNot(eventId, roundId).isPresent()) {
+                throw new BadRequestException("This event already has a final round. Only one final round is allowed per event.");
+            }
             round.setIsFinal(request.getIsFinal());
         }
         if (request.getStatus() != null && !request.getStatus().isBlank()) {
