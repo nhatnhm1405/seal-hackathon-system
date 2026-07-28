@@ -7,6 +7,10 @@ import { SealFooter } from "@/shared/components/SealFooter";
 import { authApi, ApiError, apiErrorMessage, CompleteProfilePayload } from "@/shared/apiClient";
 import { useNotifications } from "@/app/providers/NotificationProvider";
 import sealLogo from "@/imports/image.png";
+import {
+  FPT_STUDENT_ID_ERROR,
+  isValidFptStudentId,
+} from "@/shared/validation/fptStudentId";
 
 const selectStyle: React.CSSProperties = {
   width: "100%", padding: "10px 14px", background: C.surface2, border: `1px solid ${C.border}`,
@@ -20,6 +24,7 @@ export function CompleteProfilePage() {
 
   const [userType, setUserType] = useState<CompleteProfilePayload['userType']>('FPT_STUDENT');
   const [studentId, setStudentId] = useState("");
+  const [studentIdError, setStudentIdError] = useState<string | null>(null);
   const [university, setUniversity] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -34,16 +39,24 @@ export function CompleteProfilePage() {
       addAuthToast({ type: "warning", title: "MISSING STUDENT ID", message: "Student ID is required." });
       return;
     }
+    const normalizedStudentId = studentId.trim();
+    if (!isExternal && !isValidFptStudentId(normalizedStudentId)) {
+      setStudentIdError(FPT_STUDENT_ID_ERROR);
+      setError(FPT_STUDENT_ID_ERROR);
+      addAuthToast({ type: "warning", title: "INVALID FPT STUDENT ID", message: FPT_STUDENT_ID_ERROR });
+      return;
+    }
     if (isExternal && !university.trim()) {
       setError("University is required for external students.");
       addAuthToast({ type: "warning", title: "MISSING UNIVERSITY", message: "University is required for external students." });
       return;
     }
+    setStudentIdError(null);
     setSubmitting(true);
     try {
       await authApi.completeProfile({
         userType,
-        studentId: studentId.trim(),
+        studentId: normalizedStudentId,
         university: isExternal ? university.trim() : undefined,
       });
       // Profile is now complete but the account still awaits coordinator approval.
@@ -86,13 +99,49 @@ export function CompleteProfilePage() {
             <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 <label style={{ color: C.greenMuted, fontFamily: "'JetBrains Mono', monospace", fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase" }}>Student Type</label>
-                <select value={userType} onChange={(e) => setUserType(e.target.value as CompleteProfilePayload['userType'])} style={selectStyle}>
+                <select
+                  value={userType}
+                  onChange={(e) => {
+                    setUserType(e.target.value as CompleteProfilePayload['userType']);
+                    setStudentIdError(null);
+                  }}
+                  style={selectStyle}
+                >
                   <option value="FPT_STUDENT">FPT Student</option>
                   <option value="EXTERNAL_STUDENT">External Student</option>
                 </select>
               </div>
 
-              <PixelInput label="Student ID" value={studentId} onChange={(e) => setStudentId(e.target.value)} placeholder="e.g. SE150000" />
+              <div>
+                <PixelInput
+                  label={isExternal ? "Student ID" : "FPT Student ID"}
+                  value={studentId}
+                  onChange={(e) => {
+                    setStudentId(e.target.value);
+                    setStudentIdError(null);
+                  }}
+                  onBlur={(e) => {
+                    const normalizedStudentId = e.target.value.trim();
+                    setStudentIdError(
+                      !isExternal && normalizedStudentId && !isValidFptStudentId(normalizedStudentId)
+                        ? FPT_STUDENT_ID_ERROR
+                        : null,
+                    );
+                  }}
+                  placeholder={isExternal ? "Your student ID" : "e.g. SE150000"}
+                />
+                {!isExternal && (
+                  <div style={{
+                    color: studentIdError ? C.red : C.textMuted,
+                    fontFamily: "'JetBrains Mono', monospace",
+                    fontSize: 10,
+                    lineHeight: 1.5,
+                    marginTop: 6,
+                  }}>
+                    {studentIdError ?? "Format: HE/SE/DE/QE/CE + 6 digits (000000–229999)."}
+                  </div>
+                )}
+              </div>
               {isExternal && (
                 <UniversitySelect label="University" value={university} onChange={setUniversity} />
               )}

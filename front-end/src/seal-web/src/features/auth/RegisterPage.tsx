@@ -9,6 +9,10 @@ import { UniversitySelect } from "@/shared/components/UniversitySelect";
 import sealLogo from "@/imports/image.png";
 import { apiFetch, ApiError, apiErrorMessage } from "@/shared/apiClient";
 import { useNotifications } from "@/app/providers/NotificationProvider";
+import {
+  FPT_STUDENT_ID_ERROR,
+  isValidFptStudentId,
+} from "@/shared/validation/fptStudentId";
 
 type StudentType = 'FPT' | 'EXTERNAL';
 
@@ -21,6 +25,7 @@ export function RegisterPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [studentType, setStudentType] = useState<StudentType>('FPT');
   const [studentId, setStudentId] = useState("");
+  const [studentIdError, setStudentIdError] = useState<string | null>(null);
   const [university, setUniversity] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -37,6 +42,19 @@ export function RegisterPage() {
     }
   }
 
+  async function handleStudentIdBlur(id: string) {
+    const normalizedStudentId = id.trim();
+    if (!normalizedStudentId) return;
+
+    if (studentType === 'FPT' && !isValidFptStudentId(normalizedStudentId)) {
+      setStudentIdError(FPT_STUDENT_ID_ERROR);
+      return;
+    }
+
+    setStudentIdError(null);
+    await checkStudentIdExists(normalizedStudentId);
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -50,6 +68,19 @@ export function RegisterPage() {
       addAuthToast({ type: 'warning', title: 'PASSWORD MISMATCH', message: 'Passwords do not match.' });
       return;
     }
+    const normalizedStudentId = studentId.trim();
+    if (!normalizedStudentId) {
+      setError("Student ID is required.");
+      addAuthToast({ type: 'warning', title: 'MISSING STUDENT ID', message: 'Student ID is required.' });
+      return;
+    }
+    if (studentType === 'FPT' && !isValidFptStudentId(normalizedStudentId)) {
+      setStudentIdError(FPT_STUDENT_ID_ERROR);
+      setError(FPT_STUDENT_ID_ERROR);
+      addAuthToast({ type: 'warning', title: 'INVALID FPT STUDENT ID', message: FPT_STUDENT_ID_ERROR });
+      return;
+    }
+    setStudentIdError(null);
     setSubmitting(true);
     try {
       await apiFetch('/api/auth/register', {
@@ -59,8 +90,8 @@ export function RegisterPage() {
           email,
           password,
           userType: studentType === 'FPT' ? 'FPT_STUDENT' : 'EXTERNAL_STUDENT',
-          studentId: studentId || null,
-          university: studentType === 'EXTERNAL' ? (university || null) : null,
+          studentId: normalizedStudentId,
+          university: studentType === 'EXTERNAL' ? (university.trim() || null) : null,
         }),
       });
       addAuthToast({ type: 'success', title: 'REGISTRATION SUBMITTED', message: 'Your account is pending coordinator approval.' });
@@ -128,7 +159,10 @@ export function RegisterPage() {
                   <button
                     key={t}
                     type="button"
-                    onClick={() => setStudentType(t)}
+                    onClick={() => {
+                      setStudentType(t);
+                      setStudentIdError(null);
+                    }}
                     style={{
                       flex: 1,
                       padding: "10px 14px",
@@ -151,10 +185,31 @@ export function RegisterPage() {
             </div>
 
             {studentType === 'FPT' ? (
-              <PixelInput label="FPT Student ID" placeholder="SE000000" value={studentId} onChange={(e) => setStudentId(e.target.value)} onBlur={(e) => checkStudentIdExists(e.target.value)} autoComplete="off" />
+              <div>
+                <PixelInput
+                  label="FPT Student ID"
+                  placeholder="SE000000"
+                  value={studentId}
+                  onChange={(e) => {
+                    setStudentId(e.target.value);
+                    setStudentIdError(null);
+                  }}
+                  onBlur={(e) => void handleStudentIdBlur(e.target.value)}
+                  autoComplete="off"
+                />
+                <div style={{
+                  color: studentIdError ? C.red : C.textMuted,
+                  fontFamily: "'JetBrains Mono', monospace",
+                  fontSize: 10,
+                  lineHeight: 1.5,
+                  marginTop: 6,
+                }}>
+                  {studentIdError ?? "Format: HE/SE/DE/QE/CE + 6 digits (000000–229999)."}
+                </div>
+              </div>
             ) : (
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start" }}>
-                <PixelInput label="Student ID" placeholder="Your student ID" value={studentId} onChange={(e) => setStudentId(e.target.value)} onBlur={(e) => checkStudentIdExists(e.target.value)} autoComplete="off" />
+                <PixelInput label="Student ID" placeholder="Your student ID" value={studentId} onChange={(e) => setStudentId(e.target.value)} onBlur={(e) => void handleStudentIdBlur(e.target.value)} autoComplete="off" />
                 <UniversitySelect label="University" value={university} onChange={setUniversity} />
               </div>
             )}

@@ -15,6 +15,7 @@ import com.seal.hackathon.repository.TeamMemberRepository;
 import com.seal.hackathon.repository.UserRepository;
 import com.seal.hackathon.security.JwtService;
 import com.seal.hackathon.security.UserPrincipal;
+import com.seal.hackathon.validation.FptStudentIdValidator;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -49,31 +50,35 @@ public class AuthService {
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
+        String email = request.getEmail().toLowerCase().trim();
+        String userType = request.getUserType().toUpperCase().trim();
+        String studentId = normalizeOptionalText(request.getStudentId());
+        String university = normalizeOptionalText(request.getUniversity());
+
         // 1. Email uniqueness
-        if (userRepository.existsByEmail(request.getEmail())) {
+        if (userRepository.existsByEmail(email)) {
             throw new BadRequestException("An account with this email already exists.");
         }
 
-        // 1b. Student ID uniqueness
-        if (request.getStudentId() != null && !request.getStudentId().isBlank()
-                && userRepository.existsByStudentId(request.getStudentId())) {
+        // 2. UserType-specific field validation
+        validateUserTypeFields(userType, studentId, university, request.getUserType());
+
+        // 2b. Student ID uniqueness
+        if (studentId != null && userRepository.existsByStudentId(studentId)) {
             throw new BadRequestException("An account with this student ID already exists.");
         }
-
-        // 2. UserType-specific field validation
-        validateUserTypeFields(request);
 
         // 3. Create and save the User.
         // No role assignment here — participants are identified by user_type.
         // Staff roles (COORDINATOR, MENTOR, JUDGE) are assigned later by a coordinator
         // via UserEventRole.
         User user = User.builder()
-                .email(request.getEmail().toLowerCase().trim())
+                .email(email)
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
                 .fullName(request.getFullName().trim())
-                .userType(request.getUserType().toUpperCase())
-                .studentId(request.getStudentId())
-                .university(request.getUniversity())
+                .userType(userType)
+                .studentId(studentId)
+                .university(university)
                 .isApproved(false)
                 .isActive(true)
                 .provider("LOCAL")
@@ -181,17 +186,21 @@ public class AuthService {
             throw new BadRequestException("Sign-up via Google/GitHub is for students only. "
                     + "Staff accounts are created by an administrator.");
         }
-        if (request.getStudentId() == null || request.getStudentId().isBlank()) {
+        String studentId = normalizeOptionalText(request.getStudentId());
+        if (studentId == null) {
             throw new BadRequestException("Student ID is required.");
         }
-        if (userRepository.existsByStudentId(request.getStudentId())) {
+        if (type.equals("FPT_STUDENT") && !FptStudentIdValidator.isValid(studentId)) {
+            throw new BadRequestException(FptStudentIdValidator.INVALID_MESSAGE);
+        }
+        if (userRepository.existsByStudentId(studentId)) {
             throw new BadRequestException("An account with this student ID already exists.");
         }
         if (type.equals("EXTERNAL_STUDENT") && (request.getUniversity() == null || request.getUniversity().isBlank())) {
             throw new BadRequestException("University is required for external students.");
         }
         user.setUserType(type);
-        user.setStudentId(request.getStudentId() != null && !request.getStudentId().isBlank() ? request.getStudentId().trim() : null);
+        user.setStudentId(studentId);
         user.setUniversity(request.getUniversity() != null && !request.getUniversity().isBlank() ? request.getUniversity().trim() : null);
         userRepository.save(user);
         return mapToUserResponse(user);
@@ -310,19 +319,25 @@ public class AuthService {
     // Helpers
     // ---------------------------------------------------------------
 
-    private void validateUserTypeFields(RegisterRequest request) {
-        String userType = request.getUserType().toUpperCase();
+    private void validateUserTypeFields(
+            String userType,
+            String studentId,
+            String university,
+            String requestedUserType) {
         switch (userType) {
             case "FPT_STUDENT" -> {
-                if (request.getStudentId() == null || request.getStudentId().isBlank()) {
+                if (studentId == null) {
                     throw new BadRequestException("Student ID is required for FPT students.");
+                }
+                if (!FptStudentIdValidator.isValid(studentId)) {
+                    throw new BadRequestException(FptStudentIdValidator.INVALID_MESSAGE);
                 }
             }
             case "EXTERNAL_STUDENT" -> {
-                if (request.getStudentId() == null || request.getStudentId().isBlank()) {
+                if (studentId == null) {
                     throw new BadRequestException("Student ID is required for external students.");
                 }
-                if (request.getUniversity() == null || request.getUniversity().isBlank()) {
+                if (university == null) {
                     throw new BadRequestException("University name is required for external students.");
                 }
             }
@@ -330,7 +345,7 @@ public class AuthService {
                 // No extra required fields for staff (coordinators, mentors, judges)
             }
             default -> throw new BadRequestException(
-                    "Invalid user type: " + request.getUserType() +
+                    "Invalid user type: " + requestedUserType +
                             ". Must be one of: FPT_STUDENT, EXTERNAL_STUDENT, STAFF.");
         }
     }
