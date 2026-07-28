@@ -18,4 +18,8 @@ public interface RoundRepository extends JpaRepository<Round, Integer> {
 
     // The final round of an event (isFinal = true). Used to source prize winners.
     Optional<Round> findFirstByEvent_EventIdAndIsFinalTrue(Integer eventId);
+
+    // Same as above but excluding a given round — used when updating a round to check for
+    // *other* final rounds already existing in the event.
+    Optional<Round> findFirstByEvent_EventIdAndIsFinalTrueAndRoundIdNot(Integer eventId, Integer roundId);
 }
