@@ -3,7 +3,7 @@ name: Deploy preview branch to AWS EC2
 on:
   push:
     branches:
-      - fix/hoangnhat-update-judge-admin
+      - main
   pull_request:
     branches:
       - develop
